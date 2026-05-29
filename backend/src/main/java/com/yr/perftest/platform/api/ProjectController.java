@@ -1,7 +1,7 @@
 package com.yr.perftest.platform.api;
 
 import com.yr.perftest.platform.project.Project;
-import com.yr.perftest.platform.project.ProjectService;
+import com.yr.perftest.platform.project.ProjectOperations;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
@@ -21,9 +21,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/projects")
 public class ProjectController {
-    private final ProjectService projectService;
+    private final ProjectOperations projectService;
 
-    public ProjectController(ProjectService projectService) {
+    public ProjectController(ProjectOperations projectService) {
         this.projectService = projectService;
     }
 

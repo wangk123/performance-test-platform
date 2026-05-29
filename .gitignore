@@ -9,3 +9,4 @@ dist/
 *.iml
 *.log
 /storage/
+backend/storage/

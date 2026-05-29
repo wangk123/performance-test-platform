@@ -5,7 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ProjectService {
+public class ProjectService implements ProjectOperations {
     private long nextProjectId = 1L;
     private final Map<Long, Project> projectsById = new LinkedHashMap<Long, Project>();
     private final Map<String, Project> projectsByCode = new LinkedHashMap<String, Project>();
