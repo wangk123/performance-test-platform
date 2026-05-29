@@ -1,0 +1,11 @@
+.gradle/
+build/
+out/
+target/
+node_modules/
+dist/
+.DS_Store
+.idea/
+*.iml
+*.log
+/storage/

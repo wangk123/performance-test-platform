@@ -1,0 +1,83 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 960px;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #1f2937;
+  background: #f4f6f8;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.sidebar {
+  border-right: 1px solid #d8dee6;
+  background: #ffffff;
+}
+
+.brand {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  font-size: 18px;
+  font-weight: 700;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.nav {
+  border-right: 0;
+}
+
+.topbar {
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #d8dee6;
+  background: #ffffff;
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.page-subtitle {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #667085;
+}
+
+.content {
+  padding: 24px;
+}
+
+.summary,
+.panel {
+  max-width: 1120px;
+}
+
+.summary h1,
+.panel h2 {
+  margin: 0;
+}
+
+.summary p {
+  margin: 8px 0 24px;
+  color: #536174;
+}
+
+.panel {
+  padding: 20px;
+  border: 1px solid #d8dee6;
+  background: #ffffff;
+}
+
+.panel-header {
+  margin-bottom: 16px;
+}
