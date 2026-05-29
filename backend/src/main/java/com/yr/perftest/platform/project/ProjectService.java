@@ -59,9 +59,13 @@ public class ProjectService {
     }
 
     public List<Project> listProjectsAvailableForTaskSelection() {
+        return listProjects(false);
+    }
+
+    public List<Project> listProjects(boolean includeArchived) {
         List<Project> projects = new ArrayList<Project>();
         for (Project project : projectsById.values()) {
-            if (project.getStatus() == ProjectStatus.ACTIVE) {
+            if (includeArchived || project.getStatus() == ProjectStatus.ACTIVE) {
                 projects.add(project);
             }
         }

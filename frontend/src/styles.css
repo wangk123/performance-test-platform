@@ -7,7 +7,7 @@ body {
   min-width: 960px;
   font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
   color: #1f2937;
-  background: #f4f6f8;
+  background: #f3f5f8;
 }
 
 .app-shell {
@@ -42,6 +42,12 @@ body {
   background: #ffffff;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .page-title {
   font-size: 18px;
   font-weight: 700;
@@ -58,26 +64,100 @@ body {
 }
 
 .summary,
-.panel {
+.panel,
+.metrics-grid,
+.login-panel {
   max-width: 1120px;
 }
 
+.summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
 .summary h1,
-.panel h2 {
+.panel h2,
+.login-panel h1 {
   margin: 0;
 }
 
-.summary p {
-  margin: 8px 0 24px;
+.summary p,
+.panel-header p,
+.login-panel p {
+  margin: 8px 0 0;
   color: #536174;
 }
 
-.panel {
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.metric {
+  min-height: 96px;
+  padding: 18px;
+  border: 1px solid #d8dee6;
+  background: #ffffff;
+}
+
+.metric span {
+  display: block;
+  color: #667085;
+  font-size: 13px;
+}
+
+.metric strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.panel,
+.login-panel {
   padding: 20px;
   border: 1px solid #d8dee6;
   background: #ffffff;
 }
 
 .panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 16px;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.login-panel {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 48px;
+  align-items: start;
+}
+
+.login-form {
+  padding: 18px;
+  border: 1px solid #e4e9f0;
+  background: #fbfcfe;
+}
+
+.muted {
+  color: #667085;
+}
+
+.empty-state {
+  padding: 28px 0;
+  color: #667085;
 }
