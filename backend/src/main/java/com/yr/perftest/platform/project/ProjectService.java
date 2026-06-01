@@ -58,6 +58,17 @@ public class ProjectService implements ProjectOperations {
         return false;
     }
 
+    public List<ProjectMemberInfo> listMembers(long projectId) {
+        requireProject(projectId);
+        List<ProjectMemberInfo> projectMembers = new ArrayList<ProjectMemberInfo>();
+        for (ProjectMember member : members) {
+            if (member.getProjectId() == projectId) {
+                projectMembers.add(new ProjectMemberInfo(projectId, member.getUsername(), member.getRole()));
+            }
+        }
+        return projectMembers;
+    }
+
     public List<Project> listProjectsAvailableForTaskSelection() {
         return listProjects(false);
     }

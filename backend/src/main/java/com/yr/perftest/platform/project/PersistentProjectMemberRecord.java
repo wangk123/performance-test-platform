@@ -54,4 +54,8 @@ public class PersistentProjectMemberRecord {
     public ProjectRole getRole() {
         return role;
     }
+
+    ProjectMemberInfo toProjectMemberInfo() {
+        return new ProjectMemberInfo(projectId, username, role);
+    }
 }

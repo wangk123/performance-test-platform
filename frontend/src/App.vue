@@ -91,8 +91,9 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="140" fixed="right">
+              <el-table-column label="操作" width="220" fixed="right">
                 <template #default="{ row }">
+                  <el-button link type="primary" @click="openMemberDialog(row)">成员</el-button>
                   <el-button
                     v-if="row.status === 'ACTIVE'"
                     link
@@ -131,6 +132,41 @@
       <el-button type="primary" :loading="savingProject" @click="createProject">保存</el-button>
     </template>
   </el-dialog>
+
+  <el-dialog v-model="memberDialogVisible" title="项目成员" width="680px">
+    <div v-if="selectedProject" class="member-dialog">
+      <div class="member-context">
+        <strong>{{ selectedProject.name }}</strong>
+        <span>{{ selectedProject.code }}</span>
+      </div>
+
+      <el-table v-loading="memberLoading" :data="members" border>
+        <el-table-column prop="username" label="账号" />
+        <el-table-column prop="role" label="项目角色" width="160">
+          <template #default="{ row }">
+            <el-tag :type="row.role === 'OWNER' ? 'success' : 'info'">
+              {{ row.role === 'OWNER' ? '负责人' : '成员' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-form class="member-form" inline @submit.prevent>
+        <el-form-item label="成员账号">
+          <el-input v-model="memberForm.username" placeholder="例如 tester" />
+        </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="memberForm.role" class="role-select">
+            <el-option label="成员" value="MEMBER" />
+            <el-option label="负责人" value="OWNER" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="savingMember" @click="addMember">添加成员</el-button>
+        </el-form-item>
+      </el-form>
+    </div>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -154,15 +190,28 @@ type Project = {
   status: ProjectStatus;
 };
 
+type ProjectRole = 'OWNER' | 'MEMBER';
+
+type ProjectMember = {
+  projectId: number;
+  username: string;
+  role: ProjectRole;
+};
+
 const activeNav = 'projects';
 const loginLoading = ref(false);
 const projectLoading = ref(false);
+const memberLoading = ref(false);
 const savingProject = ref(false);
+const savingMember = ref(false);
 const includeArchived = ref(false);
 const createDialogVisible = ref(false);
+const memberDialogVisible = ref(false);
 const currentUser = ref<User | null>(readStoredUser());
 const projects = ref<Project[]>([]);
 const allProjects = ref<Project[]>([]);
+const members = ref<ProjectMember[]>([]);
+const selectedProject = ref<Project | null>(null);
 
 const loginForm = reactive({
   username: 'admin',
@@ -173,6 +222,14 @@ const projectForm = reactive({
   code: '',
   name: '',
   description: '',
+});
+
+const memberForm = reactive<{
+  username: string;
+  role: ProjectRole;
+}>({
+  username: '',
+  role: 'MEMBER',
 });
 
 const activeProjectCount = computed(() => allProjects.value.filter((project) => project.status === 'ACTIVE').length);
@@ -282,6 +339,49 @@ async function updateProjectStatus(project: Project, action: 'archive' | 'restor
     ElMessage.error(getErrorMessage(error));
   } finally {
     projectLoading.value = false;
+  }
+}
+
+async function openMemberDialog(project: Project) {
+  selectedProject.value = project;
+  memberForm.username = '';
+  memberForm.role = 'MEMBER';
+  memberDialogVisible.value = true;
+  await loadMembers(project.id);
+}
+
+async function loadMembers(projectId: number) {
+  memberLoading.value = true;
+  try {
+    members.value = await request<ProjectMember[]>(`/api/projects/${projectId}/members`);
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error));
+  } finally {
+    memberLoading.value = false;
+  }
+}
+
+async function addMember() {
+  if (!selectedProject.value) {
+    return;
+  }
+  savingMember.value = true;
+  try {
+    await request<ProjectMember>(`/api/projects/${selectedProject.value.id}/members`, {
+      method: 'POST',
+      headers: {
+        'X-User': currentUser.value?.username ?? 'admin',
+      },
+      body: JSON.stringify(memberForm),
+    });
+    memberForm.username = '';
+    memberForm.role = 'MEMBER';
+    await loadMembers(selectedProject.value.id);
+    ElMessage.success('成员已添加');
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error));
+  } finally {
+    savingMember.value = false;
   }
 }
 

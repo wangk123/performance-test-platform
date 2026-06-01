@@ -1,9 +1,12 @@
 package com.yr.perftest.platform.api;
 
 import com.yr.perftest.platform.project.Project;
+import com.yr.perftest.platform.project.ProjectMemberInfo;
 import com.yr.perftest.platform.project.ProjectOperations;
+import com.yr.perftest.platform.project.ProjectRole;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -70,10 +73,36 @@ public class ProjectController {
                 .orElseThrow();
     }
 
+    @GetMapping("/{projectId}/members")
+    public List<ProjectMemberInfo> listMembers(@PathVariable long projectId) {
+        return projectService.listMembers(projectId);
+    }
+
+    @PostMapping("/{projectId}/members")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ProjectMemberInfo addMember(
+            @PathVariable long projectId,
+            @Valid @RequestBody AddProjectMemberRequest request,
+            @RequestHeader(name = "X-User", defaultValue = "admin") String operatorUsername
+    ) {
+        projectService.addMember(projectId, request.username(), request.role(), operatorUsername);
+        return projectService.listMembers(projectId).stream()
+                .filter(member -> member.username().equals(request.username()))
+                .findFirst()
+                .orElseThrow();
+    }
+
     public record CreateProjectRequest(
             @NotBlank String code,
             @NotBlank String name,
             String description
+    ) {
+    }
+
+    public record AddProjectMemberRequest(
+            @NotBlank String username,
+            @NotNull
+            ProjectRole role
     ) {
     }
 }

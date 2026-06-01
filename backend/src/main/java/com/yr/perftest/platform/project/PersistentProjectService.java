@@ -75,6 +75,15 @@ public class PersistentProjectService implements ProjectOperations {
 
     @Override
     @Transactional(readOnly = true)
+    public List<ProjectMemberInfo> listMembers(long projectId) {
+        requireProject(projectId);
+        return memberRepository.findAllByProjectIdOrderByIdAsc(projectId).stream()
+                .map(PersistentProjectMemberRecord::toProjectMemberInfo)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Project> listProjectsAvailableForTaskSelection() {
         return listProjects(false);
     }

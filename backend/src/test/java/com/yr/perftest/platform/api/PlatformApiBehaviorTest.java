@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -21,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.h2.console.enabled=false"
 })
 @AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class PlatformApiBehaviorTest {
     @Autowired
     private MockMvc mockMvc;
@@ -64,5 +66,38 @@ class PlatformApiBehaviorTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].status", is("ARCHIVED")));
+    }
+
+    @Test
+    void managesProjectMembersAndRestrictsOwnerActions() throws Exception {
+        mockMvc.perform(post("/api/projects")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User", "admin")
+                        .content("{\"code\":\"risk-core\",\"name\":\"风控核心压测\",\"description\":\"规则引擎链路\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id", is(1)));
+
+        mockMvc.perform(get("/api/projects/1/members"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].username", is("admin")))
+                .andExpect(jsonPath("$[0].role", is("OWNER")));
+
+        mockMvc.perform(post("/api/projects/1/members")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User", "admin")
+                        .content("{\"username\":\"tester\",\"role\":\"MEMBER\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.username", is("tester")))
+                .andExpect(jsonPath("$.role", is("MEMBER")));
+
+        mockMvc.perform(get("/api/projects/1/members"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)));
+
+        mockMvc.perform(patch("/api/projects/1/archive")
+                        .header("X-User", "tester"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", is("project owner permission is required")));
     }
 }

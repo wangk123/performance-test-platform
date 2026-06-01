@@ -13,6 +13,8 @@ public interface ProjectOperations {
 
     boolean canAccessProject(long projectId, String username);
 
+    java.util.List<ProjectMemberInfo> listMembers(long projectId);
+
     List<Project> listProjectsAvailableForTaskSelection();
 
     List<Project> listProjects(boolean includeArchived);

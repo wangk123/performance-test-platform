@@ -161,3 +161,27 @@ body {
   padding: 28px 0;
   color: #667085;
 }
+
+.member-dialog {
+  display: grid;
+  gap: 16px;
+}
+
+.member-context {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #1f2937;
+}
+
+.member-context span {
+  color: #667085;
+}
+
+.member-form {
+  padding-top: 4px;
+}
+
+.role-select {
+  width: 132px;
+}
