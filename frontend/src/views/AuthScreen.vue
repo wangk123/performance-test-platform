@@ -1,0 +1,84 @@
+<template>
+  <section class="auth-screen">
+    <div class="auth-atmosphere">
+      <div class="auth-grid"></div>
+      <div class="auth-signal signal-a"></div>
+      <div class="auth-signal signal-b"></div>
+    </div>
+
+    <div class="auth-brand">
+      <span class="brand-mark">PT</span>
+      <div>
+        <strong>性能测试平台</strong>
+        <small>Performance Intelligence Console</small>
+      </div>
+    </div>
+
+    <div class="auth-stage">
+      <div class="auth-copy">
+        <span class="auth-kicker">Load, Observe, Decide</span>
+        <h1>把压测现场变成可控的指挥舱</h1>
+        <p>统一管理项目、脚本解析、执行编排、监控指标和报告沉淀。当前原型使用 Mock 数据，便于先确认产品结构和操作路径。</p>
+        <div class="auth-metrics">
+          <div>
+            <span>资产归属</span>
+            <strong>Project First</strong>
+          </div>
+          <div>
+            <span>脚本解析</span>
+            <strong>JMX Native</strong>
+          </div>
+          <div>
+            <span>监控闭环</span>
+            <strong>Live Signals</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="auth-card">
+        <div class="auth-card-header">
+          <span class="auth-kicker">Secure Access</span>
+          <h2>登录控制台</h2>
+          <p>使用演示账号进入平台首页。</p>
+        </div>
+        <el-form class="auth-form" label-position="top" @submit.prevent>
+          <el-form-item label="账号">
+            <el-input v-model="loginForm.username" autocomplete="username" size="large" />
+          </el-form-item>
+          <el-form-item label="密码">
+            <el-input
+              v-model="loginForm.password"
+              type="password"
+              autocomplete="current-password"
+              show-password
+              size="large"
+            />
+          </el-form-item>
+          <el-button type="primary" size="large" :loading="loginLoading" @click="onLogin">进入平台</el-button>
+        </el-form>
+        <div class="auth-demo">
+          <span>演示账号</span>
+          <strong>admin / admin123</strong>
+        </div>
+      </div>
+    </div>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { useAuth } from '../composables/useAuth';
+import { useNavigation } from '../composables/useNavigation';
+import { useWorkspace } from '../composables/useWorkspace';
+
+const { loginForm, loginLoading, login } = useAuth();
+const { selectMainNav } = useNavigation();
+const { exitProjectWorkspace } = useWorkspace();
+
+async function onLogin() {
+  const ok = await login();
+  if (ok) {
+    selectMainNav('home');
+    exitProjectWorkspace();
+  }
+}
+</script>
