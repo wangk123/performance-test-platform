@@ -1,0 +1,48 @@
+:root {
+  --bg: #eef2f5;
+  --surface: #ffffff;
+  --surface-soft: #f7f9fb;
+  --border: #dce3ea;
+  --border-strong: #c6d0da;
+  --text: #17202a;
+  --muted: #657489;
+  --primary: #1f6f5f;
+  --primary-dark: #18584c;
+  --warning: #d98724;
+  --danger: #c24132;
+  --radius: 8px;
+  --shadow: 0 12px 32px rgba(31, 48, 66, 0.07);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+html:has(.script-editor-page),
+html:has(.script-editor-page) body,
+#app:has(.script-editor-page) {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background:
+    linear-gradient(135deg, rgba(31, 111, 95, 0.08), transparent 34%),
+    linear-gradient(180deg, #f8fafb 0%, var(--bg) 44%);
+  font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+button,
+input,
+textarea {
+  font-family: inherit;
+}
+

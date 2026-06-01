@@ -1,0 +1,23 @@
+.el-button--primary {
+  --el-button-bg-color: var(--primary);
+  --el-button-border-color: var(--primary);
+  --el-button-hover-bg-color: var(--primary-dark);
+  --el-button-hover-border-color: var(--primary-dark);
+  --el-button-active-bg-color: var(--primary-dark);
+  --el-button-active-border-color: var(--primary-dark);
+}
+
+.el-table {
+  --el-table-header-bg-color: #f6f8fa;
+  --el-table-header-text-color: #344054;
+  --el-table-border-color: var(--border);
+}
+
+.el-segmented {
+  --el-segmented-item-selected-bg-color: var(--primary);
+  --el-segmented-item-selected-color: #fff;
+}
+
+.el-drawer__header {
+  margin-bottom: 12px;
+}
