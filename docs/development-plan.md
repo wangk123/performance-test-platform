@@ -4,6 +4,8 @@
 
 平台按长期可扩展方案推进，但每个阶段都必须交付可运行、可验证的闭环能力。第一阶段聚焦平台骨架、登录、项目管理、项目成员和基础权限，为脚本、执行、报告模块提供统一归属。
 
+需求和详细设计已按模块拆分到 [README.md](README.md)。本计划只维护阶段目标、范围和验收，不重复模块详细需求。
+
 ## Phase 1：平台骨架与项目资产
 
 目标：完成内部使用所需的基础工作台。
@@ -11,8 +13,8 @@
 范围：
 
 1. Spring Boot 3 + Vue 3 + Element Plus 单体骨架。
-2. 演示登录和用户持久化。
-3. 项目创建、查询、归档、恢复。
+2. 演示登录和用户持久化，详见 [系统管理模块](modules/01-system-management.md)。
+3. 项目创建、查询、归档、恢复，详见 [项目管理模块](modules/02-project-management.md)。
 4. 项目成员查看、添加和负责人权限约束。
 5. H2 文件库持久化，开发期自动建表。
 
@@ -30,10 +32,10 @@
 
 范围：
 
-1. JMX 文件上传和文件安全校验。
+1. JMX 文件上传和文件安全校验，详见 [脚本管理模块](modules/03-script-management.md)。
 2. 脚本版本记录。
 3. 基础执行配置。
-4. 单机执行队列。
+4. 单机执行队列，详见 [测试执行模块](modules/04-test-execution.md)。
 5. 执行状态查询和取消。
 6. 执行日志与失败原因记录。
 
@@ -50,7 +52,7 @@
 
 范围：
 
-1. JMeter 结果文件解析。
+1. JMeter 结果文件解析，详见 [报告管理模块](modules/05-report-management.md)。
 2. TPS、响应时间、错误率、采样统计。
 3. 基础图表。
 4. Markdown 和 HTML 报告生成。
@@ -64,10 +66,9 @@
 
 ## 后续增强
 
-1. 监控采集和报告整合。
-2. 造数工厂。
-3. 函数库。
-4. Git 关联。
-5. AI 分析。
-6. 分布式执行。
-
+1. [监控采集和报告整合](modules/06-monitoring.md)。
+2. [造数工厂](modules/07-test-data-factory.md)。
+3. [函数库](modules/08-function-library.md)。
+4. [辅助脚本](modules/09-auxiliary-scripts.md)。
+5. [Git、日志与 AI 分析](modules/10-git-log-ai.md)。
+6. [分布式执行](modules/11-distributed-execution.md)。
