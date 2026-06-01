@@ -26,6 +26,7 @@
 2. 项目成员弹窗。
 3. 基础负责人权限约束。
 4. 需求规格与阶段计划归档到项目 `docs/`。
+5. Phase 2 脚本管理第一步：项目下 JMX 上传、脚本版本持久化、脚本版本列表。
 
 验证：
 
@@ -35,6 +36,9 @@
 4. 本地接口验证：
    - `GET /api/projects/1/members`
    - `POST /api/projects/1/members`
+   - `POST /api/projects/1/scripts`
+   - `GET /api/projects/1/scripts`
+5. `gradle :backend:test --tests com.yr.perftest.platform.api.ScriptApiBehaviorTest` 通过。
 
 说明：
 

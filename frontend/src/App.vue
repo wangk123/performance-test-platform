@@ -2,9 +2,9 @@
   <el-container class="app-shell">
     <el-aside width="232px" class="sidebar">
       <div class="brand">性能测试平台</div>
-      <el-menu :default-active="activeNav" class="nav">
+      <el-menu :default-active="activeNav" class="nav" @select="selectNav">
         <el-menu-item index="projects">项目管理</el-menu-item>
-        <el-menu-item index="scripts" disabled>脚本管理</el-menu-item>
+        <el-menu-item index="scripts">脚本管理</el-menu-item>
         <el-menu-item index="tasks" disabled>测试执行</el-menu-item>
         <el-menu-item index="reports" disabled>报告管理</el-menu-item>
       </el-menu>
@@ -39,7 +39,7 @@
           </el-form>
         </section>
 
-        <template v-else>
+        <template v-else-if="activeNav === 'projects'">
           <section class="summary">
             <div>
               <h1>项目资产入口</h1>
@@ -107,6 +107,61 @@
               </el-table-column>
               <template #empty>
                 <div class="empty-state">暂无项目，先新建一个压测项目。</div>
+              </template>
+            </el-table>
+          </section>
+        </template>
+
+        <template v-else>
+          <section class="summary">
+            <div>
+              <h1>脚本版本管理</h1>
+              <p>在项目下上传 JMeter JMX 文件，平台会生成脚本版本，供后续测试执行选择。</p>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>上传 JMX</h2>
+                <p>当前阶段只接收 `.jmx` 文件。</p>
+              </div>
+            </div>
+            <div class="script-toolbar">
+              <el-select v-model="selectedScriptProjectId" class="project-select" placeholder="选择项目" @change="loadScripts">
+                <el-option
+                  v-for="project in allProjects"
+                  :key="project.id"
+                  :label="`${project.name} (${project.code})`"
+                  :value="project.id"
+                />
+              </el-select>
+              <input class="file-input" type="file" accept=".jmx" @change="handleScriptFileChange" />
+              <el-button type="primary" :loading="scriptUploading" :disabled="!selectedScriptProjectId || !scriptFile" @click="uploadScript">
+                上传脚本
+              </el-button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>脚本版本</h2>
+                <p>最新版本排在前面。</p>
+              </div>
+              <el-button :loading="scriptLoading" @click="loadScripts">刷新</el-button>
+            </div>
+            <el-table v-loading="scriptLoading" :data="scriptVersions" border>
+              <el-table-column prop="versionNo" label="版本" width="100">
+                <template #default="{ row }">v{{ row.versionNo }}</template>
+              </el-table-column>
+              <el-table-column prop="originalFilename" label="文件名" min-width="240" />
+              <el-table-column prop="uploadedBy" label="上传人" width="120" />
+              <el-table-column prop="uploadedAt" label="上传时间" width="220">
+                <template #default="{ row }">{{ formatTime(row.uploadedAt) }}</template>
+              </el-table-column>
+              <template #empty>
+                <div class="empty-state">暂无脚本版本。</div>
               </template>
             </el-table>
           </section>
@@ -198,12 +253,24 @@ type ProjectMember = {
   role: ProjectRole;
 };
 
-const activeNav = 'projects';
+type ScriptVersion = {
+  id: number;
+  projectId: number;
+  versionNo: number;
+  originalFilename: string;
+  storedPath: string;
+  uploadedBy: string;
+  uploadedAt: string;
+};
+
+const activeNav = ref('projects');
 const loginLoading = ref(false);
 const projectLoading = ref(false);
 const memberLoading = ref(false);
+const scriptLoading = ref(false);
 const savingProject = ref(false);
 const savingMember = ref(false);
+const scriptUploading = ref(false);
 const includeArchived = ref(false);
 const createDialogVisible = ref(false);
 const memberDialogVisible = ref(false);
@@ -211,7 +278,10 @@ const currentUser = ref<User | null>(readStoredUser());
 const projects = ref<Project[]>([]);
 const allProjects = ref<Project[]>([]);
 const members = ref<ProjectMember[]>([]);
+const scriptVersions = ref<ScriptVersion[]>([]);
 const selectedProject = ref<Project | null>(null);
+const selectedScriptProjectId = ref<number | null>(null);
+const scriptFile = ref<File | null>(null);
 
 const loginForm = reactive({
   username: 'admin',
@@ -266,10 +336,20 @@ async function login() {
   }
 }
 
+async function selectNav(index: string) {
+  activeNav.value = index;
+  if (index === 'scripts') {
+    await prepareScriptView();
+  }
+}
+
 function logout() {
   currentUser.value = null;
   projects.value = [];
   allProjects.value = [];
+  scriptVersions.value = [];
+  selectedScriptProjectId.value = null;
+  scriptFile.value = null;
 }
 
 async function loadProjects() {
@@ -383,6 +463,67 @@ async function addMember() {
   } finally {
     savingMember.value = false;
   }
+}
+
+async function prepareScriptView() {
+  await loadProjects();
+  if (!selectedScriptProjectId.value && allProjects.value.length > 0) {
+    selectedScriptProjectId.value = allProjects.value[0].id;
+  }
+  await loadScripts();
+}
+
+async function loadScripts() {
+  if (!selectedScriptProjectId.value) {
+    scriptVersions.value = [];
+    return;
+  }
+  scriptLoading.value = true;
+  try {
+    scriptVersions.value = await request<ScriptVersion[]>(`/api/projects/${selectedScriptProjectId.value}/scripts`);
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error));
+  } finally {
+    scriptLoading.value = false;
+  }
+}
+
+function handleScriptFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  scriptFile.value = input.files?.[0] ?? null;
+}
+
+async function uploadScript() {
+  if (!selectedScriptProjectId.value || !scriptFile.value) {
+    return;
+  }
+  scriptUploading.value = true;
+  try {
+    const formData = new FormData();
+    formData.append('file', scriptFile.value);
+    const response = await fetch(`/api/projects/${selectedScriptProjectId.value}/scripts`, {
+      method: 'POST',
+      headers: {
+        'X-User': currentUser.value?.username ?? 'admin',
+      },
+      body: formData,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(payload?.message ?? `请求失败：${response.status}`);
+    }
+    scriptFile.value = null;
+    await loadScripts();
+    ElMessage.success('脚本已上传');
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error));
+  } finally {
+    scriptUploading.value = false;
+  }
+}
+
+function formatTime(value: string) {
+  return new Date(value).toLocaleString('zh-CN', { hour12: false });
 }
 
 async function request<T>(url: string, init: RequestInit = {}): Promise<T> {

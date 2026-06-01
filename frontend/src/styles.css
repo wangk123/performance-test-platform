@@ -185,3 +185,20 @@ body {
 .role-select {
   width: 132px;
 }
+
+.script-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.project-select {
+  width: 280px;
+}
+
+.file-input {
+  min-width: 280px;
+  height: 32px;
+  color: #344054;
+}
