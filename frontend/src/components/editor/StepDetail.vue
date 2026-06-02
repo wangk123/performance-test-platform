@@ -65,33 +65,7 @@
         </template>
 
         <template v-else-if="step.type === 'HTTP_REQUEST'">
-          <div class="step-config-grid">
-            <el-form-item label="请求方法">
-              <el-select
-                :model-value="(step.config.method as string)"
-                @update:model-value="updateConfig('method', $event)"
-              >
-                <el-option label="GET" value="GET" />
-                <el-option label="POST" value="POST" />
-                <el-option label="PUT" value="PUT" />
-                <el-option label="DELETE" value="DELETE" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="服务域名">
-              <el-input
-                :model-value="(step.config.domain as string)"
-                placeholder="${host}"
-                @update:model-value="updateConfig('domain', $event)"
-              />
-            </el-form-item>
-          </div>
-          <el-form-item label="请求路径">
-            <el-input
-              :model-value="(step.config.path as string)"
-              placeholder="/api/example"
-              @update:model-value="updateConfig('path', $event)"
-            />
-          </el-form-item>
+          <HttpRequestConfig :step="step" />
         </template>
 
         <template v-else-if="step.type === 'ASSERTION'">
@@ -167,6 +141,7 @@
 import { computed } from 'vue';
 import { useScriptEditor } from '../../composables/useScriptEditor';
 import { stepTypeMeta } from '../../constants';
+import HttpRequestConfig from './HttpRequestConfig.vue';
 import StepTypeIcon from '../scripts/StepTypeIcon.vue';
 
 const editor = useScriptEditor();

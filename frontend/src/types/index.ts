@@ -64,6 +64,35 @@ export type KeyValue = {
   value: string;
 };
 
+export type HttpParamConfig = {
+  enabled: boolean;
+  key: string;
+  value: string;
+  description: string;
+};
+
+export type HttpBodyType = 'none' | 'form-data' | 'form-urlencoded' | 'raw';
+export type HttpRawBodyType = 'text' | 'javascript' | 'json' | 'html' | 'xml';
+
+export type HttpAdvancedConfig = {
+  connectTimeout: number;
+  responseTimeout: number;
+  followRedirects: boolean;
+  keepAlive: boolean;
+};
+
+export type HttpRequestConfig = {
+  method: string;
+  url: string;
+  params: HttpParamConfig[];
+  headers: HttpParamConfig[];
+  bodyType: HttpBodyType;
+  rawBodyType: HttpRawBodyType;
+  body: string;
+  bodyParams: HttpParamConfig[];
+  advanced: HttpAdvancedConfig;
+};
+
 export type ScriptParam = {
   key: string;
   label: string;
@@ -84,7 +113,7 @@ export type ScriptStep = {
   id: string;
   type: ScriptStepType;
   name: string;
-  config: Record<string, string | number>;
+  config: Record<string, string | number | boolean | HttpParamConfig[] | HttpAdvancedConfig>;
   children: ScriptStep[];
 };
 

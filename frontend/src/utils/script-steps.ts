@@ -1,7 +1,23 @@
-import type { ApiConfig, FlatStepItem, KeyValue, ScriptStep, ScriptStepType, StepDropMode, ThreadGroup } from '../types';
+import type {
+  ApiConfig,
+  FlatStepItem,
+  HttpAdvancedConfig,
+  HttpParamConfig,
+  KeyValue,
+  ScriptStep,
+  ScriptStepType,
+  StepDropMode,
+  ThreadGroup,
+} from '../types';
 import { MAX_SCRIPT_STEP_LEVEL } from '../constants';
 import { stepTypeLabel } from './format';
 import { createStepId } from './format';
+
+type StepConfigValue = string | number | HttpParamConfig[] | HttpAdvancedConfig;
+type StepOverrides = {
+  children?: ScriptStep[];
+  [key: string]: StepConfigValue | ScriptStep[] | undefined;
+};
 
 export function getStepLevel(steps: ScriptStep[], stepId: string, level = 0): number | null {
   for (const step of steps) {
@@ -142,18 +158,33 @@ export function canMoveStep(steps: ScriptStep[], sourceId: string, targetId: str
 export function createStepFromType(
   type: ScriptStepType,
   name = '',
-  overrides: Record<string, string | number | ScriptStep[]> = {},
+  overrides: StepOverrides = {},
 ): ScriptStep {
-  const children = overrides.children;
-  const configOverrides: Record<string, string | number> = {};
+  const children = overrides.children ?? [];
+  const configOverrides: Record<string, StepConfigValue> = {};
   Object.entries(overrides).forEach(([key, value]) => {
-    if (key !== 'children' && !Array.isArray(value)) {
-      configOverrides[key] = value;
+    if (key !== 'children' && value !== undefined) {
+      configOverrides[key] = value as StepConfigValue;
     }
   });
-  const defaults: Record<ScriptStepType, Record<string, string | number>> = {
+  const defaults: Record<ScriptStepType, Record<string, StepConfigValue>> = {
     THREAD_GROUP: { threads: 100, rampUp: 60, loops: 1, duration: 600 },
-    HTTP_REQUEST: { method: 'GET', domain: '${host}', path: '/api/example' },
+    HTTP_REQUEST: {
+      method: 'GET',
+      url: '${host}/api/example',
+      params: [],
+      headers: [],
+      bodyType: 'none',
+      rawBodyType: 'json',
+      body: '',
+      bodyParams: [],
+      advanced: {
+        connectTimeout: 30000,
+        responseTimeout: 30000,
+        followRedirects: true,
+        keepAlive: true,
+      },
+    },
     ASSERTION: { target: '响应体', rule: '$.code == 0' },
     CSV_DATA: { fileName: 'data/default.csv', variableNames: 'userId,token' },
     USER_PARAMS: { paramsText: 'env=SIT\nchannel=APP' },
@@ -167,7 +198,7 @@ export function createStepFromType(
       ...defaults[type],
       ...configOverrides,
     },
-    children: Array.isArray(children) ? children : [],
+    children,
   };
 }
 
@@ -209,6 +240,7 @@ export function createStepsFromParsed(
             method: api.method,
             domain: api.domain,
             path: api.path,
+            url: `${api.domain}${api.path}`,
             children: [
               createStepFromType('ASSERTION', `响应断言 ${apiIndex + 1}`, {
                 target: '响应体',
