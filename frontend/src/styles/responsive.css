@@ -30,9 +30,11 @@
   .project-home-grid,
   .dashboard-grid,
   .script-workspace,
+  .task-list-layout,
+  .task-chart-grid,
+  .task-result-workbench,
   .script-editor-layout {
-    flex-direction: column;
-    overflow: visible;
+    grid-template-columns: 1fr;
   }
 
   .step-sidebar {
@@ -56,6 +58,7 @@
   }
 
   .detail-panel,
+  .task-side-panel,
   .settings-nav {
     position: static;
   }
@@ -122,18 +125,38 @@
     padding: 16px;
   }
 
-  .filters,
-  .metrics-grid,
-  .asset-flow,
-  .operation-board,
-  .quick-actions,
-  .role-grid,
-  .script-asset-row,
-  .step-config-grid {
+    .filters,
+    .metrics-grid,
+    .asset-flow,
+    .operation-board,
+    .quick-actions,
+    .role-grid,
+    .task-filters,
+    .task-form-grid,
+    .task-summary-strip,
+    .payload-grid,
+    .script-asset-row,
+    .step-config-grid {
     grid-template-columns: 1fr;
   }
 
+  .task-table {
+    overflow-x: auto;
+  }
+
+  .task-table-head,
+  .task-table-row {
+    min-width: 860px;
+  }
+
+  .task-detail-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .asset-row-actions,
+  .task-side-actions,
+  .task-dialog-actions,
   .script-editor-actions {
     justify-content: flex-start;
   }

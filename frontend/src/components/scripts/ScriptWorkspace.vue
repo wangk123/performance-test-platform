@@ -5,7 +5,7 @@
         <div>
           <span class="eyebrow">Module 03</span>
           <h2>平台脚本资产</h2>
-          <p>{{ currentProject?.name }} 下可用于测试执行的脚本，导入仅作为追加或更新资产的入口。</p>
+          <p>{{ currentProject?.name }} 下可用于任务计划的脚本，导入仅作为追加或更新资产的入口。</p>
         </div>
         <div class="script-assets-actions">
           <el-input v-model="scriptKeyword" class="compact-search" clearable placeholder="搜索脚本、接口、变量" />

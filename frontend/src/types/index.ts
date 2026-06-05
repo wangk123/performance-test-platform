@@ -140,3 +140,56 @@ export type FlatStepItem = {
   level: number;
   parentId: string | null;
 };
+
+export type TaskStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED';
+export type TaskStatusFilter = 'ALL' | TaskStatus;
+export type TaskResultFilter = 'ALL' | 'SUCCESS' | 'ERROR';
+
+export type TaskMetricPoint = {
+  time: string;
+  tps: number;
+  targetTps: number;
+  avgRt: number;
+  p90: number;
+  p95: number;
+};
+
+export type TaskSample = {
+  id: number;
+  statusCode: number;
+  success: boolean;
+  label: string;
+  elapsed: number;
+  message: string;
+  threadName: string;
+  request: string;
+  response: string;
+};
+
+export type TaskSummary = {
+  samples: number;
+  throughput: number;
+  avgRt: number;
+  p95: number;
+  errorRate: number;
+};
+
+export type TestTask = {
+  id: number;
+  projectId: number;
+  scriptId: number;
+  name: string;
+  status: TaskStatus;
+  environment: string;
+  threads: number;
+  rampUp: number;
+  duration: number;
+  loops: number;
+  priority: string;
+  remark: string;
+  createdAt: string;
+  lastRunAt: string | null;
+  summary: TaskSummary;
+  metrics: TaskMetricPoint[];
+  samples: TaskSample[];
+};

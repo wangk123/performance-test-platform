@@ -3,7 +3,7 @@
     <div>
       <span class="eyebrow">Module 02</span>
       <h1>项目是所有压测资产的入口</h1>
-      <p>脚本、测试执行、监控配置、报告都归属于项目。先选择或创建项目，进入后再维护项目内资产。</p>
+      <p>脚本、任务计划、监控配置、报告都归属于项目。先选择或创建项目，进入后再维护项目内资产。</p>
     </div>
     <div class="hero-actions">
       <el-button @click="resetWorkspace">重置 Mock</el-button>

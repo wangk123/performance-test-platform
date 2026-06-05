@@ -7,18 +7,7 @@
 
   <ScriptWorkspace v-else-if="activeProjectTab === 'scripts'" />
 
-  <section v-else-if="activeProjectTab === 'tasks'" class="placeholder-grid">
-    <div class="panel">
-      <h2>测试执行</h2>
-      <p class="detail-description">这里后续从当前项目脚本资产复制默认参数，生成本次执行配置快照。当前为 Mock 交互占位。</p>
-      <div class="mock-kanban">
-        <div v-for="script in currentProjectScripts" :key="script.id">
-          <strong>{{ script.name }}</strong>
-          <span>待创建执行任务 · v{{ script.latestVersion }}</span>
-        </div>
-      </div>
-    </div>
-  </section>
+  <TaskScheduleView v-else-if="activeProjectTab === 'tasks'" />
 
   <section v-else-if="activeProjectTab === 'monitoring'" class="placeholder-grid">
     <div class="panel">
@@ -68,6 +57,7 @@ import { useWorkspace } from '../../composables/useWorkspace';
 import type { Project } from '../../types';
 import ProjectOverview from './ProjectOverview.vue';
 import ScriptWorkspace from '../scripts/ScriptWorkspace.vue';
+import TaskScheduleView from '../tasks/TaskScheduleView.vue';
 
 defineEmits<{
   (e: 'edit', project: Project): void;
@@ -75,6 +65,5 @@ defineEmits<{
 }>();
 
 const { activeProjectTab } = useNavigation();
-const { currentProject, currentProjectScripts, currentProjectMonitors, reportMocks, membersByProject } =
-  useWorkspace();
+const { currentProject, currentProjectMonitors, reportMocks, membersByProject } = useWorkspace();
 </script>

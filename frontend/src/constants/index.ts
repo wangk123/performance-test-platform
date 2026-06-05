@@ -12,7 +12,7 @@ export const projectStatusOptions = [
 export const projectTabOptions: Array<{ label: string; value: ProjectTab }> = [
   { label: '项目概览', value: 'overview' },
   { label: '脚本管理', value: 'scripts' },
-  { label: '测试执行', value: 'tasks' },
+  { label: '任务计划', value: 'tasks' },
   { label: '监控配置', value: 'monitoring' },
   { label: '报告管理', value: 'reports' },
   { label: '成员权限', value: 'members' },
@@ -99,7 +99,7 @@ export const systemPermissions = [
   { module: '项目管理', name: '创建和编辑项目', code: 'project:write' },
   { module: '项目管理', name: '归档和恢复项目', code: 'project:archive' },
   { module: '脚本管理', name: '导入和解析 JMX', code: 'script:import' },
-  { module: '测试执行', name: '创建执行任务', code: 'task:create' },
+  { module: '任务计划', name: '创建执行任务', code: 'task:create' },
   { module: '监控配置', name: '维护监控目标', code: 'monitor:write' },
   { module: '报告管理', name: '查看和导出报告', code: 'report:read' },
   { module: '系统配置', name: '维护用户角色权限', code: 'system:admin' },
