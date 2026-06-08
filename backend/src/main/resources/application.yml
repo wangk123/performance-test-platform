@@ -21,3 +21,6 @@ platform:
     root: ./storage
   execution:
     max-concurrent-tasks: 1
+  jmeter:
+    executable: ${JMETER_EXECUTABLE:/Users/wangk/Documents/config/apache-jmeter-5.6.3/bin/jmeter}
+    java-home: ${JMETER_JAVA_HOME:/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home}

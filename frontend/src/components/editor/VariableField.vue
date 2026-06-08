@@ -23,6 +23,7 @@
       @click="handleActive"
       @keyup="handleActive"
       @keydown="handleKeydown"
+      @scroll="syncHighlightScroll"
       @blur="emit('blur')"
     />
     <input
@@ -117,6 +118,16 @@ function handleKeydown(event: KeyboardEvent) {
   } else if (event.key === 'Escape') {
     emit('close');
   }
+}
+
+function syncHighlightScroll(event: Event) {
+  const element = event.target as HTMLTextAreaElement;
+  const highlight = element.previousElementSibling as HTMLElement | null;
+  if (!highlight) {
+    return;
+  }
+  highlight.scrollTop = element.scrollTop;
+  highlight.scrollLeft = element.scrollLeft;
 }
 
 function updateSuggestionPosition(element: HTMLInputElement | HTMLTextAreaElement) {

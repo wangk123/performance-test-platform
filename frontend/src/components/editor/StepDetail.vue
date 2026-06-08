@@ -12,7 +12,6 @@
         <el-button
           type="danger"
           plain
-          :disabled="editor.isRootStep(step.id)"
           @click="editor.confirmDeleteStep(step.id)"
         >
           删除步骤

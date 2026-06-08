@@ -9,6 +9,8 @@ import type {
 import { nextId } from '../utils/format';
 import { createMockTask } from '../utils/task-mock';
 import { useWorkspace } from './useWorkspace';
+import { useAuth } from './useAuth';
+import { getTaskApi, getTaskResultApi, listTasksApi, mapBackendTask, submitTaskApi } from '../api/platform';
 
 type TaskFormPayload = {
   id?: number;
@@ -32,6 +34,7 @@ const resultFilter = ref<TaskResultFilter>('ALL');
 const resultPage = ref(1);
 const selectedSampleId = ref<number | null>(null);
 const pageSize = 6;
+let refreshTimer: number | null = null;
 
 function taskStatusText(status: TaskStatus) {
   const map: Record<TaskStatus, string> = {
@@ -46,17 +49,57 @@ function taskStatusText(status: TaskStatus) {
 export function useTaskSchedule() {
   const { currentProject, currentProjectScripts } = useWorkspace();
 
-  function ensureProjectTasks() {
+  async function ensureProjectTasks() {
     if (!currentProject.value) {
       return;
     }
-    const hasProjectTasks = tasks.value.some((task) => task.projectId === currentProject.value?.id);
-    if (!hasProjectTasks) {
-      tasks.value.push(...currentProjectScripts.value.map(createMockTask));
+    try {
+      const remoteTasks = (await listTasksApi(currentProject.value.id)).map((task) => mapBackendTask(task));
+      tasks.value = [
+        ...tasks.value.filter((task) => task.projectId !== currentProject.value?.id || task.id < 0),
+        ...remoteTasks,
+      ];
+    } catch {
+      const hasProjectTasks = tasks.value.some((task) => task.projectId === currentProject.value?.id);
+      if (!hasProjectTasks) {
+        tasks.value.push(...currentProjectScripts.value.map(createMockTask));
+      }
     }
     if (!selectedTaskId.value) {
       selectedTaskId.value = projectTasks.value[0]?.id ?? null;
     }
+  }
+
+  async function refreshTask(taskId: number) {
+    try {
+      const backendTask = await getTaskApi(taskId);
+      const result = await getTaskResultApi(taskId);
+      const remoteTask = mapBackendTask(backendTask, result);
+      replaceTask(remoteTask);
+      if (detailTaskId.value === taskId) {
+        selectedSampleId.value = remoteTask.samples[0]?.id ?? null;
+      }
+      if (remoteTask.status === 'RUNNING' || remoteTask.status === 'PENDING') {
+        scheduleRefresh(taskId);
+      }
+    } catch {
+    }
+  }
+
+  function scheduleRefresh(taskId: number) {
+    if (refreshTimer !== null) {
+      window.clearTimeout(refreshTimer);
+    }
+    refreshTimer = window.setTimeout(() => {
+      void refreshTask(taskId);
+    }, 1500);
+  }
+
+  function replaceTask(task: TestTask) {
+    tasks.value = [
+      task,
+      ...tasks.value.filter((item) => item.id !== task.id),
+    ];
   }
 
   const projectTasks = computed(() => {
@@ -105,7 +148,9 @@ export function useTaskSchedule() {
     () => detailTask.value?.samples.find((sample) => sample.id === selectedSampleId.value) ?? pagedSamples.value[0] ?? null,
   );
 
-  watch([currentProject, currentProjectScripts], ensureProjectTasks, { immediate: true });
+  watch([currentProject, currentProjectScripts], () => {
+    void ensureProjectTasks();
+  }, { immediate: true });
   watch(filteredTasks, (items) => {
     if (!items.some((task) => task.id === selectedTaskId.value)) {
       selectedTaskId.value = items[0]?.id ?? null;
@@ -129,6 +174,7 @@ export function useTaskSchedule() {
     detailTaskId.value = task.id;
     resultFilter.value = 'ALL';
     selectedSampleId.value = task.samples[0]?.id ?? null;
+    void refreshTask(task.id);
   }
 
   function backToList() {
@@ -163,7 +209,7 @@ export function useTaskSchedule() {
     }
     const task = createMockTask(script ?? currentProjectScripts.value[0], projectTasks.value.length);
     Object.assign(task, {
-      id: nextId(tasks.value),
+      id: -nextId(tasks.value.map((item) => ({ id: Math.abs(item.id) }))),
       projectId: currentProject.value.id,
       scriptId: payload.scriptId,
       name: payload.name,
@@ -180,16 +226,25 @@ export function useTaskSchedule() {
     });
     tasks.value.unshift(task);
     selectedTaskId.value = task.id;
-    ElMessage.success('任务已保存');
+    ElMessage.success('任务已保存，点击执行后提交后端');
     return true;
   }
 
-  function runTask(task: TestTask) {
-    task.status = 'RUNNING';
-    task.lastRunAt = new Date().toISOString();
-    selectedTaskId.value = task.id;
-    showTaskDetail(task);
-    ElMessage.success('Mock 任务已启动');
+  async function runTask(task: TestTask) {
+    if (!currentProject.value) {
+      return;
+    }
+    const { currentUser } = useAuth();
+    try {
+      const remoteTask = mapBackendTask(await submitTaskApi(currentProject.value.id, task, currentUser.value?.username ?? 'admin'));
+      tasks.value = [remoteTask, ...tasks.value.filter((item) => item.id !== task.id && item.id !== remoteTask.id)];
+      selectedTaskId.value = remoteTask.id;
+      showTaskDetail(remoteTask);
+      scheduleRefresh(remoteTask.id);
+      ElMessage.success('JMeter 任务已提交后端执行');
+    } catch (error) {
+      ElMessage.error(error instanceof Error ? error.message : '任务提交失败');
+    }
   }
 
   return {

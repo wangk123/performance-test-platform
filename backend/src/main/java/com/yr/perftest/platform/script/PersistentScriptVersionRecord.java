@@ -64,4 +64,24 @@ public class PersistentScriptVersionRecord {
                 uploadedAt
         );
     }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Long getProjectId() {
+        return projectId;
+    }
+
+    public Integer getVersionNo() {
+        return versionNo;
+    }
+
+    public String getOriginalFilename() {
+        return originalFilename;
+    }
+
+    public String getStoredPath() {
+        return storedPath;
+    }
 }

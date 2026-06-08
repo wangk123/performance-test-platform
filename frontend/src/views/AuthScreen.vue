@@ -18,7 +18,7 @@
       <div class="auth-copy">
         <span class="auth-kicker">Load, Observe, Decide</span>
         <h1>把压测现场变成可控的指挥舱</h1>
-        <p>统一管理项目、脚本解析、执行编排、监控指标和报告沉淀。当前原型使用 Mock 数据，便于先确认产品结构和操作路径。</p>
+        <p>统一管理项目、脚本解析、执行编排、监控指标和报告沉淀。脚本导入、编辑和执行已接入后端接口。</p>
         <div class="auth-metrics">
           <div>
             <span>资产归属</span>

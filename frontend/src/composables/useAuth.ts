@@ -2,7 +2,7 @@ import { reactive, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import type { User } from '../types';
 import { CURRENT_USER_KEY } from '../constants';
-import { delay } from '../utils/format';
+import { loginApi } from '../api/platform';
 
 function readStoredUser(): User | null {
   const stored = localStorage.getItem(CURRENT_USER_KEY);
@@ -34,19 +34,21 @@ watch(currentUser, (user) => {
 
 async function login() {
   loginLoading.value = true;
-  await delay(220);
-  loginLoading.value = false;
   if (!loginForm.username.trim() || !loginForm.password.trim()) {
+    loginLoading.value = false;
     ElMessage.error('请输入账号和密码');
     return false;
   }
-  currentUser.value = {
-    username: loginForm.username.trim(),
-    displayName: loginForm.username.trim() === 'admin' ? '平台管理员' : loginForm.username.trim(),
-    roles: ['ADMIN'],
-  };
-  ElMessage.success('已进入 Mock 工作台');
-  return true;
+  try {
+    currentUser.value = await loginApi(loginForm.username.trim(), loginForm.password.trim());
+    ElMessage.success('已登录');
+    return true;
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '登录失败');
+    return false;
+  } finally {
+    loginLoading.value = false;
+  }
 }
 
 function logout() {

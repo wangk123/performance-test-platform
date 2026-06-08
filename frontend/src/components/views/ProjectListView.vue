@@ -6,7 +6,7 @@
       <p>脚本、任务计划、监控配置、报告都归属于项目。先选择或创建项目，进入后再维护项目内资产。</p>
     </div>
     <div class="hero-actions">
-      <el-button @click="resetWorkspace">重置 Mock</el-button>
+      <el-button @click="resetWorkspace">重置本地视图</el-button>
       <el-button type="primary" size="large" @click="$emit('create')">新建项目</el-button>
     </div>
   </section>

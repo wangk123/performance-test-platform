@@ -79,8 +79,8 @@
     </div>
 
     <div class="sidebar-note">
-      <span>Mock 数据模式</span>
-      <strong>先验证项目内工作流</strong>
+      <span>后端接口模式</span>
+      <strong>JMeter 原生执行</strong>
     </div>
   </el-aside>
 </template>

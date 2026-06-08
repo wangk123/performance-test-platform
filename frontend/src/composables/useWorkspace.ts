@@ -11,6 +11,13 @@ import { STORAGE_KEY } from '../constants';
 import { nextId } from '../utils/format';
 import { createSeedData, normalizeScriptAsset } from '../utils/seed';
 import { useAuth } from './useAuth';
+import {
+  createProjectApi,
+  listMembersApi,
+  listProjectsApi,
+  listScriptDefinitionsApi,
+  mapScriptDefinition,
+} from '../api/platform';
 
 const projects = ref<Project[]>([]);
 const members = ref<ProjectMember[]>([]);
@@ -26,27 +33,23 @@ const projectStatusFilter = ref<StatusFilter>('ACTIVE');
 
 let initialized = false;
 
-function loadWorkspace() {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored) as {
-        projects: Project[];
-        members: ProjectMember[];
-        scriptAssets: ScriptAsset[];
-      };
-      projects.value = parsed.projects;
-      members.value = parsed.members;
-      scriptAssets.value = parsed.scriptAssets.map(normalizeScriptAsset);
-      return;
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
-    }
+async function loadWorkspace() {
+  try {
+    const remoteProjects = await ensureBackendProjects();
+    const remoteMembers = await Promise.all(remoteProjects.map((project) => listMembersApi(project.id)));
+    const remoteScripts = await Promise.all(remoteProjects.map((project) => listScriptDefinitionsApi(project.id)));
+    projects.value = remoteProjects;
+    members.value = remoteMembers.flat();
+    scriptAssets.value = remoteScripts.flat().map(mapScriptDefinition).map(normalizeScriptAsset);
+  } catch {
+    const seed = createSeedData();
+    projects.value = seed.projects;
+    members.value = seed.members;
+    scriptAssets.value = seed.scriptAssets;
   }
-  const seed = createSeedData();
-  projects.value = seed.projects;
-  members.value = seed.members;
-  scriptAssets.value = seed.scriptAssets;
+  if (selectedProjectId.value === null) {
+    selectedProjectId.value = projects.value[0]?.id ?? null;
+  }
 }
 
 function persistWorkspace() {
@@ -65,11 +68,8 @@ function ensureInit() {
     return;
   }
   initialized = true;
-  loadWorkspace();
+  void loadWorkspace();
   watch([projects, members, scriptAssets], persistWorkspace, { deep: true });
-  if (selectedProjectId.value === null) {
-    selectedProjectId.value = projects.value[0]?.id ?? null;
-  }
 }
 
 const activeProjects = computed(() => projects.value.filter((project) => project.status === 'ACTIVE'));
@@ -354,6 +354,18 @@ const { logout: authLogout } = useAuth();
 function fullLogout() {
   authLogout();
   workspaceProjectId.value = null;
+}
+
+async function ensureBackendProjects() {
+  const loaded = await listProjectsApi();
+  if (loaded.length > 0) {
+    return loaded;
+  }
+  const { currentUser } = useAuth();
+  const username = currentUser.value?.username ?? 'admin';
+  const seed = createSeedData();
+  await Promise.all(seed.projects.map((project) => createProjectApi(project, username)));
+  return listProjectsApi();
 }
 
 export function useWorkspace() {

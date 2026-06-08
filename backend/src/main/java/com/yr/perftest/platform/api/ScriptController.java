@@ -1,11 +1,18 @@
 package com.yr.perftest.platform.api;
 
+import com.yr.perftest.platform.script.ScriptContent;
+import com.yr.perftest.platform.script.ScriptDefinition;
 import com.yr.perftest.platform.script.ScriptService;
+import com.yr.perftest.platform.script.ScriptStepDefinition;
 import com.yr.perftest.platform.script.ScriptVersion;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -28,6 +35,21 @@ public class ScriptController {
         return scriptService.listScripts(projectId);
     }
 
+    @GetMapping("/definitions")
+    public List<ScriptDefinition> listScriptDefinitions(@PathVariable long projectId) {
+        return scriptService.listScriptDefinitions(projectId);
+    }
+
+    @GetMapping("/{versionId}")
+    public ScriptContent getScriptContent(@PathVariable long projectId, @PathVariable long versionId) {
+        return scriptService.getScriptContent(projectId, versionId);
+    }
+
+    @GetMapping("/{versionId}/definition")
+    public ScriptDefinition getScriptDefinition(@PathVariable long projectId, @PathVariable long versionId) {
+        return scriptService.getScriptDefinition(projectId, versionId);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ScriptVersion uploadScript(
@@ -36,5 +58,39 @@ public class ScriptController {
             @RequestHeader(name = "X-User", defaultValue = "admin") String uploadedBy
     ) {
         return scriptService.uploadScript(projectId, file, uploadedBy);
+    }
+
+    @PutMapping("/{versionId}")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ScriptVersion saveScriptContent(
+            @PathVariable long projectId,
+            @PathVariable long versionId,
+            @Valid @RequestBody SaveScriptRequest request,
+            @RequestHeader(name = "X-User", defaultValue = "admin") String uploadedBy
+    ) {
+        return scriptService.saveScriptContent(projectId, versionId, request.content(), request.filename(), uploadedBy);
+    }
+
+    @PutMapping("/{versionId}/definition")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ScriptDefinition saveScriptDefinition(
+            @PathVariable long projectId,
+            @PathVariable long versionId,
+            @Valid @RequestBody SaveScriptDefinitionRequest request,
+            @RequestHeader(name = "X-User", defaultValue = "admin") String uploadedBy
+    ) {
+        return scriptService.saveScriptDefinition(projectId, versionId, request.filename(), request.steps(), uploadedBy);
+    }
+
+    public record SaveScriptRequest(
+            @NotBlank String content,
+            String filename
+    ) {
+    }
+
+    public record SaveScriptDefinitionRequest(
+            String filename,
+            List<ScriptStepDefinition> steps
+    ) {
     }
 }

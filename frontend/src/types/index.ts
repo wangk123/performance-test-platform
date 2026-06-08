@@ -156,7 +156,7 @@ export type TaskMetricPoint = {
 
 export type TaskSample = {
   id: number;
-  statusCode: number;
+  statusCode: string | number;
   success: boolean;
   label: string;
   elapsed: number;

@@ -21,6 +21,8 @@ import {
   takeStepById,
 } from '../utils/script-steps';
 import { useWorkspace } from './useWorkspace';
+import { useAuth } from './useAuth';
+import { mapScriptDefinition, saveScriptDefinitionApi } from '../api/platform';
 
 const editorScriptId = ref<number | null>(null);
 const selectedEditorStepId = ref<string | null>(null);
@@ -195,7 +197,7 @@ function useEditor() {
 
   async function confirmDeleteStep(stepId: string) {
     const step = editorScriptAsset.value ? findStepById(editorScriptAsset.value.steps, stepId) : null;
-    if (!editorScriptAsset.value || !step || isRootStep(stepId)) {
+    if (!editorScriptAsset.value || !step) {
       return;
     }
     try {
@@ -211,7 +213,7 @@ function useEditor() {
   }
 
   function deleteStepById(stepId: string) {
-    if (!editorScriptAsset.value || isRootStep(stepId)) {
+    if (!editorScriptAsset.value) {
       return;
     }
     const removed = removeStepById(editorScriptAsset.value.steps, stepId);
@@ -325,6 +327,35 @@ function useEditor() {
     return `${window.location.origin}${window.location.pathname}#/script-editor/${script.id}`;
   }
 
+  async function saveEditorScript() {
+    if (!editorScriptAsset.value) {
+      return false;
+    }
+    const { currentUser } = useAuth();
+    try {
+      const definition = await saveScriptDefinitionApi(
+        editorScriptAsset.value.projectId,
+        editorScriptAsset.value.id,
+        editorScriptAsset.value.sourceFile,
+        editorScriptAsset.value.steps,
+        currentUser.value?.username ?? 'admin',
+      );
+      const saved = mapScriptDefinition(definition);
+      const index = scriptAssets.value.findIndex((script) => script.id === editorScriptAsset.value?.id);
+      if (index >= 0) {
+        scriptAssets.value.splice(index, 1, saved);
+      } else {
+        scriptAssets.value.unshift(saved);
+      }
+      editorScriptId.value = saved.id;
+      selectedEditorStepId.value = saved.steps[0]?.id ?? null;
+      return true;
+    } catch (error) {
+      ElMessage.error(error instanceof Error ? error.message : '脚本保存失败');
+      return false;
+    }
+  }
+
   return {
     editorScriptId,
     editorScriptAsset,
@@ -357,6 +388,7 @@ function useEditor() {
     syncEditorRoute,
     scriptEditorUrl,
     ensureScriptSteps,
+    saveEditorScript,
   };
 }
 

@@ -633,6 +633,10 @@
   background: rgba(31, 111, 95, 0.12);
 }
 
+.asset-status.parsed {
+  visibility: hidden;
+}
+
 .asset-status.parse_failed {
   color: var(--danger);
   background: rgba(194, 65, 50, 0.1);

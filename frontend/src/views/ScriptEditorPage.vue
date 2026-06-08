@@ -82,7 +82,9 @@ function startSidebarResize(event: MouseEvent) {
   document.addEventListener('mouseup', onUp);
 }
 
-function onSave() {
-  ElMessage.success('脚本编排已保存到本地 Mock 工作区');
+async function onSave() {
+  if (await editor.saveEditorScript()) {
+    ElMessage.success('脚本已保存为后端 JMX 新版本');
+  }
 }
 </script>

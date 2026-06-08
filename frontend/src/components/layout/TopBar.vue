@@ -5,7 +5,7 @@
       <div class="page-title">{{ pageTitle }}</div>
     </div>
     <div class="topbar-actions">
-      <el-tag type="warning" effect="light">Mock API</el-tag>
+      <el-tag type="success" effect="light">Backend API</el-tag>
       <el-tag v-if="currentProject" type="success" effect="light">{{ currentProject.code }}</el-tag>
       <el-tag v-if="currentUser" type="success" effect="light">{{ currentUser.displayName }}</el-tag>
       <el-button v-if="currentUser" @click="fullLogout">退出</el-button>
