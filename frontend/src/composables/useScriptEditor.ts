@@ -348,6 +348,7 @@ function useEditor() {
         scriptAssets.value.unshift(saved);
       }
       editorScriptId.value = saved.id;
+      window.history.replaceState(null, '', scriptEditorUrl(saved));
       selectedEditorStepId.value = saved.steps[0]?.id ?? null;
       return true;
     } catch (error) {

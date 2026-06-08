@@ -13,6 +13,7 @@ import { createSeedData, normalizeScriptAsset } from '../utils/seed';
 import { useAuth } from './useAuth';
 import {
   createProjectApi,
+  deleteScriptApi,
   listMembersApi,
   listProjectsApi,
   listScriptDefinitionsApi,
@@ -331,6 +332,7 @@ async function deleteScriptAsset(script: ScriptAsset) {
   } catch {
     return false;
   }
+  await deleteScriptApi(script.projectId, script.id);
   scriptAssets.value = scriptAssets.value.filter((item) => item.id !== script.id);
   if (selectedScriptId.value === script.id) {
     selectedScriptId.value = currentProjectScripts.value[0]?.id ?? null;

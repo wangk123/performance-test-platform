@@ -118,6 +118,17 @@ public class ScriptService {
     }
 
     @Transactional
+    public void deleteScript(long projectId, long versionId) {
+        PersistentScriptVersionRecord record = requireScriptVersion(projectId, versionId);
+        scriptVersionRepository.delete(record);
+        try {
+            Files.deleteIfExists(Path.of(record.getStoredPath()));
+        } catch (IOException exception) {
+            throw new ScriptValidationException("failed to delete script file");
+        }
+    }
+
+    @Transactional
     public ScriptVersion saveScriptContent(long projectId, long versionId, String content, String filename, String uploadedBy) {
         PersistentScriptVersionRecord baseVersion = requireScriptVersion(projectId, versionId);
         String targetFilename = filename == null || filename.trim().isEmpty()
@@ -131,11 +142,7 @@ public class ScriptService {
         }
         validateJmx(content);
 
-        int versionNo = scriptVersionRepository.countByProjectId(projectId) + 1;
-        Path target = storageRoot
-                .resolve("scripts")
-                .resolve(String.valueOf(projectId))
-                .resolve("v" + versionNo + "-" + sanitizeFilename(targetFilename));
+        Path target = Path.of(baseVersion.getStoredPath());
         try {
             Files.createDirectories(target.getParent());
             Files.writeString(target, content, StandardCharsets.UTF_8);
@@ -143,15 +150,8 @@ public class ScriptService {
             throw new ScriptValidationException("failed to store script file");
         }
 
-        PersistentScriptVersionRecord record = scriptVersionRepository.save(new PersistentScriptVersionRecord(
-                projectId,
-                versionNo,
-                targetFilename,
-                target.toString(),
-                uploadedBy,
-                Instant.now()
-        ));
-        return record.toScriptVersion();
+        baseVersion.updateMetadata(targetFilename, uploadedBy, Instant.now());
+        return baseVersion.toScriptVersion();
     }
 
     @Transactional

@@ -84,4 +84,10 @@ public class PersistentScriptVersionRecord {
     public String getStoredPath() {
         return storedPath;
     }
+
+    void updateMetadata(String originalFilename, String uploadedBy, Instant uploadedAt) {
+        this.originalFilename = originalFilename;
+        this.uploadedBy = uploadedBy;
+        this.uploadedAt = uploadedAt;
+    }
 }

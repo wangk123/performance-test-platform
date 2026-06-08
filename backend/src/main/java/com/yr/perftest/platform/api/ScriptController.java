@@ -8,6 +8,7 @@ import com.yr.perftest.platform.script.ScriptVersion;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,6 +49,12 @@ public class ScriptController {
     @GetMapping("/{versionId}/definition")
     public ScriptDefinition getScriptDefinition(@PathVariable long projectId, @PathVariable long versionId) {
         return scriptService.getScriptDefinition(projectId, versionId);
+    }
+
+    @DeleteMapping("/{versionId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteScript(@PathVariable long projectId, @PathVariable long versionId) {
+        scriptService.deleteScript(projectId, versionId);
     }
 
     @PostMapping

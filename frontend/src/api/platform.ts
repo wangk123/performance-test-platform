@@ -63,6 +63,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const error = await response.json().catch(() => ({ message: '请求失败' }));
     throw new Error(error.message ?? '请求失败');
   }
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return response.json() as Promise<T>;
 }
 
@@ -107,6 +110,12 @@ export async function uploadScriptApi(projectId: number, file: File, username: s
 
 export function getScriptDefinitionApi(projectId: number, versionId: number) {
   return request<BackendScriptDefinition>(`/api/projects/${projectId}/scripts/${versionId}/definition`);
+}
+
+export function deleteScriptApi(projectId: number, versionId: number) {
+  return request<void>(`/api/projects/${projectId}/scripts/${versionId}`, {
+    method: 'DELETE',
+  });
 }
 
 export function saveScriptDefinitionApi(projectId: number, versionId: number, filename: string, steps: ScriptStep[], username: string) {
