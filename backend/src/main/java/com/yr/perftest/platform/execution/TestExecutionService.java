@@ -97,6 +97,17 @@ public class TestExecutionService {
                 .orElseThrow(() -> new ExecutionValidationException("task does not exist")));
     }
 
+    @Transactional
+    public void deleteTask(long taskId) {
+        PersistentTestTaskRecord task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ExecutionValidationException("task does not exist"));
+        if (task.getStatus() == ExecutionStatus.RUNNING) {
+            throw new ExecutionValidationException("running task cannot be deleted");
+        }
+        executionRepository.deleteAllByTaskId(task.getId());
+        taskRepository.delete(task);
+    }
+
     @Transactional(readOnly = true)
     public String getTaskLogs(long taskId) {
         PersistentTestTaskRecord task = taskRepository.findById(taskId)

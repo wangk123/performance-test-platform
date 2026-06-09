@@ -38,7 +38,6 @@
 import { ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import type { Project } from '../../types';
-import { delay } from '../../utils/format';
 import { useAuth } from '../../composables/useAuth';
 import { useWorkspace } from '../../composables/useWorkspace';
 
@@ -96,8 +95,7 @@ async function onSave() {
     return;
   }
   saving.value = true;
-  await delay(160);
-  const result = saveProject(projectForm.value, props.editingProject);
+  const result = await saveProject(projectForm.value, props.editingProject);
   saving.value = false;
   if (!result.ok) {
     ElMessage.error(result.message);

@@ -88,6 +88,13 @@
                 plain
                 @click.stop="runTask(task)"
               >执行</el-button>
+              <el-button
+                v-if="task.status !== 'RUNNING'"
+                class="task-fixed-button"
+                type="danger"
+                plain
+                @click.stop="deleteTask(task)"
+              >删除</el-button>
             </span>
           </div>
         </div>
@@ -155,6 +162,7 @@ const {
   showTaskDetail,
   backToList,
   runTask,
+  deleteTask,
 } = useTaskSchedule();
 
 function statusClass(status: TaskStatus) {

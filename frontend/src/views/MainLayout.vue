@@ -6,15 +6,14 @@
       <TopBar />
 
       <el-main class="content">
-        <HomeView v-if="activeMainNav === 'home'" />
-        <SettingsView v-else-if="activeMainNav === 'settings'" />
-        <ProjectListView
-          v-else-if="activeMainNav === 'projects' && !currentProject"
-          @create="openCreate"
-          @edit="openEdit"
-          @members="openMembers"
-        />
-        <ProjectDetail v-else-if="currentProject" @edit="openEdit" @members="openMembers" />
+        <RouterView v-slot="{ Component }">
+          <component
+            :is="Component"
+            @create="openCreate"
+            @edit="openEdit"
+            @members="openMembers"
+          />
+        </RouterView>
       </el-main>
     </el-container>
   </el-container>
@@ -28,21 +27,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import type { Project } from '../types';
-import { useNavigation } from '../composables/useNavigation';
-import { useWorkspace } from '../composables/useWorkspace';
 import SidebarNav from '../components/layout/SidebarNav.vue';
 import TopBar from '../components/layout/TopBar.vue';
-import HomeView from '../components/views/HomeView.vue';
-import SettingsView from '../components/views/SettingsView.vue';
-import ProjectListView from '../components/views/ProjectListView.vue';
-import ProjectDetail from '../components/views/ProjectDetail.vue';
 import ProjectFormDialog from '../components/dialogs/ProjectFormDialog.vue';
 import MemberDialog from '../components/dialogs/MemberDialog.vue';
 import ScriptImportDialog from '../components/dialogs/ScriptImportDialog.vue';
 import ScriptParamDrawer from '../components/drawers/ScriptParamDrawer.vue';
-
-const { activeMainNav } = useNavigation();
-const { currentProject } = useWorkspace();
 
 const projectDialogVisible = ref(false);
 const memberDialogVisible = ref(false);

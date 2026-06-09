@@ -2,7 +2,7 @@ import { reactive, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import type { User } from '../types';
 import { CURRENT_USER_KEY } from '../constants';
-import { loginApi } from '../api/platform';
+import { loginApi } from '../api/auth';
 
 function readStoredUser(): User | null {
   const stored = localStorage.getItem(CURRENT_USER_KEY);

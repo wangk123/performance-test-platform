@@ -1,5 +1,6 @@
 import { computed, ref, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { useRoute, useRouter } from 'vue-router';
 import type {
   FlatStepItem,
   ScriptAsset,
@@ -22,7 +23,7 @@ import {
 } from '../utils/script-steps';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
-import { mapScriptDefinition, saveScriptDefinitionApi } from '../api/platform';
+import { mapScriptDefinition, saveScriptDefinitionApi } from '../api/scripts';
 
 const editorScriptId = ref<number | null>(null);
 const selectedEditorStepId = ref<string | null>(null);
@@ -88,6 +89,8 @@ function availableStepTypeOptions() {
 function useEditor() {
   ensureInit();
   const { scriptAssets } = useWorkspace();
+  const route = useRoute();
+  const router = useRouter();
 
   const editorScriptAsset = computed(
     () => scriptAssets.value.find((script) => script.id === editorScriptId.value) ?? null,
@@ -313,18 +316,22 @@ function useEditor() {
   }
 
   function closeScriptEditor() {
-    window.location.hash = '';
+    const script = editorScriptAsset.value;
+    if (script) {
+      void router.push(`/projects/${script.projectId}/scripts`);
+    } else {
+      void router.push('/projects');
+    }
     editorScriptId.value = null;
     selectedEditorStepId.value = null;
   }
 
   function syncEditorRoute() {
-    const match = window.location.hash.match(/^#\/script-editor\/(\d+)$/);
-    editorScriptId.value = match ? Number(match[1]) : null;
+    editorScriptId.value = Number(route.params.scriptId) || null;
   }
 
   function scriptEditorUrl(script: ScriptAsset) {
-    return `${window.location.origin}${window.location.pathname}#/script-editor/${script.id}`;
+    return `/projects/${script.projectId}/scripts/${script.id}/edit`;
   }
 
   async function saveEditorScript() {
@@ -348,7 +355,7 @@ function useEditor() {
         scriptAssets.value.unshift(saved);
       }
       editorScriptId.value = saved.id;
-      window.history.replaceState(null, '', scriptEditorUrl(saved));
+      void router.replace(scriptEditorUrl(saved));
       selectedEditorStepId.value = saved.steps[0]?.id ?? null;
       return true;
     } catch (error) {

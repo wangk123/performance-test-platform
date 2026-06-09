@@ -2,7 +2,7 @@ import { reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
-import { mapScriptDefinition, uploadScriptApi } from '../api/platform';
+import { mapScriptDefinition, uploadScriptApi } from '../api/scripts';
 
 const scriptImportDialogVisible = ref(false);
 const scriptUploading = ref(false);

@@ -6,4 +6,6 @@ import java.util.Optional;
 
 public interface PersistentTaskExecutionRepository extends JpaRepository<PersistentTaskExecutionRecord, Long> {
     Optional<PersistentTaskExecutionRecord> findFirstByTaskIdOrderByIdDesc(Long taskId);
+
+    void deleteAllByTaskId(Long taskId);
 }

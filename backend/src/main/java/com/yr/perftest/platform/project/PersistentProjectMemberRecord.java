@@ -55,6 +55,10 @@ public class PersistentProjectMemberRecord {
         return role;
     }
 
+    void changeRole(ProjectRole role) {
+        this.role = role;
+    }
+
     ProjectMemberInfo toProjectMemberInfo() {
         return new ProjectMemberInfo(projectId, username, role);
     }

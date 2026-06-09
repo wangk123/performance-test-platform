@@ -35,6 +35,20 @@
     </div>
   </section>
 
+  <section v-else-if="activeProjectTab === 'data'" class="placeholder-grid">
+    <div class="panel">
+      <h2>造数工厂</h2>
+      <p class="detail-description">数据模板、预览和生成接口已预留 Mock，后续按模块补完整实现。</p>
+    </div>
+  </section>
+
+  <section v-else-if="activeProjectTab === 'functions'" class="placeholder-grid">
+    <div class="panel">
+      <h2>函数库</h2>
+      <p class="detail-description">函数列表、版本和调试接口已预留 Mock，后续按模块补完整实现。</p>
+    </div>
+  </section>
+
   <section v-else class="placeholder-grid">
     <div class="panel">
       <h2>成员权限</h2>
@@ -51,6 +65,8 @@
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { projectRoleText } from '../../utils/format';
 import { useNavigation } from '../../composables/useNavigation';
 import { useWorkspace } from '../../composables/useWorkspace';
@@ -65,5 +81,37 @@ defineEmits<{
 }>();
 
 const { activeProjectTab } = useNavigation();
-const { currentProject, currentProjectMonitors, reportMocks, membersByProject } = useWorkspace();
+const {
+  currentProject,
+  currentProjectMonitors,
+  reportMocks,
+  membersByProject,
+  loadProject,
+  loadProjectScripts,
+  loadMembers,
+  workspaceProjectId,
+  selectedProjectId,
+} =
+  useWorkspace();
+const route = useRoute();
+
+watch(
+  () => [route.params.projectId, route.name] as const,
+  ([projectId]) => {
+    const id = Number(projectId);
+    if (!id) {
+      return;
+    }
+    workspaceProjectId.value = id;
+    selectedProjectId.value = id;
+    void loadProject(id);
+    if (['project-overview', 'project-scripts', 'project-tasks', 'project-task-detail'].includes(String(route.name))) {
+      void loadProjectScripts(id);
+    }
+    if (route.name === 'project-members') {
+      void loadMembers(id);
+    }
+  },
+  { immediate: true },
+);
 </script>

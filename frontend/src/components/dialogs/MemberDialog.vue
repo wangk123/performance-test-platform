@@ -84,7 +84,7 @@ const emit = defineEmits<{
 }>();
 
 const visible = ref(props.modelValue);
-const { membersByProject, addMember, removeMember } = useWorkspace();
+const { membersByProject, addMember, removeMember, loadMembers } = useWorkspace();
 
 const memberForm = reactive<{ username: string; displayName: string; role: ProjectRole }>({
   username: '',
@@ -100,17 +100,20 @@ watch(
       memberForm.username = '';
       memberForm.displayName = '';
       memberForm.role = 'MEMBER';
+      if (props.project) {
+        void loadMembers(props.project.id);
+      }
     }
   },
 );
 
 watch(visible, (val) => emit('update:modelValue', val));
 
-function onAdd() {
+async function onAdd() {
   if (!props.project) {
     return;
   }
-  const result = addMember(props.project.id, memberForm);
+  const result = await addMember(props.project.id, memberForm);
   if (!result.ok) {
     ElMessage.error(result.message);
     return;

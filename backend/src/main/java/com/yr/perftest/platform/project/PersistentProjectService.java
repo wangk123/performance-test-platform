@@ -42,6 +42,34 @@ public class PersistentProjectService implements ProjectOperations {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Project getProject(long projectId) {
+        return requireProject(projectId).toProject();
+    }
+
+    @Override
+    @Transactional
+    public Project updateProject(
+            long projectId,
+            String name,
+            String description,
+            String ownerUsername,
+            String operatorUsername
+    ) {
+        if (isBlank(name)) {
+            throw new ProjectValidationException("project name is required");
+        }
+        if (isBlank(ownerUsername)) {
+            throw new ProjectValidationException("project owner is required");
+        }
+        PersistentProjectRecord project = requireProject(projectId);
+        requireProjectOwner(projectId, operatorUsername);
+        project.update(name, description, ownerUsername);
+        syncOwnerMember(projectId, ownerUsername);
+        return project.toProject();
+    }
+
+    @Override
     @Transactional
     public void archiveProject(long projectId, String operatorUsername) {
         PersistentProjectRecord project = requireProject(projectId);
@@ -65,6 +93,19 @@ public class PersistentProjectService implements ProjectOperations {
         if (!memberRepository.existsByProjectIdAndUsername(projectId, username)) {
             memberRepository.save(new PersistentProjectMemberRecord(projectId, username, role));
         }
+    }
+
+    @Override
+    @Transactional
+    public void removeMember(long projectId, String username, String operatorUsername) {
+        requireProject(projectId);
+        requireProjectOwner(projectId, operatorUsername);
+        PersistentProjectMemberRecord member = memberRepository.findByProjectIdAndUsername(projectId, username)
+                .orElseThrow(() -> new ProjectValidationException("project member does not exist"));
+        if (member.getRole() == ProjectRole.OWNER) {
+            throw new ProjectValidationException("project owner cannot be removed");
+        }
+        memberRepository.delete(member);
     }
 
     @Override
@@ -102,6 +143,19 @@ public class PersistentProjectService implements ProjectOperations {
     private PersistentProjectRecord requireProject(long projectId) {
         return projectRepository.findById(projectId)
                 .orElseThrow(() -> new ProjectValidationException("project does not exist"));
+    }
+
+    private void syncOwnerMember(long projectId, String ownerUsername) {
+        memberRepository.findAllByProjectIdOrderByIdAsc(projectId).forEach(member -> {
+            if (member.getRole() == ProjectRole.OWNER) {
+                member.changeRole(ProjectRole.MEMBER);
+            }
+        });
+        PersistentProjectMemberRecord owner = memberRepository.findByProjectIdAndUsername(projectId, ownerUsername)
+                .orElseGet(() -> memberRepository.save(
+                        new PersistentProjectMemberRecord(projectId, ownerUsername, ProjectRole.OWNER)
+                ));
+        owner.changeRole(ProjectRole.OWNER);
     }
 
     private void requireProjectOwner(long projectId, String username) {

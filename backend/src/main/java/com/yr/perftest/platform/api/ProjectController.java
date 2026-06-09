@@ -9,9 +9,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,6 +37,11 @@ public class ProjectController {
         return projectService.listProjects(includeArchived);
     }
 
+    @GetMapping("/{projectId}")
+    public Project getProject(@PathVariable long projectId) {
+        return projectService.getProject(projectId);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Project createProject(
@@ -45,6 +52,21 @@ public class ProjectController {
                 request.code(),
                 request.name(),
                 request.description(),
+                operatorUsername
+        );
+    }
+
+    @PutMapping("/{projectId}")
+    public Project updateProject(
+            @PathVariable long projectId,
+            @Valid @RequestBody UpdateProjectRequest request,
+            @RequestHeader(name = "X-User", defaultValue = "admin") String operatorUsername
+    ) {
+        return projectService.updateProject(
+                projectId,
+                request.name(),
+                request.description(),
+                request.ownerUsername(),
                 operatorUsername
         );
     }
@@ -92,10 +114,27 @@ public class ProjectController {
                 .orElseThrow();
     }
 
+    @DeleteMapping("/{projectId}/members/{username}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeMember(
+            @PathVariable long projectId,
+            @PathVariable String username,
+            @RequestHeader(name = "X-User", defaultValue = "admin") String operatorUsername
+    ) {
+        projectService.removeMember(projectId, username, operatorUsername);
+    }
+
     public record CreateProjectRequest(
             @NotBlank String code,
             @NotBlank String name,
             String description
+    ) {
+    }
+
+    public record UpdateProjectRequest(
+            @NotBlank String name,
+            String description,
+            @NotBlank String ownerUsername
     ) {
     }
 

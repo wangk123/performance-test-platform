@@ -93,7 +93,7 @@ import { useNavigation } from '../../composables/useNavigation';
 import { useWorkspace } from '../../composables/useWorkspace';
 
 const { currentUser } = useAuth();
-const { activeMainNav, activeProjectTab, selectMainNav, backToProjects, enterProjectTab } =
+const { activeMainNav, activeProjectTab, selectMainNav, backToProjects, enterProjectTab, enterProject } =
   useNavigation();
-const { activeProjects, currentProject, selectedProject, selectProject, enterProject } = useWorkspace();
+const { activeProjects, currentProject, selectedProject, selectProject } = useWorkspace();
 </script>

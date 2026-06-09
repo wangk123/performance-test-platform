@@ -41,8 +41,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
+import { useRoute } from 'vue-router';
 import { useScriptEditor } from '../composables/useScriptEditor';
 import { useWorkspace } from '../composables/useWorkspace';
 import StepSidebar from '../components/editor/StepSidebar.vue';
@@ -50,13 +51,26 @@ import StepDetail from '../components/editor/StepDetail.vue';
 import StepCreateDialog from '../components/editor/StepCreateDialog.vue';
 
 const editor = useScriptEditor();
-const { projectName } = useWorkspace();
+const route = useRoute();
+const { projectName, loadProjectContext } = useWorkspace();
 const script = computed(() => editor.editorScriptAsset.value);
 
 const sidebarWidth = ref(360);
 const resizing = ref(false);
 const SIDEBAR_MIN = 280;
 const SIDEBAR_MAX = 560;
+
+watch(
+  () => [route.params.projectId, route.params.scriptId] as const,
+  async ([projectId]) => {
+    const id = Number(projectId);
+    if (id) {
+      await loadProjectContext(id);
+    }
+    editor.syncEditorRoute();
+  },
+  { immediate: true },
+);
 
 function startSidebarResize(event: MouseEvent) {
   event.preventDefault();

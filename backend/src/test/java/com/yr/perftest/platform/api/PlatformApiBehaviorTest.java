@@ -11,8 +11,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -99,5 +101,68 @@ class PlatformApiBehaviorTest {
                         .header("X-User", "tester"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", is("project owner permission is required")));
+    }
+
+    @Test
+    void getsUpdatesAndRemovesProjectMembers() throws Exception {
+        mockMvc.perform(post("/api/projects")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User", "admin")
+                        .content("{\"code\":\"loan-core\",\"name\":\"信贷核心压测\",\"description\":\"授信链路\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/projects/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is("loan-core")))
+                .andExpect(jsonPath("$.name", is("信贷核心压测")));
+
+        mockMvc.perform(put("/api/projects/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User", "admin")
+                        .content("{\"name\":\"信贷核心容量测试\",\"description\":\"授信和放款链路\",\"ownerUsername\":\"tester\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name", is("信贷核心容量测试")))
+                .andExpect(jsonPath("$.ownerUsername", is("tester")));
+
+        mockMvc.perform(get("/api/projects/1/members"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[1].username", is("tester")))
+                .andExpect(jsonPath("$[1].role", is("OWNER")));
+
+        mockMvc.perform(delete("/api/projects/1/members/admin")
+                        .header("X-User", "tester"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/projects/1/members"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].username", is("tester")));
+    }
+
+    @Test
+    void returnsDashboardSummaryWithoutLoadingProjectAssets() throws Exception {
+        mockMvc.perform(post("/api/projects")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User", "admin")
+                        .content("{\"code\":\"loan-core\",\"name\":\"信贷核心压测\",\"description\":\"授信链路\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/projects")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User", "admin")
+                        .content("{\"code\":\"risk-core\",\"name\":\"风控核心压测\",\"description\":\"规则链路\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(patch("/api/projects/2/archive")
+                        .header("X-User", "admin"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/dashboard/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activeProjectCount", is(1)))
+                .andExpect(jsonPath("$.archivedProjectCount", is(1)))
+                .andExpect(jsonPath("$.scriptAssetTotal", is(0)))
+                .andExpect(jsonPath("$.taskTotal", is(0)))
+                .andExpect(jsonPath("$.recentProjects", hasSize(2)))
+                .andExpect(jsonPath("$.recentProjects[0].code", is("risk-core")));
     }
 }

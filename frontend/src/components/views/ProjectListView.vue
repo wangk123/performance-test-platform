@@ -21,12 +21,12 @@
       <strong>{{ archivedProjectCount }}</strong>
     </div>
     <div class="metric">
-      <span>脚本资产</span>
-      <strong>{{ scriptAssetTotal }}</strong>
+      <span>资产加载</span>
+      <strong>按项目</strong>
     </div>
     <div class="metric">
-      <span>项目成员</span>
-      <strong>{{ memberTotal }}</strong>
+      <span>成员加载</span>
+      <strong>按弹窗</strong>
     </div>
   </section>
 
@@ -55,7 +55,7 @@
         <el-table-column prop="name" label="项目名称" min-width="220" />
         <el-table-column prop="ownerUsername" label="负责人" width="120" />
         <el-table-column label="资产" width="150">
-          <template #default="{ row }">{{ scriptsByProject(row.id).length }} 个脚本</template>
+          <template #default>进入后查看</template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="110">
           <template #default="{ row }">
@@ -104,11 +104,11 @@
           </div>
           <div>
             <span>成员数</span>
-            <strong>{{ membersByProject(selectedProject.id).length }}</strong>
+            <strong>按需加载</strong>
           </div>
           <div>
             <span>脚本资产</span>
-            <strong>{{ scriptsByProject(selectedProject.id).length }}</strong>
+            <strong>按需加载</strong>
           </div>
           <div>
             <span>创建时间</span>
@@ -125,9 +125,11 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import { projectStatusOptions } from '../../constants';
 import { formatDate, projectStatusText } from '../../utils/format';
 import { useWorkspace } from '../../composables/useWorkspace';
+import { useNavigation } from '../../composables/useNavigation';
 import type { Project } from '../../types';
 
 defineEmits<{
@@ -143,14 +145,15 @@ const {
   selectedProject,
   activeProjectCount,
   archivedProjectCount,
-  scriptAssetTotal,
-  memberTotal,
   selectProject,
-  enterProject,
   archiveProject,
   restoreProject,
   resetWorkspace,
-  membersByProject,
-  scriptsByProject,
+  loadProjects,
 } = useWorkspace();
+const { enterProject } = useNavigation();
+
+onMounted(() => {
+  void loadProjects();
+});
 </script>

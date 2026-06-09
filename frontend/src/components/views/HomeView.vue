@@ -50,10 +50,10 @@
           <strong>系统配置</strong>
           <small>管理用户、角色、权限和平台访问边界</small>
         </button>
-        <button type="button" :disabled="!activeProjectScripts[0]" @click="openScript(activeProjectScripts[0])">
+        <button type="button" :disabled="!recentProjects[0]" @click="recentProjects[0] && enterProject(recentProjects[0])">
           <span>03</span>
-          <strong>继续脚本解析</strong>
-          <small>{{ activeProjectScripts[0]?.name ?? '暂无可继续脚本' }}</small>
+          <strong>进入近期项目</strong>
+          <small>{{ recentProjects[0]?.name ?? '暂无近期项目' }}</small>
         </button>
       </div>
     </div>
@@ -73,7 +73,7 @@
           @click="enterProject(project)"
         >
           <strong>{{ project.name }}</strong>
-          <span>{{ project.code }} · {{ scriptsByProject(project.id).length }} 个脚本 · {{ project.ownerUsername }}</span>
+          <span>{{ project.code }} · {{ project.ownerUsername }}</span>
         </button>
       </div>
     </div>
@@ -112,19 +112,28 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import type { Project } from '../../types';
+import { getDashboardSummaryApi } from '../../api/dashboard';
 import { useNavigation } from '../../composables/useNavigation';
-import { useWorkspace } from '../../composables/useWorkspace';
 
-const { selectMainNav, openScript } = useNavigation();
-const {
-  activeProjectCount,
-  scriptAssetTotal,
-  pendingTaskCount,
-  monitorTargetTotal,
-  activeProjectScripts,
-  recentProjects,
-  enterProject,
-  scriptsByProject,
-  reportMocks,
-} = useWorkspace();
+const { selectMainNav, enterProject } = useNavigation();
+const activeProjectCount = ref(0);
+const scriptAssetTotal = ref(0);
+const pendingTaskCount = ref(0);
+const monitorTargetTotal = ref(0);
+const recentProjects = ref<Project[]>([]);
+const reportMocks = ref([{ name: '近期报告 Mock', time: '待生成', result: '待接入' }]);
+
+onMounted(async () => {
+  try {
+    const summary = await getDashboardSummaryApi();
+    activeProjectCount.value = summary.activeProjectCount;
+    scriptAssetTotal.value = summary.scriptAssetTotal;
+    pendingTaskCount.value = summary.taskTotal;
+    recentProjects.value = summary.recentProjects;
+  } catch {
+    recentProjects.value = [];
+  }
+});
 </script>

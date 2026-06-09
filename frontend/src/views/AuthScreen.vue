@@ -66,19 +66,21 @@
 </template>
 
 <script setup lang="ts">
+import { useRoute, useRouter } from 'vue-router';
 import { useAuth } from '../composables/useAuth';
-import { useNavigation } from '../composables/useNavigation';
 import { useWorkspace } from '../composables/useWorkspace';
 
 const { loginForm, loginLoading, login } = useAuth();
-const { selectMainNav } = useNavigation();
+const route = useRoute();
+const router = useRouter();
 const { exitProjectWorkspace } = useWorkspace();
 
 async function onLogin() {
   const ok = await login();
   if (ok) {
-    selectMainNav('home');
     exitProjectWorkspace();
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
+    void router.replace(redirect);
   }
 }
 </script>

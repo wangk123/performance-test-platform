@@ -733,7 +733,7 @@
 .task-table-head,
 .task-table-row {
   display: grid;
-  grid-template-columns: 74px minmax(180px, 1.25fr) minmax(160px, 0.95fr) 54px 96px 184px;
+  grid-template-columns: 74px minmax(180px, 1.25fr) minmax(160px, 0.95fr) 54px 96px 230px;
   gap: 10px;
   align-items: center;
 }
@@ -785,7 +785,7 @@
 
 .task-row-actions {
   display: grid;
-  grid-template-columns: repeat(3, 52px);
+  grid-template-columns: repeat(4, 52px);
   gap: 6px;
   justify-content: end;
 }

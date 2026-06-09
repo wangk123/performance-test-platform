@@ -1,5 +1,6 @@
 import { computed, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
+import { useRoute, useRouter } from 'vue-router';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import type {
   TaskResultFilter,
   TaskStatus,
@@ -10,7 +11,7 @@ import { nextId } from '../utils/format';
 import { createMockTask } from '../utils/task-mock';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
-import { getTaskApi, getTaskResultApi, listTasksApi, mapBackendTask, submitTaskApi } from '../api/platform';
+import { deleteTaskApi, getTaskApi, getTaskResultApi, listTasksApi, mapBackendTask, submitTaskApi } from '../api/tasks';
 
 type TaskFormPayload = {
   id?: number;
@@ -48,6 +49,8 @@ function taskStatusText(status: TaskStatus) {
 
 export function useTaskSchedule() {
   const { currentProject, currentProjectScripts } = useWorkspace();
+  const route = useRoute();
+  const router = useRouter();
 
   async function ensureProjectTasks() {
     if (!currentProject.value) {
@@ -67,6 +70,12 @@ export function useTaskSchedule() {
     }
     if (!selectedTaskId.value) {
       selectedTaskId.value = projectTasks.value[0]?.id ?? null;
+    }
+    const routeTaskId = Number(route.params.taskId);
+    if (routeTaskId) {
+      detailTaskId.value = routeTaskId;
+      selectedTaskId.value = routeTaskId;
+      void refreshTask(routeTaskId);
     }
   }
 
@@ -175,10 +184,16 @@ export function useTaskSchedule() {
     resultFilter.value = 'ALL';
     selectedSampleId.value = task.samples[0]?.id ?? null;
     void refreshTask(task.id);
+    if (currentProject.value) {
+      void router.push(`/projects/${currentProject.value.id}/tasks/${task.id}`);
+    }
   }
 
   function backToList() {
     detailTaskId.value = null;
+    if (currentProject.value) {
+      void router.push(`/projects/${currentProject.value.id}/tasks`);
+    }
   }
 
   function saveTask(payload: TaskFormPayload) {
@@ -247,6 +262,35 @@ export function useTaskSchedule() {
     }
   }
 
+  async function deleteTask(task: TestTask) {
+    if (task.status === 'RUNNING') {
+      ElMessage.warning('运行中任务不能删除');
+      return;
+    }
+    try {
+      await ElMessageBox.confirm(`确认删除任务「${task.name}」？`, '删除任务', {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      });
+      if (task.id > 0) {
+        await deleteTaskApi(task.id);
+      }
+      tasks.value = tasks.value.filter((item) => item.id !== task.id);
+      if (selectedTaskId.value === task.id) {
+        selectedTaskId.value = projectTasks.value[0]?.id ?? null;
+      }
+      if (detailTaskId.value === task.id) {
+        backToList();
+      }
+      ElMessage.success('任务已删除');
+    } catch (error) {
+      if (error instanceof Error) {
+        ElMessage.error(error.message);
+      }
+    }
+  }
+
   return {
     tasks,
     taskKeyword,
@@ -272,6 +316,7 @@ export function useTaskSchedule() {
     backToList,
     saveTask,
     runTask,
+    deleteTask,
     selectedSampleId,
   };
 }

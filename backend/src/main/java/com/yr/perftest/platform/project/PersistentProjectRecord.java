@@ -68,6 +68,12 @@ public class PersistentProjectRecord {
         return status;
     }
 
+    void update(String name, String description, String ownerUsername) {
+        this.name = name;
+        this.description = description;
+        this.ownerUsername = ownerUsername;
+    }
+
     void archive() {
         status = ProjectStatus.ARCHIVED;
     }
