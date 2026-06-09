@@ -5,8 +5,10 @@ target/
 node_modules/
 dist/
 .DS_Store
+.claude/
 .idea/
 *.iml
 *.log
+.playwright-mcp/
 /storage/
 backend/storage/
