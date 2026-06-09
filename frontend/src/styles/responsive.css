@@ -134,7 +134,6 @@
     .task-filters,
     .task-form-grid,
     .task-summary-strip,
-    .payload-grid,
     .script-asset-row,
     .step-config-grid {
     grid-template-columns: 1fr;

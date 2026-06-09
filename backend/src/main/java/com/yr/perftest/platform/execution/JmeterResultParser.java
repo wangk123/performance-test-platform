@@ -24,14 +24,14 @@ public class JmeterResultParser {
             return TaskExecutionResult.empty();
         }
         try {
-            List<String> lines = Files.readAllLines(resultPath);
-            if (lines.size() < 2) {
+            List<String> records = parseCsvRecords(Files.readString(resultPath));
+            if (records.size() < 2) {
                 return TaskExecutionResult.empty();
             }
-            Map<String, Integer> header = headerIndexes(parseCsvLine(lines.get(0)));
+            Map<String, Integer> header = headerIndexes(parseCsvLine(records.get(0)));
             List<Row> rows = new ArrayList<>();
-            for (int i = 1; i < lines.size(); i++) {
-                List<String> values = parseCsvLine(lines.get(i));
+            for (int i = 1; i < records.size(); i++) {
+                List<String> values = parseCsvLine(records.get(i));
                 if (!values.isEmpty()) {
                     rows.add(toRow(values, header));
                 }
@@ -87,8 +87,8 @@ public class JmeterResultParser {
     }
 
     private TaskExecutionResult.Sample toSample(Row row) {
-        String request = row.url().isBlank() ? row.label() : row.url();
-        String response = row.failureMessage().isBlank() ? row.message() : row.failureMessage();
+        String request = joinSections(row.samplerData(), row.requestHeaders(), row.url().isBlank() ? row.label() : row.url());
+        String response = joinSections(row.responseHeaders(), row.responseData(), row.failureMessage().isBlank() ? row.message() : row.failureMessage());
         return new TaskExecutionResult.Sample(
                 row.id(),
                 row.statusCode(),
@@ -112,8 +112,23 @@ public class JmeterResultParser {
                 read(values, header, "threadName"),
                 Boolean.parseBoolean(read(values, header, "success")),
                 read(values, header, "failureMessage"),
-                read(values, header, "URL")
+                read(values, header, "URL"),
+                read(values, header, "samplerData"),
+                read(values, header, "requestHeaders"),
+                read(values, header, "responseData"),
+                read(values, header, "responseHeaders")
         );
+    }
+
+    private String joinSections(String first, String second, String fallback) {
+        List<String> sections = new ArrayList<>();
+        if (!first.isBlank()) {
+            sections.add(first);
+        }
+        if (!second.isBlank()) {
+            sections.add(second);
+        }
+        return sections.isEmpty() ? fallback : String.join("\n\n", sections);
     }
 
     private Map<String, Integer> headerIndexes(List<String> header) {
@@ -161,6 +176,38 @@ public class JmeterResultParser {
         return values;
     }
 
+    private List<String> parseCsvRecords(String content) {
+        List<String> records = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean quoted = false;
+        for (int i = 0; i < content.length(); i++) {
+            char value = content.charAt(i);
+            if (value == '"') {
+                current.append(value);
+                if (quoted && i + 1 < content.length() && content.charAt(i + 1) == '"') {
+                    current.append(content.charAt(i + 1));
+                    i++;
+                } else {
+                    quoted = !quoted;
+                }
+            } else if ((value == '\n' || value == '\r') && !quoted) {
+                if (!current.isEmpty()) {
+                    records.add(current.toString());
+                    current.setLength(0);
+                }
+                if (value == '\r' && i + 1 < content.length() && content.charAt(i + 1) == '\n') {
+                    i++;
+                }
+            } else {
+                current.append(value);
+            }
+        }
+        if (!current.isEmpty()) {
+            records.add(current.toString());
+        }
+        return records;
+    }
+
     private long percentile(List<Long> sortedValues, double percentile) {
         if (sortedValues.isEmpty()) {
             return 0;
@@ -182,7 +229,11 @@ public class JmeterResultParser {
             String threadName,
             boolean success,
             String failureMessage,
-            String url
+            String url,
+            String samplerData,
+            String requestHeaders,
+            String responseData,
+            String responseHeaders
     ) {
         int id() {
             return Math.abs((timestamp + ":" + label + ":" + threadName).hashCode());

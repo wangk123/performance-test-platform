@@ -82,20 +82,25 @@
             @click="selectedSampleId = sample.id"
           >
             <span class="status" :class="sample.success ? 'success' : 'error'">{{ sample.statusCode }}</span>
-            <span>
+            <span class="sample-row-main">
               <strong>{{ sample.label }}</strong>
-              <small>{{ sample.threadName }} · {{ sample.message }}</small>
+              <small>{{ sample.threadName }}</small>
             </span>
-            <strong>{{ sample.elapsed }}ms</strong>
+            <span class="sample-row-meta">
+              <strong>{{ sample.elapsed }}ms</strong>
+              <small>{{ sample.message }}</small>
+            </span>
           </button>
         </div>
         <div class="result-pagination">
-          <span>第 {{ resultPage }} / {{ resultPageCount }} 页 · {{ resultSamples.length }} 条</span>
+          <span>{{ resultSamples.length }} 条样本</span>
           <el-pagination
             v-model:current-page="resultPage"
+            v-model:page-size="pageSize"
             small
-            layout="prev, pager, next"
-            :page-size="pageSize"
+            layout="sizes, prev, pager, next, jumper"
+            :page-sizes="[10, 20, 50]"
+            :pager-count="5"
             :total="resultSamples.length"
           />
         </div>
@@ -109,15 +114,15 @@
             <p>{{ selectedSample?.statusCode }} · {{ selectedSample?.elapsed }}ms · {{ selectedSample?.message }} · {{ selectedSample?.threadName }}</p>
           </div>
         </div>
-        <div class="payload-grid">
-          <div class="payload-card">
-            <header><strong>请求内容</strong><span>HTTP Request</span></header>
-            <pre>{{ selectedSample?.request }}</pre>
+        <div class="sample-inspector">
+          <div class="sample-inspector-toolbar">
+            <el-segmented v-model="payloadMode" :options="payloadModeOptions" />
+            <div class="sample-inspector-meta">
+              <span>{{ activePayloadTitle }}</span>
+              <strong>{{ activePayload.length.toLocaleString() }} chars</strong>
+            </div>
           </div>
-          <div class="payload-card">
-            <header><strong>响应内容</strong><span>HTTP {{ selectedSample?.statusCode }}</span></header>
-            <pre>{{ selectedSample?.response }}</pre>
-          </div>
+          <pre class="sample-payload-viewer">{{ activePayload || '当前结果没有保存该内容，请重新执行任务生成完整请求与响应。' }}</pre>
         </div>
       </div>
     </section>
@@ -125,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { TestTask } from '../../types';
 import { useTaskSchedule } from '../../composables/useTaskSchedule';
 
@@ -157,8 +162,15 @@ const resultFilterOptions = [
   { label: '仅错误', value: 'ERROR' },
   { label: '仅成功', value: 'SUCCESS' },
 ];
+const payloadMode = ref<'request' | 'response'>('request');
+const payloadModeOptions = [
+  { label: '请求内容', value: 'request' },
+  { label: '响应内容', value: 'response' },
+];
 
 const script = computed(() => (props.task ? scriptById(props.task.scriptId) : null));
+const activePayload = computed(() => payloadMode.value === 'request' ? selectedSample.value?.request ?? '' : selectedSample.value?.response ?? '');
+const activePayloadTitle = computed(() => payloadMode.value === 'request' ? 'HTTP Request' : `HTTP ${selectedSample.value?.statusCode ?? '-'}`);
 const tpsTicks = [
   { label: '600', top: '10px' },
   { label: '450', top: '55px' },

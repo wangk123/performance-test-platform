@@ -34,7 +34,7 @@ const taskStatusFilter = ref<TaskStatusFilter>('ALL');
 const resultFilter = ref<TaskResultFilter>('ALL');
 const resultPage = ref(1);
 const selectedSampleId = ref<number | null>(null);
-const pageSize = 6;
+const pageSize = ref(10);
 let refreshTimer: number | null = null;
 
 function taskStatusText(status: TaskStatus) {
@@ -149,9 +149,9 @@ export function useTaskSchedule() {
     return detailTask.value.samples;
   });
 
-  const resultPageCount = computed(() => Math.max(1, Math.ceil(resultSamples.value.length / pageSize)));
+  const resultPageCount = computed(() => Math.max(1, Math.ceil(resultSamples.value.length / pageSize.value)));
   const pagedSamples = computed(() =>
-    resultSamples.value.slice((resultPage.value - 1) * pageSize, resultPage.value * pageSize),
+    resultSamples.value.slice((resultPage.value - 1) * pageSize.value, resultPage.value * pageSize.value),
   );
   const selectedSample = computed(
     () => detailTask.value?.samples.find((sample) => sample.id === selectedSampleId.value) ?? pagedSamples.value[0] ?? null,
@@ -165,7 +165,7 @@ export function useTaskSchedule() {
       selectedTaskId.value = items[0]?.id ?? null;
     }
   });
-  watch([resultFilter, detailTask], () => {
+  watch([resultFilter, detailTask, pageSize], () => {
     resultPage.value = 1;
     selectedSampleId.value = resultSamples.value[0]?.id ?? null;
   });

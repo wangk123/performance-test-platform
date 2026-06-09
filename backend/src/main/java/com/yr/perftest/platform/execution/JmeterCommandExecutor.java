@@ -38,6 +38,7 @@ public class JmeterCommandExecutor {
         command.add(resultPath.toString());
         command.add("-j");
         command.add(logPath.toString());
+        resultProperties().forEach((key, value) -> command.add("-J" + key + "=" + value));
 
         jmeterProperties(config).forEach((key, value) -> command.add("-J" + key + "=" + value));
 
@@ -60,6 +61,15 @@ public class JmeterCommandExecutor {
         properties.put("rampUp", String.valueOf(config.rampUp()));
         properties.put("environment", config.environment());
         properties.putAll(config.jmeterProperties());
+        return properties;
+    }
+
+    private Map<String, String> resultProperties() {
+        Map<String, String> properties = new LinkedHashMap<>();
+        properties.put("jmeter.save.saveservice.samplerData", "true");
+        properties.put("jmeter.save.saveservice.requestHeaders", "true");
+        properties.put("jmeter.save.saveservice.response_data", "true");
+        properties.put("jmeter.save.saveservice.responseHeaders", "true");
         return properties;
     }
 }
