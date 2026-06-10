@@ -46,6 +46,7 @@ export type ThreadGroup = {
   rampUp: number;
   loops: number;
   duration: number;
+  scheduler?: boolean;
 };
 
 export type ApiConfig = {
@@ -126,7 +127,6 @@ export type ScriptAsset = {
   parseStatus: ParseStatus;
   remark: string;
   updatedAt: string;
-  threadGroups: ThreadGroup[];
   apis: ApiConfig[];
   monitors: MonitorConfig[];
   variables: KeyValue[];
@@ -154,8 +154,24 @@ export type TaskMetricPoint = {
   p95: number;
 };
 
+export type TaskAggregateRow = {
+  label: string;
+  threadName: string;
+  samples: number;
+  average: number;
+  median: number;
+  p90: number;
+  p95: number;
+  p99: number;
+  min: number;
+  max: number;
+  errorRate: number;
+  throughput: number;
+};
+
 export type TaskSample = {
   id: number;
+  time: string;
   statusCode: string | number;
   success: boolean;
   label: string;
@@ -181,15 +197,12 @@ export type TestTask = {
   name: string;
   status: TaskStatus;
   environment: string;
-  threads: number;
-  rampUp: number;
-  duration: number;
-  loops: number;
   priority: string;
   remark: string;
   createdAt: string;
   lastRunAt: string | null;
   summary: TaskSummary;
   metrics: TaskMetricPoint[];
+  aggregateRows: TaskAggregateRow[];
   samples: TaskSample[];
 };

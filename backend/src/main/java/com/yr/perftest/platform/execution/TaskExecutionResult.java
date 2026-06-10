@@ -5,11 +5,13 @@ import java.util.List;
 public record TaskExecutionResult(
         Summary summary,
         List<MetricPoint> metrics,
+        List<AggregateRow> aggregateRows,
         List<Sample> samples
 ) {
     public static TaskExecutionResult empty() {
         return new TaskExecutionResult(
                 new Summary(0, 0, 0, 0, 0),
+                List.of(),
                 List.of(),
                 List.of()
         );
@@ -34,8 +36,25 @@ public record TaskExecutionResult(
     ) {
     }
 
+    public record AggregateRow(
+            String label,
+            String threadName,
+            int samples,
+            long average,
+            long median,
+            long p90,
+            long p95,
+            long p99,
+            long min,
+            long max,
+            double errorRate,
+            double throughput
+    ) {
+    }
+
     public record Sample(
             int id,
+            String time,
             String statusCode,
             boolean success,
             String label,

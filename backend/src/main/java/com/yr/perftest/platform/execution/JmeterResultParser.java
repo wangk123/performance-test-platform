@@ -57,11 +57,48 @@ public class JmeterResultParser {
                 round(failed * 100.0 / rows.size())
         );
         List<TaskExecutionResult.MetricPoint> metrics = buildMetrics(rows);
+        List<TaskExecutionResult.AggregateRow> aggregateRows = buildAggregateRows(rows);
         List<TaskExecutionResult.Sample> samples = rows.stream()
                 .limit(SAMPLE_LIMIT)
                 .map(this::toSample)
                 .toList();
-        return new TaskExecutionResult(summary, metrics, samples);
+        return new TaskExecutionResult(summary, metrics, aggregateRows, samples);
+    }
+
+    private List<TaskExecutionResult.AggregateRow> buildAggregateRows(List<Row> rows) {
+        Map<String, List<Row>> groups = new LinkedHashMap<>();
+        rows.stream()
+                .sorted(Comparator.comparing(this::threadGroupName).thenComparing(this::displayLabel))
+                .forEach(row -> groups.computeIfAbsent(threadGroupName(row) + "\n" + displayLabel(row), key -> new ArrayList<>()).add(row));
+        return groups.values().stream().map(this::toAggregateRow).toList();
+    }
+
+    private TaskExecutionResult.AggregateRow toAggregateRow(List<Row> rows) {
+        List<Long> elapsedValues = rows.stream().map(Row::elapsed).sorted().toList();
+        long totalElapsed = elapsedValues.stream().mapToLong(Long::longValue).sum();
+        long minStart = rows.stream().mapToLong(Row::timestamp).min().orElse(0);
+        long maxEnd = rows.stream().mapToLong(row -> row.timestamp() + row.elapsed()).max().orElse(minStart);
+        double durationSeconds = Math.max(1, (maxEnd - minStart) / 1000.0);
+        long failed = rows.stream().filter(row -> !row.success()).count();
+        Row first = rows.get(0);
+        return new TaskExecutionResult.AggregateRow(
+                displayLabel(first),
+                threadGroupName(first),
+                rows.size(),
+                Math.round((double) totalElapsed / rows.size()),
+                percentile(elapsedValues, 0.50),
+                percentile(elapsedValues, 0.90),
+                percentile(elapsedValues, 0.95),
+                percentile(elapsedValues, 0.99),
+                elapsedValues.get(0),
+                elapsedValues.get(elapsedValues.size() - 1),
+                round(failed * 100.0 / rows.size()),
+                round(rows.size() / durationSeconds)
+        );
+    }
+
+    private String threadGroupName(Row row) {
+        return row.threadName().replaceFirst("\\s+\\d+-\\d+$", "");
     }
 
     private List<TaskExecutionResult.MetricPoint> buildMetrics(List<Row> rows) {
@@ -91,15 +128,31 @@ public class JmeterResultParser {
         String response = joinSections(row.responseHeaders(), row.responseData(), row.failureMessage().isBlank() ? row.message() : row.failureMessage());
         return new TaskExecutionResult.Sample(
                 row.id(),
+                TIME_FORMATTER.format(Instant.ofEpochMilli(row.timestamp())),
                 row.statusCode(),
                 row.success(),
-                row.label(),
+                displayLabel(row),
                 row.elapsed(),
                 row.message(),
                 row.threadName(),
                 request,
                 response
         );
+    }
+
+    private String displayLabel(Row row) {
+        if (row.url().isBlank()) {
+            return row.label();
+        }
+        String path = row.url().replaceFirst("^[a-zA-Z][a-zA-Z0-9+.-]*://[^/]+", "");
+        if (path.isBlank()) {
+            return row.label();
+        }
+        String method = row.label().replaceFirst("\\s+.*$", "");
+        if (!method.matches("GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS")) {
+            return path;
+        }
+        return method + " " + path;
     }
 
     private Row toRow(List<String> values, Map<String, Integer> header) {
