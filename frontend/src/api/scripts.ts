@@ -20,8 +20,14 @@ export type BackendScriptDefinition = {
   parseStatus: 'PARSED' | 'PARSE_FAILED';
   remark: string;
   updatedAt: string;
+  steppingThreadGroupSupported?: boolean;
   steps: ScriptStep[];
   versions: BackendScriptVersion[];
+};
+
+export type BackendScriptContent = {
+  version: BackendScriptVersion;
+  content: string;
 };
 
 export function listScriptDefinitionsApi(projectId: number) {
@@ -49,6 +55,18 @@ export function deleteScriptApi(projectId: number, versionId: number) {
   });
 }
 
+export function getScriptContentApi(projectId: number, versionId: number) {
+  return request<BackendScriptContent>(`/api/projects/${projectId}/scripts/${versionId}`);
+}
+
+export function saveScriptContentApi(projectId: number, versionId: number, filename: string, content: string, username: string) {
+  return request<BackendScriptVersion>(`/api/projects/${projectId}/scripts/${versionId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-User': username },
+    body: JSON.stringify({ filename, content }),
+  });
+}
+
 export function saveScriptDefinitionApi(
   projectId: number,
   versionId: number,
@@ -73,13 +91,7 @@ export function mapScriptDefinition(definition: BackendScriptDefinition): Script
     parseStatus: definition.parseStatus,
     remark: definition.remark,
     updatedAt: definition.updatedAt,
-    threadGroups: definition.steps.filter((step) => step.type === 'THREAD_GROUP').map((step) => ({
-      name: step.name,
-      threads: Number(step.config.threads ?? 1),
-      rampUp: Number(step.config.rampUp ?? 0),
-      loops: Number(step.config.loops ?? 1),
-      duration: Number(step.config.duration ?? 0),
-    })),
+    steppingThreadGroupSupported: definition.steppingThreadGroupSupported ?? false,
     apis: flattenSteps(definition.steps).filter((step) => step.type === 'HTTP_REQUEST').map((step) => ({
       method: String(step.config.method ?? 'GET'),
       path: String(step.config.path ?? step.config.url ?? '/'),

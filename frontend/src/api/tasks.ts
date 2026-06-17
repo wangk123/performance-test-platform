@@ -1,4 +1,4 @@
-import type { TaskAggregateRow, TaskMetricPoint, TaskSample, TaskSummary, TestTask } from '../types';
+import type { ScriptAsset, TaskAggregateRow, TaskMetricPoint, TaskSample, TaskSummary, TestTask } from '../types';
 import { request } from './http';
 
 type BackendTask = {
@@ -47,6 +47,19 @@ export function submitTaskApi(projectId: number, task: TestTask, username: strin
       name: task.name,
       environment: task.environment,
       remark: task.remark,
+    }),
+  });
+}
+
+export function submitScriptTaskApi(projectId: number, script: ScriptAsset, username: string) {
+  return request<BackendTask>(`/api/projects/${projectId}/tasks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-User': username },
+    body: JSON.stringify({
+      scriptVersionId: script.id,
+      name: `${script.name} / 即时执行`,
+      environment: 'SIT / 127.0.0.1',
+      remark: '从脚本列表直接执行',
     }),
   });
 }

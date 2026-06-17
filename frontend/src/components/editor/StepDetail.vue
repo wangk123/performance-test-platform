@@ -9,58 +9,25 @@
           </div>
           <h2>{{ step.name }}</h2>
         </div>
-        <el-button
-          type="danger"
-          plain
-          @click="editor.confirmDeleteStep(step.id)"
-        >
-          删除步骤
-        </el-button>
+        <div class="detail-heading-actions">
+          <el-segmented v-model="detailMode" :options="detailModeOptions" @change="onModeChange" />
+          <el-button
+            type="danger"
+            plain
+            @click="editor.confirmDeleteStep(step.id)"
+          >
+            删除步骤
+          </el-button>
+        </div>
       </div>
 
-      <el-form class="step-config-form" label-position="top" @submit.prevent>
+      <el-form v-if="detailMode === 'visual'" class="step-config-form" label-position="top" @submit.prevent>
         <el-form-item label="步骤名称">
           <el-input v-model="step.name" />
         </el-form-item>
 
         <template v-if="step.type === 'THREAD_GROUP'">
-          <div class="step-config-grid">
-            <el-form-item label="线程数">
-              <el-input-number
-                :model-value="(step.config.threads as number)"
-                :min="1"
-                :step="10"
-                controls-position="right"
-                @update:model-value="updateConfig('threads', $event)"
-              />
-            </el-form-item>
-            <el-form-item label="Ramp-Up（秒）">
-              <el-input-number
-                :model-value="(step.config.rampUp as number)"
-                :min="0"
-                :step="10"
-                controls-position="right"
-                @update:model-value="updateConfig('rampUp', $event)"
-              />
-            </el-form-item>
-            <el-form-item label="循环次数">
-              <el-input-number
-                :model-value="(step.config.loops as number)"
-                :min="1"
-                controls-position="right"
-                @update:model-value="updateConfig('loops', $event)"
-              />
-            </el-form-item>
-            <el-form-item label="持续时间（秒）">
-              <el-input-number
-                :model-value="(step.config.duration as number)"
-                :min="0"
-                :step="60"
-                controls-position="right"
-                @update:model-value="updateConfig('duration', $event)"
-              />
-            </el-form-item>
-          </div>
+          <ThreadGroupEditor :config="threadGroupConfig" @update:config="updateThreadGroupConfig" />
         </template>
 
         <template v-else-if="step.type === 'HTTP_REQUEST'">
@@ -68,22 +35,7 @@
         </template>
 
         <template v-else-if="step.type === 'ASSERTION'">
-          <el-form-item label="断言目标">
-            <el-input
-              :model-value="(step.config.target as string)"
-              placeholder="响应体 / 响应码 / Header"
-              @update:model-value="updateConfig('target', $event)"
-            />
-          </el-form-item>
-          <el-form-item label="匹配规则">
-            <el-input
-              :model-value="(step.config.rule as string)"
-              type="textarea"
-              :rows="4"
-              placeholder="例如 $.code == 0"
-              @update:model-value="updateConfig('rule', $event)"
-            />
-          </el-form-item>
+          <ResponseAssertionConfig :step="step" />
         </template>
 
         <template v-else-if="step.type === 'CSV_DATA'">
@@ -127,6 +79,8 @@
           </el-form-item>
         </template>
       </el-form>
+
+      <StepComponentXmlEditor v-else :step="step" />
     </template>
 
     <div v-else class="empty-detail">
@@ -137,20 +91,74 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useScriptEditor } from '../../composables/useScriptEditor';
 import { stepTypeMeta } from '../../constants';
+import type { ThreadGroup } from '../../types';
 import HttpRequestConfig from './HttpRequestConfig.vue';
+import ResponseAssertionConfig from './ResponseAssertionConfig.vue';
+import StepComponentXmlEditor from './StepComponentXmlEditor.vue';
 import StepTypeIcon from '../scripts/StepTypeIcon.vue';
+import ThreadGroupEditor from './ThreadGroupEditor.vue';
 
 const editor = useScriptEditor();
 const step = computed(() => editor.selectedEditorStep.value);
 const meta = computed(() => (step.value ? stepTypeMeta[step.value.type] : stepTypeMeta.HTTP_REQUEST));
+const detailMode = ref<'visual' | 'xml'>('visual');
+const detailModeOptions = [
+  { label: '可视化模式', value: 'visual' },
+  { label: 'XML 模式', value: 'xml' },
+];
+
+const threadGroupConfig = computed<ThreadGroup>(() => ({
+  name: step.value?.name ?? '',
+  threads: Number(step.value?.config.threads ?? 1),
+  rampUp: Number(step.value?.config.rampUp ?? 0),
+  loops: Number(step.value?.config.loops ?? 1),
+  duration: Number(step.value?.config.duration ?? 0),
+  scheduler: Boolean(step.value?.config.scheduler ?? false),
+  mode: step.value?.config.mode === 'stepping' || step.value?.config.mode === 'duration'
+    ? step.value.config.mode
+    : (step.value?.config.scheduler ? 'duration' : 'count'),
+  stepping: typeof step.value?.config.stepping === 'object'
+    ? step.value.config.stepping as ThreadGroup['stepping']
+    : undefined,
+}));
+
+function updateThreadGroupConfig(config: ThreadGroup) {
+  if (!step.value) {
+    return;
+  }
+  const nextConfig: typeof step.value.config = {
+    ...step.value.config,
+    threads: config.threads,
+    rampUp: config.rampUp,
+    loops: config.scheduler ? -1 : config.loops,
+    duration: config.duration,
+    scheduler: config.scheduler ?? false,
+    mode: config.mode ?? (config.scheduler ? 'duration' : 'count'),
+  };
+  if (config.stepping) {
+    nextConfig.stepping = config.stepping;
+  }
+  step.value.config = nextConfig;
+}
 
 function updateConfig(key: string, value: string | number | null | undefined) {
   if (!step.value || value === null || value === undefined) {
     return;
   }
   step.value.config = { ...step.value.config, [key]: value };
+}
+
+watch(
+  () => step.value?.id,
+  () => {
+    detailMode.value = 'visual';
+  },
+);
+
+function onModeChange(value: string | number | boolean) {
+  detailMode.value = value === 'xml' ? 'xml' : 'visual';
 }
 </script>

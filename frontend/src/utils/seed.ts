@@ -53,7 +53,7 @@ function createMockAsset(
     parseStatus: 'PARSED',
     remark: 'Mock 解析结果，可按需求继续调整字段。',
     updatedAt: now,
-    threadGroups,
+    steppingThreadGroupSupported: true,
     apis,
     monitors: [
       { target: '应用服务', metrics: ['TPS', 'RT', '错误率'] },
@@ -137,8 +137,22 @@ export function createSeedData() {
 export function normalizeScriptAsset(script: ScriptAsset): ScriptAsset {
   return {
     ...script,
+    steppingThreadGroupSupported: script.steppingThreadGroupSupported ?? false,
     steps: script.steps?.length
       ? script.steps
-      : createStepsFromParsed(script.name, script.threadGroups, script.apis, script.variables),
+      : createStepsFromParsed(
+          script.name,
+          script.steps
+            .filter((step) => step.type === 'THREAD_GROUP')
+            .map((step) => ({
+              name: step.name,
+              threads: Number(step.config.threads ?? 1),
+              rampUp: Number(step.config.rampUp ?? 0),
+              loops: Number(step.config.loops ?? 1),
+              duration: Number(step.config.duration ?? 0),
+            })),
+          script.apis,
+          script.variables,
+        ),
   };
 }

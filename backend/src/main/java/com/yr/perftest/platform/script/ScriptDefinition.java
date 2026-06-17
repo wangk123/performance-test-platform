@@ -12,6 +12,7 @@ public record ScriptDefinition(
         String parseStatus,
         String remark,
         Instant updatedAt,
+        boolean steppingThreadGroupSupported,
         List<ScriptStepDefinition> steps,
         List<ScriptVersion> versions
 ) {

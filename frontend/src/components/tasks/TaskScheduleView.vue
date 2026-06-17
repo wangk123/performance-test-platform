@@ -70,7 +70,7 @@
             <span class="status" :class="statusClass(task.status)">{{ taskStatusText(task.status) }}</span>
             <span>
               <strong>{{ task.name }}</strong>
-              <small>线程 {{ task.threads }} · Ramp-Up {{ task.rampUp }}s · 持续 {{ task.duration }}s · {{ task.environment }}</small>
+              <small>{{ task.environment }} · {{ formatScriptThreadGroups(task.scriptId) }}</small>
             </span>
             <span>
               <strong>{{ scriptById(task.scriptId)?.name ?? '未知脚本' }}</strong>
@@ -112,7 +112,7 @@
           <div class="task-side-card">
             <span>任务名称</span>
             <strong>{{ selectedTask.name }}</strong>
-            <small>脚本 v{{ scriptById(selectedTask.scriptId)?.latestVersion ?? '-' }} · 线程 {{ selectedTask.threads }} · Ramp-Up {{ selectedTask.rampUp }}s · 持续 {{ selectedTask.duration }}s</small>
+            <small>脚本 v{{ scriptById(selectedTask.scriptId)?.latestVersion ?? '-' }} · {{ formatScriptThreadGroups(selectedTask.scriptId) }}</small>
           </div>
           <div class="task-side-card">
             <span>最近结果</span>
@@ -182,5 +182,13 @@ function openCreate() {
 function openEdit(task: TestTask) {
   editingTask.value = task;
   taskDialogVisible.value = true;
+}
+
+function formatScriptThreadGroups(scriptId: number): string {
+  const script = scriptById(scriptId);
+  if (!script) return '未知脚本';
+  const groups = script.steps.filter(s => s.type === 'THREAD_GROUP');
+  if (groups.length === 0) return '无线程组';
+  return `${groups.length} 个线程组`;
 }
 </script>

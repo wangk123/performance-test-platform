@@ -3,6 +3,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type {
   TaskResultFilter,
+  ScriptAsset,
   TaskStatus,
   TaskStatusFilter,
   TestTask,
@@ -11,17 +12,13 @@ import { nextId } from '../utils/format';
 import { createMockTask } from '../utils/task-mock';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
-import { deleteTaskApi, getTaskApi, getTaskResultApi, listTasksApi, mapBackendTask, submitTaskApi } from '../api/tasks';
+import { deleteTaskApi, getTaskApi, getTaskResultApi, listTasksApi, mapBackendTask, submitScriptTaskApi, submitTaskApi } from '../api/tasks';
 
 type TaskFormPayload = {
   id?: number;
   scriptId: number | null;
   name: string;
   environment: string;
-  threads: number;
-  rampUp: number;
-  duration: number;
-  loops: number;
   priority: string;
   remark: string;
 };
@@ -210,10 +207,6 @@ export function useTaskSchedule() {
           scriptId: payload.scriptId,
           name: payload.name,
           environment: payload.environment,
-          threads: payload.threads,
-          rampUp: payload.rampUp,
-          duration: payload.duration,
-          loops: payload.loops,
           priority: payload.priority,
           remark: payload.remark,
         });
@@ -230,10 +223,6 @@ export function useTaskSchedule() {
       name: payload.name,
       status: 'PENDING' as TaskStatus,
       environment: payload.environment,
-      threads: payload.threads,
-      rampUp: payload.rampUp,
-      duration: payload.duration,
-      loops: payload.loops,
       priority: payload.priority,
       remark: payload.remark,
       createdAt: now,
@@ -259,6 +248,32 @@ export function useTaskSchedule() {
       ElMessage.success('JMeter 任务已提交后端执行');
     } catch (error) {
       ElMessage.error(error instanceof Error ? error.message : '任务提交失败');
+    }
+  }
+
+  async function runScriptAsset(script: ScriptAsset) {
+    if (!currentProject.value) {
+      return false;
+    }
+    const { currentUser } = useAuth();
+    try {
+      await ElMessageBox.confirm(`确认执行脚本「${script.name}」？系统会立即创建任务计划并提交执行。`, '执行脚本', {
+        confirmButtonText: '执行',
+        cancelButtonText: '取消',
+        type: 'warning',
+      });
+      const remoteTask = mapBackendTask(await submitScriptTaskApi(currentProject.value.id, script, currentUser.value?.username ?? 'admin'));
+      replaceTask(remoteTask);
+      selectedTaskId.value = remoteTask.id;
+      showTaskDetail(remoteTask);
+      scheduleRefresh(remoteTask.id);
+      ElMessage.success('任务已创建并提交执行');
+      return true;
+    } catch (error) {
+      if (error instanceof Error) {
+        ElMessage.error(error.message);
+      }
+      return false;
     }
   }
 
@@ -316,6 +331,7 @@ export function useTaskSchedule() {
     backToList,
     saveTask,
     runTask,
+    runScriptAsset,
     deleteTask,
     selectedSampleId,
   };

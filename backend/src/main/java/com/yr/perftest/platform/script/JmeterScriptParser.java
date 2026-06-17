@@ -24,6 +24,9 @@ public class JmeterScriptParser {
             for (Element threadGroup : elements(document, "ThreadGroup")) {
                 steps.add(parseThreadGroup(threadGroup));
             }
+            for (Element threadGroup : elements(document, "kg.apc.jmeter.threads.SteppingThreadGroup")) {
+                steps.add(parseSteppingThreadGroup(threadGroup));
+            }
             return steps;
         } catch (Exception exception) {
             throw new ScriptValidationException("failed to parse JMeter script");
@@ -36,10 +39,11 @@ public class JmeterScriptParser {
         config.put("rampUp", intValue(threadGroup, "ThreadGroup.ramp_time", 0));
         config.put("loops", intValue(threadGroup, "LoopController.loops", 1));
         config.put("duration", intValue(threadGroup, "ThreadGroup.duration", 0));
+        config.put("scheduler", boolValue(threadGroup, "ThreadGroup.scheduler", false));
         List<ScriptStepDefinition> children = parseChildren(nextHashTree(threadGroup));
         return new ScriptStepDefinition(
-                "thread-" + Math.abs(System.identityHashCode(threadGroup)),
-                "THREAD_GROUP",
+                JmeterScriptDom.stepId(threadGroup, ScriptStepType.THREAD_GROUP),
+                ScriptStepType.THREAD_GROUP.code(),
                 threadGroup.getAttribute("testname"),
                 config,
                 children
@@ -57,6 +61,7 @@ public class JmeterScriptParser {
             }
             switch (element.getTagName()) {
                 case "HTTPSamplerProxy" -> steps.add(parseHttpSampler(element, nextHashTree(element)));
+                case "kg.apc.jmeter.threads.SteppingThreadGroup" -> steps.add(parseSteppingThreadGroup(element));
                 case "CSVDataSet" -> steps.add(parseCsv(element));
                 case "Arguments" -> steps.add(parseUserParams(element));
                 case "HeaderManager" -> steps.add(parseHeaderManager(element));
@@ -109,18 +114,45 @@ public class JmeterScriptParser {
             config.put("params", params);
         }
         return new ScriptStepDefinition(
-                "http-" + Math.abs(System.identityHashCode(sampler)),
-                "HTTP_REQUEST",
+                JmeterScriptDom.stepId(sampler, ScriptStepType.HTTP_REQUEST),
+                ScriptStepType.HTTP_REQUEST.code(),
                 method + " " + cleanPath,
                 config,
                 parseSamplerChildren(hashTree)
         );
     }
 
+    private ScriptStepDefinition parseSteppingThreadGroup(Element threadGroup) {
+        Map<String, Object> stepping = new LinkedHashMap<>();
+        stepping.put("initialDelay", intValue(threadGroup, "Threads initial delay", 0));
+        stepping.put("startUsersCount", intValue(threadGroup, "Start users count", 10));
+        stepping.put("startUsersPeriod", intValue(threadGroup, "Start users period", 30));
+        stepping.put("rampUp", intValue(threadGroup, "rampUp", 0));
+        stepping.put("flightTime", intValue(threadGroup, "flighttime", 60));
+        stepping.put("stopUsersCount", intValue(threadGroup, "Stop users count", 10));
+        stepping.put("stopUsersPeriod", intValue(threadGroup, "Stop users period", 30));
+        stepping.put("burst", boolStringValue(threadGroup, "Start users count burst", false));
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("threads", intValue(threadGroup, "ThreadGroup.num_threads", 1));
+        config.put("rampUp", 0);
+        config.put("loops", 1);
+        config.put("duration", intValue(threadGroup, "flighttime", 60));
+        config.put("scheduler", false);
+        config.put("mode", ThreadGroupConfig.MODE_STEPPING);
+        config.put("stepping", stepping);
+        return new ScriptStepDefinition(
+                JmeterScriptDom.stepId(threadGroup, ScriptStepType.THREAD_GROUP),
+                ScriptStepType.THREAD_GROUP.code(),
+                threadGroup.getAttribute("testname"),
+                config,
+                parseChildren(nextHashTree(threadGroup))
+        );
+    }
+
     private ScriptStepDefinition parseCsv(Element element) {
         return new ScriptStepDefinition(
-                "csv-" + Math.abs(System.identityHashCode(element)),
-                "CSV_DATA",
+                JmeterScriptDom.stepId(element, ScriptStepType.CSV_DATA),
+                ScriptStepType.CSV_DATA.code(),
                 element.getAttribute("testname"),
                 Map.of(
                         "fileName", stringValue(element, "filename", ""),
@@ -132,8 +164,8 @@ public class JmeterScriptParser {
 
     private ScriptStepDefinition parseUserParams(Element element) {
         return new ScriptStepDefinition(
-                "vars-" + Math.abs(System.identityHashCode(element)),
-                "USER_PARAMS",
+                JmeterScriptDom.stepId(element, ScriptStepType.USER_PARAMS),
+                ScriptStepType.USER_PARAMS.code(),
                 element.getAttribute("testname"),
                 Map.of("paramsText", ""),
                 List.of()
@@ -142,8 +174,8 @@ public class JmeterScriptParser {
 
     private ScriptStepDefinition parseHeaderManager(Element element) {
         return new ScriptStepDefinition(
-                "header-" + Math.abs(System.identityHashCode(element)),
-                "HEADER_CONFIG",
+                JmeterScriptDom.stepId(element, ScriptStepType.HEADER_CONFIG),
+                ScriptStepType.HEADER_CONFIG.code(),
                 element.getAttribute("testname"),
                 Map.of("headersText", textLines(parseHeaders(element), ": ")),
                 List.of()
@@ -151,13 +183,45 @@ public class JmeterScriptParser {
     }
 
     private ScriptStepDefinition parseAssertion(Element element) {
+        String field = stringValue(element, "Assertion.test_field", "Assertion.response_data");
+        int matchType = intPropValue(element, "Assertion.test_type", 2);
         return new ScriptStepDefinition(
-                "assert-" + Math.abs(System.identityHashCode(element)),
-                "ASSERTION",
+                JmeterScriptDom.stepId(element, ScriptStepType.RESPONSE_ASSERTION),
+                ScriptStepType.RESPONSE_ASSERTION.code(),
                 element.getAttribute("testname"),
-                Map.of("target", "响应体", "rule", stringValue(element, "Assertion.test_strings", "")),
+                Map.of("target", assertionTarget(field), "match", assertionMatch(matchType), "rule", assertionRule(element)),
                 List.of()
         );
+    }
+
+    private String assertionTarget(String field) {
+        return switch (field) {
+            case "Assertion.response_code" -> "statusCode";
+            case "Assertion.response_headers" -> "headers";
+            default -> "body";
+        };
+    }
+
+    private String assertionMatch(int matchType) {
+        return switch (matchType) {
+            case 8 -> "equals";
+            case 1 -> "regex";
+            default -> "contains";
+        };
+    }
+
+    private String assertionRule(Element element) {
+        for (int index = 0; index < element.getElementsByTagName("collectionProp").getLength(); index++) {
+            Element collection = (Element) element.getElementsByTagName("collectionProp").item(index);
+            if (!"Assertion.test_strings".equals(collection.getAttribute("name"))) {
+                continue;
+            }
+            for (int itemIndex = 0; itemIndex < collection.getElementsByTagName("stringProp").getLength(); itemIndex++) {
+                Element stringProp = (Element) collection.getElementsByTagName("stringProp").item(itemIndex);
+                return stringProp.getTextContent();
+            }
+        }
+        return "";
     }
 
     private Document parseDocument(String content) throws Exception {
@@ -204,6 +268,11 @@ public class JmeterScriptParser {
         return fallback;
     }
 
+    private boolean boolStringValue(Element root, String name, boolean fallback) {
+        String value = stringValue(root, name, String.valueOf(fallback));
+        return value.isBlank() ? fallback : Boolean.parseBoolean(value);
+    }
+
     private int intValue(Element root, String name, int fallback) {
         try {
             String value = stringValue(root, name, String.valueOf(fallback));
@@ -213,9 +282,24 @@ public class JmeterScriptParser {
         }
     }
 
+    private int intPropValue(Element root, String name, int fallback) {
+        try {
+            for (int index = 0; index < root.getElementsByTagName("intProp").getLength(); index++) {
+                Element element = (Element) root.getElementsByTagName("intProp").item(index);
+                if (name.equals(element.getAttribute("name"))) {
+                    String value = element.getTextContent();
+                    return value.isBlank() ? fallback : Integer.parseInt(value);
+                }
+            }
+            return fallback;
+        } catch (NumberFormatException exception) {
+            return fallback;
+        }
+    }
+
     private List<ScriptStepDefinition> parseSamplerChildren(Element hashTree) {
         return parseChildren(hashTree).stream()
-                .filter(step -> !"HEADER_CONFIG".equals(step.type()))
+                .filter(step -> !ScriptStepType.HEADER_CONFIG.code().equals(step.type()))
                 .toList();
     }
 

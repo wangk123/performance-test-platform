@@ -356,7 +356,9 @@ function useEditor() {
       }
       editorScriptId.value = saved.id;
       void router.replace(scriptEditorUrl(saved));
-      selectedEditorStepId.value = saved.steps[0]?.id ?? null;
+      selectedEditorStepId.value = findStepById(saved.steps, selectedEditorStepId.value ?? '')
+        ? selectedEditorStepId.value
+        : (saved.steps[0]?.id ?? null);
       return true;
     } catch (error) {
       ElMessage.error(error instanceof Error ? error.message : '脚本保存失败');

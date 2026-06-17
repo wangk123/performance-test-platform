@@ -270,6 +270,34 @@ async function deleteScriptAsset(script: ScriptAsset) {
   }
 }
 
+async function deleteScriptAssets(scripts: ScriptAsset[]) {
+  if (scripts.length === 0) {
+    return false;
+  }
+  try {
+    await ElMessageBox.confirm(`确认删除选中的 ${scripts.length} 个脚本？`, '批量删除脚本', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+    for (const script of scripts) {
+      await deleteScriptApi(script.projectId, script.id);
+    }
+    const deletedIds = new Set(scripts.map((script) => script.id));
+    scriptAssets.value = scriptAssets.value.filter((item) => !deletedIds.has(item.id));
+    if (selectedScriptId.value !== null && deletedIds.has(selectedScriptId.value)) {
+      selectedScriptId.value = currentProjectScripts.value[0]?.id ?? null;
+    }
+    ElMessage.success('脚本已删除');
+    return true;
+  } catch (error) {
+    if (error instanceof Error) {
+      ElMessage.error(error.message);
+    }
+    return false;
+  }
+}
+
 function resetWorkspace() {
   projects.value = []; members.value = []; scriptAssets.value = [];
   selectedProjectId.value = null;
@@ -293,7 +321,7 @@ export function useWorkspace() {
     selectedScriptAsset, currentProjectMonitors, currentProjectMonitorCount, reportMocks,
     loadProjects, loadProject, loadMembers, loadProjectScripts, loadProjectContext,
     selectProject, enterProject, exitProjectWorkspace, membersByProject, scriptsByProject, projectName,
-    saveProject, archiveProject, restoreProject, addMember, removeMember, deleteScriptAsset,
+    saveProject, archiveProject, restoreProject, addMember, removeMember, deleteScriptAsset, deleteScriptAssets,
     resetWorkspace, fullLogout,
   };
 }

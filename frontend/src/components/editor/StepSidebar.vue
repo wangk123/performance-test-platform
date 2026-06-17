@@ -76,7 +76,10 @@
 
         <div class="node-text">
           <strong>{{ item.step.name }}</strong>
-          <span class="node-meta">{{ describe(item.step) }}</span>
+          <span v-if="item.step.type === 'THREAD_GROUP'" class="node-meta">
+            <ThreadGroupSummary :thread-group="toThreadGroup(item.step)" />
+          </span>
+          <span v-else class="node-meta">{{ describe(item.step) }}</span>
         </div>
 
         <button
@@ -103,10 +106,11 @@
 </template>
 
 <script setup lang="ts">
-import type { ScriptStep, ScriptStepType } from '../../types';
+import type { ScriptStep, ScriptStepType, ThreadGroup } from '../../types';
 import { stepTypeMeta } from '../../constants';
 import { useScriptEditor } from '../../composables/useScriptEditor';
 import StepTypeIcon from '../scripts/StepTypeIcon.vue';
+import ThreadGroupSummary from './ThreadGroupSummary.vue';
 
 const editor = useScriptEditor();
 
@@ -120,6 +124,23 @@ function toneOf(type: ScriptStepType) {
   return stepTypeMeta[type].tone;
 }
 
+function toThreadGroup(step: ScriptStep): ThreadGroup {
+  return {
+    name: step.name,
+    threads: Number(step.config.threads ?? 1),
+    rampUp: Number(step.config.rampUp ?? 0),
+    loops: Number(step.config.loops ?? 1),
+    duration: Number(step.config.duration ?? 0),
+    scheduler: Boolean(step.config.scheduler ?? false),
+    mode: step.config.mode === 'stepping' || step.config.mode === 'duration'
+      ? step.config.mode
+      : (step.config.scheduler ? 'duration' : 'count'),
+    stepping: typeof step.config.stepping === 'object'
+      ? step.config.stepping as ThreadGroup['stepping']
+      : undefined,
+  };
+}
+
 function describe(step: ScriptStep) {
   const config = step.config;
   switch (step.type) {
@@ -128,7 +149,7 @@ function describe(step: ScriptStep) {
     case 'HTTP_REQUEST':
       return `${config.method ?? 'GET'} ${config.path ?? ''}`;
     case 'ASSERTION':
-      return `${config.target ?? '-'} · ${config.rule ?? '-'}`;
+      return `${assertionTargetText(String(config.target ?? 'body'))} · ${assertionMatchText(String(config.match ?? 'contains'))}`;
     case 'CSV_DATA':
       return `${config.fileName ?? '-'}`;
     case 'USER_PARAMS': {
@@ -143,5 +164,13 @@ function describe(step: ScriptStep) {
     }
   }
   return '';
+}
+
+function assertionTargetText(value: string) {
+  return value === 'statusCode' ? '响应码' : value === 'headers' ? '响应头' : '响应体';
+}
+
+function assertionMatchText(value: string) {
+  return value === 'equals' ? '等于' : value === 'regex' ? '正则' : '包含';
 }
 </script>

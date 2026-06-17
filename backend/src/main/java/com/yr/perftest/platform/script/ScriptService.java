@@ -24,21 +24,24 @@ public class ScriptService {
     private final PersistentProjectRepository projectRepository;
     private final PersistentScriptVersionRepository scriptVersionRepository;
     private final JmeterScriptParser jmeterScriptParser;
-    private final JmeterScriptRenderer jmeterScriptRenderer;
+    private final JmeterScriptPatcher jmeterScriptPatcher;
     private final Path storageRoot;
+    private final Path jmeterExecutable;
 
     public ScriptService(
             PersistentProjectRepository projectRepository,
             PersistentScriptVersionRepository scriptVersionRepository,
             JmeterScriptParser jmeterScriptParser,
-            JmeterScriptRenderer jmeterScriptRenderer,
-            @Value("${platform.storage.root:./storage}") String storageRoot
+            JmeterScriptPatcher jmeterScriptPatcher,
+            @Value("${platform.storage.root:./storage}") String storageRoot,
+            @Value("${platform.jmeter.executable:jmeter}") String jmeterExecutable
     ) {
         this.projectRepository = projectRepository;
         this.scriptVersionRepository = scriptVersionRepository;
         this.jmeterScriptParser = jmeterScriptParser;
-        this.jmeterScriptRenderer = jmeterScriptRenderer;
+        this.jmeterScriptPatcher = jmeterScriptPatcher;
         this.storageRoot = Path.of(storageRoot);
+        this.jmeterExecutable = Path.of(jmeterExecutable);
     }
 
     @Transactional
@@ -162,7 +165,9 @@ public class ScriptService {
             List<ScriptStepDefinition> steps,
             String uploadedBy
     ) {
-        String content = jmeterScriptRenderer.render(steps == null ? List.of() : steps);
+        PersistentScriptVersionRecord baseVersion = requireScriptVersion(projectId, versionId);
+        String baseContent = readStoredContent(baseVersion);
+        String content = jmeterScriptPatcher.patch(baseContent, steps == null ? List.of() : steps);
         ScriptVersion version = saveScriptContent(projectId, versionId, content, filename, uploadedBy);
         return getScriptDefinition(projectId, version.id());
     }
@@ -211,6 +216,7 @@ public class ScriptService {
                 "PARSED",
                 "",
                 record.toScriptVersion().uploadedAt(),
+                steppingThreadGroupSupported(),
                 steps,
                 scriptVersionRepository.findAllByProjectIdOrderByVersionNoDesc(record.getProjectId()).stream()
                         .map(PersistentScriptVersionRecord::toScriptVersion)
@@ -232,5 +238,21 @@ public class ScriptService {
 
     private String sanitizeFilename(String filename) {
         return filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    private boolean steppingThreadGroupSupported() {
+        Path home = jmeterExecutable.getParent() == null ? null : jmeterExecutable.getParent().getParent();
+        if (home == null) {
+            return false;
+        }
+        Path ext = home.resolve("lib").resolve("ext");
+        if (!Files.isDirectory(ext)) {
+            return false;
+        }
+        try (var files = Files.list(ext)) {
+            return files.anyMatch(path -> path.getFileName().toString().startsWith("jmeter-plugins-casutg-"));
+        } catch (IOException exception) {
+            return false;
+        }
     }
 }

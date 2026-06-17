@@ -19,7 +19,7 @@ public class JmeterScriptRenderer {
         builder.append("    </TestPlan>\n");
         builder.append("    <hashTree>\n");
         for (ScriptStepDefinition step : steps) {
-            if ("THREAD_GROUP".equals(step.type())) {
+            if (step.stepType() == ScriptStepType.THREAD_GROUP) {
                 appendThreadGroup(builder, step);
             }
         }
@@ -30,15 +30,26 @@ public class JmeterScriptRenderer {
     }
 
     private void appendThreadGroup(StringBuilder builder, ScriptStepDefinition step) {
-        Map<String, Object> config = step.config();
+        ThreadGroupConfig tgConfig = step.threadGroupConfig();
+        if (ThreadGroupConfig.MODE_STEPPING.equals(tgConfig.mode())) {
+            appendSteppingThreadGroup(builder, step, tgConfig);
+            return;
+        }
+        boolean useScheduler = tgConfig.scheduler();
+        int loops = useScheduler ? -1 : tgConfig.loops();
+
         builder.append("      <ThreadGroup guiclass=\"ThreadGroupGui\" testclass=\"ThreadGroup\" testname=\"")
                 .append(xml(step.name())).append("\" enabled=\"true\">\n");
-        builder.append("        <stringProp name=\"ThreadGroup.num_threads\">").append(number(config, "threads", 1)).append("</stringProp>\n");
-        builder.append("        <stringProp name=\"ThreadGroup.ramp_time\">").append(number(config, "rampUp", 0)).append("</stringProp>\n");
-        builder.append("        <stringProp name=\"ThreadGroup.duration\">").append(number(config, "duration", 0)).append("</stringProp>\n");
+        builder.append("        <stringProp name=\"ThreadGroup.num_threads\">").append(tgConfig.threads()).append("</stringProp>\n");
+        builder.append("        <stringProp name=\"ThreadGroup.ramp_time\">").append(tgConfig.rampUp()).append("</stringProp>\n");
+        if (useScheduler) {
+            builder.append("        <boolProp name=\"ThreadGroup.scheduler\">true</boolProp>\n");
+        }
+        builder.append("        <stringProp name=\"ThreadGroup.duration\">").append(tgConfig.duration()).append("</stringProp>\n");
+        builder.append("        <stringProp name=\"ThreadGroup.delay\">0</stringProp>\n");
         builder.append("        <elementProp name=\"ThreadGroup.main_controller\" elementType=\"LoopController\">\n");
         builder.append("          <boolProp name=\"LoopController.continue_forever\">false</boolProp>\n");
-        builder.append("          <stringProp name=\"LoopController.loops\">").append(number(config, "loops", 1)).append("</stringProp>\n");
+        builder.append("          <stringProp name=\"LoopController.loops\">").append(loops).append("</stringProp>\n");
         builder.append("        </elementProp>\n");
         builder.append("      </ThreadGroup>\n");
         builder.append("      <hashTree>\n");
@@ -46,14 +57,37 @@ public class JmeterScriptRenderer {
         builder.append("      </hashTree>\n");
     }
 
+    private void appendSteppingThreadGroup(StringBuilder builder, ScriptStepDefinition step, ThreadGroupConfig config) {
+        ThreadGroupConfig.SteppingConfig stepping = config.stepping();
+        builder.append("      <kg.apc.jmeter.threads.SteppingThreadGroup guiclass=\"kg.apc.jmeter.threads.SteppingThreadGroupGui\" testclass=\"kg.apc.jmeter.threads.SteppingThreadGroup\" testname=\"")
+                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+        builder.append("        <stringProp name=\"ThreadGroup.num_threads\">").append(config.threads()).append("</stringProp>\n");
+        builder.append("        <stringProp name=\"Threads initial delay\">").append(stepping.initialDelay()).append("</stringProp>\n");
+        builder.append("        <stringProp name=\"Start users count\">").append(stepping.startUsersCount()).append("</stringProp>\n");
+        builder.append("        <stringProp name=\"Start users period\">").append(stepping.startUsersPeriod()).append("</stringProp>\n");
+        builder.append("        <stringProp name=\"Start users count burst\">").append(stepping.burst()).append("</stringProp>\n");
+        builder.append("        <stringProp name=\"rampUp\">").append(stepping.rampUp()).append("</stringProp>\n");
+        builder.append("        <stringProp name=\"flighttime\">").append(stepping.flightTime()).append("</stringProp>\n");
+        builder.append("        <stringProp name=\"Stop users count\">").append(stepping.stopUsersCount()).append("</stringProp>\n");
+        builder.append("        <stringProp name=\"Stop users period\">").append(stepping.stopUsersPeriod()).append("</stringProp>\n");
+        builder.append("      </kg.apc.jmeter.threads.SteppingThreadGroup>\n");
+        builder.append("      <hashTree>\n");
+        appendChildren(builder, step.children());
+        builder.append("      </hashTree>\n");
+    }
+
     private void appendChildren(StringBuilder builder, List<ScriptStepDefinition> steps) {
         for (ScriptStepDefinition step : steps) {
-            switch (step.type()) {
-                case "HTTP_REQUEST" -> appendHttpSampler(builder, step);
-                case "ASSERTION" -> appendAssertion(builder, step);
-                case "CSV_DATA" -> appendCsv(builder, step);
-                case "USER_PARAMS" -> appendUserParams(builder, step);
-                case "HEADER_CONFIG" -> appendHeaderManager(builder, step);
+            ScriptStepType stepType = step.stepType();
+            if (stepType == null) {
+                continue;
+            }
+            switch (stepType) {
+                case HTTP_REQUEST -> appendHttpSampler(builder, step);
+                case RESPONSE_ASSERTION -> appendAssertion(builder, step);
+                case CSV_DATA -> appendCsv(builder, step);
+                case USER_PARAMS -> appendUserParams(builder, step);
+                case HEADER_CONFIG -> appendHeaderManager(builder, step);
                 default -> {
                 }
             }
@@ -68,9 +102,10 @@ public class JmeterScriptRenderer {
         String domain = urlParts.domain().isBlank() ? text(config, "domain", "") : urlParts.domain();
         String port = urlParts.port().isBlank() ? text(config, "port", "") : urlParts.port();
         String path = urlParts.path().isBlank() ? text(config, "path", "/") : urlParts.path();
+        String method = text(config, "method", "GET");
         String bodyType = text(config, "bodyType", "none");
         builder.append("        <HTTPSamplerProxy guiclass=\"HttpTestSampleGui\" testclass=\"HTTPSamplerProxy\" testname=\"")
-                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+                .append(xml(method + " " + path.replaceFirst("\\?.*$", ""))).append("\" enabled=\"true\">\n");
         if ("raw".equals(bodyType)) {
             builder.append("          <boolProp name=\"HTTPSampler.postBodyRaw\">true</boolProp>\n");
         }
@@ -79,7 +114,7 @@ public class JmeterScriptRenderer {
         builder.append("          <stringProp name=\"HTTPSampler.domain\">").append(xml(domain)).append("</stringProp>\n");
         builder.append("          <stringProp name=\"HTTPSampler.port\">").append(xml(port)).append("</stringProp>\n");
         builder.append("          <stringProp name=\"HTTPSampler.path\">").append(xml(path)).append("</stringProp>\n");
-        builder.append("          <stringProp name=\"HTTPSampler.method\">").append(xml(text(config, "method", "GET"))).append("</stringProp>\n");
+        builder.append("          <stringProp name=\"HTTPSampler.method\">").append(xml(method)).append("</stringProp>\n");
         builder.append("          <boolProp name=\"HTTPSampler.follow_redirects\">").append(bool(config, "advanced", "followRedirects", true)).append("</boolProp>\n");
         builder.append("          <boolProp name=\"HTTPSampler.use_keepalive\">").append(bool(config, "advanced", "keepAlive", true)).append("</boolProp>\n");
         builder.append("          <stringProp name=\"HTTPSampler.connect_timeout\">").append(number(config, "advanced", "connectTimeout", 30000)).append("</stringProp>\n");
@@ -92,13 +127,33 @@ public class JmeterScriptRenderer {
     }
 
     private void appendAssertion(StringBuilder builder, ScriptStepDefinition step) {
+        String target = assertionTarget(text(step.config(), "target", "body"));
+        int matchType = assertionMatchType(text(step.config(), "match", "contains"));
         builder.append("          <ResponseAssertion guiclass=\"AssertionGui\" testclass=\"ResponseAssertion\" testname=\"")
                 .append(xml(step.name())).append("\" enabled=\"true\">\n");
         builder.append("            <collectionProp name=\"Assertion.test_strings\"><stringProp name=\"0\">")
                 .append(xml(text(step.config(), "rule", ""))).append("</stringProp></collectionProp>\n");
-        builder.append("            <stringProp name=\"Assertion.test_field\">Assertion.response_data</stringProp>\n");
+        builder.append("            <stringProp name=\"Assertion.test_field\">").append(target).append("</stringProp>\n");
+        builder.append("            <boolProp name=\"Assertion.assume_success\">false</boolProp>\n");
+        builder.append("            <intProp name=\"Assertion.test_type\">").append(matchType).append("</intProp>\n");
         builder.append("          </ResponseAssertion>\n");
         builder.append("          <hashTree/>\n");
+    }
+
+    private String assertionTarget(String target) {
+        return switch (target) {
+            case "statusCode", "响应码" -> "Assertion.response_code";
+            case "headers", "响应头", "Header" -> "Assertion.response_headers";
+            default -> "Assertion.response_data";
+        };
+    }
+
+    private int assertionMatchType(String match) {
+        return switch (match) {
+            case "equals" -> 8;
+            case "regex" -> 1;
+            default -> 2;
+        };
     }
 
     private void appendCsv(StringBuilder builder, ScriptStepDefinition step) {

@@ -84,7 +84,7 @@
               @click="openScript(script)"
             >
               <strong>{{ script.name }}</strong>
-              <span>{{ script.threadGroups.length }} 个线程组 · {{ script.apis.length }} 个接口 · v{{ script.latestVersion }}</span>
+              <span>{{ getThreadGroupCount(script) }} 个线程组 · {{ script.apis.length }} 个接口 · v{{ script.latestVersion }}</span>
             </button>
           </div>
         </div>
@@ -96,8 +96,9 @@
 <script setup lang="ts">
 import { projectStatusText } from '../../utils/format';
 import { useNavigation } from '../../composables/useNavigation';
+import { useThreadGroups } from '../../composables/useThreadGroups';
 import { useWorkspace } from '../../composables/useWorkspace';
-import type { Project } from '../../types';
+import type { Project, ScriptAsset } from '../../types';
 
 defineEmits<{
   (e: 'edit', project: Project): void;
@@ -107,4 +108,8 @@ defineEmits<{
 const { backToProjects, enterProjectTab, openScript } = useNavigation();
 const { currentProject, currentProjectScripts, currentProjectMonitorCount, reportMocks } =
   useWorkspace();
+
+function getThreadGroupCount(script: ScriptAsset): number {
+  return useThreadGroups(() => script.steps).threadGroupCount.value;
+}
 </script>

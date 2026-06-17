@@ -9,7 +9,7 @@
         </div>
         <div class="script-editor-actions">
           <el-button @click="editor.closeScriptEditor">返回工作台</el-button>
-          <el-button type="primary" @click="onSave">保存编排</el-button>
+          <el-button type="primary" :loading="saving" @click="onSave">保存编排</el-button>
         </div>
       </header>
 
@@ -57,6 +57,7 @@ const script = computed(() => editor.editorScriptAsset.value);
 
 const sidebarWidth = ref(360);
 const resizing = ref(false);
+const saving = ref(false);
 const SIDEBAR_MIN = 280;
 const SIDEBAR_MAX = 560;
 
@@ -97,8 +98,13 @@ function startSidebarResize(event: MouseEvent) {
 }
 
 async function onSave() {
-  if (await editor.saveEditorScript()) {
-    ElMessage.success('脚本已保存为后端 JMX 新版本');
+  saving.value = true;
+  try {
+    if (await editor.saveEditorScript()) {
+      ElMessage.success('脚本已保存为后端 JMX 新版本');
+    }
+  } finally {
+    saving.value = false;
   }
 }
 </script>

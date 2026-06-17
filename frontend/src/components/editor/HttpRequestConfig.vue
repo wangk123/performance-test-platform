@@ -21,6 +21,7 @@
           @close="closeSuggestion"
         />
       </el-form-item>
+      <HttpDebugButton :config="config" :variables="allVariables" />
     </div>
 
     <div class="http-config-layout">
@@ -124,6 +125,7 @@ import {
 import { useScriptEditor } from '../../composables/useScriptEditor';
 import HttpAdvancedConfig from './HttpAdvancedConfig.vue';
 import HttpBodyConfig from './HttpBodyConfig.vue';
+import HttpDebugButton from './HttpDebugButton.vue';
 import HttpKeyValueEditor from './HttpKeyValueEditor.vue';
 import VariableField from './VariableField.vue';
 import VariablePanel from './VariablePanel.vue';

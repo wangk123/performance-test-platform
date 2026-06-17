@@ -18,27 +18,27 @@
             >
               <span>
                 <strong>{{ script.name }}</strong>
-                <small>{{ script.sourceFile }} · v{{ script.latestVersion }} · {{ script.threadGroups.length }} 线程组 / {{ script.apis.length }} API / {{ script.monitors.length }} 监控</small>
+                <small>{{ script.sourceFile }} · v{{ script.latestVersion }} · {{ getThreadGroupCount(script) }} 线程组 / {{ script.apis.length }} API / {{ script.monitors.length }} 监控</small>
               </span>
               <span class="asset-status">{{ form.scriptId === script.id ? '已选择' : '解析成功' }}</span>
             </button>
           </div>
         </el-form-item>
 
-        <div class="task-form-grid">
-          <el-form-item label="线程数">
-            <el-input-number v-model="form.threads" :min="1" :max="10000" controls-position="right" />
+        <template v-if="selectedScriptThreadGroups.length > 0">
+          <el-form-item label="线程组配置（取自脚本）">
+            <div class="thread-group-summary-list">
+              <div v-for="group in selectedScriptThreadGroups" :key="group.name" class="thread-group-summary-item">
+                <strong>{{ group.name }}</strong>
+                <span>{{ threadGroupSummary(group) }}</span>
+              </div>
+            </div>
           </el-form-item>
-          <el-form-item label="Ramp-Up">
-            <el-input-number v-model="form.rampUp" :min="0" :max="3600" controls-position="right" />
-          </el-form-item>
-          <el-form-item label="持续时间">
-            <el-input-number v-model="form.duration" :min="1" :max="86400" controls-position="right" />
-          </el-form-item>
-          <el-form-item label="循环次数">
-            <el-input-number v-model="form.loops" :min="1" :max="100000" controls-position="right" />
-          </el-form-item>
-        </div>
+        </template>
+
+        <template v-else-if="form.scriptId !== null">
+          <el-alert title="所选脚本无线程组" description="请先在脚本编辑器中创建至少一个线程组。" type="warning" :closable="false" show-icon />
+        </template>
 
         <div class="task-form-grid">
           <el-form-item label="目标环境">
@@ -64,7 +64,7 @@
     <template #footer>
       <div class="task-dialog-actions">
         <el-button class="task-dialog-button" @click="visible = false">取消</el-button>
-        <el-button class="task-dialog-button" type="primary" @click="onSave">保存任务</el-button>
+        <el-button class="task-dialog-button" type="primary" :disabled="!canSave" @click="onSave">保存任务</el-button>
       </div>
     </template>
   </el-dialog>
@@ -72,9 +72,10 @@
 
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
-import type { ScriptAsset, TestTask } from '../../types';
+import type { ScriptAsset, TestTask, ThreadGroup } from '../../types';
 import { useWorkspace } from '../../composables/useWorkspace';
 import { useTaskSchedule } from '../../composables/useTaskSchedule';
+import { useThreadGroups } from '../../composables/useThreadGroups';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -98,13 +99,23 @@ const form = reactive({
   scriptId: null as number | null,
   name: '',
   environment: 'SIT / 127.0.0.1',
-  threads: 60,
-  rampUp: 60,
-  duration: 600,
-  loops: 1,
   priority: '普通',
   remark: '',
 });
+
+const selectedScript = computed<ScriptAsset | null>(() =>
+  currentProjectScripts.value.find((item) => item.id === form.scriptId) ?? null,
+);
+
+const selectedScriptThreadGroups = computed(() => {
+  const script = selectedScript.value;
+  if (!script) {
+    return [];
+  }
+  return useThreadGroups(() => script.steps).threadGroups.value;
+});
+
+const canSave = computed(() => form.scriptId !== null && selectedScriptThreadGroups.value.length > 0);
 
 watch(
   () => [props.modelValue, props.editingTask, currentProjectScripts.value] as const,
@@ -119,10 +130,6 @@ watch(
     form.scriptId = props.editingTask?.scriptId ?? script?.id ?? null;
     form.name = props.editingTask?.name ?? (script ? `${script.name} / 回归验证` : '');
     form.environment = props.editingTask?.environment ?? 'SIT / 127.0.0.1';
-    form.threads = props.editingTask?.threads ?? script?.threadGroups[0]?.threads ?? 60;
-    form.rampUp = props.editingTask?.rampUp ?? script?.threadGroups[0]?.rampUp ?? 60;
-    form.duration = props.editingTask?.duration ?? script?.threadGroups[0]?.duration ?? 600;
-    form.loops = props.editingTask?.loops ?? script?.threadGroups[0]?.loops ?? 1;
     form.priority = props.editingTask?.priority ?? '普通';
     form.remark = props.editingTask?.remark ?? '用于回归验证链路稳定性';
   },
@@ -133,11 +140,21 @@ function selectScript(script: ScriptAsset) {
   form.scriptId = script.id;
   if (!props.editingTask) {
     form.name = `${script.name} / 回归验证`;
-    form.threads = script.threadGroups[0]?.threads ?? form.threads;
-    form.rampUp = script.threadGroups[0]?.rampUp ?? form.rampUp;
-    form.duration = script.threadGroups[0]?.duration ?? form.duration;
-    form.loops = script.threadGroups[0]?.loops ?? form.loops;
   }
+}
+
+function getThreadGroupCount(script: ScriptAsset): number {
+  return useThreadGroups(() => script.steps).threadGroupCount.value;
+}
+
+function threadGroupSummary(group: ThreadGroup): string {
+  if (group.mode === 'stepping') {
+    return `${group.threads} 线程 · 阶梯加压 · 每阶 ${group.stepping?.startUsersCount ?? '-'} 用户`;
+  }
+  if (group.mode === 'duration' || group.scheduler) {
+    return `${group.threads} 线程 · Ramp-Up ${group.rampUp}s · 持续 ${group.duration}s`;
+  }
+  return `${group.threads} 线程 · Ramp-Up ${group.rampUp}s · 循环 ${group.loops} 次`;
 }
 
 function onSave() {
@@ -146,3 +163,30 @@ function onSave() {
   }
 }
 </script>
+
+<style scoped>
+.thread-group-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.thread-group-summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--el-fill-color-light, #f5f7fa);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.thread-group-summary-item strong {
+  color: var(--el-text-color-primary, #303133);
+}
+
+.thread-group-summary-item span {
+  color: var(--el-text-color-regular, #606266);
+}
+</style>

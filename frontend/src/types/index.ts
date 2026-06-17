@@ -20,6 +20,9 @@ export type ScriptStepType =
   | 'HEADER_CONFIG';
 export type StepRelation = 'root' | 'child';
 export type StepDropMode = 'before' | 'after' | 'child';
+export type ThreadGroupMode = 'count' | 'duration' | 'stepping';
+export type AssertionTarget = 'body' | 'statusCode' | 'headers';
+export type AssertionMatch = 'contains' | 'equals' | 'regex';
 
 export type Project = {
   id: number;
@@ -47,6 +50,19 @@ export type ThreadGroup = {
   loops: number;
   duration: number;
   scheduler?: boolean;
+  mode?: ThreadGroupMode;
+  stepping?: ThreadGroupSteppingConfig;
+};
+
+export type ThreadGroupSteppingConfig = {
+  initialDelay: number;
+  startUsersCount: number;
+  startUsersPeriod: number;
+  rampUp: number;
+  flightTime: number;
+  stopUsersCount: number;
+  stopUsersPeriod: number;
+  burst: boolean;
 };
 
 export type ApiConfig = {
@@ -94,6 +110,12 @@ export type HttpRequestConfig = {
   advanced: HttpAdvancedConfig;
 };
 
+export type ResponseAssertionConfig = {
+  target: AssertionTarget;
+  match: AssertionMatch;
+  rule: string;
+};
+
 export type ScriptParam = {
   key: string;
   label: string;
@@ -114,7 +136,7 @@ export type ScriptStep = {
   id: string;
   type: ScriptStepType;
   name: string;
-  config: Record<string, string | number | boolean | HttpParamConfig[] | HttpAdvancedConfig>;
+  config: Record<string, string | number | boolean | HttpParamConfig[] | HttpAdvancedConfig | ThreadGroupSteppingConfig>;
   children: ScriptStep[];
 };
 
@@ -127,6 +149,7 @@ export type ScriptAsset = {
   parseStatus: ParseStatus;
   remark: string;
   updatedAt: string;
+  steppingThreadGroupSupported: boolean;
   apis: ApiConfig[];
   monitors: MonitorConfig[];
   variables: KeyValue[];

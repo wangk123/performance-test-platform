@@ -8,12 +8,13 @@ import type {
   ScriptStepType,
   StepDropMode,
   ThreadGroup,
+  ThreadGroupSteppingConfig,
 } from '../types';
 import { MAX_SCRIPT_STEP_LEVEL } from '../constants';
 import { stepTypeLabel } from './format';
 import { createStepId } from './format';
 
-type StepConfigValue = string | number | HttpParamConfig[] | HttpAdvancedConfig;
+type StepConfigValue = string | number | boolean | HttpParamConfig[] | HttpAdvancedConfig | ThreadGroupSteppingConfig;
 type StepOverrides = {
   children?: ScriptStep[];
   [key: string]: StepConfigValue | ScriptStep[] | undefined;
@@ -168,7 +169,24 @@ export function createStepFromType(
     }
   });
   const defaults: Record<ScriptStepType, Record<string, StepConfigValue>> = {
-    THREAD_GROUP: { threads: 100, rampUp: 60, loops: 1, duration: 600 },
+    THREAD_GROUP: {
+      threads: 100,
+      rampUp: 60,
+      loops: 1,
+      duration: 600,
+      scheduler: false,
+      mode: 'count',
+      stepping: {
+        initialDelay: 0,
+        startUsersCount: 10,
+        startUsersPeriod: 30,
+        rampUp: 0,
+        flightTime: 60,
+        stopUsersCount: 10,
+        stopUsersPeriod: 30,
+        burst: false,
+      },
+    },
     HTTP_REQUEST: {
       method: 'GET',
       url: '${host}/api/example',
@@ -185,7 +203,7 @@ export function createStepFromType(
         keepAlive: true,
       },
     },
-    ASSERTION: { target: '响应体', rule: '$.code == 0' },
+    ASSERTION: { target: 'body', match: 'contains', rule: '$.code' },
     CSV_DATA: { fileName: 'data/default.csv', variableNames: 'userId,token' },
     USER_PARAMS: { paramsText: 'env=SIT\nchannel=APP' },
     HEADER_CONFIG: { headersText: 'Content-Type: application/json' },
@@ -217,6 +235,18 @@ export function createStepsFromParsed(
       rampUp: group.rampUp,
       loops: group.loops,
       duration: group.duration,
+      scheduler: group.scheduler ?? false,
+      mode: group.mode ?? (group.scheduler ? 'duration' : 'count'),
+      stepping: group.stepping ?? {
+        initialDelay: 0,
+        startUsersCount: 10,
+        startUsersPeriod: 30,
+        rampUp: 0,
+        flightTime: 60,
+        stopUsersCount: 10,
+        stopUsersPeriod: 30,
+        burst: false,
+      },
     },
     children: [
       ...(groupIndex === 0
