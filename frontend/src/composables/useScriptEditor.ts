@@ -1,5 +1,5 @@
 import { computed, ref, watch } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { message } from 'ant-design-vue';
 import { useRoute, useRouter } from 'vue-router';
 import type {
   FlatStepItem,
@@ -24,6 +24,7 @@ import {
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
 import { mapScriptDefinition, saveScriptDefinitionApi } from '../api/scripts';
+import { confirmAction } from '../utils/feedback';
 
 const editorScriptId = ref<number | null>(null);
 const selectedEditorStepId = ref<string | null>(null);
@@ -155,7 +156,7 @@ function useEditor() {
     const parentId =
       relation === 'root' ? null : (targetId ?? editorScriptAsset.value?.steps[0]?.id ?? null);
     if (relation === 'child' && parentId && !canAddChildStepTo(parentId)) {
-      ElMessage.warning('步骤层级最多 3 级，无法继续新增子级');
+      message.warning('步骤层级最多 3 级，无法继续新增子级');
       return;
     }
     stepDialogTargetId.value = parentId;
@@ -182,7 +183,7 @@ function useEditor() {
       const parent = selectedId ? findStepById(editorScriptAsset.value.steps, selectedId) : null;
       if (parent) {
         if (!canAddChildStep(editorScriptAsset.value.steps, parent.id)) {
-          ElMessage.warning('步骤层级最多 3 级，无法继续新增子级');
+          message.warning('步骤层级最多 3 级，无法继续新增子级');
           return;
         }
         parent.children.push(newStep);
@@ -204,10 +205,11 @@ function useEditor() {
       return;
     }
     try {
-      await ElMessageBox.confirm(`确认删除步骤「${step.name}」？其下级步骤也会一起移除。`, '删除步骤', {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-        type: 'warning',
+      await confirmAction({
+        title: '删除步骤',
+        content: `确认删除步骤「${step.name}」？其下级步骤也会一起移除。`,
+        okText: '删除',
+        okType: 'danger',
       });
     } catch {
       return;
@@ -229,7 +231,7 @@ function useEditor() {
       }
       collapsedStepIds.value = collapsedStepIds.value.filter((id) => id !== stepId);
       editorScriptAsset.value.updatedAt = new Date().toISOString();
-      ElMessage.success('步骤已删除');
+      message.success('步骤已删除');
     }
   }
 
@@ -361,7 +363,7 @@ function useEditor() {
         : (saved.steps[0]?.id ?? null);
       return true;
     } catch (error) {
-      ElMessage.error(error instanceof Error ? error.message : '脚本保存失败');
+      message.error(error instanceof Error ? error.message : '脚本保存失败');
       return false;
     }
   }

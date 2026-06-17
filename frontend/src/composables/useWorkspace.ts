@@ -1,10 +1,11 @@
 import { computed, ref } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { message } from 'ant-design-vue';
 import type { Project, ProjectMember, ProjectRole, ScriptAsset, StatusFilter } from '../types';
 import { createSeedData, normalizeScriptAsset } from '../utils/seed';
 import { useAuth } from './useAuth';
 import { addMemberApi, archiveProjectApi, createProjectApi, getProjectApi, listMembersApi, listProjectsApi, removeMemberApi, restoreProjectApi, updateProjectApi } from '../api/projects';
 import { deleteScriptApi, listScriptDefinitionsApi, mapScriptDefinition } from '../api/scripts';
+import { confirmAction } from '../utils/feedback';
 
 const projects = ref<Project[]>([]), members = ref<ProjectMember[]>([]), scriptAssets = ref<ScriptAsset[]>([]);
 const selectedProjectId = ref<number | null>(null), workspaceProjectId = ref<number | null>(null), selectedScriptId = ref<number | null>(null);
@@ -213,12 +214,15 @@ async function saveProject(payload: { code: string; name: string; ownerUsername:
 async function archiveProject(project: Project) {
   const { currentUser } = useAuth();
   try {
-    await ElMessageBox.confirm(`归档后，${project.name} 不会出现在新建任务入口，但历史资产仍可查看。`, '确认归档项目');
+    await confirmAction({
+      title: '确认归档项目',
+      content: `归档后，${project.name} 不会出现在新建任务入口，但历史资产仍可查看。`,
+    });
     upsertProject(await archiveProjectApi(project.id, currentUser.value?.username ?? project.ownerUsername));
     if (workspaceProjectId.value === project.id) {
       workspaceProjectId.value = null;
     }
-    ElMessage.success('项目已归档');
+    message.success('项目已归档');
     return true;
   } catch {
     return false;
@@ -229,10 +233,10 @@ async function restoreProject(project: Project) {
   const { currentUser } = useAuth();
   try {
     upsertProject(await restoreProjectApi(project.id, currentUser.value?.username ?? project.ownerUsername));
-    ElMessage.success('项目已恢复');
+    message.success('项目已恢复');
     return true;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '项目恢复失败');
+    message.error(error instanceof Error ? error.message : '项目恢复失败');
     return false;
   }
 }
@@ -255,15 +259,20 @@ async function removeMember(projectId: number, username: string) {
   const { currentUser } = useAuth();
   await removeMemberApi(projectId, username, currentUser.value?.username ?? 'admin');
   await loadMembers(projectId, true);
-  ElMessage.success('成员已移除');
+  message.success('成员已移除');
 }
 
 async function deleteScriptAsset(script: ScriptAsset) {
   try {
-    await ElMessageBox.confirm(`确认删除脚本「${script.name}」？`, '删除脚本');
+    await confirmAction({
+      title: '删除脚本',
+      content: `确认删除脚本「${script.name}」？`,
+      okText: '删除',
+      okType: 'danger',
+    });
     await deleteScriptApi(script.projectId, script.id);
     scriptAssets.value = scriptAssets.value.filter((item) => item.id !== script.id);
-    ElMessage.success('脚本已删除');
+    message.success('脚本已删除');
     return true;
   } catch {
     return false;
@@ -275,10 +284,11 @@ async function deleteScriptAssets(scripts: ScriptAsset[]) {
     return false;
   }
   try {
-    await ElMessageBox.confirm(`确认删除选中的 ${scripts.length} 个脚本？`, '批量删除脚本', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning',
+    await confirmAction({
+      title: '批量删除脚本',
+      content: `确认删除选中的 ${scripts.length} 个脚本？`,
+      okText: '删除',
+      okType: 'danger',
     });
     for (const script of scripts) {
       await deleteScriptApi(script.projectId, script.id);
@@ -288,11 +298,11 @@ async function deleteScriptAssets(scripts: ScriptAsset[]) {
     if (selectedScriptId.value !== null && deletedIds.has(selectedScriptId.value)) {
       selectedScriptId.value = currentProjectScripts.value[0]?.id ?? null;
     }
-    ElMessage.success('脚本已删除');
+    message.success('脚本已删除');
     return true;
   } catch (error) {
     if (error instanceof Error) {
-      ElMessage.error(error.message);
+      message.error(error.message);
     }
     return false;
   }

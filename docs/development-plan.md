@@ -12,7 +12,7 @@
 
 范围：
 
-1. Spring Boot 3 + Vue 3 + Element Plus 单体骨架。
+1. Spring Boot 3 + Vue 3 + Ant Design Vue 单体骨架。
 2. 演示登录和用户持久化，详见 [系统管理模块](modules/01-system-management.md)。
 3. 项目创建、查询、归档、恢复，详见 [项目管理模块](modules/02-project-management.md)。
 4. 项目成员查看、添加和负责人权限约束。

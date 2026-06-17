@@ -1,42 +1,34 @@
 <template>
   <section class="home-hero">
-    <div>
+    <div class="home-hero-main">
       <span class="eyebrow">Performance Control Center</span>
-      <h1>性能测试平台首页</h1>
-      <p>把项目资产、脚本解析、执行状态、监控告警和报告沉淀放在一个运营视角下观察。这里先按同类测试平台的工作台形态做 Mock 首页。</p>
+      <h1>性能测试指挥台</h1>
+      <p>把项目资产、脚本解析、执行状态、监控告警和报告沉淀放在同一个高密度视角下观察。</p>
+      <div class="home-hero-actions">
+        <a-button type="primary" size="large" @click="selectMainNav('projects')">进入项目</a-button>
+        <a-button size="large" @click="selectMainNav('settings')">系统配置</a-button>
+      </div>
     </div>
     <div class="home-hero-card">
-      <span>今日重点</span>
+      <a-tag color="warning">今日重点</a-tag>
       <strong>信贷核心压测复测窗口</strong>
       <small>2 个脚本待配置执行参数，3 个监控目标已就绪</small>
     </div>
   </section>
 
   <section class="metrics-grid">
-    <div class="metric">
-      <span>活跃项目</span>
-      <strong>{{ activeProjectCount }}</strong>
-    </div>
-    <div class="metric">
-      <span>脚本资产</span>
-      <strong>{{ scriptAssetTotal }}</strong>
-    </div>
-    <div class="metric">
-      <span>待执行任务</span>
-      <strong>{{ pendingTaskCount }}</strong>
-    </div>
-    <div class="metric">
-      <span>监控目标</span>
-      <strong>{{ monitorTargetTotal }}</strong>
-    </div>
+    <a-statistic class="metric" title="活跃项目" :value="activeProjectCount" />
+    <a-statistic class="metric" title="脚本资产" :value="scriptAssetTotal" />
+    <a-statistic class="metric" title="待执行任务" :value="pendingTaskCount" />
+    <a-statistic class="metric" title="监控目标" :value="monitorTargetTotal" />
   </section>
 
   <section class="home-grid">
-    <div class="panel">
+    <a-card class="panel" :bordered="false">
       <div class="panel-header">
         <div>
           <h2>工作流入口</h2>
-          <p>首页不直接替代业务模块，只放高频入口和当前风险状态。</p>
+          <p>只保留高频入口和当前风险状态。</p>
         </div>
       </div>
       <div class="quick-actions">
@@ -56,9 +48,9 @@
           <small>{{ recentProjects[0]?.name ?? '暂无近期项目' }}</small>
         </button>
       </div>
-    </div>
+    </a-card>
 
-    <div class="panel">
+    <a-card class="panel" :bordered="false">
       <div class="panel-header">
         <div>
           <h2>近期项目</h2>
@@ -76,9 +68,9 @@
           <span>{{ project.code }} · {{ project.ownerUsername }}</span>
         </button>
       </div>
-    </div>
+    </a-card>
 
-    <div class="panel home-wide-panel">
+    <a-card class="panel home-wide-panel" :bordered="false">
       <div class="panel-header">
         <div>
           <h2>平台运行概览</h2>
@@ -107,7 +99,7 @@
           <small>后续按项目、脚本和执行批次追溯</small>
         </div>
       </div>
-    </div>
+    </a-card>
   </section>
 </template>
 
@@ -116,6 +108,12 @@ import { onMounted, ref } from 'vue';
 import type { Project } from '../../types';
 import { getDashboardSummaryApi } from '../../api/dashboard';
 import { useNavigation } from '../../composables/useNavigation';
+
+defineEmits<{
+  (e: 'create'): void;
+  (e: 'edit'): void;
+  (e: 'members'): void;
+}>();
 
 const { selectMainNav, enterProject } = useNavigation();
 const activeProjectCount = ref(0);

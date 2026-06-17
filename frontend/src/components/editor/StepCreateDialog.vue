@@ -1,12 +1,12 @@
 <template>
-  <el-dialog
-    v-model="editor.stepDialogVisible.value"
+  <a-modal
+    v-model:open="editor.stepDialogVisible.value"
     class="step-create-dialog"
     :title="editor.stepDialogTitle.value"
     width="640px"
   >
-    <el-form label-position="top" @submit.prevent>
-      <el-form-item v-if="editor.stepDialogForm.value.relation !== 'root'" label="步骤类型">
+    <a-form layout="vertical" @submit.prevent>
+      <a-form-item v-if="editor.stepDialogForm.value.relation !== 'root'" label="步骤类型">
         <div class="step-type-picker">
           <button
             v-for="option in editor.availableStepTypeOptions.value"
@@ -26,16 +26,16 @@
             </div>
           </button>
         </div>
-      </el-form-item>
-      <el-form-item label="步骤名称">
-        <el-input v-model.trim="editor.stepDialogForm.value.name" placeholder="默认使用类型名称" />
-      </el-form-item>
-    </el-form>
+      </a-form-item>
+      <a-form-item label="步骤名称">
+        <a-input v-model:value.trim="editor.stepDialogForm.value.name" placeholder="默认使用类型名称" />
+      </a-form-item>
+    </a-form>
     <template #footer>
-      <el-button @click="editor.stepDialogVisible.value = false">取消</el-button>
-      <el-button type="primary" @click="editor.createStep">创建步骤</el-button>
+      <a-button @click="editor.stepDialogVisible.value = false">取消</a-button>
+      <a-button type="primary" @click="editor.createStep">创建步骤</a-button>
     </template>
-  </el-dialog>
+  </a-modal>
 </template>
 
 <script setup lang="ts">

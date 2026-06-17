@@ -8,19 +8,19 @@
           <p>{{ currentProject?.name }} 下可用于任务计划的脚本，导入仅作为追加或更新资产的入口。</p>
         </div>
         <div class="script-assets-actions">
-          <el-input v-model="scriptKeyword" class="compact-search" clearable placeholder="搜索脚本、接口、变量" />
-          <el-button :disabled="selectedRows.length === 0" type="danger" plain @click="deleteSelectedScripts">批量删除</el-button>
-          <el-button type="primary" @click="openScriptImportDialog">导入 JMX</el-button>
+          <a-input v-model:value="scriptKeyword" class="compact-search" allow-clear placeholder="搜索脚本、接口、变量" />
+          <a-button :disabled="selectedRows.length === 0" danger @click="deleteSelectedScripts">批量删除</a-button>
+          <a-button type="primary" @click="openScriptImportDialog">导入 JMX</a-button>
         </div>
       </div>
 
       <div class="script-asset-list">
         <div v-if="filteredScriptAssets.length" class="script-asset-head">
           <span>
-            <el-checkbox
-              :model-value="allVisibleSelected"
+            <a-checkbox
+              :checked="allVisibleSelected"
               :indeterminate="partVisibleSelected"
-              @update:model-value="toggleAllVisible"
+              @update:checked="toggleAllVisible"
             />
           </span>
           <span>状态</span>
@@ -39,9 +39,9 @@
           @keydown.enter="selectScript(script)"
         >
           <span @click.stop>
-            <el-checkbox
-              :model-value="selectedScriptIds.includes(script.id)"
-              @update:model-value="toggleScriptSelection(script.id)"
+            <a-checkbox
+              :checked="selectedScriptIds.includes(script.id)"
+              @update:checked="toggleScriptSelection(script.id)"
             />
           </span>
           <span class="asset-status" :class="scriptStatus(script).tone">{{ scriptStatus(script).label }}</span>
@@ -58,14 +58,14 @@
               rel="noopener"
               @click.stop="editor.ensureScriptSteps(script)"
             >编辑</a>
-            <el-button
+            <a-button
               size="small"
               type="primary"
-              plain
+
               :disabled="!scriptStatus(script).executable"
               @click.stop="runScriptAsset(script)"
-            >执行</el-button>
-            <el-button size="small" type="danger" plain @click.stop="deleteScriptAsset(script)">删除</el-button>
+            >执行</a-button>
+            <a-button size="small" danger @click.stop="deleteScriptAsset(script)">删除</a-button>
           </div>
         </div>
         <div v-if="filteredScriptAssets.length === 0" class="empty-inline">
@@ -82,7 +82,7 @@
             <span class="eyebrow">Parsed Script</span>
             <h2>{{ selectedScriptAsset.name }}</h2>
           </div>
-          <el-button type="primary" @click="openParamDrawer(selectedScriptAsset)">默认参数</el-button>
+          <a-button type="primary" @click="openParamDrawer(selectedScriptAsset)">默认参数</a-button>
         </div>
         <p class="detail-description">
           来源 {{ selectedScriptAsset.sourceFile }}，当前 v{{ selectedScriptAsset.latestVersion }}，{{ selectedScriptAsset.remark || '暂无备注' }}。

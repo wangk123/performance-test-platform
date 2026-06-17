@@ -1,11 +1,11 @@
 <template>
-  <el-container class="app-shell">
+  <a-layout class="app-shell">
     <SidebarNav />
 
-    <el-container direction="vertical">
+    <a-layout>
       <TopBar />
 
-      <el-main class="content">
+      <a-layout-content class="content">
         <RouterView v-slot="{ Component }">
           <component
             :is="Component"
@@ -14,9 +14,9 @@
             @members="openMembers"
           />
         </RouterView>
-      </el-main>
-    </el-container>
-  </el-container>
+      </a-layout-content>
+    </a-layout>
+  </a-layout>
 
   <ProjectFormDialog v-model="projectDialogVisible" :editing-project="editingProject" />
   <MemberDialog v-model="memberDialogVisible" :project="memberProject" />

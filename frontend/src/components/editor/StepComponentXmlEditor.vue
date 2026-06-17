@@ -1,28 +1,23 @@
 <template>
-  <div class="component-xml-panel" v-loading="xmlLoading">
-    <div class="component-xml-toolbar">
-      <span>{{ step.name }} · 含子组件 hashTree</span>
-      <div>
-        <el-button @click="formatComponentXml">格式化</el-button>
-        <el-button type="primary" :loading="xmlSaving" @click="applyComponentXml">应用 XML</el-button>
+  <a-spin :spinning="xmlLoading">
+    <div class="component-xml-panel">
+      <div class="component-xml-toolbar">
+        <span>{{ step.name }} · 含子组件 hashTree</span>
+        <div>
+          <a-button @click="formatComponentXml">格式化</a-button>
+          <a-button type="primary" :loading="xmlSaving" @click="applyComponentXml">应用 XML</a-button>
+        </div>
+      </div>
+      <div class="component-xml-editor">
+        <CodeEditor v-model="componentXml" language="xml" placeholder="当前组件 XML" @update:model-value="xmlDirty = true" />
       </div>
     </div>
-    <div class="component-xml-editor" :class="{ 'is-empty': !componentXml }">
-      <pre ref="xmlHighlightRef" class="component-xml-highlight" v-html="highlightedXml" />
-      <textarea
-        v-model="componentXml"
-        class="component-xml-control"
-        spellcheck="false"
-        @input="xmlDirty = true"
-        @scroll="syncXmlScroll"
-      />
-    </div>
-  </div>
+  </a-spin>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { onMounted, ref } from 'vue';
+import { message } from 'ant-design-vue';
 import type { ScriptStep } from '../../types';
 import { useAuth } from '../../composables/useAuth';
 import { useScriptEditor } from '../../composables/useScriptEditor';
@@ -35,7 +30,7 @@ import {
 } from '../../api/scripts';
 import { extractStepXml, formatXml, patchStepXml } from '../../utils/jmeter-component-xml';
 import { findStepById } from '../../utils/script-steps';
-import { highlightContent } from '../../utils/syntax-highlight';
+import CodeEditor from './CodeEditor.vue';
 
 const props = defineProps<{
   step: ScriptStep;
@@ -48,8 +43,6 @@ const componentXml = ref('');
 const xmlDirty = ref(false);
 const xmlLoading = ref(false);
 const xmlSaving = ref(false);
-const xmlHighlightRef = ref<HTMLElement | null>(null);
-const highlightedXml = computed(() => highlightContent(componentXml.value, 'xml'));
 
 onMounted(loadComponentXml);
 
@@ -72,7 +65,7 @@ async function loadComponentXml() {
     componentXml.value = extractStepXml(content.content, selectedId);
     xmlDirty.value = false;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'XML 加载失败');
+    message.error(error instanceof Error ? error.message : 'XML 加载失败');
   } finally {
     xmlLoading.value = false;
   }
@@ -83,7 +76,7 @@ function formatComponentXml() {
     componentXml.value = formatXml(componentXml.value);
     xmlDirty.value = true;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'XML 格式化失败');
+    message.error(error instanceof Error ? error.message : 'XML 格式化失败');
   }
 }
 
@@ -108,10 +101,10 @@ async function applyComponentXml() {
     const latestContent = await getScriptContentApi(script.projectId, script.id);
     componentXml.value = extractStepXml(latestContent.content, selectedId);
     xmlDirty.value = false;
-    ElMessage.success('组件 XML 已应用');
+    message.success('组件 XML 已应用');
     return true;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '组件 XML 保存失败');
+    message.error(error instanceof Error ? error.message : '组件 XML 保存失败');
     return false;
   } finally {
     xmlSaving.value = false;
@@ -130,12 +123,4 @@ async function refreshScriptDefinition(projectId: number, scriptId: number, sele
   editor.selectedEditorStepId.value = findStepById(saved.steps, selectedId) ? selectedId : (saved.steps[0]?.id ?? null);
 }
 
-function syncXmlScroll(event: Event) {
-  if (!xmlHighlightRef.value) {
-    return;
-  }
-  const element = event.target as HTMLTextAreaElement;
-  xmlHighlightRef.value.scrollTop = element.scrollTop;
-  xmlHighlightRef.value.scrollLeft = element.scrollLeft;
-}
 </script>

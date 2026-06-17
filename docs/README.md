@@ -5,6 +5,7 @@
 - [需求与架构总览](requirements-and-architecture.md)
 - [阶段性开发计划](development-plan.md)
 - [实现记录](implementation-log.md)
+- [前端组件库选型](frontend-component-selection.md)
 
 ## 模块文档
 

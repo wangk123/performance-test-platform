@@ -53,13 +53,17 @@
     <div class="panel">
       <h2>成员权限</h2>
       <p class="detail-description">成员关系仍是项目级权限前置校验，脚本、执行、报告不重复维护成员。</p>
-      <el-table v-if="currentProject" :data="membersByProject(currentProject.id)" border stripe>
-        <el-table-column prop="username" label="账号" />
-        <el-table-column prop="displayName" label="姓名" />
-        <el-table-column prop="role" label="项目角色">
-          <template #default="{ row }">{{ projectRoleText(row.role) }}</template>
-        </el-table-column>
-      </el-table>
+      <a-table
+        v-if="currentProject"
+        :columns="memberColumns"
+        :data-source="membersByProject(currentProject.id)"
+        :pagination="false"
+        :row-key="(record: ProjectMember) => record.username"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'role'">{{ projectRoleText(record.role) }}</template>
+        </template>
+      </a-table>
     </div>
   </section>
 </template>
@@ -67,10 +71,11 @@
 <script setup lang="ts">
 import { watch } from 'vue';
 import { useRoute } from 'vue-router';
+import type { TableColumnsType } from 'ant-design-vue';
 import { projectRoleText } from '../../utils/format';
 import { useNavigation } from '../../composables/useNavigation';
 import { useWorkspace } from '../../composables/useWorkspace';
-import type { Project } from '../../types';
+import type { Project, ProjectMember } from '../../types';
 import ProjectOverview from './ProjectOverview.vue';
 import ScriptWorkspace from '../scripts/ScriptWorkspace.vue';
 import TaskScheduleView from '../tasks/TaskScheduleView.vue';
@@ -94,6 +99,12 @@ const {
 } =
   useWorkspace();
 const route = useRoute();
+
+const memberColumns: TableColumnsType<ProjectMember> = [
+  { title: '账号', dataIndex: 'username', key: 'username' },
+  { title: '姓名', dataIndex: 'displayName', key: 'displayName' },
+  { title: '项目角色', dataIndex: 'role', key: 'role' },
+];
 
 watch(
   () => [route.params.projectId, route.name] as const,

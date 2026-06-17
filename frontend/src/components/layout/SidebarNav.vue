@@ -1,5 +1,5 @@
 <template>
-  <el-aside width="260px" class="sidebar">
+  <a-layout-sider width="260" class="sidebar">
     <div class="brand">
       <span class="brand-mark">PT</span>
       <div>
@@ -82,7 +82,7 @@
       <span>后端接口模式</span>
       <strong>JMeter 原生执行</strong>
     </div>
-  </el-aside>
+  </a-layout-sider>
 </template>
 
 <script setup lang="ts">

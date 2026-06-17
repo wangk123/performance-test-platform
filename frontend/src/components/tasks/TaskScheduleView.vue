@@ -34,18 +34,18 @@
             <h2>任务列表</h2>
             <p>任务是脚本和执行配置的快照，列表页只处理任务状态、执行和详情入口。</p>
           </div>
-          <el-button type="primary" @click="openCreate">新建任务</el-button>
+          <a-button type="primary" @click="openCreate">新建任务</a-button>
         </div>
 
         <div class="task-filters">
-          <el-input v-model="taskKeyword" clearable placeholder="搜索任务、脚本、文件" />
-          <el-select v-model="taskStatusFilter">
-            <el-option label="全部状态" value="ALL" />
-            <el-option label="待执行" value="PENDING" />
-            <el-option label="运行中" value="RUNNING" />
-            <el-option label="成功" value="SUCCESS" />
-            <el-option label="失败" value="FAILED" />
-          </el-select>
+          <a-input v-model:value="taskKeyword" allow-clear placeholder="搜索任务、脚本、文件" />
+          <a-select v-model:value="taskStatusFilter">
+            <a-select-option label="全部状态" value="ALL" />
+            <a-select-option label="待执行" value="PENDING" />
+            <a-select-option label="运行中" value="RUNNING" />
+            <a-select-option label="成功" value="SUCCESS" />
+            <a-select-option label="失败" value="FAILED" />
+          </a-select>
         </div>
 
         <div class="task-table">
@@ -79,22 +79,22 @@
             <span>v{{ scriptById(task.scriptId)?.latestVersion ?? '-' }}</span>
             <span>{{ task.lastRunAt ? formatDate(task.lastRunAt) : '未执行' }}</span>
             <span class="task-row-actions">
-              <el-button class="task-fixed-button" type="primary" @click.stop="showTaskDetail(task)">详情</el-button>
-              <el-button class="task-fixed-button" @click.stop="openEdit(task)">编辑</el-button>
-              <el-button
+              <a-button class="task-fixed-button" type="primary" @click.stop="showTaskDetail(task)">详情</a-button>
+              <a-button class="task-fixed-button" @click.stop="openEdit(task)">编辑</a-button>
+              <a-button
                 v-if="task.status !== 'RUNNING'"
                 class="task-fixed-button"
                 type="primary"
-                plain
+
                 @click.stop="runTask(task)"
-              >执行</el-button>
-              <el-button
+              >执行</a-button>
+              <a-button
                 v-if="task.status !== 'RUNNING'"
                 class="task-fixed-button"
-                type="danger"
-                plain
+                danger
+
                 @click.stop="deleteTask(task)"
-              >删除</el-button>
+              >删除</a-button>
             </span>
           </div>
         </div>
@@ -125,8 +125,8 @@
             <small>{{ selectedTask.lastRunAt ? `最近执行 ${formatDate(selectedTask.lastRunAt)}` : '尚未执行' }}</small>
           </div>
           <div class="task-side-actions">
-            <el-button class="task-side-button" @click="openEdit(selectedTask)">编辑任务</el-button>
-            <el-button class="task-side-button" type="primary" @click="showTaskDetail(selectedTask)">查看详情</el-button>
+            <a-button class="task-side-button" @click="openEdit(selectedTask)">编辑任务</a-button>
+            <a-button class="task-side-button" type="primary" @click="showTaskDetail(selectedTask)">查看详情</a-button>
           </div>
         </template>
       </aside>

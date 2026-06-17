@@ -1,5 +1,5 @@
 import { reactive, ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { message } from 'ant-design-vue';
 import type { ScriptAsset } from '../types';
 import { parseParamNumber } from '../utils/format';
 
@@ -42,7 +42,7 @@ function saveParams() {
     { key: 'extraProperties', label: '扩展属性', value: paramForm.extraProperties || '未配置' },
   ];
   paramDrawerVisible.value = false;
-  ElMessage.success('默认执行参数已保存');
+  message.success('默认执行参数已保存');
 }
 
 export function useScriptParams() {

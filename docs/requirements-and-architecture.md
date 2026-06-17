@@ -77,7 +77,7 @@
 MVP 采用 Spring Boot 精简单体 + Vue 3 工作台。架构目标不是提前引入复杂分布式能力，而是让项目、脚本、执行、报告和权限数据先形成稳定边界，并通过接口抽象支撑后续替换。
 
 ```text
-Vue 3 + TypeScript + Element Plus
+Vue 3 + TypeScript + Ant Design Vue
         |
         | HTTP / 后续 WebSocket
         v
@@ -96,7 +96,7 @@ Spring Boot 3 应用层
 |------|----------|----------|----------|
 | 后端框架 | Spring Boot 3.x | 单体分层、事务控制、JMeter Java 生态 | Spring Cloud 微服务 |
 | 前端框架 | Vue 3 + TypeScript | 企业后台、复杂表单、状态页面 | 微前端 |
-| UI 组件库 | Element Plus | 后台组件完整，开发效率高 | 保持一致，不频繁替换 |
+| UI 组件库 | Ant Design Vue | 企业后台基础组件完整，适合承载复杂工作台 | AntV、ECharts 可视化生态 |
 | 数据库 | H2 开发 / MySQL 生产 | MVP 关系模型明确，开发部署简单 | 分库分表 |
 | 文件存储 | 本地文件系统 | JMX、日志、结果、报告低成本存储 | MinIO、OSS、COS |
 | 任务调度 | Spring Async + 数据库任务表 | 单机队列满足首版 | MQ、分布式调度 |

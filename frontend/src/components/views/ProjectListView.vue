@@ -6,8 +6,8 @@
       <p>脚本、任务计划、监控配置、报告都归属于项目。先选择或创建项目，进入后再维护项目内资产。</p>
     </div>
     <div class="hero-actions">
-      <el-button @click="resetWorkspace">重置本地视图</el-button>
-      <el-button type="primary" size="large" @click="$emit('create')">新建项目</el-button>
+      <a-button @click="resetWorkspace">重置本地视图</a-button>
+      <a-button type="primary" size="large" @click="$emit('create')">新建项目</a-button>
     </div>
   </section>
 
@@ -40,49 +40,38 @@
       </div>
 
       <div class="filters">
-        <el-input v-model="projectKeyword" clearable placeholder="搜索项目名称、编码、负责人" />
-        <el-segmented v-model="projectStatusFilter" :options="projectStatusOptions" />
+        <a-input v-model:value="projectKeyword" allow-clear placeholder="搜索项目名称、编码、负责人" />
+        <a-segmented v-model:value="projectStatusFilter" :options="projectStatusOptions" />
       </div>
 
-      <el-table
-        :data="filteredProjects"
-        border
-        stripe
-        highlight-current-row
-        @row-click="selectProject"
+      <a-table
+        :columns="projectColumns"
+        :data-source="filteredProjects"
+        :pagination="false"
+        :row-key="(record: Project) => record.id"
+        :custom-row="projectRowEvents"
+        :locale="{ emptyText: '没有匹配项目，调整筛选条件或新建项目。' }"
       >
-        <el-table-column prop="code" label="项目编码" min-width="150" />
-        <el-table-column prop="name" label="项目名称" min-width="220" />
-        <el-table-column prop="ownerUsername" label="负责人" width="120" />
-        <el-table-column label="资产" width="150">
-          <template #default>进入后查看</template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="110">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">{{ projectStatusText(row.status) }}</el-tag>
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'asset'">进入后查看</template>
+          <template v-else-if="column.key === 'status'">
+            <a-tag :color="record.status === 'ACTIVE' ? 'success' : 'default'">{{ projectStatusText(record.status) }}</a-tag>
           </template>
-        </el-table-column>
-        <el-table-column prop="updatedAt" label="更新时间" width="168">
-          <template #default="{ row }">{{ formatDate(row.updatedAt) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click.stop="enterProject(row)">进入项目</el-button>
-            <el-button link type="primary" @click.stop="$emit('edit', row)">编辑</el-button>
-            <el-button link type="primary" @click.stop="$emit('members', row)">成员</el-button>
-            <el-button
-              v-if="row.status === 'ACTIVE'"
-              link
-              type="warning"
-              @click.stop="archiveProject(row)"
-            >归档</el-button>
-            <el-button v-else link type="success" @click.stop="restoreProject(row)">恢复</el-button>
+          <template v-else-if="column.key === 'updatedAt'">{{ formatDate(record.updatedAt) }}</template>
+          <template v-else-if="column.key === 'actions'">
+            <a-button type="link" @click.stop="enterProject(record)">进入项目</a-button>
+            <a-button type="link" @click.stop="$emit('edit', record)">编辑</a-button>
+            <a-button type="link" @click.stop="$emit('members', record)">成员</a-button>
+            <a-button
+              v-if="record.status === 'ACTIVE'"
+              type="link"
+              danger
+              @click.stop="archiveProject(record)"
+            >归档</a-button>
+            <a-button v-else type="link" @click.stop="restoreProject(record)">恢复</a-button>
           </template>
-        </el-table-column>
-        <template #empty>
-          <div class="empty-state">没有匹配项目，调整筛选条件或新建项目。</div>
         </template>
-      </el-table>
+      </a-table>
     </div>
 
     <aside class="panel detail-panel">
@@ -92,9 +81,9 @@
             <span class="eyebrow">{{ selectedProject.code }}</span>
             <h2>{{ selectedProject.name }}</h2>
           </div>
-          <el-tag :type="selectedProject.status === 'ACTIVE' ? 'success' : 'info'">
+          <a-tag :color="selectedProject.status === 'ACTIVE' ? 'success' : 'default'">
             {{ projectStatusText(selectedProject.status) }}
-          </el-tag>
+          </a-tag>
         </div>
         <p class="detail-description">{{ selectedProject.description || '暂未填写项目说明。' }}</p>
         <div class="info-list">
@@ -116,8 +105,8 @@
           </div>
         </div>
         <div class="detail-actions">
-          <el-button type="primary" @click="enterProject(selectedProject)">进入项目工作区</el-button>
-          <el-button @click="$emit('members', selectedProject)">维护成员</el-button>
+          <a-button type="primary" @click="enterProject(selectedProject)">进入项目工作区</a-button>
+          <a-button @click="$emit('members', selectedProject)">维护成员</a-button>
         </div>
       </template>
     </aside>
@@ -126,6 +115,7 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
+import type { TableColumnsType } from 'ant-design-vue';
 import { projectStatusOptions } from '../../constants';
 import { formatDate, projectStatusText } from '../../utils/format';
 import { useWorkspace } from '../../composables/useWorkspace';
@@ -152,6 +142,22 @@ const {
   loadProjects,
 } = useWorkspace();
 const { enterProject } = useNavigation();
+
+const projectColumns: TableColumnsType<Project> = [
+  { title: '项目编码', dataIndex: 'code', key: 'code', width: 150 },
+  { title: '项目名称', dataIndex: 'name', key: 'name', width: 220 },
+  { title: '负责人', dataIndex: 'ownerUsername', key: 'ownerUsername', width: 120 },
+  { title: '资产', key: 'asset', width: 150 },
+  { title: '状态', dataIndex: 'status', key: 'status', width: 110 },
+  { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt', width: 168 },
+  { title: '操作', key: 'actions', width: 280, fixed: 'right' },
+];
+
+function projectRowEvents(record: Project) {
+  return {
+    onClick: () => selectProject(record),
+  };
+}
 
 onMounted(() => {
   void loadProjects();

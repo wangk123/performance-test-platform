@@ -1,76 +1,78 @@
 <template>
-  <el-dialog v-model="visible" title="项目成员" width="720px">
+  <a-modal v-model:open="visible" title="项目成员" width="720px">
     <div v-if="project" class="member-dialog">
       <div class="member-context">
         <div>
           <strong>{{ project.name }}</strong>
           <span>{{ project.code }}</span>
         </div>
-        <el-tag :type="project.status === 'ACTIVE' ? 'success' : 'info'">
+        <a-tag :color="project.status === 'ACTIVE' ? 'success' : 'default'">
           {{ projectStatusText(project.status) }}
-        </el-tag>
+        </a-tag>
       </div>
 
-      <el-table :data="membersByProject(project.id)" border stripe>
-        <el-table-column prop="username" label="账号" />
-        <el-table-column prop="displayName" label="姓名" />
-        <el-table-column prop="role" label="项目角色" width="150">
-          <template #default="{ row }">
-            <el-tag :type="row.role === 'OWNER' ? 'success' : 'info'">
-              {{ projectRoleText(row.role) }}
-            </el-tag>
+      <a-table
+        :columns="memberColumns"
+        :data-source="membersByProject(project.id)"
+        :pagination="false"
+        :row-key="(record: ProjectMember) => record.username"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'role'">
+            <a-tag :color="record.role === 'OWNER' ? 'success' : 'default'">
+              {{ projectRoleText(record.role) }}
+            </a-tag>
           </template>
-        </el-table-column>
-        <el-table-column label="操作" width="108">
-          <template #default="{ row }">
-            <el-button
-              link
-              type="danger"
-              :disabled="row.role === 'OWNER'"
-              @click="removeMember(project!.id, row.username)"
-            >移除</el-button>
+          <template v-else-if="column.key === 'actions'">
+            <a-button
+              type="link"
+              danger
+              :disabled="record.role === 'OWNER'"
+              @click="removeMember(project!.id, record.username)"
+            >移除</a-button>
           </template>
-        </el-table-column>
-      </el-table>
+        </template>
+      </a-table>
 
-      <el-form class="member-form" inline @submit.prevent>
-        <el-form-item label="成员账号">
-          <el-input
-            v-model.trim="memberForm.username"
+      <a-form class="member-form" inline @submit.prevent>
+        <a-form-item label="成员账号">
+          <a-input
+            v-model:value.trim="memberForm.username"
             :disabled="project.status === 'ARCHIVED'"
             placeholder="例如 tester"
           />
-        </el-form-item>
-        <el-form-item label="姓名">
-          <el-input
-            v-model.trim="memberForm.displayName"
+        </a-form-item>
+        <a-form-item label="姓名">
+          <a-input
+            v-model:value.trim="memberForm.displayName"
             :disabled="project.status === 'ARCHIVED'"
             placeholder="例如 测试同学"
           />
-        </el-form-item>
-        <el-form-item label="角色">
-          <el-select v-model="memberForm.role" :disabled="project.status === 'ARCHIVED'" class="role-select">
-            <el-option label="项目成员" value="MEMBER" />
-            <el-option label="项目负责人" value="OWNER" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button
+        </a-form-item>
+        <a-form-item label="角色">
+          <a-select v-model:value="memberForm.role" :disabled="project.status === 'ARCHIVED'" class="role-select">
+            <a-select-option label="项目成员" value="MEMBER" />
+            <a-select-option label="项目负责人" value="OWNER" />
+          </a-select>
+        </a-form-item>
+        <a-form-item>
+          <a-button
             type="primary"
             :disabled="project.status === 'ARCHIVED'"
             @click="onAdd"
-          >添加成员</el-button>
-        </el-form-item>
-      </el-form>
+          >添加成员</a-button>
+        </a-form-item>
+      </a-form>
       <p v-if="project.status === 'ARCHIVED'" class="form-hint">已归档项目不允许新增成员，先恢复项目后再维护。</p>
     </div>
-  </el-dialog>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
-import type { Project, ProjectRole } from '../../types';
+import { message } from 'ant-design-vue';
+import type { TableColumnsType } from 'ant-design-vue';
+import type { Project, ProjectMember, ProjectRole } from '../../types';
 import { projectRoleText, projectStatusText } from '../../utils/format';
 import { useWorkspace } from '../../composables/useWorkspace';
 
@@ -85,6 +87,13 @@ const emit = defineEmits<{
 
 const visible = ref(props.modelValue);
 const { membersByProject, addMember, removeMember, loadMembers } = useWorkspace();
+
+const memberColumns: TableColumnsType<ProjectMember> = [
+  { title: '账号', dataIndex: 'username', key: 'username' },
+  { title: '姓名', dataIndex: 'displayName', key: 'displayName' },
+  { title: '项目角色', dataIndex: 'role', key: 'role', width: 150 },
+  { title: '操作', key: 'actions', width: 108 },
+];
 
 const memberForm = reactive<{ username: string; displayName: string; role: ProjectRole }>({
   username: '',
@@ -115,10 +124,10 @@ async function onAdd() {
   }
   const result = await addMember(props.project.id, memberForm);
   if (!result.ok) {
-    ElMessage.error(result.message);
+    message.error(result.message);
     return;
   }
-  ElMessage.success(result.message);
+  message.success(result.message);
   memberForm.username = '';
   memberForm.displayName = '';
   memberForm.role = 'MEMBER';

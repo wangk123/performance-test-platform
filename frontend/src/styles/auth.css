@@ -170,26 +170,30 @@
   margin-top: 24px;
 }
 
-.auth-form .el-form-item__label {
+.auth-form .ant-form-item-label > label {
   color: rgba(231, 242, 239, 0.82);
 }
 
-.auth-form .el-input__wrapper {
+.auth-form .ant-input,
+.auth-form .ant-input-affix-wrapper {
   min-height: 44px;
   border: 1px solid rgba(139, 209, 190, 0.18);
   background: rgba(255, 255, 255, 0.08);
   box-shadow: none;
 }
 
-.auth-form .el-input__inner {
+.auth-form .ant-input,
+.auth-form .ant-input-password input {
   color: #fff;
+  background: transparent;
 }
 
-.auth-form .el-input__inner::placeholder {
+.auth-form .ant-input::placeholder,
+.auth-form .ant-input-password input::placeholder {
   color: rgba(231, 242, 239, 0.42);
 }
 
-.auth-form .el-button {
+.auth-form .ant-btn {
   width: 100%;
   min-height: 46px;
   margin-top: 4px;

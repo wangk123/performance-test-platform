@@ -8,11 +8,11 @@
         <p>{{ currentProject.description }}</p>
       </div>
       <div class="project-hero-actions">
-        <el-tag :type="currentProject.status === 'ACTIVE' ? 'success' : 'info'" effect="light">
+        <a-tag :color="currentProject.status === 'ACTIVE' ? 'success' : 'default'">
           {{ projectStatusText(currentProject.status) }}
-        </el-tag>
-        <el-button @click="$emit('edit', currentProject)">编辑项目</el-button>
-        <el-button @click="$emit('members', currentProject)">成员权限</el-button>
+        </a-tag>
+        <a-button @click="$emit('edit', currentProject)">编辑项目</a-button>
+        <a-button @click="$emit('members', currentProject)">成员权限</a-button>
       </div>
     </section>
 
@@ -74,7 +74,7 @@
               <h2>最近脚本</h2>
               <p>进入脚本页查看线程组、接口和监控解析结果。</p>
             </div>
-            <el-button type="primary" @click="enterProjectTab('scripts')">管理脚本</el-button>
+            <a-button type="primary" @click="enterProjectTab('scripts')">管理脚本</a-button>
           </div>
           <div class="mini-list">
             <button

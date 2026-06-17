@@ -1,28 +1,28 @@
 <template>
-  <el-dialog v-model="visible" title="HTTP 调试结果" width="760px" destroy-on-close>
+  <a-modal v-model:open="visible" title="HTTP 调试结果" width="760px" destroy-on-close>
     <div v-if="result" class="http-debug-dialog">
       <div class="http-debug-summary">
-        <el-tag :type="result.ok ? 'success' : 'danger'">{{ result.status ?? 'ERR' }}</el-tag>
+        <a-tag :color="result.ok ? 'success' : 'danger'">{{ result.status ?? 'ERR' }}</a-tag>
         <strong>{{ result.method }} {{ result.url }}</strong>
         <span>{{ result.durationMs }}ms {{ result.statusText }}</span>
       </div>
-      <el-alert v-if="result.error" :title="result.error" type="error" :closable="false" show-icon />
-      <el-tabs model-value="response">
-        <el-tab-pane label="响应体" name="response">
+      <a-alert v-if="result.error" :title="result.error" type="error" :closable="false" show-icon />
+      <a-tabs active-key="response">
+        <a-tab-pane tab="响应体" key="response">
           <pre class="http-debug-pre">{{ result.responseBody || '无响应体' }}</pre>
-        </el-tab-pane>
-        <el-tab-pane label="响应头" name="responseHeaders">
+        </a-tab-pane>
+        <a-tab-pane tab="响应头" key="responseHeaders">
           <pre class="http-debug-pre">{{ formatRecord(result.responseHeaders) }}</pre>
-        </el-tab-pane>
-        <el-tab-pane label="请求头" name="requestHeaders">
+        </a-tab-pane>
+        <a-tab-pane tab="请求头" key="requestHeaders">
           <pre class="http-debug-pre">{{ formatRecord(result.requestHeaders) }}</pre>
-        </el-tab-pane>
-        <el-tab-pane label="请求体" name="requestBody">
+        </a-tab-pane>
+        <a-tab-pane tab="请求体" key="requestBody">
           <pre class="http-debug-pre">{{ result.requestBody || '无请求体' }}</pre>
-        </el-tab-pane>
-      </el-tabs>
+        </a-tab-pane>
+      </a-tabs>
     </div>
-  </el-dialog>
+  </a-modal>
 </template>
 
 <script setup lang="ts">

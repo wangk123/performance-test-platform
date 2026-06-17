@@ -125,17 +125,17 @@
     padding: 16px;
   }
 
-    .filters,
-    .metrics-grid,
-    .asset-flow,
-    .operation-board,
-    .quick-actions,
-    .role-grid,
-    .task-filters,
-    .task-form-grid,
-    .task-summary-strip,
-    .script-asset-row,
-    .step-config-grid {
+  .filters,
+  .metrics-grid,
+  .asset-flow,
+  .operation-board,
+  .quick-actions,
+  .role-grid,
+  .task-filters,
+  .task-form-grid,
+  .task-summary-strip,
+  .script-asset-row,
+  .step-config-grid {
     grid-template-columns: 1fr;
   }
 

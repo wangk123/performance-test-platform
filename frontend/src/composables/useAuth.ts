@@ -1,5 +1,5 @@
 import { reactive, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
+import { message } from 'ant-design-vue';
 import type { User } from '../types';
 import { CURRENT_USER_KEY } from '../constants';
 import { loginApi } from '../api/auth';
@@ -36,15 +36,15 @@ async function login() {
   loginLoading.value = true;
   if (!loginForm.username.trim() || !loginForm.password.trim()) {
     loginLoading.value = false;
-    ElMessage.error('请输入账号和密码');
+    message.error('请输入账号和密码');
     return false;
   }
   try {
     currentUser.value = await loginApi(loginForm.username.trim(), loginForm.password.trim());
-    ElMessage.success('已登录');
+    message.success('已登录');
     return true;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '登录失败');
+    message.error(error instanceof Error ? error.message : '登录失败');
     return false;
   } finally {
     loginLoading.value = false;

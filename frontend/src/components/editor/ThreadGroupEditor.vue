@@ -1,58 +1,58 @@
 <template>
   <div class="thread-group-editor">
-    <el-form-item label="运行模式">
-      <el-radio-group :model-value="mode" @update:model-value="switchMode">
-        <el-radio-button value="count">按次数</el-radio-button>
-        <el-radio-button value="duration">按时间</el-radio-button>
-        <el-radio-button value="stepping">阶梯加压</el-radio-button>
-      </el-radio-group>
-    </el-form-item>
+    <a-form-item label="运行模式">
+      <a-radio-group :value="mode" @update:value="switchMode">
+        <a-radio-button value="count">按次数</a-radio-button>
+        <a-radio-button value="duration">按时间</a-radio-button>
+        <a-radio-button value="stepping">阶梯加压</a-radio-button>
+      </a-radio-group>
+    </a-form-item>
 
     <section class="thread-config-section">
       <h3>基础并发</h3>
       <div class="step-config-grid">
-        <el-form-item label="线程数" :error="errors.threads">
-          <el-input-number :model-value="config.threads" :min="1" :step="10" controls-position="right" @update:model-value="updateField('threads', $event)" />
-        </el-form-item>
-        <el-form-item v-if="mode !== 'stepping'" label="Ramp-Up（秒）" :error="errors.rampUp">
-          <el-input-number :model-value="config.rampUp" :min="0" :step="10" controls-position="right" @update:model-value="updateField('rampUp', $event)" />
-        </el-form-item>
-        <el-form-item v-if="mode === 'count'" label="循环次数" :error="errors.loops">
-          <el-input-number :model-value="config.loops" :min="1" controls-position="right" @update:model-value="updateField('loops', $event)" />
-        </el-form-item>
-        <el-form-item v-if="mode === 'duration'" label="持续时间（秒）" :error="errors.duration">
-          <el-input-number :model-value="config.duration" :min="1" :step="60" controls-position="right" @update:model-value="updateField('duration', $event)" />
-        </el-form-item>
+        <a-form-item label="线程数" :validate-status="errors.threads ? 'error' : undefined" :help="errors.threads || undefined">
+          <a-input-number :value="config.threads" :min="1" :step="10" @update:value="updateField('threads', $event)" />
+        </a-form-item>
+        <a-form-item v-if="mode !== 'stepping'" label="Ramp-Up（秒）" :validate-status="errors.rampUp ? 'error' : undefined" :help="errors.rampUp || undefined">
+          <a-input-number :value="config.rampUp" :min="0" :step="10" @update:value="updateField('rampUp', $event)" />
+        </a-form-item>
+        <a-form-item v-if="mode === 'count'" label="循环次数" :validate-status="errors.loops ? 'error' : undefined" :help="errors.loops || undefined">
+          <a-input-number :value="config.loops" :min="1" @update:value="updateField('loops', $event)" />
+        </a-form-item>
+        <a-form-item v-if="mode === 'duration'" label="持续时间（秒）" :validate-status="errors.duration ? 'error' : undefined" :help="errors.duration || undefined">
+          <a-input-number :value="config.duration" :min="1" :step="60" @update:value="updateField('duration', $event)" />
+        </a-form-item>
       </div>
     </section>
 
     <section v-if="mode === 'stepping'" class="thread-config-section">
       <h3>阶梯加压</h3>
       <div class="step-config-grid">
-        <el-form-item label="初始延迟（秒）" :error="errors.initialDelay">
-          <el-input-number :model-value="stepping.initialDelay" :min="0" :step="5" controls-position="right" @update:model-value="updateStepping('initialDelay', $event)" />
-        </el-form-item>
-        <el-form-item label="每阶段启动用户数" :error="errors.startUsersCount">
-          <el-input-number :model-value="stepping.startUsersCount" :min="1" :step="10" controls-position="right" @update:model-value="updateStepping('startUsersCount', $event)" />
-        </el-form-item>
-        <el-form-item label="阶段间隔（秒）" :error="errors.startUsersPeriod">
-          <el-input-number :model-value="stepping.startUsersPeriod" :min="1" :step="10" controls-position="right" @update:model-value="updateStepping('startUsersPeriod', $event)" />
-        </el-form-item>
-        <el-form-item label="单阶段 Ramp-Up（秒）" :error="errors.steppingRampUp">
-          <el-input-number :model-value="stepping.rampUp" :min="0" :step="5" controls-position="right" @update:model-value="updateStepping('rampUp', $event)" />
-        </el-form-item>
-        <el-form-item label="保持时间（秒）" :error="errors.flightTime">
-          <el-input-number :model-value="stepping.flightTime" :min="1" :step="60" controls-position="right" @update:model-value="updateStepping('flightTime', $event)" />
-        </el-form-item>
-        <el-form-item label="每阶段停止用户数" :error="errors.stopUsersCount">
-          <el-input-number :model-value="stepping.stopUsersCount" :min="1" :step="10" controls-position="right" @update:model-value="updateStepping('stopUsersCount', $event)" />
-        </el-form-item>
-        <el-form-item label="停止间隔（秒）" :error="errors.stopUsersPeriod">
-          <el-input-number :model-value="stepping.stopUsersPeriod" :min="1" :step="10" controls-position="right" @update:model-value="updateStepping('stopUsersPeriod', $event)" />
-        </el-form-item>
-        <el-form-item label="Burst 启动">
-          <el-switch :model-value="stepping.burst" @update:model-value="updateSteppingBurst" />
-        </el-form-item>
+        <a-form-item label="初始延迟（秒）" :validate-status="errors.initialDelay ? 'error' : undefined" :help="errors.initialDelay || undefined">
+          <a-input-number :value="stepping.initialDelay" :min="0" :step="5" @update:value="updateStepping('initialDelay', $event)" />
+        </a-form-item>
+        <a-form-item label="每阶段启动用户数" :validate-status="errors.startUsersCount ? 'error' : undefined" :help="errors.startUsersCount || undefined">
+          <a-input-number :value="stepping.startUsersCount" :min="1" :step="10" @update:value="updateStepping('startUsersCount', $event)" />
+        </a-form-item>
+        <a-form-item label="阶段间隔（秒）" :validate-status="errors.startUsersPeriod ? 'error' : undefined" :help="errors.startUsersPeriod || undefined">
+          <a-input-number :value="stepping.startUsersPeriod" :min="1" :step="10" @update:value="updateStepping('startUsersPeriod', $event)" />
+        </a-form-item>
+        <a-form-item label="单阶段 Ramp-Up（秒）" :validate-status="errors.steppingRampUp ? 'error' : undefined" :help="errors.steppingRampUp || undefined">
+          <a-input-number :value="stepping.rampUp" :min="0" :step="5" @update:value="updateStepping('rampUp', $event)" />
+        </a-form-item>
+        <a-form-item label="保持时间（秒）" :validate-status="errors.flightTime ? 'error' : undefined" :help="errors.flightTime || undefined">
+          <a-input-number :value="stepping.flightTime" :min="1" :step="60" @update:value="updateStepping('flightTime', $event)" />
+        </a-form-item>
+        <a-form-item label="每阶段停止用户数" :validate-status="errors.stopUsersCount ? 'error' : undefined" :help="errors.stopUsersCount || undefined">
+          <a-input-number :value="stepping.stopUsersCount" :min="1" :step="10" @update:value="updateStepping('stopUsersCount', $event)" />
+        </a-form-item>
+        <a-form-item label="停止间隔（秒）" :validate-status="errors.stopUsersPeriod ? 'error' : undefined" :help="errors.stopUsersPeriod || undefined">
+          <a-input-number :value="stepping.stopUsersPeriod" :min="1" :step="10" @update:value="updateStepping('stopUsersPeriod', $event)" />
+        </a-form-item>
+        <a-form-item label="Burst 启动">
+          <a-switch :checked="stepping.burst" @update:checked="updateSteppingBurst" />
+        </a-form-item>
       </div>
     </section>
   </div>

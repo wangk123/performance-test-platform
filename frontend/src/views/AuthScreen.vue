@@ -41,21 +41,21 @@
           <h2>登录控制台</h2>
           <p>使用演示账号进入平台首页。</p>
         </div>
-        <el-form class="auth-form" label-position="top" @submit.prevent>
-          <el-form-item label="账号">
-            <el-input v-model="loginForm.username" autocomplete="username" size="large" />
-          </el-form-item>
-          <el-form-item label="密码">
-            <el-input
-              v-model="loginForm.password"
+        <a-form class="auth-form" layout="vertical" @submit.prevent>
+          <a-form-item label="账号">
+            <a-input v-model:value="loginForm.username" autocomplete="username" size="large" />
+          </a-form-item>
+          <a-form-item label="密码">
+            <a-input
+              v-model:value="loginForm.password"
               type="password"
               autocomplete="current-password"
               show-password
               size="large"
             />
-          </el-form-item>
-          <el-button type="primary" size="large" :loading="loginLoading" @click="onLogin">进入平台</el-button>
-        </el-form>
+          </a-form-item>
+          <a-button type="primary" size="large" :loading="loginLoading" @click="onLogin">进入平台</a-button>
+        </a-form>
         <div class="auth-demo">
           <span>演示账号</span>
           <strong>admin / admin123</strong>

@@ -3,15 +3,15 @@
     <div class="panel task-detail-hero">
       <div>
         <div class="task-detail-nav">
-          <el-button class="task-back-button" @click="$emit('back')">返回任务列表</el-button>
+          <a-button class="task-back-button" @click="$emit('back')">返回任务列表</a-button>
           <span class="eyebrow">Execution Detail</span>
         </div>
         <h2>{{ task.name }}</h2>
         <p>{{ script?.name }} · {{ task.environment }} · {{ taskStatusText(task.status) }}</p>
       </div>
       <div class="row-actions">
-        <el-button class="task-fixed-button" @click="$emit('edit', task)">编辑</el-button>
-        <el-button class="task-fixed-button" type="primary" @click="runTask(task)">立即执行</el-button>
+        <a-button class="task-fixed-button" @click="$emit('edit', task)">编辑</a-button>
+        <a-button class="task-fixed-button" type="primary" @click="runTask(task)">立即执行</a-button>
       </div>
     </div>
 
@@ -110,7 +110,7 @@
             <h2>查看结果树</h2>
           </div>
         </div>
-        <el-segmented v-model="resultFilter" :options="resultFilterOptions" />
+        <a-segmented v-model:value="resultFilter" :options="resultFilterOptions" />
         <div class="sample-list">
           <button
             v-for="sample in pagedSamples"
@@ -133,13 +133,12 @@
         </div>
         <div class="result-pagination">
           <span>{{ resultSamples.length }} 条样本</span>
-          <el-pagination
-            v-model:current-page="resultPage"
-            v-model:page-size="pageSize"
+          <a-pagination
+            v-model:current="resultPage"
+            v-model:pageSize="pageSize"
             small
-            layout="sizes, prev, pager, next, jumper"
-            :page-sizes="[10, 20, 50]"
-            :pager-count="5"
+            show-size-changer
+            :page-size-options="['10', '20', '50']"
             :total="resultSamples.length"
           />
         </div>
@@ -155,7 +154,7 @@
         </div>
         <div class="sample-inspector">
           <div class="sample-inspector-toolbar">
-            <el-segmented v-model="payloadMode" :options="payloadModeOptions" />
+            <a-segmented v-model:value="payloadMode" :options="payloadModeOptions" />
             <div class="sample-inspector-meta">
               <span>{{ activePayloadTitle }}</span>
               <strong>{{ activePayload.length.toLocaleString() }} chars</strong>

@@ -29,19 +29,20 @@
             <h2>用户管理</h2>
             <p>维护平台登录账号、系统角色和账号状态。</p>
           </div>
-          <el-button type="primary">新建用户</el-button>
+          <a-button type="primary">新建用户</a-button>
         </div>
-        <el-table :data="systemUsers" border stripe>
-          <el-table-column prop="username" label="账号" />
-          <el-table-column prop="displayName" label="姓名" />
-          <el-table-column prop="role" label="系统角色" />
-          <el-table-column prop="status" label="状态">
-            <template #default="{ row }">
-              <el-tag :type="row.status === '启用' ? 'success' : 'info'">{{ row.status }}</el-tag>
+        <a-table
+          :columns="userColumns"
+          :data-source="systemUsers"
+          :pagination="false"
+          :row-key="(record: SystemUser) => record.username"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'status'">
+              <a-tag :color="record.status === '启用' ? 'success' : 'default'">{{ record.status }}</a-tag>
             </template>
-          </el-table-column>
-          <el-table-column prop="lastLogin" label="最近登录" />
-        </el-table>
+          </template>
+        </a-table>
       </template>
 
       <template v-else-if="activeConfigTab === 'roles'">
@@ -50,7 +51,7 @@
             <h2>角色管理</h2>
             <p>角色聚合权限，项目内负责人/成员权限仍由项目成员关系控制。</p>
           </div>
-          <el-button type="primary">新建角色</el-button>
+          <a-button type="primary">新建角色</a-button>
         </div>
         <div class="role-grid">
           <div v-for="role in systemRoles" :key="role.name">
@@ -81,9 +82,20 @@
 </template>
 
 <script setup lang="ts">
+import type { TableColumnsType } from 'ant-design-vue';
 import { configTabOptions, systemPermissions, systemRoles, systemUsers } from '../../constants';
 import { configIndex } from '../../utils/format';
 import { useNavigation } from '../../composables/useNavigation';
 
 const { activeConfigTab } = useNavigation();
+
+type SystemUser = (typeof systemUsers)[number];
+
+const userColumns: TableColumnsType<SystemUser> = [
+  { title: '账号', dataIndex: 'username', key: 'username' },
+  { title: '姓名', dataIndex: 'displayName', key: 'displayName' },
+  { title: '系统角色', dataIndex: 'role', key: 'role' },
+  { title: '状态', dataIndex: 'status', key: 'status' },
+  { title: '最近登录', dataIndex: 'lastLogin', key: 'lastLogin' },
+];
 </script>

@@ -1,30 +1,29 @@
 <template>
   <div class="response-assertion-config">
     <div class="step-config-grid">
-      <el-form-item label="断言目标">
-        <el-select :model-value="config.target" @update:model-value="updateField('target', $event)">
-          <el-option label="响应体" value="body" />
-          <el-option label="响应码" value="statusCode" />
-          <el-option label="响应头" value="headers" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="匹配方式">
-        <el-select :model-value="config.match" @update:model-value="updateField('match', $event)">
-          <el-option label="包含" value="contains" />
-          <el-option label="等于" value="equals" />
-          <el-option label="正则" value="regex" />
-        </el-select>
-      </el-form-item>
+      <a-form-item label="断言目标">
+        <a-select :value="config.target" @update:value="updateField('target', $event)">
+          <a-select-option label="响应体" value="body" />
+          <a-select-option label="响应码" value="statusCode" />
+          <a-select-option label="响应头" value="headers" />
+        </a-select>
+      </a-form-item>
+      <a-form-item label="匹配方式">
+        <a-select :value="config.match" @update:value="updateField('match', $event)">
+          <a-select-option label="包含" value="contains" />
+          <a-select-option label="等于" value="equals" />
+          <a-select-option label="正则" value="regex" />
+        </a-select>
+      </a-form-item>
     </div>
-    <el-form-item label="匹配内容">
-      <el-input
-        :model-value="config.rule"
-        type="textarea"
+    <a-form-item label="匹配内容">
+      <a-textarea
+        :value="config.rule"
         :rows="4"
         placeholder="输入响应码、Header 片段、响应体文本或正则"
-        @update:model-value="updateField('rule', $event)"
+        @update:value="updateField('rule', $event)"
       />
-    </el-form-item>
+    </a-form-item>
   </div>
 </template>
 

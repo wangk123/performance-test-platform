@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { message } from 'ant-design-vue';
 import type {
   TaskResultFilter,
   ScriptAsset,
@@ -13,6 +13,7 @@ import { createMockTask } from '../utils/task-mock';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
 import { deleteTaskApi, getTaskApi, getTaskResultApi, listTasksApi, mapBackendTask, submitScriptTaskApi, submitTaskApi } from '../api/tasks';
+import { confirmAction } from '../utils/feedback';
 
 type TaskFormPayload = {
   id?: number;
@@ -195,7 +196,7 @@ export function useTaskSchedule() {
 
   function saveTask(payload: TaskFormPayload) {
     if (!currentProject.value || !payload.scriptId) {
-      ElMessage.error('请选择脚本');
+      message.error('请选择脚本');
       return false;
     }
     const script = scriptById(payload.scriptId);
@@ -212,7 +213,7 @@ export function useTaskSchedule() {
         });
         selectedTaskId.value = target.id;
       }
-      ElMessage.success('任务已更新');
+      message.success('任务已更新');
       return true;
     }
     const task = createMockTask(script ?? currentProjectScripts.value[0], projectTasks.value.length);
@@ -230,7 +231,7 @@ export function useTaskSchedule() {
     });
     tasks.value.unshift(task);
     selectedTaskId.value = task.id;
-    ElMessage.success('任务已保存，点击执行后提交后端');
+    message.success('任务已保存，点击执行后提交后端');
     return true;
   }
 
@@ -245,9 +246,9 @@ export function useTaskSchedule() {
       selectedTaskId.value = remoteTask.id;
       showTaskDetail(remoteTask);
       scheduleRefresh(remoteTask.id);
-      ElMessage.success('JMeter 任务已提交后端执行');
+      message.success('JMeter 任务已提交后端执行');
     } catch (error) {
-      ElMessage.error(error instanceof Error ? error.message : '任务提交失败');
+      message.error(error instanceof Error ? error.message : '任务提交失败');
     }
   }
 
@@ -257,21 +258,21 @@ export function useTaskSchedule() {
     }
     const { currentUser } = useAuth();
     try {
-      await ElMessageBox.confirm(`确认执行脚本「${script.name}」？系统会立即创建任务计划并提交执行。`, '执行脚本', {
-        confirmButtonText: '执行',
-        cancelButtonText: '取消',
-        type: 'warning',
+      await confirmAction({
+        title: '执行脚本',
+        content: `确认执行脚本「${script.name}」？系统会立即创建任务计划并提交执行。`,
+        okText: '执行',
       });
       const remoteTask = mapBackendTask(await submitScriptTaskApi(currentProject.value.id, script, currentUser.value?.username ?? 'admin'));
       replaceTask(remoteTask);
       selectedTaskId.value = remoteTask.id;
       showTaskDetail(remoteTask);
       scheduleRefresh(remoteTask.id);
-      ElMessage.success('任务已创建并提交执行');
+      message.success('任务已创建并提交执行');
       return true;
     } catch (error) {
       if (error instanceof Error) {
-        ElMessage.error(error.message);
+        message.error(error.message);
       }
       return false;
     }
@@ -279,14 +280,15 @@ export function useTaskSchedule() {
 
   async function deleteTask(task: TestTask) {
     if (task.status === 'RUNNING') {
-      ElMessage.warning('运行中任务不能删除');
+      message.warning('运行中任务不能删除');
       return;
     }
     try {
-      await ElMessageBox.confirm(`确认删除任务「${task.name}」？`, '删除任务', {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-        type: 'warning',
+      await confirmAction({
+        title: '删除任务',
+        content: `确认删除任务「${task.name}」？`,
+        okText: '删除',
+        okType: 'danger',
       });
       if (task.id > 0) {
         await deleteTaskApi(task.id);
@@ -298,10 +300,10 @@ export function useTaskSchedule() {
       if (detailTaskId.value === task.id) {
         backToList();
       }
-      ElMessage.success('任务已删除');
+      message.success('任务已删除');
     } catch (error) {
       if (error instanceof Error) {
-        ElMessage.error(error.message);
+        message.error(error.message);
       }
     }
   }

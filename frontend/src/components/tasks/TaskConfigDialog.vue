@@ -1,12 +1,12 @@
 <template>
-  <el-dialog v-model="visible" :title="editingTask ? '编辑任务' : '新建任务'" width="720px" destroy-on-close>
+  <a-modal v-model:open="visible" :title="editingTask ? '编辑任务' : '新建任务'" width="720px" destroy-on-close>
     <div class="task-config-dialog">
-      <el-form label-position="top">
-        <el-form-item label="任务名称">
-          <el-input v-model="form.name" placeholder="请输入任务名称" />
-        </el-form-item>
+      <a-form layout="vertical">
+        <a-form-item label="任务名称">
+          <a-input v-model:value="form.name" placeholder="请输入任务名称" />
+        </a-form-item>
 
-        <el-form-item label="选择脚本">
+        <a-form-item label="选择脚本">
           <div class="script-choice-list">
             <button
               v-for="script in currentProjectScripts"
@@ -23,51 +23,51 @@
               <span class="asset-status">{{ form.scriptId === script.id ? '已选择' : '解析成功' }}</span>
             </button>
           </div>
-        </el-form-item>
+        </a-form-item>
 
         <template v-if="selectedScriptThreadGroups.length > 0">
-          <el-form-item label="线程组配置（取自脚本）">
+          <a-form-item label="线程组配置（取自脚本）">
             <div class="thread-group-summary-list">
               <div v-for="group in selectedScriptThreadGroups" :key="group.name" class="thread-group-summary-item">
                 <strong>{{ group.name }}</strong>
                 <span>{{ threadGroupSummary(group) }}</span>
               </div>
             </div>
-          </el-form-item>
+          </a-form-item>
         </template>
 
         <template v-else-if="form.scriptId !== null">
-          <el-alert title="所选脚本无线程组" description="请先在脚本编辑器中创建至少一个线程组。" type="warning" :closable="false" show-icon />
+          <a-alert title="所选脚本无线程组" description="请先在脚本编辑器中创建至少一个线程组。" type="warning" :closable="false" show-icon />
         </template>
 
         <div class="task-form-grid">
-          <el-form-item label="目标环境">
-            <el-select v-model="form.environment">
-              <el-option label="SIT / 127.0.0.1" value="SIT / 127.0.0.1" />
-              <el-option label="UAT / 10.12.4.18" value="UAT / 10.12.4.18" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="任务优先级">
-            <el-select v-model="form.priority">
-              <el-option label="普通" value="普通" />
-              <el-option label="高" value="高" />
-            </el-select>
-          </el-form-item>
+          <a-form-item label="目标环境">
+            <a-select v-model:value="form.environment">
+              <a-select-option label="SIT / 127.0.0.1" value="SIT / 127.0.0.1" />
+              <a-select-option label="UAT / 10.12.4.18" value="UAT / 10.12.4.18" />
+            </a-select>
+          </a-form-item>
+          <a-form-item label="任务优先级">
+            <a-select v-model:value="form.priority">
+              <a-select-option label="普通" value="普通" />
+              <a-select-option label="高" value="高" />
+            </a-select>
+          </a-form-item>
         </div>
 
-        <el-form-item label="备注">
-          <el-input v-model="form.remark" placeholder="请输入备注" />
-        </el-form-item>
-      </el-form>
+        <a-form-item label="备注">
+          <a-input v-model:value="form.remark" placeholder="请输入备注" />
+        </a-form-item>
+      </a-form>
     </div>
 
     <template #footer>
       <div class="task-dialog-actions">
-        <el-button class="task-dialog-button" @click="visible = false">取消</el-button>
-        <el-button class="task-dialog-button" type="primary" :disabled="!canSave" @click="onSave">保存任务</el-button>
+        <a-button class="task-dialog-button" @click="visible = false">取消</a-button>
+        <a-button class="task-dialog-button" type="primary" :disabled="!canSave" @click="onSave">保存任务</a-button>
       </div>
     </template>
-  </el-dialog>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
@@ -177,16 +177,16 @@ function onSave() {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: var(--el-fill-color-light, #f5f7fa);
+  background: var(--surface-soft);
   border-radius: 6px;
   font-size: 13px;
 }
 
 .thread-group-summary-item strong {
-  color: var(--el-text-color-primary, #303133);
+  color: var(--text);
 }
 
 .thread-group-summary-item span {
-  color: var(--el-text-color-regular, #606266);
+  color: var(--muted);
 }
 </style>

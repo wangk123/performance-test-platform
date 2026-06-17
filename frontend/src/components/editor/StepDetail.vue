@@ -10,21 +10,21 @@
           <h2>{{ step.name }}</h2>
         </div>
         <div class="detail-heading-actions">
-          <el-segmented v-model="detailMode" :options="detailModeOptions" @change="onModeChange" />
-          <el-button
-            type="danger"
-            plain
+          <a-segmented v-model:value="detailMode" :options="detailModeOptions" @change="onModeChange" />
+          <a-button
+            danger
+
             @click="editor.confirmDeleteStep(step.id)"
           >
             删除步骤
-          </el-button>
+          </a-button>
         </div>
       </div>
 
-      <el-form v-if="detailMode === 'visual'" class="step-config-form" label-position="top" @submit.prevent>
-        <el-form-item label="步骤名称">
-          <el-input v-model="step.name" />
-        </el-form-item>
+      <a-form v-if="detailMode === 'visual'" class="step-config-form" layout="vertical" @submit.prevent>
+        <a-form-item label="步骤名称">
+          <a-input v-model:value="step.name" />
+        </a-form-item>
 
         <template v-if="step.type === 'THREAD_GROUP'">
           <ThreadGroupEditor :config="threadGroupConfig" @update:config="updateThreadGroupConfig" />
@@ -39,46 +39,44 @@
         </template>
 
         <template v-else-if="step.type === 'CSV_DATA'">
-          <el-form-item label="CSV 文件">
-            <el-input
-              :model-value="(step.config.fileName as string)"
+          <a-form-item label="CSV 文件">
+            <a-input
+              :value="(step.config.fileName as string)"
               placeholder="data/users.csv"
-              @update:model-value="updateConfig('fileName', $event)"
+              @update:value="updateConfig('fileName', $event)"
             />
-          </el-form-item>
-          <el-form-item label="变量名">
-            <el-input
-              :model-value="(step.config.variableNames as string)"
+          </a-form-item>
+          <a-form-item label="变量名">
+            <a-input
+              :value="(step.config.variableNames as string)"
               placeholder="userId,token,amount"
-              @update:model-value="updateConfig('variableNames', $event)"
+              @update:value="updateConfig('variableNames', $event)"
             />
-          </el-form-item>
+          </a-form-item>
         </template>
 
         <template v-else-if="step.type === 'USER_PARAMS'">
-          <el-form-item label="用户参数">
-            <el-input
-              :model-value="(step.config.paramsText as string)"
-              type="textarea"
+          <a-form-item label="用户参数">
+            <a-textarea
+              :value="(step.config.paramsText as string)"
               :rows="6"
               placeholder="mobile=13800000000&#10;channel=APP"
-              @update:model-value="updateConfig('paramsText', $event)"
+              @update:value="updateConfig('paramsText', $event)"
             />
-          </el-form-item>
+          </a-form-item>
         </template>
 
         <template v-else-if="step.type === 'HEADER_CONFIG'">
-          <el-form-item label="Header 配置">
-            <el-input
-              :model-value="(step.config.headersText as string)"
-              type="textarea"
+          <a-form-item label="Header 配置">
+            <a-textarea
+              :value="(step.config.headersText as string)"
               :rows="6"
               placeholder="Content-Type: application/json&#10;Authorization: Bearer ${token}"
-              @update:model-value="updateConfig('headersText', $event)"
+              @update:value="updateConfig('headersText', $event)"
             />
-          </el-form-item>
+          </a-form-item>
         </template>
-      </el-form>
+      </a-form>
 
       <StepComponentXmlEditor v-else :step="step" />
     </template>

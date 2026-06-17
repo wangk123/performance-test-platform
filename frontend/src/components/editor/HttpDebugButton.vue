@@ -1,13 +1,13 @@
 <template>
-  <el-form-item label="调试">
-    <el-button type="primary" plain :loading="debugging" @click="debugRequest">调试</el-button>
+  <a-form-item label="调试">
+    <a-button type="primary" :loading="debugging" @click="debugRequest">调试</a-button>
     <HttpDebugDialog v-model="debugDialogVisible" :result="debugResult" />
-  </el-form-item>
+  </a-form-item>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { message } from 'ant-design-vue';
 import type { HttpRequestConfig } from '../../types';
 import { executeHttpDebug, type HttpDebugResult } from '../../utils/http-debug';
 import type { VariableOption } from '../../utils/http-request-config';
@@ -28,7 +28,7 @@ async function debugRequest() {
     debugResult.value = await executeHttpDebug(props.config, props.variables);
     debugDialogVisible.value = true;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '调试请求失败');
+    message.error(error instanceof Error ? error.message : '调试请求失败');
   } finally {
     debugging.value = false;
   }

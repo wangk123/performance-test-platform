@@ -1,5 +1,5 @@
 import { reactive, ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { message } from 'ant-design-vue';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
 import { mapScriptDefinition, uploadScriptApi } from '../api/scripts';
@@ -41,7 +41,7 @@ async function importScriptAsset() {
     return;
   }
   if (!scriptFile.value.name.toLowerCase().endsWith('.jmx')) {
-    ElMessage.error('文件类型不支持，请上传 .jmx 文件');
+    message.error('文件类型不支持，请上传 .jmx 文件');
     return;
   }
 
@@ -52,10 +52,10 @@ async function importScriptAsset() {
     const asset = mapScriptDefinition(definition);
     scriptAssets.value = [asset, ...scriptAssets.value.filter((item) => item.id !== asset.id)];
     selectedScriptId.value = asset.id;
-    ElMessage.success(`已解析并导入 ${asset.name}`);
+    message.success(`已解析并导入 ${asset.name}`);
     scriptImportDialogVisible.value = false;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '脚本导入失败');
+    message.error(error instanceof Error ? error.message : '脚本导入失败');
   } finally {
     scriptUploading.value = false;
   }

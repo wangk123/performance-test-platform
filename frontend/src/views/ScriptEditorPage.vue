@@ -8,8 +8,9 @@
           <p>{{ script.sourceFile }} · v{{ script.latestVersion }} · {{ projectName(script.projectId) }}</p>
         </div>
         <div class="script-editor-actions">
-          <el-button @click="editor.closeScriptEditor">返回工作台</el-button>
-          <el-button type="primary" :loading="saving" @click="onSave">保存编排</el-button>
+          <a-segmented v-model:value="themeMode" class="theme-switch" :options="themeModeOptions" />
+          <a-button @click="editor.closeScriptEditor">返回工作台</a-button>
+          <a-button type="primary" :loading="saving" @click="onSave">保存编排</a-button>
         </div>
       </header>
 
@@ -35,16 +36,17 @@
     <div v-else class="script-editor-missing panel">
       <h1>脚本不存在或已被删除</h1>
       <p>返回项目工作台后重新选择脚本。</p>
-      <el-button type="primary" @click="editor.closeScriptEditor">返回工作台</el-button>
+      <a-button type="primary" @click="editor.closeScriptEditor">返回工作台</a-button>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
+import { message } from 'ant-design-vue';
 import { useRoute } from 'vue-router';
 import { useScriptEditor } from '../composables/useScriptEditor';
+import { useTheme } from '../composables/useTheme';
 import { useWorkspace } from '../composables/useWorkspace';
 import StepSidebar from '../components/editor/StepSidebar.vue';
 import StepDetail from '../components/editor/StepDetail.vue';
@@ -53,6 +55,7 @@ import StepCreateDialog from '../components/editor/StepCreateDialog.vue';
 const editor = useScriptEditor();
 const route = useRoute();
 const { projectName, loadProjectContext } = useWorkspace();
+const { themeMode, themeModeOptions } = useTheme();
 const script = computed(() => editor.editorScriptAsset.value);
 
 const sidebarWidth = ref(360);
@@ -101,7 +104,7 @@ async function onSave() {
   saving.value = true;
   try {
     if (await editor.saveEditorScript()) {
-      ElMessage.success('脚本已保存为后端 JMX 新版本');
+      message.success('脚本已保存为后端 JMX 新版本');
     }
   } finally {
     saving.value = false;

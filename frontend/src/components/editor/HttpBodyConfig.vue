@@ -1,23 +1,23 @@
 <template>
   <div class="body-type-row">
-    <el-radio-group :model-value="bodyType" @update:model-value="emit('updateBodyType', $event)">
-      <el-radio value="none">none</el-radio>
-      <el-radio value="form-data">form-data</el-radio>
-      <el-radio value="form-urlencoded">x-www-form-urlencoded</el-radio>
-      <el-radio value="raw">raw</el-radio>
-    </el-radio-group>
-    <el-select
+    <a-radio-group :value="bodyType" @update:value="emit('updateBodyType', $event)">
+      <a-radio value="none">none</a-radio>
+      <a-radio value="form-data">form-data</a-radio>
+      <a-radio value="form-urlencoded">x-www-form-urlencoded</a-radio>
+      <a-radio value="raw">raw</a-radio>
+    </a-radio-group>
+    <a-select
       v-if="bodyType === 'raw'"
       class="raw-format-select"
-      :model-value="resolvedRawBodyType"
-      @update:model-value="emit('updateRawBodyType', $event)"
+      :value="resolvedRawBodyType"
+      @update:value="emit('updateRawBodyType', $event)"
     >
-      <el-option label="Text" value="text" />
-      <el-option label="JavaScript" value="javascript" />
-      <el-option label="JSON" value="json" />
-      <el-option label="HTML" value="html" />
-      <el-option label="XML" value="xml" />
-    </el-select>
+      <a-select-option label="Text" value="text" />
+      <a-select-option label="JavaScript" value="javascript" />
+      <a-select-option label="JSON" value="json" />
+      <a-select-option label="HTML" value="html" />
+      <a-select-option label="XML" value="xml" />
+    </a-select>
   </div>
 
   <HttpKeyValueEditor
@@ -40,21 +40,12 @@
     @close="emit('close')"
   />
 
-  <VariableField
+  <CodeEditor
     v-else-if="bodyType === 'raw'"
-    id="body"
-    :value="body"
+    :model-value="body"
     :placeholder="bodyPlaceholder"
-    multiline
-    :active-field="activeField"
-    :active-index="activeIndex"
-    :suggestions="suggestions"
-    :highlight-mode="resolvedRawBodyType"
-    @change="emit('updateBody', $event)"
-    @active="(id, element) => emit('active', id, element)"
-    @choose="emit('choose', $event)"
-    @move="emit('move', $event)"
-    @close="emit('close')"
+    :language="codeLanguage"
+    @update:model-value="emit('updateBody', $event)"
     @blur="emit('formatBody')"
   />
 </template>
@@ -64,7 +55,7 @@ import { computed } from 'vue';
 import type { HttpBodyType, HttpParamConfig, HttpRawBodyType } from '../../types';
 import type { ActiveVariableField, VariableOption } from '../../utils/http-request-config';
 import HttpKeyValueEditor from './HttpKeyValueEditor.vue';
-import VariableField from './VariableField.vue';
+import CodeEditor from './CodeEditor.vue';
 
 const props = defineProps<{
   bodyType: HttpBodyType;
@@ -78,6 +69,12 @@ const props = defineProps<{
 }>();
 
 const resolvedRawBodyType = computed(() => props.rawBodyType || 'json');
+const codeLanguage = computed<'json' | 'xml' | 'html' | 'text'>(() => {
+  if (resolvedRawBodyType.value === 'json' || resolvedRawBodyType.value === 'xml' || resolvedRawBodyType.value === 'html') {
+    return resolvedRawBodyType.value;
+  }
+  return 'text';
+});
 
 const emit = defineEmits<{
   updateBodyType: [value: string | number | boolean | undefined];

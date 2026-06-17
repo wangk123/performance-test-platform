@@ -8,10 +8,10 @@
       <span></span>
     </div>
     <div v-for="(item, index) in items" :key="`${kind}-${index}`" class="kv-row">
-      <el-switch
-        :model-value="item.enabled"
+      <a-switch
+        :checked="item.enabled"
         size="small"
-        @update:model-value="emit('update', index, 'enabled', $event)"
+        @update:checked="emit('update', index, 'enabled', $event)"
       />
       <VariableField
         :id="`${kind}.${index}.key`"
@@ -39,14 +39,14 @@
         @move="emit('move', $event)"
         @close="emit('close')"
       />
-      <el-input
-        :model-value="item.description"
+      <a-input
+        :value="item.description"
         :placeholder="descriptionPlaceholder"
-        @update:model-value="emit('update', index, 'description', $event)"
+        @update:value="emit('update', index, 'description', $event)"
       />
-      <el-button text type="danger" @click="emit('remove', index)">删除</el-button>
+      <a-button type="text" danger @click="emit('remove', index)">删除</a-button>
     </div>
-    <el-button class="kv-add" plain @click="emit('add')">{{ addText }}</el-button>
+    <a-button class="kv-add" @click="emit('add')">{{ addText }}</a-button>
   </div>
 </template>
 

@@ -1,0 +1,130 @@
+.ant-btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-ink);
+  font-weight: 700;
+}
+
+.ant-btn-primary:not(:disabled):not(.ant-btn-disabled):hover {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+  color: var(--primary-ink);
+}
+
+.ant-btn-default {
+  background: var(--surface-raised);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.ant-btn-default:not(:disabled):not(.ant-btn-disabled):hover {
+  background: var(--surface);
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+
+.ant-layout,
+.ant-layout-header,
+.ant-layout-sider,
+.ant-layout-content {
+  color: var(--text);
+  background: transparent;
+}
+
+.ant-card {
+  color: var(--text);
+  background: var(--panel-bg);
+}
+
+.ant-card .ant-card-body,
+.ant-statistic,
+.ant-statistic-title,
+.ant-statistic-content {
+  color: inherit;
+}
+
+.ant-table-wrapper .ant-table-thead > tr > th {
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+
+.ant-table-wrapper .ant-table,
+.ant-table-wrapper .ant-table-container,
+.ant-table-wrapper .ant-table-tbody > tr > td {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.ant-table-wrapper .ant-table-tbody > tr.ant-table-row:hover > td {
+  background: var(--surface-soft);
+}
+
+.ant-modal-content,
+.ant-modal-header,
+.ant-drawer-content,
+.ant-drawer-header,
+.ant-dropdown .ant-dropdown-menu,
+.ant-select-dropdown {
+  color: var(--text);
+  background: var(--surface-raised) !important;
+}
+
+.ant-modal-title,
+.ant-drawer-title,
+.ant-form-item-label > label,
+.ant-radio-wrapper,
+.ant-checkbox-wrapper {
+  color: var(--text) !important;
+}
+
+.ant-drawer .ant-drawer-header {
+  padding-bottom: 12px;
+}
+
+.ant-segmented .ant-segmented-item-selected {
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+
+.ant-pagination,
+.ant-pagination .ant-pagination-item a,
+.ant-pagination .ant-pagination-jump-prev,
+.ant-pagination .ant-pagination-jump-next,
+.ant-pagination .ant-pagination-prev,
+.ant-pagination .ant-pagination-next {
+  color: var(--muted);
+}
+
+.ant-pagination .ant-pagination-item {
+  background: var(--surface-soft);
+  border-color: var(--border);
+}
+
+.ant-pagination .ant-pagination-item-active {
+  background: rgba(43, 191, 159, 0.14);
+  border-color: var(--primary);
+}
+
+.ant-pagination .ant-pagination-item-active a {
+  color: var(--primary-dark);
+}
+
+.ant-select-selector,
+.ant-input,
+.ant-input-number,
+.ant-input-number-input,
+.ant-input-affix-wrapper,
+.ant-picker,
+.ant-segmented {
+  background: var(--surface-soft) !important;
+  border-color: var(--border-strong) !important;
+  color: var(--text) !important;
+}
+
+.ant-select-selection-item,
+.ant-select-selection-placeholder,
+.ant-input::placeholder,
+.ant-input-number-input::placeholder {
+  color: var(--muted) !important;
+}

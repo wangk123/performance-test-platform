@@ -1,9 +1,9 @@
 <template>
-  <el-dialog
-    v-model="scriptImportDialogVisible"
+  <a-modal
+    v-model:open="scriptImportDialogVisible"
     title="导入 JMeter 脚本"
     width="560px"
-    @closed="resetScriptImportForm"
+    @after-close="resetScriptImportForm"
   >
     <div class="script-import-dialog">
       <div class="import-guidance">
@@ -18,31 +18,30 @@
         <small>{{ scriptFile ? formatFileSize(scriptFile.size) : '支持 JMeter JMX 文件，导入完成后弹窗会自动关闭' }}</small>
       </label>
 
-      <el-form class="upload-form" label-position="top" @submit.prevent>
-        <el-form-item label="平台脚本名称">
-          <el-input v-model="scriptForm.name" placeholder="默认使用 JMX 文件名" />
-        </el-form-item>
-        <el-form-item label="导入备注">
-          <el-input
-            v-model="scriptForm.remark"
-            type="textarea"
+      <a-form class="upload-form" layout="vertical" @submit.prevent>
+        <a-form-item label="平台脚本名称">
+          <a-input v-model:value="scriptForm.name" placeholder="默认使用 JMX 文件名" />
+        </a-form-item>
+        <a-form-item label="导入备注">
+          <a-textarea
+            v-model:value="scriptForm.remark"
             :rows="3"
             placeholder="例如 调整登录链路线程组"
           />
-        </el-form-item>
-      </el-form>
+        </a-form-item>
+      </a-form>
     </div>
 
     <template #footer>
-      <el-button @click="scriptImportDialogVisible = false">取消</el-button>
-      <el-button
+      <a-button @click="scriptImportDialogVisible = false">取消</a-button>
+      <a-button
         type="primary"
         :loading="scriptUploading"
         :disabled="!scriptFile"
         @click="importScriptAsset"
-      >解析并导入</el-button>
+      >解析并导入</a-button>
     </template>
-  </el-dialog>
+  </a-modal>
 </template>
 
 <script setup lang="ts">

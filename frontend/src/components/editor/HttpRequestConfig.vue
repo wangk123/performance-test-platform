@@ -1,12 +1,12 @@
 <template>
   <div class="http-config">
     <div class="http-request-line">
-      <el-form-item label="请求方法">
-        <el-select :model-value="config.method" @update:model-value="setConfig('method', $event)">
-          <el-option v-for="method in httpMethods" :key="method" :label="method" :value="method" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="请求 URL">
+      <a-form-item label="请求方法">
+        <a-select :value="config.method" @update:value="setConfig('method', $event)">
+          <a-select-option v-for="method in httpMethods" :key="method" :label="method" :value="method" />
+        </a-select>
+      </a-form-item>
+      <a-form-item label="请求 URL">
         <VariableField
           id="url"
           :value="config.url"
@@ -20,13 +20,13 @@
           @move="moveSuggestion"
           @close="closeSuggestion"
         />
-      </el-form-item>
+      </a-form-item>
       <HttpDebugButton :config="config" :variables="allVariables" />
     </div>
 
     <div class="http-config-layout">
-      <el-tabs v-model="activeTab" class="http-config-tabs">
-        <el-tab-pane label="Params" name="params">
+      <a-tabs v-model:activeKey="activeTab" class="http-config-tabs">
+        <a-tab-pane tab="Params" key="params">
           <HttpKeyValueEditor
             kind="params"
             :items="config.params"
@@ -45,9 +45,9 @@
             @move="moveSuggestion"
             @close="closeSuggestion"
           />
-        </el-tab-pane>
+        </a-tab-pane>
 
-        <el-tab-pane label="Headers" name="headers">
+        <a-tab-pane tab="Headers" key="headers">
           <HttpKeyValueEditor
             kind="headers"
             :items="config.headers"
@@ -66,9 +66,9 @@
             @move="moveSuggestion"
             @close="closeSuggestion"
           />
-        </el-tab-pane>
+        </a-tab-pane>
 
-        <el-tab-pane label="Body" name="body">
+        <a-tab-pane tab="Body" key="body">
           <HttpBodyConfig
             :body-type="config.bodyType"
             :raw-body-type="config.rawBodyType"
@@ -90,12 +90,12 @@
             @close="closeSuggestion"
             @format-body="formatBody"
           />
-        </el-tab-pane>
+        </a-tab-pane>
 
-        <el-tab-pane label="Advanced" name="advanced">
+        <a-tab-pane tab="Advanced" key="advanced">
           <HttpAdvancedConfig :advanced="config.advanced" @update="updateAdvanced" />
-        </el-tab-pane>
-      </el-tabs>
+        </a-tab-pane>
+      </a-tabs>
 
       <VariablePanel :project-variables="projectVariables" @insert="insertVariable" />
     </div>
