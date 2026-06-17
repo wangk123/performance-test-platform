@@ -1,8 +1,8 @@
 <template>
-  <a-form-item label="调试">
+  <div class="http-debug-action">
     <a-button type="primary" :loading="debugging" @click="debugRequest">调试</a-button>
     <HttpDebugDialog v-model="debugDialogVisible" :result="debugResult" />
-  </a-form-item>
+  </div>
 </template>
 
 <script setup lang="ts">

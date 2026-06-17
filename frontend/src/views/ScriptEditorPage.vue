@@ -10,7 +10,7 @@
         <div class="script-editor-actions">
           <a-segmented v-model:value="themeMode" class="theme-switch" :options="themeModeOptions" />
           <a-button @click="editor.closeScriptEditor">返回工作台</a-button>
-          <a-button type="primary" :loading="saving" @click="onSave">保存编排</a-button>
+          <a-button type="primary" :loading="saving" @click="onSave">保存</a-button>
         </div>
       </header>
 

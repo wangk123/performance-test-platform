@@ -6,18 +6,20 @@
       <a-radio value="form-urlencoded">x-www-form-urlencoded</a-radio>
       <a-radio value="raw">raw</a-radio>
     </a-radio-group>
-    <a-select
-      v-if="bodyType === 'raw'"
-      class="raw-format-select"
-      :value="resolvedRawBodyType"
-      @update:value="emit('updateRawBodyType', $event)"
-    >
-      <a-select-option label="Text" value="text" />
-      <a-select-option label="JavaScript" value="javascript" />
-      <a-select-option label="JSON" value="json" />
-      <a-select-option label="HTML" value="html" />
-      <a-select-option label="XML" value="xml" />
-    </a-select>
+    <div v-if="bodyType === 'raw'" class="raw-body-tools">
+      <a-select
+        class="raw-format-select"
+        :value="resolvedRawBodyType"
+        @update:value="emit('updateRawBodyType', $event)"
+      >
+        <a-select-option label="Text" value="text" />
+        <a-select-option label="JavaScript" value="javascript" />
+        <a-select-option label="JSON" value="json" />
+        <a-select-option label="HTML" value="html" />
+        <a-select-option label="XML" value="xml" />
+      </a-select>
+      <a-button @click="emit('formatBody')">格式化</a-button>
+    </div>
   </div>
 
   <HttpKeyValueEditor

@@ -699,6 +699,17 @@
   gap: 14px;
 }
 
+.http-debug-action {
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  padding-top: 29px;
+}
+
+.http-debug-action .ant-btn {
+  width: 100%;
+}
+
 .http-debug-dialog {
   display: grid;
   gap: 12px;
@@ -820,9 +831,10 @@
 
 .body-type-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: flex-start;
+  gap: 10px;
   margin-bottom: 8px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
@@ -845,8 +857,14 @@
   color: var(--text);
 }
 
+.raw-body-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .raw-format-select {
-  width: 150px;
+  width: 120px;
   flex: 0 0 auto;
 }
 
