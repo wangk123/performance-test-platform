@@ -94,15 +94,23 @@ public class JmeterScriptPatcher {
         if (step.stepType() == ScriptStepType.THREAD_GROUP) {
             return firstPair(testPlanHashTree(parseDocument(renderer.render(List.of(step)))));
         }
-        ScriptStepDefinition wrapper = new ScriptStepDefinition(
-                "wrapper",
-                ScriptStepType.THREAD_GROUP.code(),
-                "Wrapper",
-                ThreadGroupConfig.DEFAULT.toMap(),
-                List.of(step)
-        );
-        RenderedPair root = firstPair(testPlanHashTree(parseDocument(renderer.render(List.of(wrapper)))));
-        return firstPair(root.hashTree());
+        if (step.stepType() == null) {
+            throw new ScriptValidationException("unsupported step type: " + step.type());
+        }
+        return parseRenderedFragment(renderer.renderStepFragment(step));
+    }
+
+    private RenderedPair parseRenderedFragment(String fragment) throws Exception {
+        Document document = parseDocument("<?xml version=\"1.0\" encoding=\"UTF-8\"?><fragment>" + fragment + "</fragment>");
+        Element root = document.getDocumentElement();
+        for (Element child : childElements(root)) {
+            if ("hashTree".equals(child.getTagName())) {
+                continue;
+            }
+            Element hashTree = JmeterScriptDom.nextHashTree(child);
+            return new RenderedPair(child, hashTree == null ? document.createElement("hashTree") : hashTree);
+        }
+        throw new ScriptValidationException("failed to render JMeter step");
     }
 
     private RenderedPair firstPair(Element hashTree) {

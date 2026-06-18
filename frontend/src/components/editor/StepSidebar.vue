@@ -150,6 +150,10 @@ function describe(step: ScriptStep) {
       return `${config.method ?? 'GET'} ${config.path ?? ''}`;
     case 'ASSERTION':
       return `${assertionTargetText(String(config.target ?? 'body'))} · ${assertionMatchText(String(config.match ?? 'contains'))}`;
+    case 'JSON_ASSERTION':
+      return config.validateValue === true || config.validateValue === 'true'
+        ? `${config.jsonPath ?? '$'} = ${config.expectedValue ?? ''}`
+        : String(config.jsonPath ?? '$');
     case 'CSV_DATA':
       return `${config.fileName ?? '-'}`;
     case 'USER_PARAMS': {

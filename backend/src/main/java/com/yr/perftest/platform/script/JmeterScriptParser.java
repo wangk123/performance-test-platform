@@ -66,6 +66,7 @@ public class JmeterScriptParser {
                 case "Arguments" -> steps.add(parseUserParams(element));
                 case "HeaderManager" -> steps.add(parseHeaderManager(element));
                 case "ResponseAssertion" -> steps.add(parseAssertion(element));
+                case "JSONPathAssertion" -> steps.add(parseJsonAssertion(element));
                 default -> {
                 }
             }
@@ -208,6 +209,21 @@ public class JmeterScriptParser {
             case 1 -> "regex";
             default -> "contains";
         };
+    }
+
+    private ScriptStepDefinition parseJsonAssertion(Element element) {
+        return new ScriptStepDefinition(
+                JmeterScriptDom.stepId(element, ScriptStepType.JSON_ASSERTION),
+                ScriptStepType.JSON_ASSERTION.code(),
+                element.getAttribute("testname"),
+                Map.of(
+                        "jsonPath", stringValue(element, "JSON_PATH", ""),
+                        "validateValue", boolValue(element, "JSONVALIDATION", false),
+                        "expectedValue", stringValue(element, "EXPECTED_VALUE", ""),
+                        "useRegex", boolValue(element, "ISREGEX", false)
+                ),
+                List.of()
+        );
     }
 
     private String assertionRule(Element element) {

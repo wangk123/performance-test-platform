@@ -32,6 +32,7 @@ final class JmeterScriptDom {
             case "Arguments" -> ScriptStepType.USER_PARAMS;
             case "HeaderManager" -> ScriptStepType.HEADER_CONFIG;
             case "ResponseAssertion" -> ScriptStepType.RESPONSE_ASSERTION;
+            case "JSONPathAssertion" -> ScriptStepType.JSON_ASSERTION;
             default -> null;
         };
     }
@@ -44,6 +45,7 @@ final class JmeterScriptDom {
             case USER_PARAMS -> "vars";
             case HEADER_CONFIG -> "header";
             case RESPONSE_ASSERTION -> "assert";
+            case JSON_ASSERTION -> "jsonassert";
             default -> "step";
         };
     }

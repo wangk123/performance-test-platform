@@ -12,6 +12,7 @@ public class JmeterScriptRendererTest {
         rendersSchedulerModeThreadGroup();
         rendersSteppingThreadGroup();
         rendersResponseAssertionConfig();
+        rendersJsonAssertionConfig();
         roundTripPreservesThreadGroupConfig();
         roundTripPreservesSchedulerMode();
         rendersEmptyStepsList();
@@ -118,6 +119,36 @@ public class JmeterScriptRendererTest {
         assertTrue(output.contains("<stringProp name=\"Assertion.test_field\">Assertion.response_code</stringProp>"), "response code target");
         assertTrue(output.contains("<intProp name=\"Assertion.test_type\">8</intProp>"), "equals match");
         assertTrue(output.contains("<stringProp name=\"0\">200</stringProp>"), "assertion rule");
+    }
+
+    static void rendersJsonAssertionConfig() {
+        JmeterScriptRenderer renderer = new JmeterScriptRenderer();
+        ScriptStepDefinition threadGroup = new ScriptStepDefinition(
+                "thread-json-assert",
+                ScriptStepType.THREAD_GROUP.code(),
+                "Main",
+                ThreadGroupConfig.DEFAULT.toMap(),
+                List.of(new ScriptStepDefinition(
+                        "json-assert-1",
+                        ScriptStepType.JSON_ASSERTION.code(),
+                        "业务码断言",
+                        Map.of(
+                                "jsonPath", "$.code",
+                                "validateValue", true,
+                                "expectedValue", "0",
+                                "useRegex", false
+                        ),
+                        List.of()
+                ))
+        );
+
+        String output = renderer.render(List.of(threadGroup));
+
+        assertTrue(output.contains("<JSONPathAssertion"), "json assertion element");
+        assertTrue(output.contains("<stringProp name=\"JSON_PATH\">$.code</stringProp>"), "json path");
+        assertTrue(output.contains("<stringProp name=\"EXPECTED_VALUE\">0</stringProp>"), "expected value");
+        assertTrue(output.contains("<boolProp name=\"JSONVALIDATION\">true</boolProp>"), "json validation");
+        assertTrue(output.contains("<boolProp name=\"ISREGEX\">false</boolProp>"), "regex disabled");
     }
 
     static void roundTripPreservesThreadGroupConfig() {

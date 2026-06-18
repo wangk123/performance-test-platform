@@ -203,7 +203,8 @@ export function createStepFromType(
         keepAlive: true,
       },
     },
-    ASSERTION: { target: 'body', match: 'contains', rule: '$.code' },
+    ASSERTION: { target: 'body', match: 'contains', rule: 'success' },
+    JSON_ASSERTION: { jsonPath: '$.code', validateValue: true, expectedValue: '0', useRegex: false },
     CSV_DATA: { fileName: 'data/default.csv', variableNames: 'userId,token' },
     USER_PARAMS: { paramsText: 'env=SIT\nchannel=APP' },
     HEADER_CONFIG: { headersText: 'Content-Type: application/json' },
@@ -272,9 +273,11 @@ export function createStepsFromParsed(
             path: api.path,
             url: `${api.domain}${api.path}`,
             children: [
-              createStepFromType('ASSERTION', `响应断言 ${apiIndex + 1}`, {
-                target: '响应体',
-                rule: '$.code == 0',
+              createStepFromType('JSON_ASSERTION', `JSON 断言 ${apiIndex + 1}`, {
+                jsonPath: '$.code',
+                validateValue: true,
+                expectedValue: '0',
+                useRegex: false,
               }),
             ],
           }),

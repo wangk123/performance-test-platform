@@ -32,6 +32,7 @@ export const stepTypeOptions: Array<{ label: string; value: ScriptStepType }> = 
   { label: '线程组配置', value: 'THREAD_GROUP' },
   { label: 'HTTP 请求', value: 'HTTP_REQUEST' },
   { label: '响应断言', value: 'ASSERTION' },
+  { label: 'JSON 断言', value: 'JSON_ASSERTION' },
   { label: 'CSV 数据文件', value: 'CSV_DATA' },
   { label: '用户参数', value: 'USER_PARAMS' },
   { label: 'Header 头配置', value: 'HEADER_CONFIG' },
@@ -60,8 +61,14 @@ export const stepTypeMeta: Record<ScriptStepType, StepTypeMeta> = {
   ASSERTION: {
     label: '响应断言',
     shortLabel: 'Assert',
-    hint: '响应码、JSON 或 Header 校验',
+    hint: '响应码、文本或 Header 校验',
     tone: 'assert',
+  },
+  JSON_ASSERTION: {
+    label: 'JSON 断言',
+    shortLabel: 'JSON',
+    hint: 'JSONPath 路径与期望值校验',
+    tone: 'json-assert',
   },
   CSV_DATA: {
     label: 'CSV 数据文件',

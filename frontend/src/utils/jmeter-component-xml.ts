@@ -69,8 +69,8 @@ function parseXml(xml: string) {
 }
 
 function findElementByStepId(document: Document, stepId: string) {
-  const path = stepId.replace(/^[^-]+-/, '').split('-');
-  if (path.length === 0 || path.some((item) => !/^\d+$/.test(item))) {
+  const path = parseStepDomPath(stepId);
+  if (!path) {
     return null;
   }
   let current: Element | null = document.documentElement;
@@ -81,6 +81,16 @@ function findElementByStepId(document: Document, stepId: string) {
     }
   }
   return current;
+}
+
+export function parseStepDomPath(stepId: string) {
+  const parts = stepId.split('-');
+  const start = parts.findIndex((part) => /^\d+$/.test(part));
+  if (start < 0) {
+    return null;
+  }
+  const path = parts.slice(start);
+  return path.every((part) => /^\d+$/.test(part)) ? path : null;
 }
 
 function nextHashTree(element: Element) {

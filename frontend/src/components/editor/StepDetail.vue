@@ -10,14 +10,24 @@
           <h2>{{ step.name }}</h2>
         </div>
         <div class="detail-heading-actions">
-          <a-segmented v-model:value="detailMode" :options="detailModeOptions" @change="onModeChange" />
-          <a-button
-            danger
-
-            @click="editor.confirmDeleteStep(step.id)"
-          >
-            删除步骤
-          </a-button>
+          <div class="editor-mode-switch">
+            <a-segmented v-model:value="detailMode" :options="detailModeOptions" size="small" />
+          </div>
+          <span class="editor-save-state" :class="{ dirty }">{{ dirty ? '未保存' : '已保存' }}</span>
+          <a-tooltip title="删除当前步骤">
+            <a-button class="editor-toolbar-button" size="small" danger @click="editor.confirmDeleteStep(step.id)">
+              删除
+            </a-button>
+          </a-tooltip>
+          <span class="editor-toolbar-divider" />
+          <a-tooltip title="关闭编辑页">
+            <a-button class="editor-toolbar-button" size="small" @click="emit('close')">关闭</a-button>
+          </a-tooltip>
+          <a-tooltip title="保存脚本">
+            <a-button class="editor-toolbar-button" type="primary" size="small" :loading="saving" @click="emit('save')">
+              保存
+            </a-button>
+          </a-tooltip>
         </div>
       </div>
 
@@ -36,6 +46,10 @@
 
         <template v-else-if="step.type === 'ASSERTION'">
           <ResponseAssertionConfig :step="step" />
+        </template>
+
+        <template v-else-if="step.type === 'JSON_ASSERTION'">
+          <JsonAssertionConfig :step="step" />
         </template>
 
         <template v-else-if="step.type === 'CSV_DATA'">
@@ -95,17 +109,28 @@ import { stepTypeMeta } from '../../constants';
 import type { ThreadGroup } from '../../types';
 import HttpRequestConfig from './HttpRequestConfig.vue';
 import ResponseAssertionConfig from './ResponseAssertionConfig.vue';
+import JsonAssertionConfig from './JsonAssertionConfig.vue';
 import StepComponentXmlEditor from './StepComponentXmlEditor.vue';
 import StepTypeIcon from '../scripts/StepTypeIcon.vue';
 import ThreadGroupEditor from './ThreadGroupEditor.vue';
+
+defineProps<{
+  saving: boolean;
+  dirty: boolean;
+}>();
+
+const emit = defineEmits<{
+  save: [];
+  close: [];
+}>();
 
 const editor = useScriptEditor();
 const step = computed(() => editor.selectedEditorStep.value);
 const meta = computed(() => (step.value ? stepTypeMeta[step.value.type] : stepTypeMeta.HTTP_REQUEST));
 const detailMode = ref<'visual' | 'xml'>('visual');
 const detailModeOptions = [
-  { label: '可视化模式', value: 'visual' },
-  { label: 'XML 模式', value: 'xml' },
+  { label: '可视化', value: 'visual' },
+  { label: 'XML', value: 'xml' },
 ];
 
 const threadGroupConfig = computed<ThreadGroup>(() => ({
@@ -156,7 +181,4 @@ watch(
   },
 );
 
-function onModeChange(value: string | number | boolean) {
-  detailMode.value = value === 'xml' ? 'xml' : 'visual';
-}
 </script>

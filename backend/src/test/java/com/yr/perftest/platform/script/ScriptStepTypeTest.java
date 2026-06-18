@@ -19,6 +19,7 @@ public class ScriptStepTypeTest {
         assertEquals(ScriptStepType.HTTP_REQUEST, ScriptStepType.fromCode("HTTP_REQUEST"), "HTTP_REQUEST lookup");
         assertEquals(ScriptStepType.CSV_DATA, ScriptStepType.fromCode("CSV_DATA"), "CSV_DATA lookup");
         assertEquals(ScriptStepType.RESPONSE_ASSERTION, ScriptStepType.fromCode("ASSERTION"), "RESPONSE_ASSERTION lookup via ASSERTION code");
+        assertEquals(ScriptStepType.JSON_ASSERTION, ScriptStepType.fromCode("JSON_ASSERTION"), "JSON_ASSERTION lookup");
         assertEquals(ScriptStepType.USER_PARAMS, ScriptStepType.fromCode("USER_PARAMS"), "USER_PARAMS lookup");
         assertEquals(ScriptStepType.HEADER_CONFIG, ScriptStepType.fromCode("HEADER_CONFIG"), "HEADER_CONFIG lookup");
     }
@@ -36,6 +37,7 @@ public class ScriptStepTypeTest {
         assertEquals("THREAD_GROUP", ScriptStepType.THREAD_GROUP.code(), "THREAD_GROUP code");
         assertEquals("HTTP_REQUEST", ScriptStepType.HTTP_REQUEST.code(), "HTTP_REQUEST code");
         assertEquals("ASSERTION", ScriptStepType.RESPONSE_ASSERTION.code(), "RESPONSE_ASSERTION code is ASSERTION");
+        assertEquals("JSON_ASSERTION", ScriptStepType.JSON_ASSERTION.code(), "JSON_ASSERTION code");
         assertEquals("CSV_DATA", ScriptStepType.CSV_DATA.code(), "CSV_DATA code");
     }
 

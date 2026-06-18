@@ -29,6 +29,12 @@ public class JmeterScriptRenderer {
         return builder.toString();
     }
 
+    public String renderStepFragment(ScriptStepDefinition step) {
+        StringBuilder builder = new StringBuilder();
+        appendStep(builder, step);
+        return builder.toString();
+    }
+
     private void appendThreadGroup(StringBuilder builder, ScriptStepDefinition step) {
         ThreadGroupConfig tgConfig = step.threadGroupConfig();
         if (ThreadGroupConfig.MODE_STEPPING.equals(tgConfig.mode())) {
@@ -78,19 +84,22 @@ public class JmeterScriptRenderer {
 
     private void appendChildren(StringBuilder builder, List<ScriptStepDefinition> steps) {
         for (ScriptStepDefinition step : steps) {
-            ScriptStepType stepType = step.stepType();
-            if (stepType == null) {
+            if (step.stepType() == null) {
                 continue;
             }
-            switch (stepType) {
-                case HTTP_REQUEST -> appendHttpSampler(builder, step);
-                case RESPONSE_ASSERTION -> appendAssertion(builder, step);
-                case CSV_DATA -> appendCsv(builder, step);
-                case USER_PARAMS -> appendUserParams(builder, step);
-                case HEADER_CONFIG -> appendHeaderManager(builder, step);
-                default -> {
-                }
-            }
+            appendStep(builder, step);
+        }
+    }
+
+    private void appendStep(StringBuilder builder, ScriptStepDefinition step) {
+        switch (step.stepType()) {
+            case HTTP_REQUEST -> appendHttpSampler(builder, step);
+            case RESPONSE_ASSERTION -> appendAssertion(builder, step);
+            case JSON_ASSERTION -> appendJsonAssertion(builder, step);
+            case CSV_DATA -> appendCsv(builder, step);
+            case USER_PARAMS -> appendUserParams(builder, step);
+            case HEADER_CONFIG -> appendHeaderManager(builder, step);
+            default -> throw new ScriptValidationException("unsupported step type: " + step.type());
         }
     }
 
@@ -154,6 +163,27 @@ public class JmeterScriptRenderer {
             case "regex" -> 1;
             default -> 2;
         };
+    }
+
+    private void appendJsonAssertion(StringBuilder builder, ScriptStepDefinition step) {
+        Map<String, Object> config = step.config();
+        boolean validateValue = bool(config, "validateValue", false);
+        boolean useRegex = bool(config, "useRegex", false);
+        builder.append("          <JSONPathAssertion guiclass=\"JSONPathAssertionGui\" testclass=\"JSONPathAssertion\" testname=\"")
+                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+        builder.append("            <stringProp name=\"JSON_PATH\">").append(xml(text(config, "jsonPath", ""))).append("</stringProp>\n");
+        builder.append("            <stringProp name=\"EXPECTED_VALUE\">").append(xml(text(config, "expectedValue", ""))).append("</stringProp>\n");
+        builder.append("            <boolProp name=\"JSONVALIDATION\">").append(validateValue).append("</boolProp>\n");
+        builder.append("            <boolProp name=\"EXPECT_NULL\">false</boolProp>\n");
+        builder.append("            <boolProp name=\"INVERT\">false</boolProp>\n");
+        builder.append("            <boolProp name=\"ISREGEX\">").append(useRegex).append("</boolProp>\n");
+        builder.append("          </JSONPathAssertion>\n");
+        builder.append("          <hashTree/>\n");
+    }
+
+    private boolean bool(Map<String, Object> config, String key, boolean fallback) {
+        Object value = config.get(key);
+        return value == null ? fallback : Boolean.parseBoolean(String.valueOf(value));
     }
 
     private void appendCsv(StringBuilder builder, ScriptStepDefinition step) {

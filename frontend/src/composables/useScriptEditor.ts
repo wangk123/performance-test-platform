@@ -340,6 +340,9 @@ function useEditor() {
     if (!editorScriptAsset.value) {
       return false;
     }
+    const previousFlatIndex = flatEditorSteps.value.findIndex(
+      (item) => item.step.id === selectedEditorStepId.value,
+    );
     const { currentUser } = useAuth();
     try {
       const definition = await saveScriptDefinitionApi(
@@ -358,9 +361,14 @@ function useEditor() {
       }
       editorScriptId.value = saved.id;
       void router.replace(scriptEditorUrl(saved));
-      selectedEditorStepId.value = findStepById(saved.steps, selectedEditorStepId.value ?? '')
-        ? selectedEditorStepId.value
-        : (saved.steps[0]?.id ?? null);
+      const newFlat = flattenScriptSteps(saved.steps, collapsedStepIds.value);
+      if (previousFlatIndex >= 0 && newFlat[previousFlatIndex]) {
+        selectedEditorStepId.value = newFlat[previousFlatIndex].step.id;
+      } else if (selectedEditorStepId.value && findStepById(saved.steps, selectedEditorStepId.value)) {
+        // keep current selection
+      } else {
+        selectedEditorStepId.value = saved.steps[0]?.id ?? null;
+      }
       return true;
     } catch (error) {
       message.error(error instanceof Error ? error.message : '脚本保存失败');

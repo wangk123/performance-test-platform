@@ -34,6 +34,17 @@
     </svg>
 
     <svg
+      v-else-if="props.type === 'JSON_ASSERTION'"
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path d="M6.2 4.5h7.6c.8 0 1.4.6 1.4 1.4v8.2c0 .8-.6 1.4-1.4 1.4H6.2c-.8 0-1.4-.6-1.4-1.4V5.9c0-.8.6-1.4 1.4-1.4Z" stroke="currentColor" stroke-width="1.6" />
+      <path d="M7.4 8.2h1.8M11 8.2h1.6M7.4 11.8h5.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      <path d="M8.3 6.8c-.4.3-.7.7-.9 1.2M11.7 6.8c.4.3.7.7.9 1.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+    </svg>
+
+    <svg
       v-else-if="props.type === 'CSV_DATA'"
       viewBox="0 0 20 20"
       fill="none"

@@ -53,16 +53,16 @@ async function loadComponentXml() {
   }
   xmlLoading.value = true;
   try {
-    const selectedId = props.step.id;
     if (!(await editor.saveEditorScript())) {
       return;
     }
     const currentScript = editor.editorScriptAsset.value;
-    if (!currentScript) {
+    const selectedStep = editor.selectedEditorStep.value;
+    if (!currentScript || !selectedStep) {
       return;
     }
     const content = await getScriptContentApi(currentScript.projectId, currentScript.id);
-    componentXml.value = extractStepXml(content.content, selectedId);
+    componentXml.value = extractStepXml(content.content, selectedStep.id);
     xmlDirty.value = false;
   } catch (error) {
     message.error(error instanceof Error ? error.message : 'XML 加载失败');
@@ -87,7 +87,11 @@ async function applyComponentXml() {
   }
   xmlSaving.value = true;
   try {
-    const selectedId = props.step.id;
+    const selectedStep = editor.selectedEditorStep.value;
+    if (!selectedStep) {
+      return false;
+    }
+    const selectedId = selectedStep.id;
     const content = await getScriptContentApi(script.projectId, script.id);
     const patched = patchStepXml(content.content, selectedId, componentXml.value);
     await saveScriptContentApi(

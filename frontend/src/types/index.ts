@@ -15,6 +15,7 @@ export type ScriptStepType =
   | 'THREAD_GROUP'
   | 'HTTP_REQUEST'
   | 'ASSERTION'
+  | 'JSON_ASSERTION'
   | 'CSV_DATA'
   | 'USER_PARAMS'
   | 'HEADER_CONFIG';
@@ -114,6 +115,13 @@ export type ResponseAssertionConfig = {
   target: AssertionTarget;
   match: AssertionMatch;
   rule: string;
+};
+
+export type JsonAssertionConfig = {
+  jsonPath: string;
+  validateValue: boolean;
+  expectedValue: string;
+  useRegex: boolean;
 };
 
 export type ScriptParam = {

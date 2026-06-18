@@ -54,6 +54,7 @@ public class JmeterScriptParserTest {
         parsesSchedulerMode();
         parsesSteppingThreadGroup();
         parsesResponseAssertionConfig();
+        parsesJsonAssertionConfig();
         parseInvalidXmlThrows();
         System.out.println("JmeterScriptParserTest passed");
     }
@@ -202,6 +203,43 @@ public class JmeterScriptParserTest {
         assertEquals("statusCode", assertion.config().get("target"), "assertion target");
         assertEquals("equals", assertion.config().get("match"), "assertion match");
         assertEquals("200", assertion.config().get("rule"), "assertion rule");
+    }
+
+    static void parsesJsonAssertionConfig() {
+        String jmx = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+                  <hashTree>
+                    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                    <hashTree>
+                      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Main" enabled="true">
+                        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+                        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+                        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+                          <stringProp name="LoopController.loops">1</stringProp>
+                        </elementProp>
+                      </ThreadGroup>
+                      <hashTree>
+                        <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="业务码断言" enabled="true">
+                          <stringProp name="JSON_PATH">$.code</stringProp>
+                          <stringProp name="EXPECTED_VALUE">0</stringProp>
+                          <boolProp name="JSONVALIDATION">true</boolProp>
+                          <boolProp name="ISREGEX">false</boolProp>
+                        </JSONPathAssertion>
+                        <hashTree/>
+                      </hashTree>
+                    </hashTree>
+                  </hashTree>
+                </jmeterTestPlan>
+                """;
+        JmeterScriptParser parser = new JmeterScriptParser();
+        ScriptStepDefinition assertion = parser.parseSteps(jmx).get(0).children().get(0);
+
+        assertEquals(ScriptStepType.JSON_ASSERTION.code(), assertion.type(), "json assertion type");
+        assertEquals("$.code", assertion.config().get("jsonPath"), "json path");
+        assertEquals(true, assertion.config().get("validateValue"), "validate value");
+        assertEquals("0", assertion.config().get("expectedValue"), "expected value");
+        assertEquals(false, assertion.config().get("useRegex"), "use regex");
     }
 
     static void parseInvalidXmlThrows() {
