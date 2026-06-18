@@ -24,6 +24,7 @@ export const configTabOptions: Array<{ label: string; value: ConfigTab }> = [
   { label: '用户管理', value: 'users' },
   { label: '角色管理', value: 'roles' },
   { label: '权限配置', value: 'permissions' },
+  { label: '执行节点', value: 'nodes' },
 ];
 
 export const MAX_SCRIPT_STEP_LEVEL = 2;

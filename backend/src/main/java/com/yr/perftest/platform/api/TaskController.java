@@ -1,6 +1,7 @@
 package com.yr.perftest.platform.api;
 
 import com.yr.perftest.platform.execution.ExecutionConfig;
+import com.yr.perftest.platform.execution.ExecutionMode;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.TestExecutionService;
 import com.yr.perftest.platform.execution.TestTask;
@@ -83,6 +84,9 @@ public class TaskController {
             Integer loops,
             String environment,
             Map<String, String> jmeterProperties,
+            ExecutionMode executionMode,
+            Long controllerNodeId,
+            List<Long> workerNodeIds,
             String remark
     ) {
         ExecutionConfig toExecutionConfig() {
@@ -92,7 +96,10 @@ public class TaskController {
                     duration == null ? 0 : duration,
                     loops == null ? 1 : loops,
                     environment,
-                    jmeterProperties == null ? Map.of() : jmeterProperties
+                    jmeterProperties == null ? Map.of() : jmeterProperties,
+                    executionMode == null ? ExecutionMode.LOCAL : executionMode,
+                    controllerNodeId,
+                    workerNodeIds == null ? List.of() : workerNodeIds
             );
         }
     }

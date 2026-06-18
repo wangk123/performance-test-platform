@@ -9,8 +9,8 @@ export type ProjectRole = 'OWNER' | 'MEMBER';
 export type ParseStatus = 'PARSED' | 'PARSE_FAILED';
 export type StatusFilter = 'ALL' | ProjectStatus;
 export type ProjectTab = 'overview' | 'scripts' | 'tasks' | 'monitoring' | 'reports' | 'data' | 'functions' | 'members';
-export type MainNav = 'home' | 'projects' | 'settings';
-export type ConfigTab = 'users' | 'roles' | 'permissions';
+export type MainNav = 'home' | 'projects' | 'executionNodes' | 'settings';
+export type ConfigTab = 'users' | 'roles' | 'permissions' | 'nodes';
 export type ScriptStepType =
   | 'THREAD_GROUP'
   | 'HTTP_REQUEST'
@@ -175,6 +175,25 @@ export type FlatStepItem = {
 export type TaskStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED';
 export type TaskStatusFilter = 'ALL' | TaskStatus;
 export type TaskResultFilter = 'ALL' | 'SUCCESS' | 'ERROR';
+export type ExecutionMode = 'LOCAL' | 'DISTRIBUTED';
+export type ExecutionNodeRole = 'CONTROLLER' | 'WORKER' | 'BOTH';
+export type ExecutionNodeStatus = 'UNKNOWN' | 'AVAILABLE' | 'OFFLINE';
+
+export type ExecutionNode = {
+  id: number;
+  name: string;
+  host: string;
+  sshPort: number;
+  sshUsername: string;
+  sshKeyPath: string;
+  role: ExecutionNodeRole;
+  status: ExecutionNodeStatus;
+  remoteWorkDir: string;
+  lastCheckedAt: string | null;
+  lastMessage: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type TaskMetricPoint = {
   time: string;
@@ -227,6 +246,10 @@ export type TestTask = {
   scriptId: number;
   name: string;
   status: TaskStatus;
+  executionMode: ExecutionMode;
+  controllerNodeId: number | null;
+  workerNodeIds: number[];
+  grafanaUrl: string | null;
   environment: string;
   priority: string;
   remark: string;

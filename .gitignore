@@ -9,6 +9,8 @@ dist/
 .idea/
 *.iml
 *.log
+__pycache__/
+*.pyc
 .playwright-mcp/
 /storage/
 backend/storage/

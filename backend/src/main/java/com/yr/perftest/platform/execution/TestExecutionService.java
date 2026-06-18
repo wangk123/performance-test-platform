@@ -1,9 +1,11 @@
 package com.yr.perftest.platform.execution;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yr.perftest.platform.execution.distributed.DistributedJmeterExecutionRunner;
 import com.yr.perftest.platform.project.PersistentProjectRepository;
 import com.yr.perftest.platform.project.ProjectValidationException;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -21,8 +23,10 @@ public class TestExecutionService {
     private final PersistentTestTaskRepository taskRepository;
     private final PersistentTaskExecutionRepository executionRepository;
     private final JmeterExecutionRunner jmeterExecutionRunner;
+    private final DistributedJmeterExecutionRunner distributedJmeterExecutionRunner;
     private final JmeterResultParser jmeterResultParser;
     private final ObjectMapper objectMapper;
+    private final String grafanaPanelUrl;
 
     public TestExecutionService(
             PersistentProjectRepository projectRepository,
@@ -30,16 +34,20 @@ public class TestExecutionService {
             PersistentTestTaskRepository taskRepository,
             PersistentTaskExecutionRepository executionRepository,
             JmeterExecutionRunner jmeterExecutionRunner,
+            DistributedJmeterExecutionRunner distributedJmeterExecutionRunner,
             JmeterResultParser jmeterResultParser,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            @Value("${platform.distributed.grafana-panel-url:http://127.0.0.1:3000/d/jmeter-5496/jmeter-load-test?orgId=1&refresh=5s}") String grafanaPanelUrl
     ) {
         this.projectRepository = projectRepository;
         this.scriptVersionRepository = scriptVersionRepository;
         this.taskRepository = taskRepository;
         this.executionRepository = executionRepository;
         this.jmeterExecutionRunner = jmeterExecutionRunner;
+        this.distributedJmeterExecutionRunner = distributedJmeterExecutionRunner;
         this.jmeterResultParser = jmeterResultParser;
         this.objectMapper = objectMapper;
+        this.grafanaPanelUrl = grafanaPanelUrl;
     }
 
     @Transactional
@@ -75,7 +83,11 @@ public class TestExecutionService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                jmeterExecutionRunner.submit(execution.getId());
+                if (normalizedConfig.mode() == ExecutionMode.DISTRIBUTED) {
+                    distributedJmeterExecutionRunner.submit(execution.getId());
+                } else {
+                    jmeterExecutionRunner.submit(execution.getId());
+                }
             }
         });
         return toTestTask(task, execution);
@@ -144,6 +156,7 @@ public class TestExecutionService {
     }
 
     private TestTask toTestTask(PersistentTestTaskRecord task, PersistentTaskExecutionRecord execution) {
+        ExecutionConfig config = readConfig(execution.getConfigJson());
         return new TestTask(
                 task.getId(),
                 execution.getId(),
@@ -151,7 +164,7 @@ public class TestExecutionService {
                 task.getScriptVersionId(),
                 task.getName(),
                 task.getStatus(),
-                readConfig(execution.getConfigJson()),
+                config,
                 task.getRemark(),
                 task.getCreatedBy(),
                 task.getCreatedAt(),
@@ -160,13 +173,14 @@ public class TestExecutionService {
                 execution.getDurationMs(),
                 execution.getResultFilePath(),
                 execution.getLogFilePath(),
-                execution.getErrorMessage()
+                execution.getErrorMessage(),
+                grafanaUrl(execution.getId(), config)
         );
     }
 
     private ExecutionConfig normalizeConfig(ExecutionConfig config) {
         ExecutionConfig source = config == null
-                ? new ExecutionConfig(1, 0, 0, 1, "SIT", Map.of())
+                ? new ExecutionConfig(1, 0, 0, 1, "SIT", Map.of(), ExecutionMode.LOCAL, null, List.of())
                 : config;
         if (source.threads() <= 0) {
             throw new ExecutionValidationException("threads must be greater than 0");
@@ -188,7 +202,10 @@ public class TestExecutionService {
                 source.duration(),
                 source.loops(),
                 environment,
-                source.jmeterProperties()
+                source.jmeterProperties(),
+                source.mode(),
+                source.controllerNodeId(),
+                source.workerNodeIds()
         );
     }
 
@@ -206,5 +223,13 @@ public class TestExecutionService {
         } catch (Exception exception) {
             throw new ExecutionValidationException("execution config is invalid");
         }
+    }
+
+    private String grafanaUrl(long executionId, ExecutionConfig config) {
+        if (config.mode() != ExecutionMode.DISTRIBUTED) {
+            return null;
+        }
+        String separator = grafanaPanelUrl.contains("?") ? "&" : "?";
+        return grafanaPanelUrl + separator + "var-application=execution-" + executionId;
     }
 }

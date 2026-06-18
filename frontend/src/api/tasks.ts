@@ -13,10 +13,14 @@ type BackendTask = {
     duration: number;
     loops: number;
     environment: string;
+    mode?: 'LOCAL' | 'DISTRIBUTED';
+    controllerNodeId?: number | null;
+    workerNodeIds?: number[];
   };
   remark: string;
   createdAt: string;
   startedAt: string | null;
+  grafanaUrl: string | null;
 };
 
 export type BackendTaskResult = {
@@ -46,6 +50,9 @@ export function submitTaskApi(projectId: number, task: TestTask, username: strin
       scriptVersionId: task.scriptId,
       name: task.name,
       environment: task.environment,
+      executionMode: task.executionMode,
+      controllerNodeId: task.controllerNodeId,
+      workerNodeIds: task.workerNodeIds,
       remark: task.remark,
     }),
   });
@@ -75,6 +82,10 @@ export function mapBackendTask(task: BackendTask, result?: BackendTaskResult): T
     scriptId: task.scriptVersionId,
     name: task.name,
     status: task.status === 'QUEUED' ? 'PENDING' : task.status === 'INTERRUPTED' || task.status === 'CANCELLED' ? 'FAILED' : task.status,
+    executionMode: task.config.mode ?? 'LOCAL',
+    controllerNodeId: task.config.controllerNodeId ?? null,
+    workerNodeIds: task.config.workerNodeIds ?? [],
+    grafanaUrl: task.grafanaUrl,
     environment: task.config.environment,
     priority: '普通',
     remark: task.remark,

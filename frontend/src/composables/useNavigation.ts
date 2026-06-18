@@ -1,10 +1,10 @@
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { ConfigTab, MainNav, Project, ProjectTab, ScriptAsset } from '../types';
 import { configLabel, tabLabel } from '../utils/format';
 import { useWorkspace } from './useWorkspace';
 
-const activeConfigTab = computed<ConfigTab>(() => 'users');
+const activeConfigTab = ref<ConfigTab>('users');
 
 function routeTab(name: string | symbol | null | undefined): ProjectTab {
   if (name === 'project-scripts' || name === 'script-editor') {
@@ -40,6 +40,9 @@ export function useNavigation() {
     if (route.path.startsWith('/settings')) {
       return 'settings';
     }
+    if (route.path.startsWith('/execution-nodes')) {
+      return 'executionNodes';
+    }
     if (route.path.startsWith('/projects')) {
       return 'projects';
     }
@@ -49,7 +52,7 @@ export function useNavigation() {
 
   function selectMainNav(nav: MainNav) {
     workspace.exitProjectWorkspace();
-    void router.push(nav === 'home' ? '/' : `/${nav}`);
+    void router.push(nav === 'home' ? '/' : nav === 'executionNodes' ? '/execution-nodes' : `/${nav}`);
   }
 
   function backToProjects() {
@@ -83,6 +86,9 @@ export function useNavigation() {
     }
     if (activeMainNav.value === 'settings') {
       return `系统配置 · ${configLabel(activeConfigTab.value)}`;
+    }
+    if (activeMainNav.value === 'executionNodes') {
+      return '执行管理台';
     }
     return activeMainNav.value === 'projects' ? '项目管理' : '首页';
   });

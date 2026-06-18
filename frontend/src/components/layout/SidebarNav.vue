@@ -30,11 +30,20 @@
         </button>
         <button
           class="side-entry"
+          :class="{ active: activeMainNav === 'executionNodes' }"
+          type="button"
+          @click="selectMainNav('executionNodes')"
+        >
+          <span class="nav-index">03</span>
+          <span>执行管理台</span>
+        </button>
+        <button
+          class="side-entry"
           :class="{ active: activeMainNav === 'settings' }"
           type="button"
           @click="selectMainNav('settings')"
         >
-          <span class="nav-index">03</span>
+          <span class="nav-index">04</span>
           <span>系统配置</span>
         </button>
       </div>
@@ -42,6 +51,7 @@
 
     <div v-else-if="currentUser && currentProject" class="side-section project-detail-nav">
       <button class="side-back" type="button" @click="backToProjects">返回项目列表</button>
+      <button class="side-back" type="button" @click="selectMainNav('executionNodes')">执行管理台</button>
       <div class="side-title">项目列表</div>
       <div class="current-project-card">
         <strong>{{ currentProject.name }}</strong>

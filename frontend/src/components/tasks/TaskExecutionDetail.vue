@@ -15,6 +15,17 @@
       </div>
     </div>
 
+    <div v-if="task.grafanaUrl" class="panel grafana-panel">
+      <div class="panel-header">
+        <div>
+          <span class="eyebrow">Live Metrics</span>
+          <h2>实时监控</h2>
+          <p>Grafana 按本次执行 ID 隔离展示 InfluxDB 实时指标。</p>
+        </div>
+      </div>
+      <iframe :src="task.grafanaUrl" title="Grafana JMeter Metrics" />
+    </div>
+
     <div class="panel">
       <div class="panel-header">
         <div>

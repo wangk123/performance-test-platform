@@ -6,6 +6,7 @@ import HomeView from '../components/views/HomeView.vue';
 import ProjectListView from '../components/views/ProjectListView.vue';
 import ProjectDetail from '../components/views/ProjectDetail.vue';
 import SettingsView from '../components/views/SettingsView.vue';
+import ExecutionNodeView from '../components/views/ExecutionNodeView.vue';
 import ScriptEditorPage from '../views/ScriptEditorPage.vue';
 
 export const router = createRouter({
@@ -18,6 +19,7 @@ export const router = createRouter({
       children: [
         { path: '', name: 'home', component: HomeView },
         { path: 'projects', name: 'projects', component: ProjectListView },
+        { path: 'execution-nodes', name: 'execution-nodes', component: ExecutionNodeView },
         { path: 'settings', name: 'settings', component: SettingsView },
         { path: 'projects/:projectId', redirect: (to) => `/projects/${to.params.projectId}/overview` },
         { path: 'projects/:projectId/overview', name: 'project-overview', component: ProjectDetail },

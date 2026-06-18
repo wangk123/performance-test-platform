@@ -18,6 +18,7 @@ public record TestTask(
         Long durationMs,
         String resultFilePath,
         String logFilePath,
-        String errorMessage
+        String errorMessage,
+        String grafanaUrl
 ) {
 }

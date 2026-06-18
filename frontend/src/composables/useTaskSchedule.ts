@@ -21,6 +21,9 @@ type TaskFormPayload = {
   name: string;
   environment: string;
   priority: string;
+  executionMode: 'LOCAL' | 'DISTRIBUTED';
+  controllerNodeId: number | null;
+  workerNodeIds: number[];
   remark: string;
 };
 
@@ -209,6 +212,9 @@ export function useTaskSchedule() {
           name: payload.name,
           environment: payload.environment,
           priority: payload.priority,
+          executionMode: payload.executionMode,
+          controllerNodeId: payload.controllerNodeId,
+          workerNodeIds: payload.workerNodeIds,
           remark: payload.remark,
         });
         selectedTaskId.value = target.id;
@@ -223,6 +229,10 @@ export function useTaskSchedule() {
       scriptId: payload.scriptId,
       name: payload.name,
       status: 'PENDING' as TaskStatus,
+      executionMode: payload.executionMode,
+      controllerNodeId: payload.controllerNodeId,
+      workerNodeIds: payload.workerNodeIds,
+      grafanaUrl: null,
       environment: payload.environment,
       priority: payload.priority,
       remark: payload.remark,
