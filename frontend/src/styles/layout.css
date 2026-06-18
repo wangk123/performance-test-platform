@@ -37,7 +37,7 @@
   font-weight: 800;
   border-radius: var(--radius);
   background: var(--primary);
-  box-shadow: 0 10px 28px rgba(43, 191, 159, 0.22);
+  box-shadow: 0 10px 28px rgba(22, 119, 255, 0.18);
 }
 
 .brand strong,
@@ -277,9 +277,38 @@
 
 .topbar-actions .ant-tag {
   margin-inline-end: 0;
-  color: var(--primary-dark);
-  border-color: var(--border-strong);
-  background: var(--active-bg);
+}
+
+.user-menu-trigger {
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 0 4px;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.user-avatar,
+.ant-avatar.user-avatar {
+  color: #fff;
+  background: var(--primary);
+}
+
+.user-menu-section {
+  min-width: 220px;
+  display: grid;
+  gap: 8px;
+}
+
+.user-menu-section > span,
+.ant-dropdown-menu-item small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .eyebrow {

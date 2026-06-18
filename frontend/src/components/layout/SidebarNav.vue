@@ -38,22 +38,6 @@
           <span>系统配置</span>
         </button>
       </div>
-
-      <div v-if="activeMainNav === 'projects'" class="side-section">
-        <div class="side-title">项目列表</div>
-        <button
-          v-for="project in activeProjects"
-          :key="project.id"
-          class="project-link"
-          :class="{ active: selectedProject?.id === project.id }"
-          type="button"
-          @click="selectProject(project)"
-          @dblclick="enterProject(project)"
-        >
-          <strong>{{ project.name }}</strong>
-          <span>{{ project.code }}</span>
-        </button>
-      </div>
     </template>
 
     <div v-else-if="currentUser && currentProject" class="side-section project-detail-nav">
@@ -93,7 +77,7 @@ import { useNavigation } from '../../composables/useNavigation';
 import { useWorkspace } from '../../composables/useWorkspace';
 
 const { currentUser } = useAuth();
-const { activeMainNav, activeProjectTab, selectMainNav, backToProjects, enterProjectTab, enterProject } =
+const { activeMainNav, activeProjectTab, selectMainNav, backToProjects, enterProjectTab } =
   useNavigation();
-const { activeProjects, currentProject, selectedProject, selectProject } = useWorkspace();
+const { currentProject } = useWorkspace();
 </script>

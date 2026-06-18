@@ -48,56 +48,54 @@
           </a-select>
         </div>
 
-        <div class="task-table">
-          <div class="task-table-head">
-            <span>状态</span>
-            <span>任务名称</span>
-            <span>关联脚本</span>
-            <span>版本</span>
-            <span>最近执行</span>
-            <span>操作</span>
-          </div>
-          <div
-            v-for="task in filteredTasks"
-            :key="task.id"
-            class="task-table-row"
-            :class="{ active: selectedTask?.id === task.id }"
-            role="button"
-            tabindex="0"
-            @click="selectTask(task)"
-            @keydown.enter="selectTask(task)"
-          >
-            <span class="status" :class="statusClass(task.status)">{{ taskStatusText(task.status) }}</span>
-            <span>
-              <strong>{{ task.name }}</strong>
-              <small>{{ task.environment }} · {{ formatScriptThreadGroups(task.scriptId) }}</small>
-            </span>
-            <span>
-              <strong>{{ scriptById(task.scriptId)?.name ?? '未知脚本' }}</strong>
-              <small>{{ scriptById(task.scriptId)?.sourceFile ?? '-' }}</small>
-            </span>
-            <span>v{{ scriptById(task.scriptId)?.latestVersion ?? '-' }}</span>
-            <span>{{ task.lastRunAt ? formatDate(task.lastRunAt) : '未执行' }}</span>
-            <span class="task-row-actions">
-              <a-button class="task-fixed-button" type="primary" @click.stop="showTaskDetail(task)">详情</a-button>
-              <a-button class="task-fixed-button" @click.stop="openEdit(task)">编辑</a-button>
-              <a-button
-                v-if="task.status !== 'RUNNING'"
-                class="task-fixed-button"
-                type="primary"
-
-                @click.stop="runTask(task)"
-              >执行</a-button>
-              <a-button
-                v-if="task.status !== 'RUNNING'"
-                class="task-fixed-button"
-                danger
-
-                @click.stop="deleteTask(task)"
-              >删除</a-button>
-            </span>
-          </div>
-        </div>
+        <a-table
+          class="workspace-table"
+          :columns="taskColumns"
+          :data-source="filteredTasks"
+          :pagination="false"
+          :row-key="(record: TestTask) => record.id"
+          :custom-row="taskRowEvents"
+          :row-class-name="taskRowClassName"
+          :locale="{ emptyText: '暂无匹配任务。' }"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'status'">
+              <span class="status" :class="statusClass(record.status)">{{ taskStatusText(record.status) }}</span>
+            </template>
+            <template v-else-if="column.key === 'name'">
+              <div class="table-main-cell">
+                <strong>{{ record.name }}</strong>
+                <small>{{ record.environment }} · {{ formatScriptThreadGroups(record.scriptId) }}</small>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'script'">
+              <div class="table-main-cell">
+                <strong>{{ scriptById(record.scriptId)?.name ?? '未知脚本' }}</strong>
+                <small>{{ scriptById(record.scriptId)?.sourceFile ?? '-' }}</small>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'version'">v{{ scriptById(record.scriptId)?.latestVersion ?? '-' }}</template>
+            <template v-else-if="column.key === 'lastRunAt'">{{ record.lastRunAt ? formatDate(record.lastRunAt) : '未执行' }}</template>
+            <template v-else-if="column.key === 'actions'">
+              <span class="task-row-actions">
+                <a-button class="task-fixed-button" type="primary" @click.stop="showTaskDetail(record)">详情</a-button>
+                <a-button class="task-fixed-button" @click.stop="openEdit(record)">编辑</a-button>
+                <a-button
+                  v-if="record.status !== 'RUNNING'"
+                  class="task-fixed-button"
+                  type="primary"
+                  @click.stop="runTask(record)"
+                >执行</a-button>
+                <a-button
+                  v-if="record.status !== 'RUNNING'"
+                  class="task-fixed-button"
+                  danger
+                  @click.stop="deleteTask(record)"
+                >删除</a-button>
+              </span>
+            </template>
+          </template>
+        </a-table>
       </section>
 
       <aside class="panel task-side-panel">
@@ -138,6 +136,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import type { TableColumnsType } from 'ant-design-vue';
 import type { TaskStatus, TestTask } from '../../types';
 import { formatDate } from '../../utils/format';
 import { useTaskSchedule } from '../../composables/useTaskSchedule';
@@ -165,6 +164,15 @@ const {
   deleteTask,
 } = useTaskSchedule();
 
+const taskColumns: TableColumnsType<TestTask> = [
+  { title: '状态', key: 'status', width: 86 },
+  { title: '任务名称', key: 'name', minWidth: 220 },
+  { title: '关联脚本', key: 'script', minWidth: 180 },
+  { title: '版本', key: 'version', width: 70 },
+  { title: '最近执行', key: 'lastRunAt', width: 124 },
+  { title: '操作', key: 'actions', width: 254 },
+];
+
 function statusClass(status: TaskStatus) {
   return {
     pending: status === 'PENDING',
@@ -182,6 +190,16 @@ function openCreate() {
 function openEdit(task: TestTask) {
   editingTask.value = task;
   taskDialogVisible.value = true;
+}
+
+function taskRowEvents(record: TestTask) {
+  return {
+    onClick: () => selectTask(record),
+  };
+}
+
+function taskRowClassName(record: TestTask) {
+  return selectedTask.value?.id === record.id ? 'selected-table-row' : '';
 }
 
 function formatScriptThreadGroups(scriptId: number): string {

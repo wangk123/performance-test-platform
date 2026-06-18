@@ -178,7 +178,7 @@
 
 .project-home-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -470,8 +470,7 @@
 }
 
 .parsed-detail-panel {
-  position: sticky;
-  top: 96px;
+  position: static;
 }
 
 .script-assets-actions {
@@ -480,6 +479,10 @@
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.script-assets-actions .ant-btn {
+  min-width: 88px;
 }
 
 .script-import-dialog {
@@ -614,7 +617,13 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.asset-row-actions .ant-btn {
+  min-width: 52px;
+  padding-inline: 10px;
 }
 
 .asset-link-button {
@@ -658,9 +667,16 @@
 
 .asset-status {
   width: fit-content;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 5px 8px;
   color: #24463f;
   font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  word-break: keep-all;
   border-radius: 999px;
   background: rgba(31, 111, 95, 0.12);
 }
@@ -855,8 +871,38 @@
 }
 
 .task-side-panel {
-  position: sticky;
-  top: 96px;
+  position: static;
+}
+
+.workspace-table .ant-table-row {
+  cursor: pointer;
+}
+
+.workspace-table .selected-table-row > td {
+  background: var(--active-bg) !important;
+}
+
+.workspace-table .ant-table-cell {
+  white-space: nowrap;
+}
+
+.table-main-cell {
+  min-width: 0;
+}
+
+.table-main-cell strong,
+.table-main-cell small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-main-cell small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .task-side-card {
@@ -1315,7 +1361,8 @@
 }
 
 .sample-inspector-toolbar .ant-segmented {
-  min-width: 220px;
+  width: max-content;
+  min-width: 0;
 }
 
 .sample-inspector-meta {

@@ -14,65 +14,52 @@
         </div>
       </div>
 
-      <div class="script-asset-list">
-        <div v-if="filteredScriptAssets.length" class="script-asset-head">
-          <span>
-            <a-checkbox
-              :checked="allVisibleSelected"
-              :indeterminate="partVisibleSelected"
-              @update:checked="toggleAllVisible"
-            />
-          </span>
-          <span>状态</span>
-          <span>脚本</span>
-          <span>更新时间</span>
-          <span>操作</span>
-        </div>
-        <div
-          v-for="script in filteredScriptAssets"
-          :key="script.id"
-          class="script-asset-row"
-          :class="{ active: selectedScriptAsset?.id === script.id, checked: selectedScriptIds.includes(script.id) }"
-          role="button"
-          tabindex="0"
-          @click="selectScript(script)"
-          @keydown.enter="selectScript(script)"
-        >
-          <span @click.stop>
-            <a-checkbox
-              :checked="selectedScriptIds.includes(script.id)"
-              @update:checked="toggleScriptSelection(script.id)"
-            />
-          </span>
-          <span class="asset-status" :class="scriptStatus(script).tone">{{ scriptStatus(script).label }}</span>
-          <div>
-            <strong>{{ script.name }}</strong>
-            <small>{{ getThreadGroupCount(script) }} 线程组 · {{ script.apis.length }} API · {{ scriptStatus(script).reason }} · v{{ script.latestVersion }}</small>
-          </div>
-          <span>{{ formatDate(script.updatedAt) }}</span>
-          <div class="asset-row-actions">
-            <a
-              class="asset-link-button"
-              :href="editor.scriptEditorUrl(script)"
-              target="_blank"
-              rel="noopener"
-              @click.stop="editor.ensureScriptSteps(script)"
-            >编辑</a>
-            <a-button
-              size="small"
-              type="primary"
-
-              :disabled="!scriptStatus(script).executable"
-              @click.stop="runScriptAsset(script)"
-            >执行</a-button>
-            <a-button size="small" danger @click.stop="deleteScriptAsset(script)">删除</a-button>
-          </div>
-        </div>
-        <div v-if="filteredScriptAssets.length === 0" class="empty-inline">
-          <strong>暂无匹配脚本</strong>
-          <span>调整搜索条件，或导入新的 JMX 脚本资产。</span>
-        </div>
-      </div>
+      <a-table
+        class="workspace-table"
+        :columns="scriptColumns"
+        :data-source="filteredScriptAssets"
+        :pagination="false"
+        :row-key="(record: ScriptAsset) => record.id"
+        :row-selection="scriptRowSelection"
+        :custom-row="scriptRowEvents"
+        :row-class-name="scriptRowClassName"
+        :scroll="{ x: 1120 }"
+        :locale="{ emptyText: '暂无匹配脚本，调整搜索条件或导入新的 JMX 脚本资产。' }"
+      >
+        <template #bodyCell="{ column, record, index }">
+          <template v-if="column.key === 'index'">{{ index + 1 }}</template>
+          <template v-else-if="column.key === 'script'">
+            <div class="table-main-cell">
+              <strong>{{ record.name }}</strong>
+              <small>{{ scriptSummary(record) }}</small>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'type'">{{ scriptType(record) }}</template>
+          <template v-else-if="column.key === 'status'">
+            <span class="asset-status" :class="scriptStatus(record).tone">{{ scriptStatus(record).label }}</span>
+          </template>
+          <template v-else-if="column.key === 'updatedAt'">{{ formatDate(record.updatedAt) }}</template>
+          <template v-else-if="column.key === 'updatedBy'">{{ latestVersionRecord(record)?.importedBy ?? '-' }}</template>
+          <template v-else-if="column.key === 'actions'">
+            <div class="asset-row-actions">
+              <a-button
+                size="small"
+                :href="editor.scriptEditorUrl(record)"
+                target="_blank"
+                rel="noopener"
+                @click.stop="editor.ensureScriptSteps(record)"
+              >编辑</a-button>
+              <a-button
+                size="small"
+                type="primary"
+                :disabled="!scriptStatus(record).executable"
+                @click.stop="runScriptAsset(record)"
+              >执行</a-button>
+              <a-button size="small" danger @click.stop="deleteScriptAsset(record)">删除</a-button>
+            </div>
+          </template>
+        </template>
+      </a-table>
     </div>
 
     <aside class="panel parsed-detail-panel">
@@ -148,6 +135,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import type { TableColumnsType } from 'ant-design-vue';
 import { formatDate } from '../../utils/format';
 import { useScriptEditor } from '../../composables/useScriptEditor';
 import { useScriptImport } from '../../composables/useScriptImport';
@@ -176,12 +164,21 @@ const {
 const selectedRows = computed(() =>
   filteredScriptAssets.value.filter((script) => selectedScriptIds.value.includes(script.id)),
 );
-const allVisibleSelected = computed(() =>
-  filteredScriptAssets.value.length > 0 && filteredScriptAssets.value.every((script) => selectedScriptIds.value.includes(script.id)),
-);
-const partVisibleSelected = computed(() =>
-  filteredScriptAssets.value.some((script) => selectedScriptIds.value.includes(script.id)) && !allVisibleSelected.value,
-);
+const scriptColumns: TableColumnsType<ScriptAsset> = [
+  { title: '序号', key: 'index', width: 72, align: 'center' },
+  { title: '脚本', key: 'script', width: 360 },
+  { title: '类型', key: 'type', width: 90 },
+  { title: '状态', key: 'status', width: 104 },
+  { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt', width: 132 },
+  { title: '更新人', key: 'updatedBy', width: 100 },
+  { title: '操作栏', key: 'actions', width: 210 },
+];
+const scriptRowSelection = computed(() => ({
+  selectedRowKeys: selectedScriptIds.value,
+  onChange: (keys: (string | number)[]) => {
+    selectedScriptIds.value = keys.map(Number);
+  },
+}));
 
 watch(filteredScriptAssets, (items) => {
   const visibleIds = new Set(items.map((script) => script.id));
@@ -192,24 +189,36 @@ function selectScript(script: ScriptAsset) {
   selectedScriptId.value = script.id;
 }
 
-function toggleAllVisible(value: string | number | boolean) {
-  selectedScriptIds.value = value ? filteredScriptAssets.value.map((script) => script.id) : [];
-}
-
-function toggleScriptSelection(id: number) {
-  selectedScriptIds.value = selectedScriptIds.value.includes(id)
-    ? selectedScriptIds.value.filter((item) => item !== id)
-    : [...selectedScriptIds.value, id];
-}
-
 async function deleteSelectedScripts() {
   if (await deleteScriptAssets(selectedRows.value)) {
     selectedScriptIds.value = [];
   }
 }
 
+function scriptRowEvents(record: ScriptAsset) {
+  return {
+    onClick: () => selectScript(record),
+  };
+}
+
+function scriptRowClassName(record: ScriptAsset) {
+  return selectedScriptAsset.value?.id === record.id ? 'selected-table-row' : '';
+}
+
 function scriptStatus(script: ScriptAsset) {
   return scriptExecutableStatus(script);
+}
+
+function scriptType(script: ScriptAsset) {
+  return script.sourceFile.toLowerCase().endsWith('.jmx') ? 'JMX' : '脚本';
+}
+
+function latestVersionRecord(script: ScriptAsset) {
+  return [...script.versions].sort((a, b) => b.versionNo - a.versionNo)[0] ?? null;
+}
+
+function scriptSummary(script: ScriptAsset) {
+  return `${script.sourceFile} · ${getThreadGroupCount(script)} 线程组 · ${script.apis.length} API · ${scriptStatus(script).reason} · v${script.latestVersion}`;
 }
 
 function getThreadGroups(script: ScriptAsset): ThreadGroup[] {

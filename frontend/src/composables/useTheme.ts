@@ -1,29 +1,19 @@
 import { computed, ref, watch } from 'vue';
 import { theme as antdTheme } from 'ant-design-vue';
 
-export type ThemeMode = 'system' | 'light' | 'dark';
-export type ResolvedTheme = 'light' | 'dark';
+export type ThemeMode = 'default' | 'dark';
 
 const STORAGE_KEY = 'performance-platform-theme';
 const themeMode = ref<ThemeMode>(readThemeMode());
-const systemTheme = ref<ResolvedTheme>(readSystemTheme());
 const themeModeOptions = [
-  { label: '跟随系统', value: 'system' },
-  { label: '浅色', value: 'light' },
-  { label: '深色', value: 'dark' },
+  { label: '默认风格', value: 'default' },
+  { label: '暗黑风格', value: 'dark' },
 ];
 
-const resolvedTheme = computed<ResolvedTheme>(() => (
-  themeMode.value === 'system' ? systemTheme.value : themeMode.value
-));
+const resolvedTheme = computed<ThemeMode>(() => themeMode.value);
 
 const antTheme = computed(() => ({
-  algorithm: resolvedTheme.value === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-  token: {
-    colorPrimary: '#2bbf9f',
-    borderRadius: 8,
-    fontFamily: '"Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif',
-  },
+  algorithm: themeMode.value === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
 }));
 
 let initialized = false;
@@ -43,13 +33,6 @@ export function useTheme() {
 }
 
 function bindTheme() {
-  if (typeof window !== 'undefined') {
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    media.addEventListener('change', () => {
-      systemTheme.value = readSystemTheme();
-    });
-  }
-
   watch(themeMode, (mode) => {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(STORAGE_KEY, mode);
@@ -65,15 +48,8 @@ function bindTheme() {
 
 function readThemeMode(): ThemeMode {
   if (typeof window === 'undefined') {
-    return 'system';
+    return 'default';
   }
   const value = window.localStorage.getItem(STORAGE_KEY);
-  return value === 'light' || value === 'dark' || value === 'system' ? value : 'system';
-}
-
-function readSystemTheme(): ResolvedTheme {
-  if (typeof window === 'undefined') {
-    return 'dark';
-  }
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return value === 'dark' || value === 'default' ? value : 'default';
 }

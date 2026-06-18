@@ -1,5 +1,5 @@
 <template>
-  <a-config-provider :theme="antTheme">
+  <a-config-provider :theme="antTheme" :auto-insert-space-in-button="false">
     <RouterView />
   </a-config-provider>
 </template>
