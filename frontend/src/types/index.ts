@@ -204,6 +204,20 @@ export type TaskMetricPoint = {
   p95: number;
 };
 
+export type TaskMonitoringPoint = {
+  time: string;
+  interfaceName: string;
+  tps: number;
+  avgRt: number;
+  p90: number;
+  p95: number;
+};
+
+export type TaskMonitoringResult = {
+  interfaces: string[];
+  points: TaskMonitoringPoint[];
+};
+
 export type TaskAggregateRow = {
   label: string;
   threadName: string;
@@ -257,6 +271,7 @@ export type TestTask = {
   lastRunAt: string | null;
   summary: TaskSummary;
   metrics: TaskMetricPoint[];
+  monitoring: TaskMonitoringResult;
   aggregateRows: TaskAggregateRow[];
   samples: TaskSample[];
 };

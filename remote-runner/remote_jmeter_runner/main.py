@@ -1,4 +1,5 @@
 import argparse
+import csv
 import json
 import sys
 import time
@@ -8,6 +9,18 @@ import paramiko
 
 
 JMETER_IMAGE = "justb4/jmeter:latest"
+FAILURE_SAMPLE_LIMIT = 1000
+RESULT_SAVE_PROPERTIES = {
+    "jmeter.save.saveservice.output_format": "csv",
+    "jmeter.save.saveservice.print_field_names": "true",
+    "jmeter.save.saveservice.url": "true",
+    "jmeter.save.saveservice.samplerData": "true",
+    "jmeter.save.saveservice.requestHeaders": "true",
+    "jmeter.save.saveservice.response_data": "false",
+    "jmeter.save.saveservice.response_data.on_error": "true",
+    "jmeter.save.saveservice.responseHeaders": "true",
+    "jmeter.save.saveservice.assertion_results_failure_message": "true",
+}
 
 
 def respond(ok, message="", log="", exit_code=0):
@@ -58,6 +71,36 @@ def sftp_get(client, remote_path, local_path):
     Path(local_path).parent.mkdir(parents=True, exist_ok=True)
     with client.open_sftp() as sftp:
         sftp.get(str(remote_path), str(local_path))
+
+
+def retain_recent_failures(result_path, failure_result_path):
+    path = Path(result_path)
+    if not path.exists():
+        return
+    with path.open("r", encoding="utf-8", newline="") as source:
+        rows = list(csv.reader(source))
+    if not rows:
+        return
+    header = rows[0]
+    try:
+        success_index = header.index("success")
+    except ValueError:
+        return
+    failures = [row for row in rows[1:] if len(row) > success_index and row[success_index].lower() == "false"]
+    retained = failures[-FAILURE_SAMPLE_LIMIT:]
+    failure_path = Path(failure_result_path)
+    failure_path.parent.mkdir(parents=True, exist_ok=True)
+    with failure_path.open("w", encoding="utf-8", newline="") as target:
+        writer = csv.writer(target)
+        writer.writerow(header)
+        writer.writerows(retained)
+
+
+def result_save_args():
+    args = []
+    for key, value in RESULT_SAVE_PROPERTIES.items():
+        args.extend([f"-J{key}={value}", f"-G{key}={value}"])
+    return args
 
 
 def shell_quote(value):
@@ -169,18 +212,12 @@ def start_controller(controller, payload):
         "-Jmode=Standard",
         "-Jbackend_influxdb.send_interval=1",
         "-Gbackend_influxdb.send_interval=1",
-        "-Jjmeter.save.saveservice.output_format=csv",
-        "-Jjmeter.save.saveservice.print_field_names=true",
-        "-Jjmeter.save.saveservice.url=true",
-        "-Jjmeter.save.saveservice.samplerData=true",
-        "-Jjmeter.save.saveservice.requestHeaders=true",
-        "-Jjmeter.save.saveservice.response_data=true",
-        "-Jjmeter.save.saveservice.responseHeaders=true",
-        "-Jjmeter.save.saveservice.assertion_results_failure_message=true",
+        *result_save_args(),
     ])
     code, output = run(client, command)
     try:
         sftp_get(client, remote_result, payload["resultPath"])
+        retain_recent_failures(payload["resultPath"], payload["failureResultPath"])
     except Exception:
         pass
     try:

@@ -22,6 +22,7 @@ public class JmeterExecutionRunner {
     private final PersistentTaskExecutionRepository executionRepository;
     private final PersistentScriptVersionRepository scriptVersionRepository;
     private final JmeterCommandExecutor jmeterCommandExecutor;
+    private final JmeterResultRetainer resultRetainer;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
     private final Path storageRoot;
@@ -32,6 +33,7 @@ public class JmeterExecutionRunner {
             PersistentTaskExecutionRepository executionRepository,
             PersistentScriptVersionRepository scriptVersionRepository,
             JmeterCommandExecutor jmeterCommandExecutor,
+            JmeterResultRetainer resultRetainer,
             TransactionTemplate transactionTemplate,
             ObjectMapper objectMapper,
             @Value("${platform.storage.root:./storage}") String storageRoot,
@@ -41,6 +43,7 @@ public class JmeterExecutionRunner {
         this.executionRepository = executionRepository;
         this.scriptVersionRepository = scriptVersionRepository;
         this.jmeterCommandExecutor = jmeterCommandExecutor;
+        this.resultRetainer = resultRetainer;
         this.transactionTemplate = transactionTemplate;
         this.objectMapper = objectMapper;
         this.storageRoot = Path.of(storageRoot);
@@ -82,6 +85,7 @@ public class JmeterExecutionRunner {
                     preparation.logPath(),
                     preparation.config()
             );
+            resultRetainer.retainRecentFailures(preparation.resultPath(), preparation.failureResultPath());
             if (exitCode == 0) {
                 markSuccess(executionId);
             } else {
@@ -119,6 +123,7 @@ public class JmeterExecutionRunner {
                     executionDirectory,
                     testPlanPath,
                     executionDirectory.resolve("result.jtl"),
+                    executionDirectory.resolve("failure-result.jtl"),
                     executionDirectory.resolve("jmeter.log"),
                     config
             );
@@ -182,6 +187,7 @@ public class JmeterExecutionRunner {
             Path executionDirectory,
             Path testPlanPath,
             Path resultPath,
+            Path failureResultPath,
             Path logPath,
             ExecutionConfig config
     ) {

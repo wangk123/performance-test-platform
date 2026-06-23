@@ -3,6 +3,7 @@ package com.yr.perftest.platform.api;
 import com.yr.perftest.platform.execution.ExecutionConfig;
 import com.yr.perftest.platform.execution.ExecutionMode;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
+import com.yr.perftest.platform.execution.TaskMonitoringResult;
 import com.yr.perftest.platform.execution.TestExecutionService;
 import com.yr.perftest.platform.execution.TestTask;
 import jakarta.validation.Valid;
@@ -73,6 +74,11 @@ public class TaskController {
     @GetMapping("/tasks/{taskId}/result")
     public TaskExecutionResult getTaskResult(@PathVariable long taskId) {
         return executionService.getTaskResult(taskId);
+    }
+
+    @GetMapping("/tasks/{taskId}/monitoring")
+    public TaskMonitoringResult getTaskMonitoring(@PathVariable long taskId) {
+        return executionService.getTaskMonitoring(taskId);
     }
 
     public record SubmitTaskRequest(

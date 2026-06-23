@@ -164,6 +164,7 @@ public class DistributedJmeterExecutionRunner {
                     executionDirectory.resolve(filename),
                     executionDirectory.resolve("distributed-" + filename),
                     executionDirectory.resolve("result.jtl"),
+                    executionDirectory.resolve("failure-result.jtl"),
                     executionDirectory.resolve("jmeter.log"),
                     controller,
                     workers
@@ -176,6 +177,7 @@ public class DistributedJmeterExecutionRunner {
                 "runId", preparation.runId(),
                 "scriptPath", preparation.distributedTestPlanPath().toString(),
                 "resultPath", preparation.resultPath().toString(),
+                "failureResultPath", preparation.failureResultPath().toString(),
                 "logPath", preparation.logPath().toString(),
                 "controller", nodePayload(preparation.controller()),
                 "workers", preparation.workers().stream().map(this::nodePayload).toList(),
@@ -280,6 +282,7 @@ public class DistributedJmeterExecutionRunner {
             Path originalTestPlanPath,
             Path distributedTestPlanPath,
             Path resultPath,
+            Path failureResultPath,
             Path logPath,
             PersistentExecutionNodeRecord controller,
             List<PersistentExecutionNodeRecord> workers

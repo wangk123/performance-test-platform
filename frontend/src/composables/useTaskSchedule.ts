@@ -12,7 +12,7 @@ import { nextId } from '../utils/format';
 import { createMockTask } from '../utils/task-mock';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
-import { deleteTaskApi, getTaskApi, getTaskResultApi, listTasksApi, mapBackendTask, submitScriptTaskApi, submitTaskApi } from '../api/tasks';
+import { deleteTaskApi, getTaskApi, getTaskMonitoringApi, getTaskResultApi, listTasksApi, mapBackendTask, submitScriptTaskApi, submitTaskApi } from '../api/tasks';
 import { confirmAction } from '../utils/feedback';
 
 type TaskFormPayload = {
@@ -84,7 +84,8 @@ export function useTaskSchedule() {
     try {
       const backendTask = await getTaskApi(taskId);
       const result = await getTaskResultApi(taskId);
-      const remoteTask = mapBackendTask(backendTask, result);
+      const monitoring = await getTaskMonitoringApi(taskId);
+      const remoteTask = mapBackendTask(backendTask, result, monitoring);
       replaceTask(remoteTask);
       if (detailTaskId.value === taskId) {
         selectedSampleId.value = remoteTask.samples[0]?.id ?? null;
@@ -233,6 +234,7 @@ export function useTaskSchedule() {
       controllerNodeId: payload.controllerNodeId,
       workerNodeIds: payload.workerNodeIds,
       grafanaUrl: null,
+      monitoring: { interfaces: [], points: [] },
       environment: payload.environment,
       priority: payload.priority,
       remark: payload.remark,

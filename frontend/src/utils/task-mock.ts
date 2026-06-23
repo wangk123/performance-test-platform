@@ -26,6 +26,7 @@ export function createMockTask(script: ScriptAsset, index: number): TestTask {
       errorRate: 0,
     },
     metrics: [],
+    monitoring: { interfaces: [], points: [] },
     aggregateRows: [],
     samples: [],
   };

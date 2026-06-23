@@ -27,6 +27,7 @@ public class TestExecutionService {
     private final JmeterExecutionRunner jmeterExecutionRunner;
     private final DistributedJmeterExecutionRunner distributedJmeterExecutionRunner;
     private final JmeterResultParser jmeterResultParser;
+    private final InfluxdbMonitoringClient monitoringClient;
     private final ObjectMapper objectMapper;
     private final String grafanaPanelUrl;
     private final String influxdbMeasurement;
@@ -39,6 +40,7 @@ public class TestExecutionService {
             JmeterExecutionRunner jmeterExecutionRunner,
             DistributedJmeterExecutionRunner distributedJmeterExecutionRunner,
             JmeterResultParser jmeterResultParser,
+            InfluxdbMonitoringClient monitoringClient,
             ObjectMapper objectMapper,
             @Value("${platform.distributed.grafana-panel-url:http://127.0.0.1:3000/d/jmeter-5496/jmeter-load-test?orgId=1&refresh=5s}") String grafanaPanelUrl,
             @Value("${platform.distributed.influxdb-measurement:jmeter_runtime}") String influxdbMeasurement
@@ -50,6 +52,7 @@ public class TestExecutionService {
         this.jmeterExecutionRunner = jmeterExecutionRunner;
         this.distributedJmeterExecutionRunner = distributedJmeterExecutionRunner;
         this.jmeterResultParser = jmeterResultParser;
+        this.monitoringClient = monitoringClient;
         this.objectMapper = objectMapper;
         this.grafanaPanelUrl = grafanaPanelUrl;
         this.influxdbMeasurement = influxdbMeasurement;
@@ -151,7 +154,21 @@ public class TestExecutionService {
         if (execution.getResultFilePath() == null) {
             return TaskExecutionResult.empty();
         }
-        return jmeterResultParser.parse(Path.of(execution.getResultFilePath()));
+        Path resultPath = Path.of(execution.getResultFilePath());
+        return jmeterResultParser.parse(resultPath, resultPath.resolveSibling("failure-result.jtl"));
+    }
+
+    @Transactional(readOnly = true)
+    public TaskMonitoringResult getTaskMonitoring(long taskId) {
+        PersistentTestTaskRecord task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ExecutionValidationException("task does not exist"));
+        PersistentTaskExecutionRecord execution = executionRepository.findFirstByTaskIdOrderByIdDesc(task.getId())
+                .orElseThrow(() -> new ExecutionValidationException("execution does not exist"));
+        ExecutionConfig config = readConfig(execution.getConfigJson());
+        if (config.mode() != ExecutionMode.DISTRIBUTED) {
+            return TaskMonitoringResult.empty();
+        }
+        return monitoringClient.query(execution.getId());
     }
 
     private TestTask toTestTask(PersistentTestTaskRecord task) {

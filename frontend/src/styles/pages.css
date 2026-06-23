@@ -1038,14 +1038,6 @@
   color: var(--muted);
 }
 
-.grafana-panel iframe {
-  width: 100%;
-  height: 360px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: #101214;
-}
-
 .task-summary-strip {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1134,85 +1126,13 @@
   font-size: 12px;
 }
 
-.axis-chart {
-  height: 230px;
-  position: relative;
+.echarts-panel {
+  width: 100%;
+  height: 280px;
   margin-top: 12px;
-  padding: 12px 14px 28px 46px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background:
-    linear-gradient(to top, rgba(101, 116, 137, 0.09) 1px, transparent 1px) 46px 12px / calc(100% - 60px) 25%,
-    linear-gradient(to right, rgba(101, 116, 137, 0.07) 1px, transparent 1px) 46px 12px / 20% calc(100% - 40px),
-    var(--surface-soft);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--surface-raised) 75%, transparent);
-}
-
-.axis-chart svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.chart-tooltip {
-  position: absolute;
-  z-index: 2;
-  display: grid;
-  gap: 4px;
-  min-width: 126px;
-  padding: 8px 10px;
-  color: var(--text);
-  font-size: 12px;
-  border: 1px solid rgba(31, 111, 95, 0.2);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--surface-raised) 96%, transparent);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
-  pointer-events: none;
-}
-
-.chart-tooltip strong,
-.chart-tooltip span {
-  display: block;
-}
-
-.axis-label {
-  position: absolute;
-  color: rgba(101, 116, 137, 0.82);
-  font-size: 11px;
-}
-
-.axis-y {
-  left: 12px;
-}
-
-.axis-x {
-  bottom: 7px;
-}
-
-.chart-legend {
-  display: flex;
-  gap: 14px;
-  margin-top: 10px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.chart-legend span::before {
-  content: "";
-  width: 9px;
-  height: 9px;
-  display: inline-block;
-  margin-right: 6px;
-  border-radius: 999px;
-  background: var(--primary);
-}
-
-.chart-legend span.warning::before {
-  background: var(--warning);
-}
-
-.chart-legend span.danger::before {
-  background: var(--danger);
+  background: var(--surface-soft);
 }
 
 .task-result-workbench {
@@ -1305,39 +1225,32 @@
 }
 
 .result-pagination {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-top: 14px;
   color: var(--muted);
   font-size: 12px;
 }
 
-.result-pagination .ant-pagination {
-  width: 100%;
+.result-pagination-controls {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
-  row-gap: 6px;
-  justify-content: flex-start;
-  overflow-x: hidden;
 }
 
-.result-pagination .ant-pagination-options-size-changer {
-  margin: 0 6px 0 0;
+.result-page-button {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 !important;
 }
 
-.result-pagination .ant-pagination-options-quick-jumper {
-  margin-left: 6px;
-}
-
-.result-pagination .ant-pagination-options-quick-jumper {
-  display: none;
-}
-
-.result-pagination .ant-select {
-  width: 98px;
-}
-
-.result-pagination .ant-pagination-options-quick-jumper input {
-  width: 56px;
+.result-page-size {
+  width: 112px;
 }
 
 .sample-inspector {

@@ -20,29 +20,43 @@ public class JmeterResultParser {
             .withZone(ZoneId.systemDefault());
 
     public TaskExecutionResult parse(Path resultPath) {
+        return parse(resultPath, null);
+    }
+
+    public TaskExecutionResult parse(Path resultPath, Path samplePath) {
         if (resultPath == null || !Files.exists(resultPath)) {
             return TaskExecutionResult.empty();
         }
         try {
-            List<String> records = parseCsvRecords(Files.readString(resultPath));
-            if (records.size() < 2) {
-                return TaskExecutionResult.empty();
-            }
-            Map<String, Integer> header = headerIndexes(parseCsvLine(records.get(0)));
-            List<Row> rows = new ArrayList<>();
-            for (int i = 1; i < records.size(); i++) {
-                List<String> values = parseCsvLine(records.get(i));
-                if (!values.isEmpty()) {
-                    rows.add(toRow(values, header));
-                }
-            }
-            return rows.isEmpty() ? TaskExecutionResult.empty() : toResult(rows);
+            List<Row> rows = readRows(resultPath);
+            List<Row> sampleRows = samplePath == null || !Files.exists(samplePath) ? rows : readRows(samplePath);
+            return rows.isEmpty() ? TaskExecutionResult.empty() : toResult(rows, sampleRows);
         } catch (Exception exception) {
             return TaskExecutionResult.empty();
         }
     }
 
+    private List<Row> readRows(Path resultPath) throws Exception {
+        List<String> records = parseCsvRecords(Files.readString(resultPath));
+        if (records.size() < 2) {
+            return List.of();
+        }
+        Map<String, Integer> header = headerIndexes(parseCsvLine(records.get(0)));
+        List<Row> rows = new ArrayList<>();
+        for (int i = 1; i < records.size(); i++) {
+            List<String> values = parseCsvLine(records.get(i));
+            if (!values.isEmpty()) {
+                rows.add(toRow(values, header));
+            }
+        }
+        return rows;
+    }
+
     private TaskExecutionResult toResult(List<Row> rows) {
+        return toResult(rows, rows);
+    }
+
+    private TaskExecutionResult toResult(List<Row> rows, List<Row> sampleRows) {
         List<Long> elapsedValues = rows.stream().map(Row::elapsed).sorted().toList();
         long totalElapsed = elapsedValues.stream().mapToLong(Long::longValue).sum();
         long minStart = rows.stream().mapToLong(Row::timestamp).min().orElse(0);
@@ -58,7 +72,7 @@ public class JmeterResultParser {
         );
         List<TaskExecutionResult.MetricPoint> metrics = buildMetrics(rows);
         List<TaskExecutionResult.AggregateRow> aggregateRows = buildAggregateRows(rows);
-        List<TaskExecutionResult.Sample> samples = rows.stream()
+        List<TaskExecutionResult.Sample> samples = sampleRows.stream()
                 .limit(SAMPLE_LIMIT)
                 .map(this::toSample)
                 .toList();
@@ -68,8 +82,8 @@ public class JmeterResultParser {
     private List<TaskExecutionResult.AggregateRow> buildAggregateRows(List<Row> rows) {
         Map<String, List<Row>> groups = new LinkedHashMap<>();
         rows.stream()
-                .sorted(Comparator.comparing(this::threadGroupName).thenComparing(this::displayLabel))
-                .forEach(row -> groups.computeIfAbsent(threadGroupName(row) + "\n" + displayLabel(row), key -> new ArrayList<>()).add(row));
+                .sorted(Comparator.comparing(this::displayLabel))
+                .forEach(row -> groups.computeIfAbsent(displayLabel(row), key -> new ArrayList<>()).add(row));
         return groups.values().stream().map(this::toAggregateRow).toList();
     }
 
@@ -83,7 +97,7 @@ public class JmeterResultParser {
         Row first = rows.get(0);
         return new TaskExecutionResult.AggregateRow(
                 displayLabel(first),
-                threadGroupName(first),
+                threadGroupName(rows),
                 rows.size(),
                 Math.round((double) totalElapsed / rows.size()),
                 percentile(elapsedValues, 0.50),
@@ -99,6 +113,14 @@ public class JmeterResultParser {
 
     private String threadGroupName(Row row) {
         return row.threadName().replaceFirst("\\s+\\d+-\\d+$", "");
+    }
+
+    private String threadGroupName(List<Row> rows) {
+        List<String> names = rows.stream()
+                .map(this::threadGroupName)
+                .distinct()
+                .toList();
+        return names.size() == 1 ? names.get(0) : "全部节点";
     }
 
     private List<TaskExecutionResult.MetricPoint> buildMetrics(List<Row> rows) {

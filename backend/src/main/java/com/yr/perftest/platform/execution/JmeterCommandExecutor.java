@@ -68,8 +68,10 @@ public class JmeterCommandExecutor {
         Map<String, String> properties = new LinkedHashMap<>();
         properties.put("jmeter.save.saveservice.samplerData", "true");
         properties.put("jmeter.save.saveservice.requestHeaders", "true");
-        properties.put("jmeter.save.saveservice.response_data", "true");
+        properties.put("jmeter.save.saveservice.response_data", "false");
+        properties.put("jmeter.save.saveservice.response_data.on_error", "true");
         properties.put("jmeter.save.saveservice.responseHeaders", "true");
+        properties.put("jmeter.save.saveservice.assertion_results_failure_message", "true");
         return properties;
     }
 }
