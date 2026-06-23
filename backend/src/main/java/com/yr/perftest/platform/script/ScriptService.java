@@ -25,6 +25,7 @@ public class ScriptService {
     private final PersistentScriptVersionRepository scriptVersionRepository;
     private final JmeterScriptParser jmeterScriptParser;
     private final JmeterScriptPatcher jmeterScriptPatcher;
+    private final JmeterScriptRenderer jmeterScriptRenderer;
     private final Path storageRoot;
     private final Path jmeterExecutable;
 
@@ -33,6 +34,7 @@ public class ScriptService {
             PersistentScriptVersionRepository scriptVersionRepository,
             JmeterScriptParser jmeterScriptParser,
             JmeterScriptPatcher jmeterScriptPatcher,
+            JmeterScriptRenderer jmeterScriptRenderer,
             @Value("${platform.storage.root:./storage}") String storageRoot,
             @Value("${platform.jmeter.executable:jmeter}") String jmeterExecutable
     ) {
@@ -40,6 +42,7 @@ public class ScriptService {
         this.scriptVersionRepository = scriptVersionRepository;
         this.jmeterScriptParser = jmeterScriptParser;
         this.jmeterScriptPatcher = jmeterScriptPatcher;
+        this.jmeterScriptRenderer = jmeterScriptRenderer;
         this.storageRoot = Path.of(storageRoot);
         this.jmeterExecutable = Path.of(jmeterExecutable);
     }
@@ -61,7 +64,10 @@ public class ScriptService {
         }
         byte[] content = readFile(file);
         validateJmx(new String(content, StandardCharsets.UTF_8));
+        return storeScript(projectId, originalFilename, new String(content, StandardCharsets.UTF_8), uploadedBy);
+    }
 
+    private ScriptVersion storeScript(long projectId, String originalFilename, String content, String uploadedBy) {
         int versionNo = scriptVersionRepository.countByProjectId(projectId) + 1;
         Path target = storageRoot
                 .resolve("scripts")
@@ -69,7 +75,7 @@ public class ScriptService {
                 .resolve("v" + versionNo + "-" + sanitizeFilename(originalFilename));
         try {
             Files.createDirectories(target.getParent());
-            Files.write(target, content);
+            Files.writeString(target, content, StandardCharsets.UTF_8);
         } catch (IOException exception) {
             throw new ScriptValidationException("failed to store script file");
         }
@@ -83,6 +89,28 @@ public class ScriptService {
                 Instant.now()
         ));
         return record.toScriptVersion();
+    }
+
+    @Transactional
+    public ScriptDefinition createScript(long projectId, String name, String uploadedBy) {
+        if (!projectRepository.existsById(projectId)) {
+            throw new ProjectValidationException("project does not exist");
+        }
+        if (name == null || name.trim().isEmpty()) {
+            throw new ScriptValidationException("script name is required");
+        }
+        String originalFilename = toJmxFilename(name.trim());
+        ScriptStepDefinition threadGroup = new ScriptStepDefinition(
+                "thread-1",
+                ScriptStepType.THREAD_GROUP.code(),
+                "线程组 1",
+                new ThreadGroupConfig(100, 60, 1, 600, false).toMap(),
+                List.of()
+        );
+        String content = jmeterScriptRenderer.render(List.of(threadGroup));
+        validateJmx(content);
+        ScriptVersion version = storeScript(projectId, originalFilename, content, uploadedBy);
+        return getScriptDefinition(projectId, version.id());
     }
 
     @Transactional(readOnly = true)
@@ -168,6 +196,9 @@ public class ScriptService {
         PersistentScriptVersionRecord baseVersion = requireScriptVersion(projectId, versionId);
         String baseContent = readStoredContent(baseVersion);
         String content = jmeterScriptPatcher.patch(baseContent, steps == null ? List.of() : steps);
+        if (steps != null && !steps.isEmpty() && jmeterScriptParser.parseSteps(content).isEmpty()) {
+            throw new ScriptValidationException("failed to persist script steps");
+        }
         ScriptVersion version = saveScriptContent(projectId, versionId, content, filename, uploadedBy);
         return getScriptDefinition(projectId, version.id());
     }
@@ -234,6 +265,10 @@ public class ScriptService {
 
     private String nameOf(String filename) {
         return filename.replaceFirst("(?i)\\.jmx$", "");
+    }
+
+    private String toJmxFilename(String name) {
+        return name.toLowerCase(Locale.ROOT).endsWith(".jmx") ? name : name + ".jmx";
     }
 
     private String sanitizeFilename(String filename) {

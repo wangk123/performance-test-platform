@@ -20,9 +20,11 @@ import java.util.Map;
 @Component
 public class JmeterScriptPatcher {
     private final JmeterScriptRenderer renderer;
+    private final JmeterScriptNormalizer normalizer;
 
-    public JmeterScriptPatcher(JmeterScriptRenderer renderer) {
+    public JmeterScriptPatcher(JmeterScriptRenderer renderer, JmeterScriptNormalizer normalizer) {
         this.renderer = renderer;
+        this.normalizer = normalizer;
     }
 
     public String patch(String content, List<ScriptStepDefinition> steps) {
@@ -30,6 +32,7 @@ public class JmeterScriptPatcher {
             Document document = parseDocument(content);
             Element hashTree = testPlanHashTree(document);
             patchHashTree(document, hashTree, steps == null ? List.of() : steps);
+            normalizer.normalize(document);
             return serialize(document);
         } catch (ScriptValidationException exception) {
             throw exception;
@@ -52,9 +55,13 @@ public class JmeterScriptPatcher {
                 removePair(hashTree, node);
                 continue;
             }
-            Element patched = replaceElement(document, node.element(), step);
+            RenderedPair pair = renderPair(step);
+            Element patched = replaceElement(document, node.element(), pair);
             Element childHashTree = node.hashTree() == null ? appendEmptyHashTree(document, hashTree, patched) : node.hashTree();
             patchHashTree(document, childHashTree, step.children());
+            if (step.stepType() == ScriptStepType.HTTP_REQUEST) {
+                syncHttpHeaders(document, childHashTree, pair);
+            }
         }
         for (ScriptStepDefinition step : steps) {
             if (desired.containsKey(step.id())) {
@@ -66,6 +73,7 @@ public class JmeterScriptPatcher {
     private List<StepNode> recognizedChildren(Element hashTree) {
         return childElements(hashTree).stream()
                 .filter(element -> !"hashTree".equals(element.getTagName()))
+                .filter(element -> !isEmbeddedHttpHeaderManager(element))
                 .map(element -> {
                     ScriptStepType type = JmeterScriptDom.stepType(element);
                     return type == null
@@ -77,11 +85,69 @@ public class JmeterScriptPatcher {
                 .toList();
     }
 
-    private Element replaceElement(Document document, Element element, ScriptStepDefinition step) throws Exception {
-        RenderedPair pair = renderPair(step);
+    private Element replaceElement(Document document, Element element, RenderedPair pair) {
         Element imported = (Element) document.importNode(pair.element(), true);
         element.getParentNode().replaceChild(imported, element);
         return imported;
+    }
+
+    private void syncHttpHeaders(Document document, Element hashTree, RenderedPair pair) {
+        removeHeaderManagers(hashTree);
+        if (pair.hashTree() == null) {
+            return;
+        }
+        List<Element> renderedChildren = childElements(pair.hashTree());
+        for (int index = 0; index < renderedChildren.size(); index++) {
+            Element child = renderedChildren.get(index);
+            if (!"HeaderManager".equals(child.getTagName())) {
+                continue;
+            }
+            Node anchor = hashTree.getFirstChild();
+            Element importedHeader = (Element) document.importNode(child, true);
+            if (anchor == null) {
+                hashTree.appendChild(importedHeader);
+            } else {
+                hashTree.insertBefore(importedHeader, anchor);
+            }
+            if (index + 1 < renderedChildren.size() && "hashTree".equals(renderedChildren.get(index + 1).getTagName())) {
+                hashTree.insertBefore(
+                        document.importNode(renderedChildren.get(index + 1), true),
+                        importedHeader.getNextSibling()
+                );
+            }
+            return;
+        }
+    }
+
+    private void removeHeaderManagers(Element hashTree) {
+        List<Element> children = childElements(hashTree);
+        for (int index = 0; index < children.size(); index++) {
+            Element child = children.get(index);
+            if (!"HeaderManager".equals(child.getTagName())) {
+                continue;
+            }
+            hashTree.removeChild(child);
+            if (index + 1 < children.size() && "hashTree".equals(children.get(index + 1).getTagName())) {
+                hashTree.removeChild(children.get(index + 1));
+            }
+            return;
+        }
+    }
+
+    private boolean isEmbeddedHttpHeaderManager(Element element) {
+        if (!"HeaderManager".equals(element.getTagName())) {
+            return false;
+        }
+        Node parent = element.getParentNode();
+        if (!(parent instanceof Element parentElement) || !"hashTree".equals(parentElement.getTagName())) {
+            return false;
+        }
+        for (Node node = parentElement.getPreviousSibling(); node != null; node = node.getPreviousSibling()) {
+            if (node instanceof Element sibling && "HTTPSamplerProxy".equals(sibling.getTagName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void appendPair(Document document, Element hashTree, ScriptStepDefinition step) throws Exception {

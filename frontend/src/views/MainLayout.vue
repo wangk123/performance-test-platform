@@ -21,6 +21,7 @@
   <ProjectFormDialog v-model="projectDialogVisible" :editing-project="editingProject" />
   <MemberDialog v-model="memberDialogVisible" :project="memberProject" />
   <ScriptImportDialog />
+  <ScriptCreateDialog />
   <ScriptParamDrawer />
 </template>
 
@@ -32,6 +33,7 @@ import TopBar from '../components/layout/TopBar.vue';
 import ProjectFormDialog from '../components/dialogs/ProjectFormDialog.vue';
 import MemberDialog from '../components/dialogs/MemberDialog.vue';
 import ScriptImportDialog from '../components/dialogs/ScriptImportDialog.vue';
+import ScriptCreateDialog from '../components/dialogs/ScriptCreateDialog.vue';
 import ScriptParamDrawer from '../components/drawers/ScriptParamDrawer.vue';
 
 const projectDialogVisible = ref(false);

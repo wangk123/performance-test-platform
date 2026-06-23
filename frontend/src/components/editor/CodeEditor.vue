@@ -15,9 +15,11 @@ const props = withDefaults(defineProps<{
   modelValue: string;
   language?: 'json' | 'xml' | 'html' | 'javascript' | 'text';
   placeholder?: string;
+  readonly?: boolean;
 }>(), {
   language: 'text',
   placeholder: '',
+  readonly: false,
 });
 
 const emit = defineEmits<{
@@ -45,8 +47,9 @@ onMounted(() => {
         placeholder(props.placeholder),
         languageCompartment.of(languageExtension()),
         themeCompartment.of(editorTheme()),
+        EditorState.readOnly.of(props.readonly),
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
+          if (!props.readonly && update.docChanged) {
             emit('update:modelValue', update.state.doc.toString());
           }
           if (update.focusChanged && !update.view.hasFocus) {

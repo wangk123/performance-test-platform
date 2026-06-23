@@ -9,10 +9,17 @@
         <h2>{{ task.name }}</h2>
         <p>{{ script?.name }} · {{ task.environment }} · {{ taskStatusText(task.status) }}</p>
       </div>
-      <div class="row-actions">
-        <a-button class="task-fixed-button" @click="$emit('edit', task)">编辑</a-button>
-        <a-button class="task-fixed-button" type="primary" @click="runTask(task)">立即执行</a-button>
+    </div>
+
+    <div v-if="task.status === 'FAILED'" class="panel task-failure-panel">
+      <div class="panel-header">
+        <div>
+          <span class="eyebrow">Failure Detail</span>
+          <h2>执行失败</h2>
+          <p>{{ task.errorMessage || '任务执行失败，请查看下方日志。' }}</p>
+        </div>
       </div>
+      <pre class="task-failure-log">{{ task.executionLogs || '暂无执行日志' }}</pre>
     </div>
 
     <div class="panel">
@@ -101,21 +108,15 @@
           </button>
         </div>
         <div class="result-pagination">
-          <span>{{ resultSamples.length }} 条样本</span>
-          <div class="result-pagination-controls">
-            <a-button class="result-page-button" :disabled="resultPage <= 1" @click="resultPage -= 1">‹</a-button>
-            <a-button
-              v-for="page in visibleResultPages"
-              :key="page"
-              class="result-page-button"
-              :type="page === resultPage ? 'primary' : 'default'"
-              @click="resultPage = page"
-            >
-              {{ page }}
-            </a-button>
-            <a-button class="result-page-button" :disabled="resultPage >= resultPageCount" @click="resultPage += 1">›</a-button>
-            <a-select v-model:value="pageSize" class="result-page-size" :options="pageSizeOptions" />
-          </div>
+          <a-pagination
+            v-model:current="resultPage"
+            v-model:page-size="pageSize"
+            :total="resultSamples.length"
+            :page-size-options="['10', '20', '50']"
+            show-size-changer
+            :show-total="showResultTotal"
+            size="small"
+          />
         </div>
       </div>
 
@@ -154,21 +155,18 @@ const props = defineProps<{
 
 defineEmits<{
   (e: 'back'): void;
-  (e: 'edit', task: TestTask): void;
 }>();
 
 const {
   resultFilter,
   resultPage,
   pageSize,
-  resultPageCount,
   resultSamples,
   pagedSamples,
   selectedSample,
   selectedSampleId,
   taskStatusText,
   scriptById,
-  runTask,
 } = useTaskSchedule();
 
 const resultFilterOptions = [
@@ -181,16 +179,14 @@ const payloadModeOptions = [
   { label: '请求内容', value: 'request' },
   { label: '响应内容', value: 'response' },
 ];
-const pageSizeOptions = [
-  { label: '10 / page', value: 10 },
-  { label: '20 / page', value: 20 },
-  { label: '50 / page', value: 50 },
-];
+
+function showResultTotal(total: number) {
+  return `${total} 条样本`;
+}
 
 const script = computed(() => (props.task ? scriptById(props.task.scriptId) : null));
 const aggregateRows = computed(() => props.task?.aggregateRows ?? []);
 const activePayload = computed(() => payloadMode.value === 'request' ? selectedSample.value?.request ?? '' : selectedSample.value?.response ?? '');
 const activePayloadTitle = computed(() => payloadMode.value === 'request' ? 'HTTP Request' : `HTTP ${selectedSample.value?.statusCode ?? '-'}`);
 const metrics = computed(() => props.task?.metrics ?? []);
-const visibleResultPages = computed(() => Array.from({ length: resultPageCount.value }, (_, index) => index + 1));
 </script>

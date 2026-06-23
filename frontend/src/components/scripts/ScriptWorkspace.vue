@@ -5,11 +5,12 @@
         <div>
           <span class="eyebrow">Module 03</span>
           <h2>平台脚本资产</h2>
-          <p>{{ currentProject?.name }} 下可用于任务计划的脚本，导入仅作为追加或更新资产的入口。</p>
+          <p>{{ currentProject?.name }} 下可用于任务计划的脚本，支持新建空白脚本或导入 JMX 资产。</p>
         </div>
         <div class="script-assets-actions">
           <a-input v-model:value="scriptKeyword" class="compact-search" allow-clear placeholder="搜索脚本、接口、变量" />
           <a-button :disabled="selectedRows.length === 0" danger @click="deleteSelectedScripts">批量删除</a-button>
+          <a-button @click="openScriptCreateDialog">新建脚本</a-button>
           <a-button type="primary" @click="openScriptImportDialog">导入 JMX</a-button>
         </div>
       </div>
@@ -24,7 +25,7 @@
         :custom-row="scriptRowEvents"
         :row-class-name="scriptRowClassName"
         :scroll="{ x: 1120 }"
-        :locale="{ emptyText: '暂无匹配脚本，调整搜索条件或导入新的 JMX 脚本资产。' }"
+        :locale="{ emptyText: '暂无匹配脚本，可新建空白脚本或导入 JMX 脚本资产。' }"
       >
         <template #bodyCell="{ column, record, index }">
           <template v-if="column.key === 'index'">{{ index + 1 }}</template>
@@ -139,6 +140,7 @@ import type { TableColumnsType } from 'ant-design-vue';
 import { formatDate } from '../../utils/format';
 import { useScriptEditor } from '../../composables/useScriptEditor';
 import { useScriptImport } from '../../composables/useScriptImport';
+import { useScriptCreate } from '../../composables/useScriptCreate';
 import { useScriptParams } from '../../composables/useScriptParams';
 import { useTaskSchedule } from '../../composables/useTaskSchedule';
 import { useThreadGroups } from '../../composables/useThreadGroups';
@@ -148,6 +150,7 @@ import { scriptExecutableStatus } from '../../utils/script-status';
 
 const editor = useScriptEditor();
 const { openScriptImportDialog } = useScriptImport();
+const { openScriptCreateDialog } = useScriptCreate();
 const { openParamDrawer } = useScriptParams();
 const { runScriptAsset } = useTaskSchedule();
 const selectedScriptIds = ref<number[]>([]);

@@ -3,7 +3,6 @@
     v-if="detailTask"
     :task="detailTask"
     @back="backToList"
-    @edit="openEdit"
   />
 
   <section v-else class="task-schedule">
@@ -120,7 +119,8 @@
           <div class="task-side-card">
             <span>执行状态</span>
             <strong>{{ taskStatusText(selectedTask.status) }}</strong>
-            <small>{{ selectedTask.lastRunAt ? `最近执行 ${formatDate(selectedTask.lastRunAt)}` : '尚未执行' }}</small>
+            <small v-if="selectedTask.status === 'FAILED' && selectedTask.errorMessage">{{ selectedTask.errorMessage }}</small>
+            <small v-else>{{ selectedTask.lastRunAt ? `最近执行 ${formatDate(selectedTask.lastRunAt)}` : '尚未执行' }}</small>
           </div>
           <div class="task-side-actions">
             <a-button class="task-side-button" @click="openEdit(selectedTask)">编辑任务</a-button>

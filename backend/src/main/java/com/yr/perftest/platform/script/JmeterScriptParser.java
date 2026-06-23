@@ -323,9 +323,21 @@ public class JmeterScriptParser {
         if (root == null) {
             return List.of();
         }
+        if ("HeaderManager".equals(root.getTagName())) {
+            return parseHeaderItems(root);
+        }
+        for (Node node = root.getFirstChild(); node != null; node = node.getNextSibling()) {
+            if (node instanceof Element element && "HeaderManager".equals(element.getTagName())) {
+                return parseHeaderItems(element);
+            }
+        }
+        return List.of();
+    }
+
+    private List<Map<String, Object>> parseHeaderItems(Element headerManager) {
         List<Map<String, Object>> headers = new ArrayList<>();
-        for (int index = 0; index < root.getElementsByTagName("elementProp").getLength(); index++) {
-            Element element = (Element) root.getElementsByTagName("elementProp").item(index);
+        for (int index = 0; index < headerManager.getElementsByTagName("elementProp").getLength(); index++) {
+            Element element = (Element) headerManager.getElementsByTagName("elementProp").item(index);
             if ("Header".equals(element.getAttribute("elementType"))) {
                 headers.add(param(stringValue(element, "Header.name", ""), stringValue(element, "Header.value", "")));
             }

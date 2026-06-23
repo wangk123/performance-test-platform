@@ -8,6 +8,7 @@ import com.yr.perftest.platform.script.ScriptVersion;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,23 +42,23 @@ public class ScriptController {
         return scriptService.listScriptDefinitions(projectId);
     }
 
-    @GetMapping("/{versionId}")
+    @GetMapping("/{versionId:\\d+}")
     public ScriptContent getScriptContent(@PathVariable long projectId, @PathVariable long versionId) {
         return scriptService.getScriptContent(projectId, versionId);
     }
 
-    @GetMapping("/{versionId}/definition")
+    @GetMapping("/{versionId:\\d+}/definition")
     public ScriptDefinition getScriptDefinition(@PathVariable long projectId, @PathVariable long versionId) {
         return scriptService.getScriptDefinition(projectId, versionId);
     }
 
-    @DeleteMapping("/{versionId}")
+    @DeleteMapping("/{versionId:\\d+}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteScript(@PathVariable long projectId, @PathVariable long versionId) {
         scriptService.deleteScript(projectId, versionId);
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public ScriptVersion uploadScript(
             @PathVariable long projectId,
@@ -67,7 +68,17 @@ public class ScriptController {
         return scriptService.uploadScript(projectId, file, uploadedBy);
     }
 
-    @PutMapping("/{versionId}")
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public ScriptDefinition createScript(
+            @PathVariable long projectId,
+            @Valid @RequestBody CreateScriptRequest request,
+            @RequestHeader(name = "X-User", defaultValue = "admin") String uploadedBy
+    ) {
+        return scriptService.createScript(projectId, request.name(), uploadedBy);
+    }
+
+    @PutMapping("/{versionId:\\d+}")
     @ResponseStatus(HttpStatus.CREATED)
     public ScriptVersion saveScriptContent(
             @PathVariable long projectId,
@@ -78,7 +89,7 @@ public class ScriptController {
         return scriptService.saveScriptContent(projectId, versionId, request.content(), request.filename(), uploadedBy);
     }
 
-    @PutMapping("/{versionId}/definition")
+    @PutMapping("/{versionId:\\d+}/definition")
     @ResponseStatus(HttpStatus.CREATED)
     public ScriptDefinition saveScriptDefinition(
             @PathVariable long projectId,
@@ -87,6 +98,11 @@ public class ScriptController {
             @RequestHeader(name = "X-User", defaultValue = "admin") String uploadedBy
     ) {
         return scriptService.saveScriptDefinition(projectId, versionId, request.filename(), request.steps(), uploadedBy);
+    }
+
+    public record CreateScriptRequest(
+            @NotBlank String name
+    ) {
     }
 
     public record SaveScriptRequest(

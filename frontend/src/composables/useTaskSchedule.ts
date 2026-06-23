@@ -12,7 +12,7 @@ import { nextId } from '../utils/format';
 import { createMockTask } from '../utils/task-mock';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
-import { deleteTaskApi, getTaskApi, getTaskMonitoringApi, getTaskResultApi, listTasksApi, mapBackendTask, submitScriptTaskApi, submitTaskApi } from '../api/tasks';
+import { deleteTaskApi, getTaskApi, getTaskLogsApi, getTaskMonitoringApi, getTaskResultApi, listTasksApi, mapBackendTask, submitScriptTaskApi, submitTaskApi } from '../api/tasks';
 import { confirmAction } from '../utils/feedback';
 
 type TaskFormPayload = {
@@ -86,6 +86,12 @@ export function useTaskSchedule() {
       const result = await getTaskResultApi(taskId);
       const monitoring = await getTaskMonitoringApi(taskId);
       const remoteTask = mapBackendTask(backendTask, result, monitoring);
+      if (remoteTask.status === 'FAILED') {
+        try {
+          remoteTask.executionLogs = await getTaskLogsApi(taskId);
+        } catch {
+        }
+      }
       replaceTask(remoteTask);
       if (detailTaskId.value === taskId) {
         selectedSampleId.value = remoteTask.samples[0]?.id ?? null;
@@ -240,6 +246,9 @@ export function useTaskSchedule() {
       remark: payload.remark,
       createdAt: now,
       lastRunAt: null,
+      endedAt: null,
+      errorMessage: null,
+      executionLogs: '',
     });
     tasks.value.unshift(task);
     selectedTaskId.value = task.id;

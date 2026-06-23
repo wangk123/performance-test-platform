@@ -1,5 +1,6 @@
 package com.yr.perftest.platform.execution.distributed;
 
+import com.yr.perftest.platform.script.JmeterScriptNormalizer;
 import com.yr.perftest.platform.script.ScriptValidationException;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
@@ -16,11 +17,18 @@ import java.util.Map;
 
 @Component
 public class JmeterBackendListenerInjector {
+    private final JmeterScriptNormalizer normalizer;
+
+    public JmeterBackendListenerInjector(JmeterScriptNormalizer normalizer) {
+        this.normalizer = normalizer;
+    }
+
     public void inject(Path source, Path target, String runId, String influxdbUrl, String measurement) {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             Document document = factory.newDocumentBuilder().parse(source.toFile());
+            normalizer.normalize(document);
             Element testPlan = (Element) document.getElementsByTagName("TestPlan").item(0);
             Element hashTree = nextHashTree(testPlan);
             if (hashTree == null) {

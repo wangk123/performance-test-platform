@@ -269,6 +269,9 @@ export type TestTask = {
   remark: string;
   createdAt: string;
   lastRunAt: string | null;
+  endedAt: string | null;
+  errorMessage: string | null;
+  executionLogs: string;
   summary: TaskSummary;
   metrics: TaskMetricPoint[];
   monitoring: TaskMonitoringResult;

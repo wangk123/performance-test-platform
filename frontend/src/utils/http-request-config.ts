@@ -32,6 +32,33 @@ export function placeholderOf(key: string) {
   return `\${${key}}`;
 }
 
+export type HttpBodyLanguage = 'json' | 'xml' | 'html' | 'text';
+
+export function detectHttpBodyLanguage(value: string): HttpBodyLanguage {
+  const text = value.trim();
+  if (!text) {
+    return 'text';
+  }
+  if (text.startsWith('{') || text.startsWith('[')) {
+    return 'json';
+  }
+  if (text.startsWith('<')) {
+    if (/^<\s*(!DOCTYPE\s+html|html\b)/i.test(text)) {
+      return 'html';
+    }
+    return 'xml';
+  }
+  return 'text';
+}
+
+export function formatHttpBodyAuto(value: string) {
+  const text = value.trim();
+  if (!text) {
+    return value;
+  }
+  return formatBodyContent(detectHttpBodyLanguage(text), text);
+}
+
 export function formatBodyContent(type: string, value: string) {
   const text = value.trim();
   if (!text) {
@@ -40,7 +67,7 @@ export function formatBodyContent(type: string, value: string) {
   if (type === 'json') {
     return formatJson(text, value);
   }
-  if (type === 'xml') {
+  if (type === 'xml' || type === 'html') {
     return formatXml(text, value);
   }
   return value;

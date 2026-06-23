@@ -18,18 +18,18 @@ public class RemoteRunnerClient {
     private final ObjectMapper objectMapper;
     private final String pythonExecutable;
     private final Path runnerEntry;
-    private final Duration timeout;
+    private final Duration connectTimeout;
 
     public RemoteRunnerClient(
             ObjectMapper objectMapper,
             @Value("${platform.distributed.runner.python:python3}") String pythonExecutable,
             @Value("${platform.distributed.runner.entry:./remote-runner/remote_jmeter_runner/main.py}") String runnerEntry,
-            @Value("${platform.distributed.runner.timeout-seconds:300}") long timeoutSeconds
+            @Value("${platform.distributed.runner.connect-timeout-seconds:120}") long connectTimeoutSeconds
     ) {
         this.objectMapper = objectMapper;
         this.pythonExecutable = pythonExecutable;
         this.runnerEntry = resolveRunnerEntry(runnerEntry);
-        this.timeout = Duration.ofSeconds(timeoutSeconds);
+        this.connectTimeout = Duration.ofSeconds(connectTimeoutSeconds);
     }
 
     public RemoteRunnerResult checkNode(PersistentExecutionNodeRecord node) {
@@ -42,6 +42,14 @@ public class RemoteRunnerClient {
 
     public RemoteRunnerResult startRun(Map<String, Object> payload) {
         return run("start-run", payload);
+    }
+
+    public RemoteRunnerResult pollRun(Map<String, Object> payload) {
+        return run("poll-run", payload);
+    }
+
+    public RemoteRunnerResult collectRun(Map<String, Object> payload) {
+        return run("collect-run", payload);
     }
 
     public RemoteRunnerResult stopRun(Map<String, Object> payload) {
@@ -61,10 +69,10 @@ public class RemoteRunnerClient {
                         .redirectErrorStream(true)
                         .redirectOutput(outputPath.toFile())
                         .start();
-                boolean finished = process.waitFor(timeout.toSeconds(), TimeUnit.SECONDS);
+                boolean finished = process.waitFor(connectTimeout.toSeconds(), TimeUnit.SECONDS);
                 if (!finished) {
                     process.destroyForcibly();
-                    return RemoteRunnerResult.failed("remote runner timeout");
+                    return RemoteRunnerResult.failed("remote runner connect timeout");
                 }
                 String output = Files.readString(outputPath, StandardCharsets.UTF_8);
                 if (output.isBlank()) {

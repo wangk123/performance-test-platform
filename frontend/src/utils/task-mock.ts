@@ -18,6 +18,9 @@ export function createMockTask(script: ScriptAsset, index: number): TestTask {
     remark: 'Mock 任务配置，后续接入后端任务接口。',
     createdAt: `2026-06-0${index + 1}T10:00:00.000Z`,
     lastRunAt: status === 'PENDING' ? null : `2026-06-0${index + 3}T16:30:00.000Z`,
+    endedAt: status === 'PENDING' ? null : `2026-06-0${index + 3}T16:35:00.000Z`,
+    errorMessage: status === 'FAILED' ? 'Mock 执行失败示例' : null,
+    executionLogs: status === 'FAILED' ? 'Mock JMeter log output' : '',
     summary: {
       samples: 0,
       throughput: 0,

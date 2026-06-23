@@ -38,6 +38,10 @@ export function parseCurlCommand(raw: string): CurlImportResult {
     headers.push(param(match[2].slice(0, separator).trim(), match[2].slice(separator + 1).trim()));
   }
 
+  for (const match of input.matchAll(/(?:^|\s)(?:-b|--cookie)\s+(?:'([^']*)'|"([^"]*)"|([^\s]+))/gi)) {
+    appendCookie(headers, match[1] ?? match[2] ?? match[3] ?? '');
+  }
+
   for (const match of input.matchAll(/(?:^|\s)(?:-F|--form)\s+(['"])(.*?)\1/gi)) {
     const separator = match[2].indexOf('=');
     const key = separator >= 0 ? match[2].slice(0, separator) : match[2];
@@ -129,4 +133,17 @@ function looksLikeJson(body: string) {
 
 function param(key: string, value: string): HttpParamConfig {
   return { enabled: true, key, value, description: '' };
+}
+
+function appendCookie(headers: HttpParamConfig[], cookie: string) {
+  const value = cookie.trim();
+  if (!value) {
+    return;
+  }
+  const existing = headers.find((item) => item.key.toLowerCase() === 'cookie');
+  if (existing) {
+    existing.value = `${existing.value}; ${value}`;
+    return;
+  }
+  headers.push(param('Cookie', value));
 }

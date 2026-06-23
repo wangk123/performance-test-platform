@@ -55,6 +55,21 @@ class ScriptApiBehaviorTest {
     }
 
     @Test
+    void createsBlankScriptFromJson() throws Exception {
+        createProject();
+
+        mockMvc.perform(post("/api/projects/1/scripts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User", "admin")
+                        .content("{\"name\":\"登录链路压测\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.projectId", is(1)))
+                .andExpect(jsonPath("$.name", is("登录链路压测")))
+                .andExpect(jsonPath("$.sourceFile", is("登录链路压测.jmx")))
+                .andExpect(jsonPath("$.steps[0].type", is("THREAD_GROUP")));
+    }
+
+    @Test
     void rejectsNonJmxUploads() throws Exception {
         createProject();
 

@@ -45,6 +45,14 @@ export async function uploadScriptApi(projectId: number, file: File, username: s
   return getScriptDefinitionApi(projectId, version.id);
 }
 
+export function createScriptApi(projectId: number, name: string, username: string) {
+  return request<BackendScriptDefinition>(`/api/projects/${projectId}/scripts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-User': username },
+    body: JSON.stringify({ name }),
+  });
+}
+
 export function getScriptDefinitionApi(projectId: number, versionId: number) {
   return request<BackendScriptDefinition>(`/api/projects/${projectId}/scripts/${versionId}/definition`);
 }

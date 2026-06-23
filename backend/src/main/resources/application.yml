@@ -31,4 +31,6 @@ platform:
     runner:
       python: ${REMOTE_RUNNER_PYTHON:python3}
       entry: ${REMOTE_RUNNER_ENTRY:./remote-runner/remote_jmeter_runner/main.py}
-      timeout-seconds: ${REMOTE_RUNNER_TIMEOUT_SECONDS:300}
+      connect-timeout-seconds: ${REMOTE_RUNNER_CONNECT_TIMEOUT_SECONDS:120}
+      idle-timeout-seconds: ${REMOTE_RUNNER_IDLE_TIMEOUT_SECONDS:300}
+      poll-interval-seconds: ${REMOTE_RUNNER_POLL_INTERVAL_SECONDS:10}

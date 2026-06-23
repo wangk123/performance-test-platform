@@ -1,6 +1,7 @@
 package com.yr.perftest.platform.execution;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yr.perftest.platform.script.JmeterScriptNormalizer;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
 import jakarta.annotation.PreDestroy;
@@ -11,7 +12,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -23,6 +23,7 @@ public class JmeterExecutionRunner {
     private final PersistentScriptVersionRepository scriptVersionRepository;
     private final JmeterCommandExecutor jmeterCommandExecutor;
     private final JmeterResultRetainer resultRetainer;
+    private final JmeterScriptNormalizer scriptNormalizer;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
     private final Path storageRoot;
@@ -34,6 +35,7 @@ public class JmeterExecutionRunner {
             PersistentScriptVersionRepository scriptVersionRepository,
             JmeterCommandExecutor jmeterCommandExecutor,
             JmeterResultRetainer resultRetainer,
+            JmeterScriptNormalizer scriptNormalizer,
             TransactionTemplate transactionTemplate,
             ObjectMapper objectMapper,
             @Value("${platform.storage.root:./storage}") String storageRoot,
@@ -44,6 +46,7 @@ public class JmeterExecutionRunner {
         this.scriptVersionRepository = scriptVersionRepository;
         this.jmeterCommandExecutor = jmeterCommandExecutor;
         this.resultRetainer = resultRetainer;
+        this.scriptNormalizer = scriptNormalizer;
         this.transactionTemplate = transactionTemplate;
         this.objectMapper = objectMapper;
         this.storageRoot = Path.of(storageRoot);
@@ -70,7 +73,7 @@ public class JmeterExecutionRunner {
                 return;
             }
             Files.createDirectories(preparation.executionDirectory());
-            Files.copy(preparation.sourcePath(), preparation.testPlanPath(), StandardCopyOption.REPLACE_EXISTING);
+            scriptNormalizer.copyNormalized(preparation.sourcePath(), preparation.testPlanPath());
             Files.writeString(
                     preparation.logPath(),
                     "",
@@ -89,7 +92,11 @@ public class JmeterExecutionRunner {
             if (exitCode == 0) {
                 markSuccess(executionId);
             } else {
-                markFailed(executionId, exitCode, "JMeter exited with code " + exitCode);
+                markFailed(
+                        executionId,
+                        exitCode,
+                        ExecutionFailureSummarizer.summarize("JMeter exited with code " + exitCode, preparation.logPath())
+                );
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();

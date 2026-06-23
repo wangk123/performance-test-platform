@@ -160,6 +160,29 @@ def node_ref(node):
     }
 
 
+def controller_container_name(run_id):
+    return f"jmeter-controller-{run_id}"
+
+
+def controller_status(client, run_id):
+    container_name = controller_container_name(run_id)
+    command = " ".join([
+        "docker inspect -f",
+        shell_quote("{{.State.Running}} {{.State.ExitCode}}"),
+        shell_quote(container_name),
+        "2>/dev/null || echo missing",
+    ])
+    _, output = run(client, command)
+    parts = output.strip().split()
+    if not parts or parts[0] == "missing":
+        return "missing", -1
+    running = parts[0].lower() == "true"
+    exit_code = int(parts[1]) if len(parts) > 1 else -1
+    if running:
+        return "running", 0
+    return "finished", exit_code
+
+
 def start_worker(node, run_id):
     client = connect(node)
     remote_dir = Path(node.get("remoteWorkDir", "/tmp/perftest-platform")) / run_id
@@ -181,14 +204,12 @@ def start_worker(node, run_id):
     return code, output
 
 
-def start_controller(controller, payload):
+def launch_controller(controller, payload):
     client = connect(controller)
     run_id = payload["runId"]
     remote_dir = Path(controller.get("remoteWorkDir", "/tmp/perftest-platform")) / run_id
     remote_script = remote_dir / Path(payload["scriptPath"]).name
-    remote_result = remote_dir / "result.jtl"
-    remote_log = remote_dir / "jmeter.log"
-    container_name = f"jmeter-controller-{run_id}"
+    container_name = controller_container_name(run_id)
     sftp_put(client, Path(payload["scriptPath"]), remote_script)
     for dependency in payload.get("dependencies", []):
         source = Path(dependency["sourcePath"])
@@ -197,7 +218,7 @@ def start_controller(controller, payload):
     worker_hosts = ",".join([node["host"] for node in payload["workers"]])
     command = " ".join([
         "docker rm -f", shell_quote(container_name), ">/dev/null 2>&1 || true;",
-        "docker run --rm --name", shell_quote(container_name),
+        "docker run -d --name", shell_quote(container_name),
         "--network host",
         "-v", shell_quote(f"{remote_dir}:/test"),
         JMETER_IMAGE,
@@ -215,17 +236,29 @@ def start_controller(controller, payload):
         *result_save_args(),
     ])
     code, output = run(client, command)
+    client.close()
+    return code, output
+
+
+def collect_artifacts(controller, payload):
+    client = connect(controller)
+    run_id = payload["runId"]
+    remote_dir = Path(controller.get("remoteWorkDir", "/tmp/perftest-platform")) / run_id
+    remote_result = remote_dir / "result.jtl"
+    remote_log = remote_dir / "jmeter.log"
+    logs = []
     try:
         sftp_get(client, remote_result, payload["resultPath"])
         retain_recent_failures(payload["resultPath"], payload["failureResultPath"])
-    except Exception:
-        pass
+    except Exception as exc:
+        logs.append(str(exc))
     try:
         sftp_get(client, remote_log, payload["logPath"])
-    except Exception:
-        Path(payload["logPath"]).write_text(output, encoding="utf-8")
+    except Exception as exc:
+        logs.append(str(exc))
+        Path(payload["logPath"]).write_text("\n".join(logs), encoding="utf-8")
     client.close()
-    return code, output
+    return "\n".join(logs)
 
 
 def start_run(payload):
@@ -239,11 +272,40 @@ def start_run(payload):
             if code != 0:
                 return respond(False, output.strip(), "\n".join(logs), code)
         time.sleep(5)
-        code, output = start_controller(controller, payload)
+        code, output = launch_controller(controller, payload)
         logs.append(output)
-        return respond(code == 0, "distributed run finished" if code == 0 else output.strip(), "\n".join(logs), code)
+        if code != 0:
+            return respond(False, output.strip(), "\n".join(logs), code)
+        return respond(True, "launched", "\n".join(logs), 0)
     except Exception as exc:
         return respond(False, str(exc), "\n".join(logs))
+
+
+def poll_run(payload):
+    client = None
+    try:
+        controller = node_ref(payload["controller"])
+        client = connect(controller)
+        status, exit_code = controller_status(client, payload["runId"])
+        if status == "running":
+            return respond(True, "running", "", 0)
+        if status == "missing":
+            return respond(False, "controller container not found", "", -1)
+        return respond(exit_code == 0, "finished", "", exit_code)
+    except Exception as exc:
+        return respond(False, str(exc))
+    finally:
+        if client:
+            client.close()
+
+
+def collect_run(payload):
+    try:
+        controller = node_ref(payload["controller"])
+        log = collect_artifacts(controller, payload)
+        return respond(True, "collected", log, 0)
+    except Exception as exc:
+        return respond(False, str(exc))
 
 
 def stop_run(payload):
@@ -269,7 +331,7 @@ def stop_run(payload):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["check-node", "install-key", "start-run", "stop-run"])
+    parser.add_argument("command", choices=["check-node", "install-key", "start-run", "poll-run", "collect-run", "stop-run"])
     parser.add_argument("payload")
     args = parser.parse_args()
     payload = json.loads(args.payload)
@@ -279,6 +341,10 @@ def main():
         return install_key(payload)
     if args.command == "start-run":
         return start_run(payload)
+    if args.command == "poll-run":
+        return poll_run(payload)
+    if args.command == "collect-run":
+        return collect_run(payload)
     return stop_run(payload)
 
 

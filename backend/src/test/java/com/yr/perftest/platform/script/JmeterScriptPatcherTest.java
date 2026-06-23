@@ -11,6 +11,7 @@ public class JmeterScriptPatcherTest {
     public static void runAll() {
         patchesKnownStepsWithoutDroppingUnknownNodes();
         patchesJsonAssertionUnderHttpSampler();
+        patchesHttpHeadersWithoutDroppingUnknownNodes();
         System.out.println("JmeterScriptPatcherTest passed");
     }
 
@@ -72,7 +73,7 @@ public class JmeterScriptPatcherTest {
                 new ArrayList<>(List.of(updatedHttp))
         );
 
-        String patched = new JmeterScriptPatcher(new JmeterScriptRenderer()).patch(jmx, List.of(updatedThreadGroup));
+        String patched = new JmeterScriptPatcher(new JmeterScriptRenderer(), new JmeterScriptNormalizer()).patch(jmx, List.of(updatedThreadGroup));
 
         assertTrue(patched.contains("ConstantTimer"), "unknown timer remains");
         assertTrue(patched.contains("DebugSampler"), "unknown sampler remains");
@@ -138,9 +139,78 @@ public class JmeterScriptPatcherTest {
                 List.of(updatedHttp)
         );
 
-        String patched = new JmeterScriptPatcher(new JmeterScriptRenderer()).patch(jmx, List.of(updatedThreadGroup));
+        String patched = new JmeterScriptPatcher(new JmeterScriptRenderer(), new JmeterScriptNormalizer()).patch(jmx, List.of(updatedThreadGroup));
 
         assertTrue(patched.contains("JSONPathAssertion"), "json assertion is rendered");
         assertTrue(patched.contains("<stringProp name=\"JSON_PATH\">$.code</stringProp>"), "json path is rendered");
+    }
+
+    static void patchesHttpHeadersWithoutDroppingUnknownNodes() {
+        String jmx = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+                  <hashTree>
+                    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                    <hashTree>
+                      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Main" enabled="true">
+                        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+                        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+                        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+                          <stringProp name="LoopController.loops">1</stringProp>
+                        </elementProp>
+                      </ThreadGroup>
+                      <hashTree>
+                        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST /api" enabled="true">
+                          <stringProp name="HTTPSampler.method">POST</stringProp>
+                          <stringProp name="HTTPSampler.path">/api</stringProp>
+                          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+                            <collectionProp name="Arguments.arguments"/>
+                          </elementProp>
+                        </HTTPSamplerProxy>
+                        <hashTree>
+                          <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Think Time" enabled="true">
+                            <stringProp name="ConstantTimer.delay">500</stringProp>
+                          </ConstantTimer>
+                          <hashTree/>
+                        </hashTree>
+                      </hashTree>
+                    </hashTree>
+                  </hashTree>
+                </jmeterTestPlan>
+                """;
+        JmeterScriptParser parser = new JmeterScriptParser();
+        ScriptStepDefinition threadGroup = parser.parseSteps(jmx).get(0);
+        ScriptStepDefinition http = threadGroup.children().get(0);
+        Map<String, Object> httpConfig = new LinkedHashMap<>(http.config());
+        httpConfig.put("headers", List.of(Map.of(
+                "enabled", true,
+                "key", "access_token",
+                "value", "token-value",
+                "description", ""
+        )));
+        ScriptStepDefinition updatedHttp = new ScriptStepDefinition(
+                http.id(),
+                http.type(),
+                http.name(),
+                httpConfig,
+                http.children()
+        );
+        ScriptStepDefinition updatedThreadGroup = new ScriptStepDefinition(
+                threadGroup.id(),
+                threadGroup.type(),
+                threadGroup.name(),
+                threadGroup.config(),
+                List.of(updatedHttp)
+        );
+
+        String patched = new JmeterScriptPatcher(new JmeterScriptRenderer(), new JmeterScriptNormalizer()).patch(jmx, List.of(updatedThreadGroup));
+        List<ScriptStepDefinition> reparsed = parser.parseSteps(patched);
+        ScriptStepDefinition reparsedHttp = reparsed.get(0).children().get(0);
+
+        assertTrue(patched.contains("HeaderManager"), "header manager is rendered");
+        assertTrue(patched.contains("<stringProp name=\"Header.name\">access_token</stringProp>"), "header key is rendered");
+        assertTrue(patched.contains("ConstantTimer"), "unknown timer remains");
+        assertEquals(1, ((List<?>) reparsedHttp.config().get("headers")).size(), "headers round-trip");
+        assertEquals("token-value", String.valueOf(((Map<?, ?>) ((List<?>) reparsedHttp.config().get("headers")).get(0)).get("value")), "header value round-trip");
     }
 }

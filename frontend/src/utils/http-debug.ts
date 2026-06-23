@@ -1,3 +1,4 @@
+import { executeHttpDebugApi } from '../api/http-debug';
 import type { HttpParamConfig, HttpRequestConfig } from '../types';
 import type { VariableOption } from './http-request-config';
 
@@ -16,50 +17,18 @@ export type HttpDebugResult = {
 };
 
 export async function executeHttpDebug(config: HttpRequestConfig, variables: VariableOption[]): Promise<HttpDebugResult> {
-  const startedAt = performance.now();
   const method = config.method.toUpperCase();
   const requestHeaders = buildHeaders(config.headers, variables);
   const requestBody = buildBody(config, variables);
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), config.advanced.responseTimeout || 30000);
   const url = appendParams(replaceVariables(config.url, variables), config.params, variables);
-  try {
-    const response = await fetch(url, {
-      method,
-      headers: requestHeaders,
-      body: method === 'GET' || method === 'HEAD' ? undefined : requestBody.body,
-      signal: controller.signal,
-    });
-    return {
-      ok: response.ok,
-      url,
-      method,
-      status: response.status,
-      statusText: response.statusText,
-      durationMs: Math.round(performance.now() - startedAt),
-      requestHeaders,
-      responseHeaders: headersToRecord(response.headers),
-      requestBody: requestBody.preview,
-      responseBody: await response.text(),
-      error: '',
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      url,
-      method,
-      status: null,
-      statusText: '',
-      durationMs: Math.round(performance.now() - startedAt),
-      requestHeaders,
-      responseHeaders: {},
-      requestBody: requestBody.preview,
-      responseBody: '',
-      error: error instanceof Error ? error.message : '调试请求失败',
-    };
-  } finally {
-    window.clearTimeout(timeout);
-  }
+  const body = serializeBody(requestBody);
+  return executeHttpDebugApi({
+    method,
+    url,
+    headers: requestHeaders,
+    body,
+    timeoutMs: config.advanced.responseTimeout || 30000,
+  });
 }
 
 function appendParams(url: string, params: HttpParamConfig[], variables: VariableOption[]) {
@@ -67,7 +36,7 @@ function appendParams(url: string, params: HttpParamConfig[], variables: Variabl
   if (!enabledParams.length) {
     return url;
   }
-  const parsed = new URL(url, window.location.origin);
+  const parsed = new URL(url, 'http://localhost');
   enabledParams.forEach((item) => {
     parsed.searchParams.set(replaceVariables(item.key, variables), replaceVariables(item.value, variables));
   });
@@ -96,17 +65,17 @@ function buildBody(config: HttpRequestConfig, variables: VariableOption[]) {
     return { body: params.toString(), preview: params.toString() };
   }
   if (config.bodyType === 'form-data') {
-    const formData = new FormData();
     const preview = new URLSearchParams();
     config.bodyParams.filter((item) => item.enabled && item.key).forEach((item) => {
-      const key = replaceVariables(item.key, variables);
-      const value = replaceVariables(item.value, variables);
-      formData.set(key, value);
-      preview.set(key, value);
+      preview.set(replaceVariables(item.key, variables), replaceVariables(item.value, variables));
     });
-    return { body: formData, preview: preview.toString() };
+    return { body: preview.toString(), preview: preview.toString() };
   }
-  return { body: undefined, preview: '' };
+  return { body: '', preview: '' };
+}
+
+function serializeBody(requestBody: { body: string; preview: string }) {
+  return requestBody.body || requestBody.preview || '';
 }
 
 function replaceVariables(value: string, variables: VariableOption[]) {
@@ -118,12 +87,4 @@ function replaceVariables(value: string, variables: VariableOption[]) {
     }
     return replacement;
   });
-}
-
-function headersToRecord(headers: Headers) {
-  const result: Record<string, string> = {};
-  headers.forEach((value, key) => {
-    result[key] = value;
-  });
-  return result;
 }

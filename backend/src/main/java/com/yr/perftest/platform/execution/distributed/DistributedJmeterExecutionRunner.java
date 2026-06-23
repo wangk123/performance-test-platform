@@ -1,6 +1,7 @@
 package com.yr.perftest.platform.execution.distributed;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yr.perftest.platform.execution.ExecutionFailureSummarizer;
 import com.yr.perftest.platform.execution.ExecutionConfig;
 import com.yr.perftest.platform.execution.ExecutionStatus;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
@@ -8,6 +9,7 @@ import com.yr.perftest.platform.execution.PersistentTaskExecutionRecord;
 import com.yr.perftest.platform.execution.PersistentTaskExecutionRepository;
 import com.yr.perftest.platform.execution.PersistentTestTaskRecord;
 import com.yr.perftest.platform.execution.PersistentTestTaskRepository;
+import com.yr.perftest.platform.script.JmeterScriptNormalizer;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
 import jakarta.annotation.PreDestroy;
@@ -18,12 +20,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class DistributedJmeterExecutionRunner {
@@ -34,11 +38,14 @@ public class DistributedJmeterExecutionRunner {
     private final RemoteRunnerClient remoteRunnerClient;
     private final JmeterBackendListenerInjector backendListenerInjector;
     private final JmeterDependencyCollector dependencyCollector;
+    private final JmeterScriptNormalizer scriptNormalizer;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
     private final Path storageRoot;
     private final String influxdbUrl;
     private final String influxdbMeasurement;
+    private final Duration idleTimeout;
+    private final Duration pollInterval;
     private final ExecutorService executorService;
 
     public DistributedJmeterExecutionRunner(
@@ -49,12 +56,15 @@ public class DistributedJmeterExecutionRunner {
             RemoteRunnerClient remoteRunnerClient,
             JmeterBackendListenerInjector backendListenerInjector,
             JmeterDependencyCollector dependencyCollector,
+            JmeterScriptNormalizer scriptNormalizer,
             TransactionTemplate transactionTemplate,
             ObjectMapper objectMapper,
             @Value("${platform.storage.root:./storage}") String storageRoot,
             @Value("${platform.distributed.influxdb-url:http://127.0.0.1:8086/write?db=jmeter}") String influxdbUrl,
             @Value("${platform.distributed.influxdb-measurement:jmeter_runtime}") String influxdbMeasurement,
-            @Value("${platform.execution.max-concurrent-tasks:1}") int maxConcurrentTasks
+            @Value("${platform.execution.max-concurrent-tasks:1}") int maxConcurrentTasks,
+            @Value("${platform.distributed.runner.idle-timeout-seconds:300}") long idleTimeoutSeconds,
+            @Value("${platform.distributed.runner.poll-interval-seconds:10}") long pollIntervalSeconds
     ) {
         this.taskRepository = taskRepository;
         this.executionRepository = executionRepository;
@@ -63,11 +73,14 @@ public class DistributedJmeterExecutionRunner {
         this.remoteRunnerClient = remoteRunnerClient;
         this.backendListenerInjector = backendListenerInjector;
         this.dependencyCollector = dependencyCollector;
+        this.scriptNormalizer = scriptNormalizer;
         this.transactionTemplate = transactionTemplate;
         this.objectMapper = objectMapper;
         this.storageRoot = Path.of(storageRoot);
         this.influxdbUrl = influxdbUrl;
         this.influxdbMeasurement = influxdbMeasurement;
+        this.idleTimeout = Duration.ofSeconds(idleTimeoutSeconds);
+        this.pollInterval = Duration.ofSeconds(pollIntervalSeconds);
         this.executorService = Executors.newFixedThreadPool(Math.max(1, maxConcurrentTasks), runnable -> {
             Thread thread = new Thread(runnable, "distributed-jmeter-execution-runner");
             thread.setDaemon(true);
@@ -91,7 +104,7 @@ public class DistributedJmeterExecutionRunner {
                 return;
             }
             Files.createDirectories(preparation.executionDirectory());
-            Files.copy(preparation.sourcePath(), preparation.originalTestPlanPath(), StandardCopyOption.REPLACE_EXISTING);
+            scriptNormalizer.copyNormalized(preparation.sourcePath(), preparation.originalTestPlanPath());
             backendListenerInjector.inject(
                     preparation.originalTestPlanPath(),
                     preparation.distributedTestPlanPath(),
@@ -107,24 +120,68 @@ public class DistributedJmeterExecutionRunner {
                     StandardOpenOption.TRUNCATE_EXISTING
             );
             markRunning(executionId, preparation.resultPath(), preparation.logPath());
-            RemoteRunnerResult result = null;
+            Map<String, Object> payload = payload(preparation);
+            RemoteRunnerResult launchResult = null;
+            RemoteRunnerResult finishResult = null;
             try {
-                result = remoteRunnerClient.startRun(payload(preparation));
-                appendLog(preparation.logPath(), result.log());
-                if (result.ok()) {
+                launchResult = remoteRunnerClient.startRun(payload);
+                appendLog(preparation.logPath(), launchResult.log());
+                if (!launchResult.ok()) {
+                    markFailed(
+                            executionId,
+                            launchResult.exitCode(),
+                            ExecutionFailureSummarizer.summarize(launchResult.message(), preparation.logPath())
+                    );
+                    return;
+                }
+                finishResult = waitForCompletion(payload);
+                if (!finishResult.ok()) {
+                    markFailed(
+                            executionId,
+                            finishResult.exitCode(),
+                            ExecutionFailureSummarizer.summarize(finishResult.message(), preparation.logPath())
+                    );
+                    return;
+                }
+                RemoteRunnerResult collectResult = remoteRunnerClient.collectRun(payload);
+                appendLog(preparation.logPath(), collectResult.log());
+                if (finishResult.exitCode() == 0) {
                     markSuccess(executionId);
                 } else {
-                    markFailed(executionId, result.exitCode(), result.message());
+                    markFailed(
+                            executionId,
+                            finishResult.exitCode(),
+                            ExecutionFailureSummarizer.summarize(finishResult.message(), preparation.logPath())
+                    );
                 }
             } finally {
-                RemoteRunnerResult cleanup = remoteRunnerClient.stopRun(payload(preparation));
+                RemoteRunnerResult cleanup = remoteRunnerClient.stopRun(payload);
                 appendLog(preparation.logPath(), cleanup.log());
-                if (result != null && result.ok() && !cleanup.ok()) {
-                    markFailed(executionId, cleanup.exitCode(), cleanup.message());
-                }
             }
         } catch (Exception exception) {
             markFailed(executionId, null, exception.getMessage());
+        }
+    }
+
+    private RemoteRunnerResult waitForCompletion(Map<String, Object> payload) throws InterruptedException {
+        Instant lastResponseAt = Instant.now();
+        while (true) {
+            RemoteRunnerResult poll = remoteRunnerClient.pollRun(payload);
+            if (poll.ok()) {
+                lastResponseAt = Instant.now();
+                if ("running".equals(poll.message())) {
+                    TimeUnit.MILLISECONDS.sleep(pollInterval.toMillis());
+                    continue;
+                }
+                if ("finished".equals(poll.message())) {
+                    return poll;
+                }
+                return RemoteRunnerResult.failed(poll.message());
+            }
+            if (Duration.between(lastResponseAt, Instant.now()).compareTo(idleTimeout) >= 0) {
+                return RemoteRunnerResult.failed("remote runner idle timeout: execution node not responding");
+            }
+            TimeUnit.MILLISECONDS.sleep(pollInterval.toMillis());
         }
     }
 

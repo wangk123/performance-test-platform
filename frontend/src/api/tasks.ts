@@ -20,6 +20,8 @@ type BackendTask = {
   remark: string;
   createdAt: string;
   startedAt: string | null;
+  endedAt: string | null;
+  errorMessage: string | null;
   grafanaUrl: string | null;
 };
 
@@ -77,6 +79,10 @@ export function submitScriptTaskApi(projectId: number, script: ScriptAsset, user
   });
 }
 
+export function getTaskLogsApi(taskId: number) {
+  return request<string>(`/api/tasks/${taskId}/logs`);
+}
+
 export function deleteTaskApi(taskId: number) {
   return request<void>(`/api/tasks/${taskId}`, { method: 'DELETE' });
 }
@@ -97,6 +103,9 @@ export function mapBackendTask(task: BackendTask, result?: BackendTaskResult, mo
     remark: task.remark,
     createdAt: task.createdAt,
     lastRunAt: task.startedAt,
+    endedAt: task.endedAt,
+    errorMessage: task.errorMessage,
+    executionLogs: '',
     summary: result?.summary ?? { samples: 0, throughput: 0, avgRt: 0, p95: 0, errorRate: 0 },
     metrics: result?.metrics ?? [],
     monitoring: monitoring ?? { interfaces: [], points: [] },

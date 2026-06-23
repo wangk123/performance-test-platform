@@ -903,6 +903,13 @@
 .http-debug-dialog {
   display: grid;
   gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.http-debug-dialog .ant-tabs,
+.http-debug-dialog .ant-tabs-content-holder {
+  min-width: 0;
 }
 
 .http-debug-summary {
@@ -923,15 +930,29 @@
 
 .http-debug-pre {
   max-height: 360px;
+  max-width: 100%;
   margin: 0;
   padding: 12px;
   overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: #0f172a;
   color: #e5e7eb;
   font-size: 12px;
   line-height: 1.6;
+}
+
+.http-debug-code-editor {
+  min-height: 280px;
+  max-height: 360px;
+}
+
+.http-debug-code-editor.code-editor .cm-editor {
+  min-height: 280px;
+  max-height: 360px;
 }
 
 .variable-highlight-layer mark {
