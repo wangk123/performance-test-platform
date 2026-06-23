@@ -88,7 +88,7 @@ export function useNavigation() {
       return `系统配置 · ${configLabel(activeConfigTab.value)}`;
     }
     if (activeMainNav.value === 'executionNodes') {
-      return '执行管理台';
+      return '执行器配置';
     }
     return activeMainNav.value === 'projects' ? '项目管理' : '首页';
   });

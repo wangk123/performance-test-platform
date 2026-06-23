@@ -28,12 +28,16 @@ public class RemoteRunnerClient {
     ) {
         this.objectMapper = objectMapper;
         this.pythonExecutable = pythonExecutable;
-        this.runnerEntry = Path.of(runnerEntry);
+        this.runnerEntry = resolveRunnerEntry(runnerEntry);
         this.timeout = Duration.ofSeconds(timeoutSeconds);
     }
 
     public RemoteRunnerResult checkNode(PersistentExecutionNodeRecord node) {
         return run("check-node", nodePayload(node));
+    }
+
+    public RemoteRunnerResult installKey(Map<String, Object> payload) {
+        return run("install-key", payload);
     }
 
     public RemoteRunnerResult startRun(Map<String, Object> payload) {
@@ -47,7 +51,7 @@ public class RemoteRunnerClient {
     private RemoteRunnerResult run(String command, Map<String, Object> payload) {
         try {
             List<String> args = new ArrayList<>();
-            args.add(pythonExecutable);
+            args.addAll(pythonCommand());
             args.add(runnerEntry.toString());
             args.add(command);
             args.add(objectMapper.writeValueAsString(payload));
@@ -66,8 +70,12 @@ public class RemoteRunnerClient {
                 if (output.isBlank()) {
                     return new RemoteRunnerResult(process.exitValue() == 0, process.exitValue(), "", "");
                 }
-                RemoteRunnerResult result = objectMapper.readValue(output, RemoteRunnerResult.class);
-                return new RemoteRunnerResult(result.ok(), result.exitCode(), result.message(), result.log());
+                try {
+                    RemoteRunnerResult result = objectMapper.readValue(output, RemoteRunnerResult.class);
+                    return new RemoteRunnerResult(result.ok(), result.exitCode(), result.message(), result.log());
+                } catch (Exception exception) {
+                    return RemoteRunnerResult.failed(output.length() > 2000 ? output.substring(0, 2000) : output);
+                }
             } finally {
                 Files.deleteIfExists(outputPath);
             }
@@ -84,5 +92,22 @@ public class RemoteRunnerClient {
                 "sshKeyPath", node.getSshKeyPath(),
                 "remoteWorkDir", node.getRemoteWorkDir()
         );
+    }
+
+    private Path resolveRunnerEntry(String runnerEntry) {
+        Path path = Path.of(runnerEntry);
+        if (Files.exists(path)) {
+            return path;
+        }
+        Path parentPath = Path.of("..").resolve(runnerEntry).normalize();
+        return Files.exists(parentPath) ? parentPath : path;
+    }
+
+    private List<String> pythonCommand() {
+        if (System.getProperty("os.name", "").toLowerCase().contains("mac")
+                && Files.exists(Path.of("/usr/bin/arch"))) {
+            return List.of("/usr/bin/arch", "-arm64", pythonExecutable);
+        }
+        return List.of(pythonExecutable);
     }
 }

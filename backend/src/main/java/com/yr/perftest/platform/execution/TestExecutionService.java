@@ -13,6 +13,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -27,6 +29,7 @@ public class TestExecutionService {
     private final JmeterResultParser jmeterResultParser;
     private final ObjectMapper objectMapper;
     private final String grafanaPanelUrl;
+    private final String influxdbMeasurement;
 
     public TestExecutionService(
             PersistentProjectRepository projectRepository,
@@ -37,7 +40,8 @@ public class TestExecutionService {
             DistributedJmeterExecutionRunner distributedJmeterExecutionRunner,
             JmeterResultParser jmeterResultParser,
             ObjectMapper objectMapper,
-            @Value("${platform.distributed.grafana-panel-url:http://127.0.0.1:3000/d/jmeter-5496/jmeter-load-test?orgId=1&refresh=5s}") String grafanaPanelUrl
+            @Value("${platform.distributed.grafana-panel-url:http://127.0.0.1:3000/d/jmeter-5496/jmeter-load-test?orgId=1&refresh=5s}") String grafanaPanelUrl,
+            @Value("${platform.distributed.influxdb-measurement:jmeter_runtime}") String influxdbMeasurement
     ) {
         this.projectRepository = projectRepository;
         this.scriptVersionRepository = scriptVersionRepository;
@@ -48,6 +52,7 @@ public class TestExecutionService {
         this.jmeterResultParser = jmeterResultParser;
         this.objectMapper = objectMapper;
         this.grafanaPanelUrl = grafanaPanelUrl;
+        this.influxdbMeasurement = influxdbMeasurement;
     }
 
     @Transactional
@@ -174,7 +179,7 @@ public class TestExecutionService {
                 execution.getResultFilePath(),
                 execution.getLogFilePath(),
                 execution.getErrorMessage(),
-                grafanaUrl(execution.getId(), config)
+                grafanaUrl(execution, config)
         );
     }
 
@@ -225,11 +230,25 @@ public class TestExecutionService {
         }
     }
 
-    private String grafanaUrl(long executionId, ExecutionConfig config) {
+    private String grafanaUrl(PersistentTaskExecutionRecord execution, ExecutionConfig config) {
         if (config.mode() != ExecutionMode.DISTRIBUTED) {
             return null;
         }
+        String timeRange = "";
+        if (execution.getStartTime() != null && execution.getEndTime() != null) {
+            long from = execution.getStartTime().minusSeconds(30).toEpochMilli();
+            long to = execution.getEndTime().plusSeconds(30).toEpochMilli();
+            timeRange = "&from=" + from + "&to=" + to;
+        }
         String separator = grafanaPanelUrl.contains("?") ? "&" : "?";
-        return grafanaPanelUrl + separator + "var-application=execution-" + executionId;
+        return grafanaPanelUrl
+                + separator
+                + "var-data_source="
+                + URLEncoder.encode("JMeter InfluxDB", StandardCharsets.UTF_8)
+                + "&var-measurement_name="
+                + URLEncoder.encode(influxdbMeasurement, StandardCharsets.UTF_8)
+                + "&var-application=execution-"
+                + execution.getId()
+                + timeRange;
     }
 }

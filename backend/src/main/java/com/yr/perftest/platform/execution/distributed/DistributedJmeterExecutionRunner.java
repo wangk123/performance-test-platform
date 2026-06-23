@@ -38,6 +38,7 @@ public class DistributedJmeterExecutionRunner {
     private final ObjectMapper objectMapper;
     private final Path storageRoot;
     private final String influxdbUrl;
+    private final String influxdbMeasurement;
     private final ExecutorService executorService;
 
     public DistributedJmeterExecutionRunner(
@@ -52,6 +53,7 @@ public class DistributedJmeterExecutionRunner {
             ObjectMapper objectMapper,
             @Value("${platform.storage.root:./storage}") String storageRoot,
             @Value("${platform.distributed.influxdb-url:http://127.0.0.1:8086/write?db=jmeter}") String influxdbUrl,
+            @Value("${platform.distributed.influxdb-measurement:jmeter_runtime}") String influxdbMeasurement,
             @Value("${platform.execution.max-concurrent-tasks:1}") int maxConcurrentTasks
     ) {
         this.taskRepository = taskRepository;
@@ -65,6 +67,7 @@ public class DistributedJmeterExecutionRunner {
         this.objectMapper = objectMapper;
         this.storageRoot = Path.of(storageRoot);
         this.influxdbUrl = influxdbUrl;
+        this.influxdbMeasurement = influxdbMeasurement;
         this.executorService = Executors.newFixedThreadPool(Math.max(1, maxConcurrentTasks), runnable -> {
             Thread thread = new Thread(runnable, "distributed-jmeter-execution-runner");
             thread.setDaemon(true);
@@ -93,7 +96,8 @@ public class DistributedJmeterExecutionRunner {
                     preparation.originalTestPlanPath(),
                     preparation.distributedTestPlanPath(),
                     preparation.runId(),
-                    influxdbUrl
+                    influxdbUrl,
+                    influxdbMeasurement
             );
             Files.writeString(
                     preparation.logPath(),

@@ -35,7 +35,7 @@
           @click="selectMainNav('executionNodes')"
         >
           <span class="nav-index">03</span>
-          <span>执行管理台</span>
+          <span>执行器配置</span>
         </button>
         <button
           class="side-entry"
@@ -51,13 +51,6 @@
 
     <div v-else-if="currentUser && currentProject" class="side-section project-detail-nav">
       <button class="side-back" type="button" @click="backToProjects">返回项目列表</button>
-      <button class="side-back" type="button" @click="selectMainNav('executionNodes')">执行管理台</button>
-      <div class="side-title">项目列表</div>
-      <div class="current-project-card">
-        <strong>{{ currentProject.name }}</strong>
-        <span>{{ currentProject.code }}</span>
-      </div>
-
       <div class="side-title module-title">项目详情导航</div>
       <button
         v-for="option in projectTabOptions"

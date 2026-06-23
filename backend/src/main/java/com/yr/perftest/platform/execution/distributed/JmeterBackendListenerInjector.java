@@ -16,7 +16,7 @@ import java.util.Map;
 
 @Component
 public class JmeterBackendListenerInjector {
-    public void inject(Path source, Path target, String runId, String influxdbUrl) {
+    public void inject(Path source, Path target, String runId, String influxdbUrl, String measurement) {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -27,7 +27,7 @@ public class JmeterBackendListenerInjector {
                 throw new ScriptValidationException("script content is not a JMeter test plan");
             }
             removeBackendListeners(hashTree);
-            hashTree.appendChild(backendListener(document, runId, influxdbUrl));
+            hashTree.appendChild(backendListener(document, runId, influxdbUrl, measurement));
             hashTree.appendChild(document.createElement("hashTree"));
             TransformerFactory transformerFactory = TransformerFactory.newInstance();
             var transformer = transformerFactory.newTransformer();
@@ -64,18 +64,18 @@ public class JmeterBackendListenerInjector {
         return null;
     }
 
-    private Element backendListener(Document document, String runId, String influxdbUrl) {
+    private Element backendListener(Document document, String runId, String influxdbUrl, String measurement) {
         Element listener = document.createElement("BackendListener");
         listener.setAttribute("guiclass", "BackendListenerGui");
         listener.setAttribute("testclass", "BackendListener");
         listener.setAttribute("testname", "InfluxDB Backend Listener");
         listener.setAttribute("enabled", "true");
-        listener.appendChild(arguments(document, runId, influxdbUrl));
+        listener.appendChild(arguments(document, runId, influxdbUrl, measurement));
         listener.appendChild(stringProp(document, "classname", "org.apache.jmeter.visualizers.backend.influxdb.InfluxdbBackendListenerClient"));
         return listener;
     }
 
-    private Element arguments(Document document, String runId, String influxdbUrl) {
+    private Element arguments(Document document, String runId, String influxdbUrl, String measurement) {
         Element element = document.createElement("elementProp");
         element.setAttribute("name", "arguments");
         element.setAttribute("elementType", "Arguments");
@@ -88,7 +88,7 @@ public class JmeterBackendListenerInjector {
                 "influxdbMetricsSender", "org.apache.jmeter.visualizers.backend.influxdb.HttpMetricsSender",
                 "influxdbUrl", influxdbUrl,
                 "application", runId,
-                "measurement", "jmeter",
+                "measurement", measurement,
                 "summaryOnly", "false",
                 "samplersRegex", ".*",
                 "percentiles", "90;95;99",

@@ -1,6 +1,7 @@
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 import paramiko
@@ -22,15 +23,19 @@ def respond(ok, message="", log="", exit_code=0):
 def connect(node):
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(
-        hostname=node["host"],
-        port=int(node.get("sshPort", 22)),
-        username=node["sshUsername"],
-        key_filename=node["sshKeyPath"],
-        timeout=20,
-        banner_timeout=20,
-        auth_timeout=20,
-    )
+    connect_args = {
+        "hostname": node["host"],
+        "port": int(node.get("sshPort", 22)),
+        "username": node["sshUsername"],
+        "timeout": 20,
+        "banner_timeout": 20,
+        "auth_timeout": 20,
+    }
+    if node.get("sshPassword"):
+        connect_args["password"] = node["sshPassword"]
+    else:
+        connect_args["key_filename"] = node["sshKeyPath"]
+    client.connect(**connect_args)
     return client
 
 
@@ -72,6 +77,31 @@ def check_node(payload):
             client.close()
 
 
+def install_key(payload):
+    client = None
+    try:
+        client = connect(payload)
+        public_key = shell_quote(payload["publicKey"])
+        remote_dir = shell_quote(payload.get("remoteWorkDir", "/tmp/perftest-platform"))
+        command = " ".join([
+            "mkdir -p ~/.ssh", remote_dir + ";",
+            "touch ~/.ssh/authorized_keys;",
+            "grep -qxF", public_key, "~/.ssh/authorized_keys || echo", public_key, ">> ~/.ssh/authorized_keys;",
+            "chmod 700 ~/.ssh;",
+            "chmod 600 ~/.ssh/authorized_keys;",
+            "docker info >/dev/null;",
+            "docker pull justb4/jmeter:latest >/dev/null;",
+            "echo ready",
+        ])
+        code, output = run(client, command)
+        return respond(code == 0, "node initialized" if code == 0 else output.strip(), output, code)
+    except Exception as exc:
+        return respond(False, str(exc))
+    finally:
+        if client:
+            client.close()
+
+
 def node_ref(node):
     return {
         "host": node["host"],
@@ -91,11 +121,12 @@ def start_worker(node, run_id):
         "mkdir -p", shell_quote(str(remote_dir)) + ";",
         "docker run -d --name", shell_quote(container_name),
         "--network host",
-        "-e", shell_quote(f"RMI_HOST_DEF=-Djava.rmi.server.hostname={node['host']}"),
         JMETER_IMAGE,
+        shell_quote(f"-Djava.rmi.server.hostname={node['host']}"),
         "-s",
         "-Jserver.rmi.localport=4000",
         "-Jserver_port=1099",
+        "-Jserver.rmi.ssl.disable=true",
     ])
     code, output = run(client, command)
     client.close()
@@ -122,12 +153,25 @@ def start_controller(controller, payload):
         "--network host",
         "-v", shell_quote(f"{remote_dir}:/test"),
         JMETER_IMAGE,
+        shell_quote(f"-Djava.rmi.server.hostname={controller['host']}"),
         "-n",
         "-t", shell_quote(f"/test/{remote_script.name}"),
         "-l", "/test/result.jtl",
         "-j", "/test/jmeter.log",
         "-R", shell_quote(worker_hosts),
         "-Jclient.rmi.localport=4001",
+        "-Jserver.rmi.ssl.disable=true",
+        "-Jmode=Standard",
+        "-Jbackend_influxdb.send_interval=1",
+        "-Gbackend_influxdb.send_interval=1",
+        "-Jjmeter.save.saveservice.output_format=csv",
+        "-Jjmeter.save.saveservice.print_field_names=true",
+        "-Jjmeter.save.saveservice.url=true",
+        "-Jjmeter.save.saveservice.samplerData=true",
+        "-Jjmeter.save.saveservice.requestHeaders=true",
+        "-Jjmeter.save.saveservice.response_data=true",
+        "-Jjmeter.save.saveservice.responseHeaders=true",
+        "-Jjmeter.save.saveservice.assertion_results_failure_message=true",
     ])
     code, output = run(client, command)
     try:
@@ -152,6 +196,7 @@ def start_run(payload):
             logs.append(output)
             if code != 0:
                 return respond(False, output.strip(), "\n".join(logs), code)
+        time.sleep(5)
         code, output = start_controller(controller, payload)
         logs.append(output)
         return respond(code == 0, "distributed run finished" if code == 0 else output.strip(), "\n".join(logs), code)
@@ -182,12 +227,14 @@ def stop_run(payload):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["check-node", "start-run", "stop-run"])
+    parser.add_argument("command", choices=["check-node", "install-key", "start-run", "stop-run"])
     parser.add_argument("payload")
     args = parser.parse_args()
     payload = json.loads(args.payload)
     if args.command == "check-node":
         return check_node(payload)
+    if args.command == "install-key":
+        return install_key(payload)
     if args.command == "start-run":
         return start_run(payload)
     return stop_run(payload)

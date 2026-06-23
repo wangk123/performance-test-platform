@@ -4,9 +4,11 @@ import com.yr.perftest.platform.execution.distributed.ExecutionNode;
 import com.yr.perftest.platform.execution.distributed.ExecutionNodeService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -32,6 +34,25 @@ public class ExecutionNodeController {
     @ResponseStatus(HttpStatus.CREATED)
     public ExecutionNode registerNode(@Valid @RequestBody ExecutionNodeService.RegisterExecutionNodeRequest request) {
         return executionNodeService.registerNode(request);
+    }
+
+    @PutMapping("/{nodeId}")
+    public ExecutionNode updateNode(
+            @PathVariable long nodeId,
+            @Valid @RequestBody ExecutionNodeService.RegisterExecutionNodeRequest request
+    ) {
+        return executionNodeService.updateNode(nodeId, request);
+    }
+
+    @DeleteMapping("/{nodeId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteNode(@PathVariable long nodeId) {
+        executionNodeService.deleteNode(nodeId);
+    }
+
+    @PostMapping("/initialize")
+    public List<ExecutionNode> initializeNodes(@RequestBody ExecutionNodeService.InitializeExecutionNodesRequest request) {
+        return executionNodeService.initializeNodes(request);
     }
 
     @PostMapping("/{nodeId}/check")

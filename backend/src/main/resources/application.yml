@@ -26,6 +26,7 @@ platform:
     java-home: ${JMETER_JAVA_HOME:/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home}
   distributed:
     influxdb-url: ${JMETER_INFLUXDB_URL:http://192.168.17.216:8086/write?db=jmeter}
+    influxdb-measurement: ${JMETER_INFLUXDB_MEASUREMENT:jmeter_runtime}
     grafana-panel-url: ${JMETER_GRAFANA_PANEL_URL:http://192.168.17.216:3000/d/jmeter-5496/apache-jmeter-dashboard-using-core-influxdbbackendlistenerclient?orgId=1&refresh=5s}
     runner:
       python: ${REMOTE_RUNNER_PYTHON:python3}
