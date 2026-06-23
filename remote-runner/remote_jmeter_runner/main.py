@@ -68,7 +68,12 @@ def check_node(payload):
     client = None
     try:
         client = connect(payload)
-        code, output = run(client, "docker info >/dev/null && docker pull justb4/jmeter:latest >/dev/null && echo ready")
+        command = " ".join([
+            "docker info >/dev/null &&",
+            "(docker image inspect", shell_quote(JMETER_IMAGE), ">/dev/null 2>&1 || docker pull", shell_quote(JMETER_IMAGE), ">/dev/null) &&",
+            "echo ready",
+        ])
+        code, output = run(client, command)
         return respond(code == 0, "docker ready" if code == 0 else output.strip(), output, code)
     except Exception as exc:
         return respond(False, str(exc))
