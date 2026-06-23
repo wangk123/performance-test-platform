@@ -13,16 +13,6 @@
           <div class="editor-mode-switch">
             <a-segmented v-model:value="detailMode" :options="detailModeOptions" size="small" />
           </div>
-          <span class="editor-save-state" :class="{ dirty }">{{ dirty ? '未保存' : '已保存' }}</span>
-          <a-tooltip title="删除当前步骤">
-            <a-button class="editor-toolbar-button" size="small" danger @click="editor.confirmDeleteStep(step.id)">
-              删除
-            </a-button>
-          </a-tooltip>
-          <span class="editor-toolbar-divider" />
-          <a-tooltip title="关闭编辑页">
-            <a-button class="editor-toolbar-button" size="small" @click="emit('close')">关闭</a-button>
-          </a-tooltip>
           <a-tooltip title="保存脚本">
             <a-button class="editor-toolbar-button" type="primary" size="small" :loading="saving" @click="emit('save')">
               保存
@@ -116,12 +106,10 @@ import ThreadGroupEditor from './ThreadGroupEditor.vue';
 
 defineProps<{
   saving: boolean;
-  dirty: boolean;
 }>();
 
 const emit = defineEmits<{
   save: [];
-  close: [];
 }>();
 
 const editor = useScriptEditor();

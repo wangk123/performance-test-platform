@@ -9,7 +9,7 @@ import type {
   StepDropMode,
   StepRelation,
 } from '../types';
-import { stepTypeOptions } from '../constants';
+import { stepTypeOptions, MAX_SCRIPT_STEP_LEVEL } from '../constants';
 import {
   appendChildStep,
   canAddChildStep,
@@ -17,10 +17,14 @@ import {
   createStepFromType,
   findStepById,
   flattenScriptSteps,
+  getStepLevel,
   insertStepRelative,
   removeStepById,
   takeStepById,
+  trimStepsTree,
 } from '../utils/script-steps';
+import { parseCurlCommand } from '../utils/curl-import';
+import { parseJmeterXmlFragment } from '../utils/jmeter-xml-import';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
 import { mapScriptDefinition, saveScriptDefinitionApi } from '../api/scripts';
@@ -35,6 +39,10 @@ const dragOverMode = ref<StepDropMode | null>(null);
 
 const stepDialogVisible = ref(false);
 const stepDialogTargetId = ref<string | null>(null);
+const stepImportVisible = ref(false);
+const stepImportMode = ref<'xml' | 'curl'>('xml');
+const stepImportTargetId = ref<string | null>(null);
+const stepImportText = ref('');
 const stepDialogForm = ref<{
   relation: StepRelation;
   type: ScriptStepType;
@@ -235,6 +243,76 @@ function useEditor() {
     }
   }
 
+  function openStepImport(mode: 'xml' | 'curl', stepId: string) {
+    if (!canAddChildStepTo(stepId)) {
+      message.warning('步骤层级最多 3 级，无法继续新增子级');
+      return;
+    }
+    stepImportMode.value = mode;
+    stepImportTargetId.value = stepId;
+    stepImportText.value = '';
+    stepImportVisible.value = true;
+  }
+
+  function appendImportedSteps(parentId: string, importedSteps: ScriptStep[]) {
+    if (!editorScriptAsset.value) {
+      return;
+    }
+    const parent = findStepById(editorScriptAsset.value.steps, parentId);
+    if (!parent) {
+      return;
+    }
+    const parentLevel = getStepLevel(editorScriptAsset.value.steps, parentId);
+    if (parentLevel === null) {
+      return;
+    }
+    const remainingDepth = MAX_SCRIPT_STEP_LEVEL - parentLevel;
+    const steps = trimStepsTree(importedSteps, remainingDepth);
+    if (!steps.length) {
+      throw new Error('没有可导入的步骤');
+    }
+    parent.children.push(...steps);
+    expandStep(parent.id);
+    selectedEditorStepId.value = steps[0].id;
+    editorScriptAsset.value.updatedAt = new Date().toISOString();
+  }
+
+  function submitStepImport(): boolean {
+    if (!editorScriptAsset.value || !stepImportTargetId.value) {
+      return false;
+    }
+    const text = stepImportText.value.trim();
+    if (!text) {
+      message.warning('请输入导入内容');
+      return false;
+    }
+    try {
+      if (stepImportMode.value === 'xml') {
+        appendImportedSteps(stepImportTargetId.value, parseJmeterXmlFragment(text));
+        message.success('XML 导入成功');
+      } else {
+        const parsed = parseCurlCommand(text);
+        const step = createStepFromType('HTTP_REQUEST', `${parsed.method} ${parsed.url}`, {
+          method: parsed.method,
+          url: parsed.url,
+          headers: parsed.headers,
+          bodyType: parsed.bodyType,
+          rawBodyType: parsed.rawBodyType,
+          body: parsed.body,
+          bodyParams: parsed.bodyParams,
+        });
+        appendImportedSteps(stepImportTargetId.value, [step]);
+        message.success('curl 导入成功');
+      }
+      stepImportText.value = '';
+      stepImportTargetId.value = null;
+      return true;
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '导入失败');
+      return false;
+    }
+  }
+
   function startStepDrag(stepId: string, event: DragEvent) {
     draggingStepId.value = stepId;
     event.dataTransfer?.setData('text/plain', stepId);
@@ -390,6 +468,10 @@ function useEditor() {
     stepDialogVisible,
     stepDialogForm,
     stepDialogTitle,
+    stepImportVisible,
+    stepImportMode,
+    stepImportTargetId,
+    stepImportText,
     availableStepTypeOptions: computed(() => availableStepTypeOptions()),
     isRootStep,
     isStepCollapsed,
@@ -399,6 +481,8 @@ function useEditor() {
     openStepDialog,
     createStep,
     confirmDeleteStep,
+    openStepImport,
+    submitStepImport,
     startStepDrag,
     updateStepDrop,
     dropStepOn,

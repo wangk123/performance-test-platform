@@ -5,9 +5,11 @@
       'is-multiline': multiline,
       'is-disabled': disabled,
       'is-empty': !value,
+      'is-plain': plain,
     }"
   >
     <div
+      v-if="!plain"
       class="variable-highlight-layer"
       v-html="value ? highlightContent(value, highlightMode) : ''"
     />
@@ -73,6 +75,7 @@ const props = defineProps<{
   activeIndex: number;
   suggestions: VariableOption[];
   highlightMode?: string;
+  plain?: boolean;
 }>();
 
 const emit = defineEmits<{

@@ -82,17 +82,24 @@
           <span v-else class="node-meta">{{ describe(item.step) }}</span>
         </div>
 
-        <button
-          v-if="editor.canAddChildStepTo(item.step.id)"
-          class="node-add"
-          type="button"
-          title="新增子级步骤"
-          @click.stop="editor.openStepDialog('child', item.step.id)"
-        >
-          <svg viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-          </svg>
-        </button>
+        <a-dropdown trigger="click" placement="bottomRight">
+          <button class="node-menu" type="button" title="步骤操作" @click.stop>
+            <svg viewBox="0 0 12 12" aria-hidden="true">
+              <circle cx="6" cy="2.5" r="1.1" fill="currentColor" />
+              <circle cx="6" cy="6" r="1.1" fill="currentColor" />
+              <circle cx="6" cy="9.5" r="1.1" fill="currentColor" />
+            </svg>
+          </button>
+          <template #overlay>
+            <a-menu @click="({ key }: { key: string | number }) => handleStepMenu(String(key), item.step.id)">
+              <a-menu-item key="add" :disabled="!editor.canAddChildStepTo(item.step.id)">新增</a-menu-item>
+              <a-menu-item key="delete" danger>删除</a-menu-item>
+              <a-menu-divider />
+              <a-menu-item key="xml" :disabled="!editor.canAddChildStepTo(item.step.id)">XML 导入</a-menu-item>
+              <a-menu-item key="curl" :disabled="!editor.canAddChildStepTo(item.step.id)">curl 导入</a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
       </div>
 
       <div v-if="editor.flatEditorSteps.value.length === 0" class="step-empty">
@@ -113,6 +120,24 @@ import StepTypeIcon from '../scripts/StepTypeIcon.vue';
 import ThreadGroupSummary from './ThreadGroupSummary.vue';
 
 const editor = useScriptEditor();
+
+function handleStepMenu(action: string, stepId: string) {
+  if (action === 'add') {
+    editor.openStepDialog('child', stepId);
+    return;
+  }
+  if (action === 'delete') {
+    void editor.confirmDeleteStep(stepId);
+    return;
+  }
+  if (action === 'xml') {
+    editor.openStepImport('xml', stepId);
+    return;
+  }
+  if (action === 'curl') {
+    editor.openStepImport('curl', stepId);
+  }
+}
 
 const legendMetas = (Object.keys(stepTypeMeta) as ScriptStepType[]).map((type) => ({
   type,

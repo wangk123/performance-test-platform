@@ -137,6 +137,20 @@ export function findParentStepId(steps: ScriptStep[], targetId: string, parentId
   return null;
 }
 
+export function trimStepsTree(steps: ScriptStep[], remainingDepth: number): ScriptStep[] {
+  return steps.map((step) => trimStepTree(step, remainingDepth));
+}
+
+function trimStepTree(step: ScriptStep, remainingDepth: number): ScriptStep {
+  if (remainingDepth <= 1) {
+    return { ...step, children: [] };
+  }
+  return {
+    ...step,
+    children: step.children.map((child) => trimStepTree(child, remainingDepth - 1)),
+  };
+}
+
 export function canMoveStep(steps: ScriptStep[], sourceId: string, targetId: string, mode: StepDropMode): boolean {
   if (sourceId === targetId) {
     return false;

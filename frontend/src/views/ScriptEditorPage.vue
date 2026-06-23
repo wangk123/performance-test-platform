@@ -60,11 +60,12 @@
           @mousedown="startSidebarResize"
         />
         <section class="script-editor-detail-area">
-          <StepDetail :saving="saving" :dirty="hasUnsavedChanges" @save="onSave" @close="onClose" />
+          <StepDetail :saving="saving" @save="onSave" />
         </section>
       </main>
 
       <StepCreateDialog />
+      <StepImportDialog />
     </template>
 
     <div v-else class="script-editor-missing panel">
@@ -76,17 +77,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import { useRoute } from 'vue-router';
 import { useAuth } from '../composables/useAuth';
 import { useScriptEditor } from '../composables/useScriptEditor';
 import { useTheme } from '../composables/useTheme';
 import { useWorkspace } from '../composables/useWorkspace';
-import { confirmAction } from '../utils/feedback';
 import StepSidebar from '../components/editor/StepSidebar.vue';
 import StepDetail from '../components/editor/StepDetail.vue';
 import StepCreateDialog from '../components/editor/StepCreateDialog.vue';
+import StepImportDialog from '../components/editor/StepImportDialog.vue';
 
 const editor = useScriptEditor();
 const route = useRoute();
@@ -124,6 +125,21 @@ watch(
   { immediate: true },
 );
 
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+  if (hasUnsavedChanges.value) {
+    event.preventDefault();
+    event.returnValue = '';
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+});
+
 function startSidebarResize(event: MouseEvent) {
   event.preventDefault();
   resizing.value = true;
@@ -158,22 +174,6 @@ async function onSave() {
   } finally {
     saving.value = false;
   }
-}
-
-async function onClose() {
-  if (hasUnsavedChanges.value) {
-    try {
-      await confirmAction({
-        title: '关闭脚本编辑器',
-        content: '当前脚本有未保存修改，确认关闭？',
-        okText: '关闭',
-        okType: 'danger',
-      });
-    } catch {
-      return;
-    }
-  }
-  closeCurrentTab();
 }
 
 function closeCurrentTab() {
