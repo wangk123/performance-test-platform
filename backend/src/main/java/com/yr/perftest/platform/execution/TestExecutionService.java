@@ -24,7 +24,6 @@ public class TestExecutionService {
     private final PersistentScriptVersionRepository scriptVersionRepository;
     private final PersistentTestTaskRepository taskRepository;
     private final PersistentTaskExecutionRepository executionRepository;
-    private final JmeterExecutionRunner jmeterExecutionRunner;
     private final DistributedJmeterExecutionRunner distributedJmeterExecutionRunner;
     private final JmeterResultParser jmeterResultParser;
     private final InfluxdbMonitoringClient monitoringClient;
@@ -37,7 +36,6 @@ public class TestExecutionService {
             PersistentScriptVersionRepository scriptVersionRepository,
             PersistentTestTaskRepository taskRepository,
             PersistentTaskExecutionRepository executionRepository,
-            JmeterExecutionRunner jmeterExecutionRunner,
             DistributedJmeterExecutionRunner distributedJmeterExecutionRunner,
             JmeterResultParser jmeterResultParser,
             InfluxdbMonitoringClient monitoringClient,
@@ -49,7 +47,6 @@ public class TestExecutionService {
         this.scriptVersionRepository = scriptVersionRepository;
         this.taskRepository = taskRepository;
         this.executionRepository = executionRepository;
-        this.jmeterExecutionRunner = jmeterExecutionRunner;
         this.distributedJmeterExecutionRunner = distributedJmeterExecutionRunner;
         this.jmeterResultParser = jmeterResultParser;
         this.monitoringClient = monitoringClient;
@@ -91,11 +88,7 @@ public class TestExecutionService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                if (normalizedConfig.mode() == ExecutionMode.DISTRIBUTED) {
-                    distributedJmeterExecutionRunner.submit(execution.getId());
-                } else {
-                    jmeterExecutionRunner.submit(execution.getId());
-                }
+                distributedJmeterExecutionRunner.submit(execution.getId());
             }
         });
         return toTestTask(task, execution);
@@ -151,11 +144,30 @@ public class TestExecutionService {
                 .orElseThrow(() -> new ExecutionValidationException("task does not exist"));
         PersistentTaskExecutionRecord execution = executionRepository.findFirstByTaskIdOrderByIdDesc(task.getId())
                 .orElseThrow(() -> new ExecutionValidationException("execution does not exist"));
+        return monitoringClient.aggregate(execution.getId(), executionSeconds(execution));
+    }
+
+    @Transactional(readOnly = true)
+    public TaskSamplePage getTaskSamples(long taskId, int page, int pageSize) {
+        PersistentTestTaskRecord task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ExecutionValidationException("task does not exist"));
+        PersistentTaskExecutionRecord execution = executionRepository.findFirstByTaskIdOrderByIdDesc(task.getId())
+                .orElseThrow(() -> new ExecutionValidationException("execution does not exist"));
         if (execution.getResultFilePath() == null) {
-            return TaskExecutionResult.empty();
+            return new TaskSamplePage(Math.max(1, page), Math.max(1, Math.min(100, pageSize)), 0, List.of());
         }
-        Path resultPath = Path.of(execution.getResultFilePath());
-        return jmeterResultParser.parse(resultPath, resultPath.resolveSibling("failure-result.jtl"));
+        return jmeterResultParser.parseSamplePage(Path.of(execution.getResultFilePath()).resolveSibling("failure-result.jtl"), page, pageSize);
+    }
+
+    private double executionSeconds(PersistentTaskExecutionRecord execution) {
+        if (execution.getDurationMs() != null && execution.getDurationMs() > 0) {
+            return Math.max(1, execution.getDurationMs() / 1000.0);
+        }
+        if (execution.getStartTime() == null) {
+            return 1;
+        }
+        long seconds = java.time.Duration.between(execution.getStartTime(), java.time.Instant.now()).getSeconds();
+        return Math.max(1, seconds);
     }
 
     @Transactional(readOnly = true)
@@ -164,10 +176,6 @@ public class TestExecutionService {
                 .orElseThrow(() -> new ExecutionValidationException("task does not exist"));
         PersistentTaskExecutionRecord execution = executionRepository.findFirstByTaskIdOrderByIdDesc(task.getId())
                 .orElseThrow(() -> new ExecutionValidationException("execution does not exist"));
-        ExecutionConfig config = readConfig(execution.getConfigJson());
-        if (config.mode() != ExecutionMode.DISTRIBUTED) {
-            return TaskMonitoringResult.empty();
-        }
         return monitoringClient.query(execution.getId());
     }
 
@@ -202,7 +210,7 @@ public class TestExecutionService {
 
     private ExecutionConfig normalizeConfig(ExecutionConfig config) {
         ExecutionConfig source = config == null
-                ? new ExecutionConfig(1, 0, 0, 1, "SIT", Map.of(), ExecutionMode.LOCAL, null, List.of())
+                ? new ExecutionConfig(1, 0, 0, 1, Map.of(), ExecutionMode.DISTRIBUTED, null, List.of())
                 : config;
         if (source.threads() <= 0) {
             throw new ExecutionValidationException("threads must be greater than 0");
@@ -215,19 +223,21 @@ public class TestExecutionService {
                 throw new ExecutionValidationException("jmeter property key is required");
             }
         });
-        String environment = source.environment() == null || source.environment().isBlank()
-                ? "SIT"
-                : source.environment().trim();
+        if (source.controllerNodeId() == null) {
+            throw new ExecutionValidationException("controller node is required");
+        }
+        List<Long> workerNodeIds = source.workerNodeIds().isEmpty()
+                ? List.of(source.controllerNodeId())
+                : source.workerNodeIds();
         return new ExecutionConfig(
                 source.threads(),
                 source.rampUp(),
                 source.duration(),
                 source.loops(),
-                environment,
                 source.jmeterProperties(),
-                source.mode(),
+                ExecutionMode.DISTRIBUTED,
                 source.controllerNodeId(),
-                source.workerNodeIds()
+                workerNodeIds
         );
     }
 
@@ -248,9 +258,6 @@ public class TestExecutionService {
     }
 
     private String grafanaUrl(PersistentTaskExecutionRecord execution, ExecutionConfig config) {
-        if (config.mode() != ExecutionMode.DISTRIBUTED) {
-            return null;
-        }
         String timeRange = "";
         if (execution.getStartTime() != null && execution.getEndTime() != null) {
             long from = execution.getStartTime().minusSeconds(30).toEpochMilli();

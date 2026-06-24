@@ -207,7 +207,7 @@ public class DistributedJmeterExecutionRunner {
                             .orElseThrow(() -> new ExecutionValidationException("worker node does not exist")))
                     .toList();
             validateController(controller);
-            workers.forEach(this::validateWorker);
+            workers.forEach(worker -> validateWorker(worker, controller));
             Path executionDirectory = storageRoot
                     .resolve("executions")
                     .resolve(String.valueOf(task.getProjectId()))
@@ -251,9 +251,12 @@ public class DistributedJmeterExecutionRunner {
         }
     }
 
-    private void validateWorker(PersistentExecutionNodeRecord node) {
+    private void validateWorker(PersistentExecutionNodeRecord node, PersistentExecutionNodeRecord controller) {
         if (node.getStatus() != ExecutionNodeStatus.AVAILABLE) {
             throw new ExecutionValidationException("worker node is not available");
+        }
+        if (node.getId().equals(controller.getId())) {
+            return;
         }
         if (node.getRole() != ExecutionNodeRole.WORKER && node.getRole() != ExecutionNodeRole.BOTH) {
             throw new ExecutionValidationException("worker node role is invalid");

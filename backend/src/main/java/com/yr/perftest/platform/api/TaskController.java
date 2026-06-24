@@ -4,6 +4,7 @@ import com.yr.perftest.platform.execution.ExecutionConfig;
 import com.yr.perftest.platform.execution.ExecutionMode;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.TaskMonitoringResult;
+import com.yr.perftest.platform.execution.TaskSamplePage;
 import com.yr.perftest.platform.execution.TestExecutionService;
 import com.yr.perftest.platform.execution.TestTask;
 import jakarta.validation.Valid;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -76,6 +78,15 @@ public class TaskController {
         return executionService.getTaskResult(taskId);
     }
 
+    @GetMapping("/tasks/{taskId}/samples")
+    public TaskSamplePage getTaskSamples(
+            @PathVariable long taskId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize
+    ) {
+        return executionService.getTaskSamples(taskId, page, pageSize);
+    }
+
     @GetMapping("/tasks/{taskId}/monitoring")
     public TaskMonitoringResult getTaskMonitoring(@PathVariable long taskId) {
         return executionService.getTaskMonitoring(taskId);
@@ -88,9 +99,7 @@ public class TaskController {
             Integer rampUp,
             Integer duration,
             Integer loops,
-            String environment,
             Map<String, String> jmeterProperties,
-            ExecutionMode executionMode,
             Long controllerNodeId,
             List<Long> workerNodeIds,
             String remark
@@ -101,9 +110,8 @@ public class TaskController {
                     rampUp == null ? 0 : rampUp,
                     duration == null ? 0 : duration,
                     loops == null ? 1 : loops,
-                    environment,
                     jmeterProperties == null ? Map.of() : jmeterProperties,
-                    executionMode == null ? ExecutionMode.LOCAL : executionMode,
+                    ExecutionMode.DISTRIBUTED,
                     controllerNodeId,
                     workerNodeIds == null ? List.of() : workerNodeIds
             );

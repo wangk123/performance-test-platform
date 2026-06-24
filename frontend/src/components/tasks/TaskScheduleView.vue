@@ -64,7 +64,7 @@
             <template v-else-if="column.key === 'name'">
               <div class="table-main-cell">
                 <strong>{{ record.name }}</strong>
-                <small>{{ record.environment }} · {{ formatScriptThreadGroups(record.scriptId) }}</small>
+                <small>{{ formatScriptThreadGroups(record.scriptId) }}</small>
               </div>
             </template>
             <template v-else-if="column.key === 'script'">

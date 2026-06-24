@@ -99,7 +99,7 @@ public class JmeterBackendListenerInjector {
                 "measurement", measurement,
                 "summaryOnly", "false",
                 "samplersRegex", ".*",
-                "percentiles", "90;95;99",
+                "percentiles", "50;90;95;99",
                 "testTitle", runId,
                 "eventTags", ""
         ).forEach((key, value) -> collection.appendChild(argument(document, key, value)));

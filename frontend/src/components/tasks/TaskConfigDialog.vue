@@ -40,11 +40,7 @@
           <a-alert title="所选脚本无线程组" description="请先在脚本编辑器中创建至少一个线程组。" type="warning" :closable="false" show-icon />
         </template>
 
-        <a-form-item label="执行模式">
-          <a-segmented v-model:value="form.executionMode" :options="executionModeOptions" />
-        </a-form-item>
-
-        <div v-if="form.executionMode === 'DISTRIBUTED'" class="task-form-grid">
+        <div class="task-form-grid">
           <a-form-item label="Controller 节点">
             <a-select v-model:value="form.controllerNodeId" :loading="loading" placeholder="选择 Controller">
               <a-select-option v-for="node in controllerNodes" :key="node.id" :value="node.id">
@@ -53,25 +49,10 @@
             </a-select>
           </a-form-item>
           <a-form-item label="Worker 节点">
-            <a-select v-model:value="form.workerNodeIds" :loading="loading" mode="multiple" placeholder="选择 Worker">
+            <a-select v-model:value="form.workerNodeIds" :loading="loading" mode="multiple" placeholder="不选则使用 Controller">
               <a-select-option v-for="node in workerNodes" :key="node.id" :value="node.id">
                 {{ node.name }} / {{ node.host }}
               </a-select-option>
-            </a-select>
-          </a-form-item>
-        </div>
-
-        <div class="task-form-grid">
-          <a-form-item label="目标环境">
-            <a-select v-model:value="form.environment">
-              <a-select-option label="SIT / 127.0.0.1" value="SIT / 127.0.0.1" />
-              <a-select-option label="UAT / 10.12.4.18" value="UAT / 10.12.4.18" />
-            </a-select>
-          </a-form-item>
-          <a-form-item label="任务优先级">
-            <a-select v-model:value="form.priority">
-              <a-select-option label="普通" value="普通" />
-              <a-select-option label="高" value="高" />
             </a-select>
           </a-form-item>
         </div>
@@ -121,18 +102,10 @@ const form = reactive({
   id: undefined as number | undefined,
   scriptId: null as number | null,
   name: '',
-  environment: 'SIT / 127.0.0.1',
-  priority: '普通',
-  executionMode: 'LOCAL' as 'LOCAL' | 'DISTRIBUTED',
   controllerNodeId: null as number | null,
   workerNodeIds: [] as number[],
   remark: '',
 });
-
-const executionModeOptions = [
-  { label: '本地执行', value: 'LOCAL' },
-  { label: '分布式执行', value: 'DISTRIBUTED' },
-];
 
 const selectedScript = computed<ScriptAsset | null>(() =>
   currentProjectScripts.value.find((item) => item.id === form.scriptId) ?? null,
@@ -149,10 +122,7 @@ const selectedScriptThreadGroups = computed(() => {
 const canSave = computed(() =>
   form.scriptId !== null
   && selectedScriptThreadGroups.value.length > 0
-  && (
-    form.executionMode === 'LOCAL'
-    || (form.controllerNodeId !== null && form.workerNodeIds.length > 0)
-  ),
+  && form.controllerNodeId !== null,
 );
 
 watch(
@@ -168,9 +138,6 @@ watch(
     form.id = props.editingTask?.id;
     form.scriptId = props.editingTask?.scriptId ?? script?.id ?? null;
     form.name = props.editingTask?.name ?? (script ? `${script.name} / 回归验证` : '');
-    form.environment = props.editingTask?.environment ?? 'SIT / 127.0.0.1';
-    form.priority = props.editingTask?.priority ?? '普通';
-    form.executionMode = props.editingTask?.executionMode ?? 'LOCAL';
     form.controllerNodeId = props.editingTask?.controllerNodeId ?? null;
     form.workerNodeIds = props.editingTask?.workerNodeIds ?? [];
     form.remark = props.editingTask?.remark ?? '用于回归验证链路稳定性';

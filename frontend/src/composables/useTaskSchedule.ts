@@ -2,7 +2,6 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import type {
-  TaskResultFilter,
   ScriptAsset,
   TaskStatus,
   TaskStatusFilter,
@@ -12,16 +11,13 @@ import { nextId } from '../utils/format';
 import { createMockTask } from '../utils/task-mock';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
-import { deleteTaskApi, getTaskApi, getTaskLogsApi, getTaskMonitoringApi, getTaskResultApi, listTasksApi, mapBackendTask, submitScriptTaskApi, submitTaskApi } from '../api/tasks';
+import { deleteTaskApi, getTaskApi, getTaskLogsApi, getTaskMonitoringApi, getTaskResultApi, getTaskSamplesApi, listTasksApi, mapBackendTask, submitScriptTaskApi, submitTaskApi } from '../api/tasks';
 import { confirmAction } from '../utils/feedback';
 
 type TaskFormPayload = {
   id?: number;
   scriptId: number | null;
   name: string;
-  environment: string;
-  priority: string;
-  executionMode: 'LOCAL' | 'DISTRIBUTED';
   controllerNodeId: number | null;
   workerNodeIds: number[];
   remark: string;
@@ -32,7 +28,6 @@ const selectedTaskId = ref<number | null>(null);
 const detailTaskId = ref<number | null>(null);
 const taskKeyword = ref('');
 const taskStatusFilter = ref<TaskStatusFilter>('ALL');
-const resultFilter = ref<TaskResultFilter>('ALL');
 const resultPage = ref(1);
 const selectedSampleId = ref<number | null>(null);
 const pageSize = ref(10);
@@ -82,10 +77,15 @@ export function useTaskSchedule() {
 
   async function refreshTask(taskId: number) {
     try {
-      const backendTask = await getTaskApi(taskId);
-      const result = await getTaskResultApi(taskId);
-      const monitoring = await getTaskMonitoringApi(taskId);
+      const [backendTask, result, monitoring, samplePage] = await Promise.all([
+        getTaskApi(taskId),
+        getTaskResultApi(taskId),
+        getTaskMonitoringApi(taskId),
+        getTaskSamplesApi(taskId, resultPage.value, pageSize.value),
+      ]);
       const remoteTask = mapBackendTask(backendTask, result, monitoring);
+      remoteTask.samples = samplePage.samples;
+      remoteTask.sampleTotal = samplePage.total;
       if (remoteTask.status === 'FAILED') {
         try {
           remoteTask.executionLogs = await getTaskLogsApi(taskId);
@@ -94,7 +94,9 @@ export function useTaskSchedule() {
       }
       replaceTask(remoteTask);
       if (detailTaskId.value === taskId) {
-        selectedSampleId.value = remoteTask.samples[0]?.id ?? null;
+        selectedSampleId.value = remoteTask.samples.some((sample) => sample.id === selectedSampleId.value)
+          ? selectedSampleId.value
+          : remoteTask.samples[0]?.id ?? null;
       }
       if (remoteTask.status === 'RUNNING' || remoteTask.status === 'PENDING') {
         scheduleRefresh(taskId);
@@ -148,19 +150,12 @@ export function useTaskSchedule() {
     if (!detailTask.value) {
       return [];
     }
-    if (resultFilter.value === 'SUCCESS') {
-      return detailTask.value.samples.filter((sample) => sample.success);
-    }
-    if (resultFilter.value === 'ERROR') {
-      return detailTask.value.samples.filter((sample) => !sample.success);
-    }
     return detailTask.value.samples;
   });
 
-  const resultPageCount = computed(() => Math.max(1, Math.ceil(resultSamples.value.length / pageSize.value)));
-  const pagedSamples = computed(() =>
-    resultSamples.value.slice((resultPage.value - 1) * pageSize.value, resultPage.value * pageSize.value),
-  );
+  const resultTotal = computed(() => detailTask.value?.sampleTotal ?? resultSamples.value.length);
+  const resultPageCount = computed(() => Math.max(1, Math.ceil(resultTotal.value / pageSize.value)));
+  const pagedSamples = computed(() => resultSamples.value);
   const selectedSample = computed(
     () => detailTask.value?.samples.find((sample) => sample.id === selectedSampleId.value) ?? pagedSamples.value[0] ?? null,
   );
@@ -173,9 +168,10 @@ export function useTaskSchedule() {
       selectedTaskId.value = items[0]?.id ?? null;
     }
   });
-  watch([resultFilter, detailTask, pageSize], () => {
-    resultPage.value = 1;
-    selectedSampleId.value = resultSamples.value[0]?.id ?? null;
+  watch([resultPage, pageSize], () => {
+    if (detailTaskId.value) {
+      void loadTaskSamples(detailTaskId.value);
+    }
   });
 
   function scriptById(scriptId: number) {
@@ -189,7 +185,7 @@ export function useTaskSchedule() {
   function showTaskDetail(task: TestTask) {
     selectedTaskId.value = task.id;
     detailTaskId.value = task.id;
-    resultFilter.value = 'ALL';
+    resultPage.value = 1;
     selectedSampleId.value = task.samples[0]?.id ?? null;
     void refreshTask(task.id);
     if (currentProject.value) {
@@ -217,9 +213,7 @@ export function useTaskSchedule() {
         Object.assign(target, {
           scriptId: payload.scriptId,
           name: payload.name,
-          environment: payload.environment,
-          priority: payload.priority,
-          executionMode: payload.executionMode,
+          executionMode: 'DISTRIBUTED',
           controllerNodeId: payload.controllerNodeId,
           workerNodeIds: payload.workerNodeIds,
           remark: payload.remark,
@@ -236,24 +230,37 @@ export function useTaskSchedule() {
       scriptId: payload.scriptId,
       name: payload.name,
       status: 'PENDING' as TaskStatus,
-      executionMode: payload.executionMode,
+      executionMode: 'DISTRIBUTED',
       controllerNodeId: payload.controllerNodeId,
       workerNodeIds: payload.workerNodeIds,
       grafanaUrl: null,
       monitoring: { interfaces: [], points: [] },
-      environment: payload.environment,
-      priority: payload.priority,
       remark: payload.remark,
       createdAt: now,
       lastRunAt: null,
       endedAt: null,
       errorMessage: null,
       executionLogs: '',
+      sampleTotal: 0,
     });
     tasks.value.unshift(task);
     selectedTaskId.value = task.id;
     message.success('任务已保存，点击执行后提交后端');
     return true;
+  }
+
+  async function loadTaskSamples(taskId: number) {
+    const target = tasks.value.find((task) => task.id === taskId);
+    if (!target) {
+      return;
+    }
+    try {
+      const samplePage = await getTaskSamplesApi(taskId, resultPage.value, pageSize.value);
+      target.samples = samplePage.samples;
+      target.sampleTotal = samplePage.total;
+      selectedSampleId.value = target.samples[0]?.id ?? null;
+    } catch {
+    }
   }
 
   async function runTask(task: TestTask) {
@@ -333,7 +340,6 @@ export function useTaskSchedule() {
     tasks,
     taskKeyword,
     taskStatusFilter,
-    resultFilter,
     resultPage,
     pageSize,
     projectTasks,
@@ -344,6 +350,7 @@ export function useTaskSchedule() {
     pendingTaskCount,
     failedTaskCount,
     resultSamples,
+    resultTotal,
     resultPageCount,
     pagedSamples,
     selectedSample,

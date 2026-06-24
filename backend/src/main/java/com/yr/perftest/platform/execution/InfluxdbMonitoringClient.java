@@ -64,6 +64,99 @@ public class InfluxdbMonitoringClient {
         }
     }
 
+    public TaskExecutionResult aggregate(long executionId, double durationSeconds) {
+        try {
+            URI uri = UriComponentsBuilder.fromUriString(queryUrl)
+                    .queryParam("db", database)
+                    .queryParam("q", aggregateSql(executionId))
+                    .build()
+                    .encode()
+                    .toUri();
+            HttpRequest request = HttpRequest.newBuilder(uri).GET().build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 300) {
+                return TaskExecutionResult.empty();
+            }
+            return parseAggregate(response.body(), durationSeconds);
+        } catch (Exception exception) {
+            return TaskExecutionResult.empty();
+        }
+    }
+
+    private String aggregateSql(long executionId) {
+        return "SELECT \"count\", \"countError\", \"avg\", \"min\", \"max\", \"pct50.0\", \"pct90.0\", \"pct95.0\", \"pct99.0\" "
+                + "FROM \"" + measurement + "\" "
+                + "WHERE \"application\" = 'execution-" + executionId + "' "
+                + "AND \"statut\" = 'all' "
+                + "AND \"transaction\" !~ /^(all|internal)$/ "
+                + "GROUP BY \"transaction\"";
+    }
+
+    private TaskExecutionResult parseAggregate(String body, double durationSeconds) throws Exception {
+        JsonNode results = objectMapper.readTree(body).path("results");
+        if (!results.isArray() || results.isEmpty()) {
+            return TaskExecutionResult.empty();
+        }
+        JsonNode series = results.get(0).path("series");
+        if (!series.isArray() || series.isEmpty()) {
+            return TaskExecutionResult.empty();
+        }
+        double safeDuration = Math.max(1, durationSeconds);
+        List<TaskExecutionResult.AggregateRow> rows = new ArrayList<>();
+        Accumulator total = new Accumulator();
+        for (JsonNode item : series) {
+            String transaction = item.path("tags").path("transaction").asText("");
+            if (transaction.isBlank()) {
+                continue;
+            }
+            Map<String, Integer> columns = columnIndexes(item.path("columns"));
+            Accumulator accumulator = new Accumulator();
+            for (JsonNode value : item.path("values")) {
+                accumulator.add(value, columns);
+            }
+            if (accumulator.count <= 0) {
+                continue;
+            }
+            total.merge(accumulator);
+            rows.add(accumulator.toRow(transaction, safeDuration));
+        }
+        if (rows.isEmpty()) {
+            return TaskExecutionResult.empty();
+        }
+        return new TaskExecutionResult(total.toSummary(safeDuration), List.of(), rows, List.of());
+    }
+
+    private Map<String, Integer> columnIndexes(JsonNode columns) {
+        Map<String, Integer> indexes = new LinkedHashMap<>();
+        for (int i = 0; i < columns.size(); i++) {
+            indexes.put(columns.get(i).asText(), i);
+        }
+        return indexes;
+    }
+
+    private double readField(JsonNode value, Map<String, Integer> columns, String name) {
+        Integer index = columns.get(name);
+        if (index == null) {
+            return 0;
+        }
+        JsonNode node = value.path(index);
+        return node.isNumber() ? node.asDouble() : 0;
+    }
+
+    private double mergeMin(double current, double candidate) {
+        if (Double.isNaN(current)) {
+            return candidate;
+        }
+        return Double.isNaN(candidate) ? current : Math.min(current, candidate);
+    }
+
+    private double mergeMax(double current, double candidate) {
+        if (Double.isNaN(current)) {
+            return candidate;
+        }
+        return Double.isNaN(candidate) ? current : Math.max(current, candidate);
+    }
+
     private String querySql(long executionId) {
         return "SELECT \"count\", \"avg\", \"pct90.0\", \"pct95.0\" "
                 + "FROM \"" + measurement + "\" "
@@ -142,6 +235,75 @@ public class InfluxdbMonitoringClient {
 
     private double round(double value) {
         return Math.round(value * 100.0) / 100.0;
+    }
+
+    private final class Accumulator {
+        private double count;
+        private double error;
+        private double weightedAvg;
+        private double weightedP50;
+        private double weightedP90;
+        private double weightedP95;
+        private double weightedP99;
+        private double min = Double.NaN;
+        private double max = Double.NaN;
+
+        private void add(JsonNode value, Map<String, Integer> columns) {
+            double samples = readField(value, columns, "count");
+            if (samples <= 0) {
+                return;
+            }
+            count += samples;
+            error += readField(value, columns, "countError");
+            weightedAvg += readField(value, columns, "avg") * samples;
+            weightedP50 += readField(value, columns, "pct50.0") * samples;
+            weightedP90 += readField(value, columns, "pct90.0") * samples;
+            weightedP95 += readField(value, columns, "pct95.0") * samples;
+            weightedP99 += readField(value, columns, "pct99.0") * samples;
+            min = mergeMin(min, readField(value, columns, "min"));
+            max = mergeMax(max, readField(value, columns, "max"));
+        }
+
+        private void merge(Accumulator other) {
+            count += other.count;
+            error += other.error;
+            weightedAvg += other.weightedAvg;
+            weightedP50 += other.weightedP50;
+            weightedP90 += other.weightedP90;
+            weightedP95 += other.weightedP95;
+            weightedP99 += other.weightedP99;
+            min = mergeMin(min, other.min);
+            max = mergeMax(max, other.max);
+        }
+
+        private TaskExecutionResult.AggregateRow toRow(String transaction, double durationSeconds) {
+            double divisor = Math.max(1, count);
+            return new TaskExecutionResult.AggregateRow(
+                    transaction,
+                    "全部节点",
+                    (int) Math.round(count),
+                    Math.round(weightedAvg / divisor),
+                    Math.round(weightedP50 / divisor),
+                    Math.round(weightedP90 / divisor),
+                    Math.round(weightedP95 / divisor),
+                    Math.round(weightedP99 / divisor),
+                    Math.round(Double.isNaN(min) ? 0 : min),
+                    Math.round(Double.isNaN(max) ? 0 : max),
+                    round(error * 100.0 / divisor),
+                    round(count / durationSeconds)
+            );
+        }
+
+        private TaskExecutionResult.Summary toSummary(double durationSeconds) {
+            double divisor = Math.max(1, count);
+            return new TaskExecutionResult.Summary(
+                    (int) Math.round(count),
+                    round(count / durationSeconds),
+                    Math.round(weightedAvg / divisor),
+                    Math.round(weightedP95 / divisor),
+                    round(error * 100.0 / divisor)
+            );
+        }
     }
 
     private final class Bucket {

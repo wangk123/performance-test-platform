@@ -7,7 +7,7 @@
           <span class="eyebrow">Execution Detail</span>
         </div>
         <h2>{{ task.name }}</h2>
-        <p>{{ script?.name }} · {{ task.environment }} · {{ taskStatusText(task.status) }}</p>
+        <p>{{ script?.name }} · {{ taskStatusText(task.status) }}</p>
       </div>
     </div>
 
@@ -84,9 +84,9 @@
           <div>
             <span class="eyebrow">View Results Tree</span>
             <h2>查看结果树</h2>
+            <p>仅展示最近 1000 条异常样本，按页读取。</p>
           </div>
         </div>
-        <a-segmented v-model:value="resultFilter" :options="resultFilterOptions" />
         <div class="sample-list">
           <button
             v-for="sample in pagedSamples"
@@ -111,7 +111,7 @@
           <a-pagination
             v-model:current="resultPage"
             v-model:page-size="pageSize"
-            :total="resultSamples.length"
+            :total="resultTotal"
             :page-size-options="['10', '20', '50']"
             show-size-changer
             :show-total="showResultTotal"
@@ -158,10 +158,9 @@ defineEmits<{
 }>();
 
 const {
-  resultFilter,
   resultPage,
   pageSize,
-  resultSamples,
+  resultTotal,
   pagedSamples,
   selectedSample,
   selectedSampleId,
@@ -169,11 +168,6 @@ const {
   scriptById,
 } = useTaskSchedule();
 
-const resultFilterOptions = [
-  { label: '全部', value: 'ALL' },
-  { label: '仅错误', value: 'ERROR' },
-  { label: '仅成功', value: 'SUCCESS' },
-];
 const payloadMode = ref<'request' | 'response'>('request');
 const payloadModeOptions = [
   { label: '请求内容', value: 'request' },

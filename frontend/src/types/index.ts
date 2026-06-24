@@ -174,7 +174,6 @@ export type FlatStepItem = {
 
 export type TaskStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED';
 export type TaskStatusFilter = 'ALL' | TaskStatus;
-export type TaskResultFilter = 'ALL' | 'SUCCESS' | 'ERROR';
 export type ExecutionMode = 'LOCAL' | 'DISTRIBUTED';
 export type ExecutionNodeRole = 'CONTROLLER' | 'WORKER' | 'BOTH';
 export type ExecutionNodeStatus = 'UNKNOWN' | 'AVAILABLE' | 'OFFLINE';
@@ -246,6 +245,13 @@ export type TaskSample = {
   response: string;
 };
 
+export type TaskSamplePage = {
+  page: number;
+  pageSize: number;
+  total: number;
+  samples: TaskSample[];
+};
+
 export type TaskSummary = {
   samples: number;
   throughput: number;
@@ -264,8 +270,6 @@ export type TestTask = {
   controllerNodeId: number | null;
   workerNodeIds: number[];
   grafanaUrl: string | null;
-  environment: string;
-  priority: string;
   remark: string;
   createdAt: string;
   lastRunAt: string | null;
@@ -277,4 +281,5 @@ export type TestTask = {
   monitoring: TaskMonitoringResult;
   aggregateRows: TaskAggregateRow[];
   samples: TaskSample[];
+  sampleTotal: number;
 };

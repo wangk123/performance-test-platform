@@ -13,6 +13,8 @@ public class JmeterScriptRendererTest {
         rendersSteppingThreadGroup();
         rendersResponseAssertionConfig();
         rendersJsonAssertionConfig();
+        rendersCustomHttpStepName();
+        roundTripPreservesHttpStepName();
         roundTripPreservesThreadGroupConfig();
         roundTripPreservesSchedulerMode();
         rendersEmptyStepsList();
@@ -149,6 +151,58 @@ public class JmeterScriptRendererTest {
         assertTrue(output.contains("<stringProp name=\"EXPECTED_VALUE\">0</stringProp>"), "expected value");
         assertTrue(output.contains("<boolProp name=\"JSONVALIDATION\">true</boolProp>"), "json validation");
         assertTrue(output.contains("<boolProp name=\"ISREGEX\">false</boolProp>"), "regex disabled");
+    }
+
+    static void rendersCustomHttpStepName() {
+        JmeterScriptRenderer renderer = new JmeterScriptRenderer();
+        ScriptStepDefinition threadGroup = new ScriptStepDefinition(
+                "thread-http",
+                ScriptStepType.THREAD_GROUP.code(),
+                "Main",
+                ThreadGroupConfig.DEFAULT.toMap(),
+                List.of(new ScriptStepDefinition(
+                        "http-1",
+                        ScriptStepType.HTTP_REQUEST.code(),
+                        "用户登录",
+                        Map.of(
+                                "method", "POST",
+                                "url", "http://localhost/api/login",
+                                "path", "/api/login",
+                                "bodyType", "none"
+                        ),
+                        List.of()
+                ))
+        );
+
+        String output = renderer.render(List.of(threadGroup));
+
+        assertTrue(output.contains("testname=\"用户登录\""), "custom http step name rendered");
+    }
+
+    static void roundTripPreservesHttpStepName() {
+        JmeterScriptRenderer renderer = new JmeterScriptRenderer();
+        JmeterScriptParser parser = new JmeterScriptParser();
+        ScriptStepDefinition threadGroup = new ScriptStepDefinition(
+                "thread-http-roundtrip",
+                ScriptStepType.THREAD_GROUP.code(),
+                "Main",
+                ThreadGroupConfig.DEFAULT.toMap(),
+                List.of(new ScriptStepDefinition(
+                        "http-2",
+                        ScriptStepType.HTTP_REQUEST.code(),
+                        "查询订单",
+                        Map.of(
+                                "method", "GET",
+                                "url", "http://localhost/api/orders",
+                                "path", "/api/orders",
+                                "bodyType", "none"
+                        ),
+                        List.of()
+                ))
+        );
+
+        ScriptStepDefinition http = parser.parseSteps(renderer.render(List.of(threadGroup))).get(0).children().get(0);
+        assertEquals("查询订单", http.name(), "custom http step name round-trips");
     }
 
     static void roundTripPreservesThreadGroupConfig() {

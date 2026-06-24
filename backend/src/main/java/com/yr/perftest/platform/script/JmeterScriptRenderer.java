@@ -113,8 +113,13 @@ public class JmeterScriptRenderer {
         String path = urlParts.path().isBlank() ? text(config, "path", "/") : urlParts.path();
         String method = text(config, "method", "GET");
         String bodyType = text(config, "bodyType", "none");
+        String defaultName = method + " " + path.replaceFirst("\\?.*$", "");
+        String testName = step.name();
+        if (testName == null || testName.isBlank()) {
+            testName = defaultName;
+        }
         builder.append("        <HTTPSamplerProxy guiclass=\"HttpTestSampleGui\" testclass=\"HTTPSamplerProxy\" testname=\"")
-                .append(xml(method + " " + path.replaceFirst("\\?.*$", ""))).append("\" enabled=\"true\">\n");
+                .append(xml(testName)).append("\" enabled=\"true\">\n");
         if ("raw".equals(bodyType)) {
             builder.append("          <boolProp name=\"HTTPSampler.postBodyRaw\">true</boolProp>\n");
         }

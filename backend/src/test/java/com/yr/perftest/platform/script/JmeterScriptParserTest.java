@@ -51,6 +51,7 @@ public class JmeterScriptParserTest {
         parsesThreadGroupWithCorrectConfig();
         threadGroupConfigMethodReturnsTypedConfig();
         parsesChildHttpSampler();
+        parsesCustomHttpStepName();
         parsesSchedulerMode();
         parsesSteppingThreadGroup();
         parsesResponseAssertionConfig();
@@ -90,6 +91,36 @@ public class JmeterScriptParserTest {
         ScriptStepDefinition http = threadGroup.children().get(0);
         assertEquals(ScriptStepType.HTTP_REQUEST.code(), http.type(), "child is HTTP_REQUEST");
         assertEquals(ScriptStepType.HTTP_REQUEST, http.stepType(), "child stepType() returns enum");
+        assertEquals("GET /api/users", http.name(), "name from testname attribute");
+    }
+
+    static void parsesCustomHttpStepName() {
+        String jmx = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+                  <hashTree>
+                    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                    <hashTree>
+                      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Main" enabled="true">
+                        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+                        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+                        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+                          <stringProp name="LoopController.loops">1</stringProp>
+                        </elementProp>
+                      </ThreadGroup>
+                      <hashTree>
+                        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="用户登录" enabled="true">
+                          <stringProp name="HTTPSampler.method">POST</stringProp>
+                          <stringProp name="HTTPSampler.path">/api/login</stringProp>
+                        </HTTPSamplerProxy>
+                        <hashTree/>
+                      </hashTree>
+                    </hashTree>
+                  </hashTree>
+                </jmeterTestPlan>
+                """;
+        ScriptStepDefinition http = new JmeterScriptParser().parseSteps(jmx).get(0).children().get(0);
+        assertEquals("用户登录", http.name(), "custom testname preserved");
     }
 
     static void parsesSchedulerMode() {

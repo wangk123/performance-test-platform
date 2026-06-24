@@ -59,7 +59,6 @@ public class JmeterCommandExecutor {
         properties.put("loops", String.valueOf(config.loops()));
         properties.put("duration", String.valueOf(config.duration()));
         properties.put("rampUp", String.valueOf(config.rampUp()));
-        properties.put("environment", config.environment());
         properties.putAll(config.jmeterProperties());
         return properties;
     }

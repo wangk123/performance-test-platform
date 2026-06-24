@@ -9,12 +9,10 @@ export function createMockTask(script: ScriptAsset, index: number): TestTask {
     scriptId: script.id,
     name: `${script.name} / ${index === 0 ? '容量基线' : '回归验证'}`,
     status,
-    executionMode: 'LOCAL',
+    executionMode: 'DISTRIBUTED',
     controllerNodeId: null,
     workerNodeIds: [],
     grafanaUrl: null,
-    environment: index % 2 === 0 ? 'SIT / 127.0.0.1' : 'UAT / 10.12.4.18',
-    priority: '普通',
     remark: 'Mock 任务配置，后续接入后端任务接口。',
     createdAt: `2026-06-0${index + 1}T10:00:00.000Z`,
     lastRunAt: status === 'PENDING' ? null : `2026-06-0${index + 3}T16:30:00.000Z`,
@@ -32,5 +30,6 @@ export function createMockTask(script: ScriptAsset, index: number): TestTask {
     monitoring: { interfaces: [], points: [] },
     aggregateRows: [],
     samples: [],
+    sampleTotal: 0,
   };
 }

@@ -114,10 +114,15 @@ public class JmeterScriptParser {
             params.addAll(arguments);
             config.put("params", params);
         }
+        String defaultName = method + " " + cleanPath;
+        String name = sampler.getAttribute("testname");
+        if (name == null || name.isBlank()) {
+            name = defaultName;
+        }
         return new ScriptStepDefinition(
                 JmeterScriptDom.stepId(sampler, ScriptStepType.HTTP_REQUEST),
                 ScriptStepType.HTTP_REQUEST.code(),
-                method + " " + cleanPath,
+                name,
                 config,
                 parseSamplerChildren(hashTree)
         );

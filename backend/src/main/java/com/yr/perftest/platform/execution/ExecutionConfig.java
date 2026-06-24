@@ -1,14 +1,16 @@
 package com.yr.perftest.platform.execution;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.util.List;
 import java.util.Map;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record ExecutionConfig(
         int threads,
         int rampUp,
         int duration,
         int loops,
-        String environment,
         Map<String, String> jmeterProperties,
         ExecutionMode mode,
         Long controllerNodeId,
