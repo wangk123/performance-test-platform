@@ -1,10 +1,14 @@
-import type { MonitorItem, MonitorTarget, TargetMonitoringResult } from '../types';
+import type { MonitorDeployResult, MonitorItem, MonitorTarget, TargetMonitoringResult } from '../types';
 import { request } from './http';
 
 export type MonitorTargetPayload = {
   name: string;
   serviceName: string;
   host: string;
+  sshUsername?: string | null;
+  sshPassword?: string | null;
+  sshPort?: number | null;
+  pluginDir?: string | null;
   port: number;
   metricsPath: string;
   env: string;
@@ -39,6 +43,10 @@ export function deleteMonitorTargetApi(targetId: number) {
 
 export function checkMonitorTargetApi(targetId: number) {
   return request<MonitorTarget>(`/api/monitor-targets/${targetId}/check`, { method: 'POST' });
+}
+
+export function deployMonitorTargetApi(targetId: number) {
+  return request<MonitorDeployResult>(`/api/monitor-targets/${targetId}/deploy`, { method: 'POST' });
 }
 
 export function getTargetMonitoringApi(taskId: number) {

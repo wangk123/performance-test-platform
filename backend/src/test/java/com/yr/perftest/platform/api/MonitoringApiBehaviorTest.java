@@ -125,4 +125,56 @@ class MonitoringApiBehaviorTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(0)));
     }
+
+    @Test
+    void preservesRemoteDeployFieldsOnPartialUpdate() throws Exception {
+        mockMvc.perform(post("/api/projects")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User", "admin")
+                        .content("{\"code\":\"loan-core\",\"name\":\"信贷核心压测\",\"description\":\"授信链路\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/projects/1/monitor-targets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name":"订单服务器",
+                                  "host":"127.0.0.1",
+                                  "sshUsername":"root",
+                                  "sshPassword":"secret",
+                                  "sshPort":2222,
+                                  "pluginDir":"/opt/monitoring",
+                                  "port":9100,
+                                  "metricsPath":"/metrics",
+                                  "env":"test",
+                                  "enabled":true,
+                                  "items":[]
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.sshUsername", is("root")))
+                .andExpect(jsonPath("$.sshPort", is(2222)))
+                .andExpect(jsonPath("$.pluginDir", is("/opt/monitoring")))
+                .andExpect(jsonPath("$.sshPasswordConfigured", is(true)));
+
+        mockMvc.perform(put("/api/monitor-targets/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name":"订单服务器-更新",
+                                  "host":"127.0.0.1",
+                                  "port":9100,
+                                  "metricsPath":"/metrics",
+                                  "env":"test",
+                                  "enabled":true,
+                                  "items":[]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name", is("订单服务器-更新")))
+                .andExpect(jsonPath("$.sshUsername", is("root")))
+                .andExpect(jsonPath("$.sshPort", is(2222)))
+                .andExpect(jsonPath("$.pluginDir", is("/opt/monitoring")))
+                .andExpect(jsonPath("$.sshPasswordConfigured", is(true)));
+    }
 }

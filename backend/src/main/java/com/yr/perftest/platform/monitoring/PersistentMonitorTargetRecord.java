@@ -35,6 +35,17 @@ public class PersistentMonitorTargetRecord {
     @Column(nullable = false, length = 160)
     private String host;
 
+    @Column(length = 80)
+    private String sshUsername;
+
+    @Column(length = 200)
+    private String sshPassword;
+
+    private Integer sshPort;
+
+    @Column(length = 500)
+    private String pluginDir;
+
     @Column(nullable = false)
     private Integer port;
 
@@ -76,6 +87,10 @@ public class PersistentMonitorTargetRecord {
             String name,
             String serviceName,
             String host,
+            String sshUsername,
+            String sshPassword,
+            Integer sshPort,
+            String pluginDir,
             Integer port,
             String metricsPath,
             String env,
@@ -88,6 +103,10 @@ public class PersistentMonitorTargetRecord {
         this.name = name;
         this.serviceName = serviceName;
         this.host = host;
+        this.sshUsername = sshUsername;
+        this.sshPassword = sshPassword;
+        this.sshPort = sshPort;
+        this.pluginDir = pluginDir;
         this.port = port;
         this.metricsPath = metricsPath;
         this.env = env;
@@ -121,6 +140,22 @@ public class PersistentMonitorTargetRecord {
 
     public String getHost() {
         return host;
+    }
+
+    public String getSshUsername() {
+        return sshUsername;
+    }
+
+    public String getSshPassword() {
+        return sshPassword;
+    }
+
+    public Integer getSshPort() {
+        return sshPort;
+    }
+
+    public String getPluginDir() {
+        return pluginDir;
     }
 
     public Integer getPort() {
@@ -167,10 +202,36 @@ public class PersistentMonitorTargetRecord {
         return updatedAt;
     }
 
-    public void update(String name, String serviceName, String host, Integer port, String metricsPath, String env, String labelsJson, String itemsJson, Boolean enabled) {
+    public void update(
+            String name,
+            String serviceName,
+            String host,
+            String sshUsername,
+            String sshPassword,
+            Integer sshPort,
+            String pluginDir,
+            Integer port,
+            String metricsPath,
+            String env,
+            String labelsJson,
+            String itemsJson,
+            Boolean enabled
+    ) {
         this.name = name;
         this.serviceName = serviceName;
         this.host = host;
+        if (sshUsername != null) {
+            this.sshUsername = sshUsername;
+        }
+        if (sshPassword != null) {
+            this.sshPassword = sshPassword;
+        }
+        if (sshPort != null) {
+            this.sshPort = sshPort;
+        }
+        if (pluginDir != null) {
+            this.pluginDir = pluginDir;
+        }
         this.port = port;
         this.metricsPath = metricsPath;
         this.env = env;

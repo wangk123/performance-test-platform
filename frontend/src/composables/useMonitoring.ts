@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue';
 import { message } from 'ant-design-vue';
-import type { MonitorTarget } from '../types';
-import { checkMonitorTargetApi, createMonitorTargetApi, deleteMonitorTargetApi, listMonitorTargetsApi, type MonitorTargetPayload, updateMonitorTargetApi } from '../api/monitoring';
+import type { MonitorTarget, MonitorDeployResult } from '../types';
+import { checkMonitorTargetApi, createMonitorTargetApi, deleteMonitorTargetApi, deployMonitorTargetApi, listMonitorTargetsApi, type MonitorTargetPayload, updateMonitorTargetApi } from '../api/monitoring';
 import { confirmAction } from '../utils/feedback';
 
 const monitorTargets = ref<MonitorTarget[]>([]);
@@ -53,12 +53,12 @@ async function saveMonitorTarget(projectId: number, payload: MonitorTargetPayloa
     const target = editing
       ? await updateMonitorTargetApi(editing.id, payload)
       : await createMonitorTargetApi(projectId, payload);
-    upsertTarget(target);
+    await loadMonitorTargets(projectId, true);
     message.success(editing ? '监控目标已更新' : '监控目标已创建');
-    return true;
+    return target;
   } catch (error) {
     message.error(error instanceof Error ? error.message : '监控目标保存失败');
-    return false;
+    return null;
   }
 }
 
@@ -86,6 +86,15 @@ async function deleteMonitorTarget(target: MonitorTarget) {
   }
 }
 
+async function deployMonitorTarget(target: MonitorTarget) {
+  try {
+    return await deployMonitorTargetApi(target.id);
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '脚本上传失败');
+    return null;
+  }
+}
+
 export function useMonitoring() {
   const enabledMonitorTargets = computed(() => monitorTargets.value.filter((target) => target.enabled && target.lastCheckStatus !== 'FAILED'));
   return {
@@ -96,5 +105,6 @@ export function useMonitoring() {
     saveMonitorTarget,
     checkMonitorTarget,
     deleteMonitorTarget,
+    deployMonitorTarget,
   };
 }

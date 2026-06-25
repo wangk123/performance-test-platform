@@ -35,6 +35,8 @@ platform:
       idle-timeout-seconds: ${REMOTE_RUNNER_IDLE_TIMEOUT_SECONDS:300}
       poll-interval-seconds: ${REMOTE_RUNNER_POLL_INTERVAL_SECONDS:10}
   monitoring:
+    deploy:
+      bundle-path: ${MONITORING_DEPLOY_BUNDLE_PATH:../deploy/monitoring/prometheus}
     prometheus:
       file-sd-path: ${PROMETHEUS_JMX_FILE_SD_PATH:./deploy/monitoring/prometheus/file_sd/jmx-targets.json}
     grafana-dashboard-url: ${JMX_GRAFANA_DASHBOARD_URL:http://127.0.0.1:3000/d/jmx-jvm/jmx-exporter-jvm?orgId=1&refresh=5s}

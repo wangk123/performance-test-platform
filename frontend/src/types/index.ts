@@ -197,6 +197,26 @@ export type ExecutionNode = {
   updatedAt: string;
 };
 
+export type MonitorDeployStartResult = {
+  title: string;
+  success: boolean;
+  output: string;
+};
+
+export type MonitorDeployCommand = {
+  title: string;
+  command: string;
+};
+
+export type MonitorDeployResult = {
+  success: boolean;
+  message: string;
+  remoteDir: string;
+  uploadedFiles: string[];
+  startResults: MonitorDeployStartResult[];
+  agentCommands: MonitorDeployCommand[];
+};
+
 export type MonitorTarget = {
   id: number;
   projectId: number;
@@ -204,6 +224,10 @@ export type MonitorTarget = {
   name: string;
   serviceName: string;
   host: string;
+  sshUsername: string | null;
+  sshPort: number | null;
+  pluginDir: string | null;
+  sshPasswordConfigured: boolean;
   port: number;
   metricsPath: string;
   env: string;

@@ -1,5 +1,7 @@
 package com.yr.perftest.platform.api;
 
+import com.yr.perftest.platform.monitoring.MonitorDeployResult;
+import com.yr.perftest.platform.monitoring.MonitorDeployService;
 import com.yr.perftest.platform.monitoring.MonitorTarget;
 import com.yr.perftest.platform.monitoring.MonitorItem;
 import com.yr.perftest.platform.monitoring.MonitorTargetService;
@@ -24,9 +26,11 @@ import java.util.Map;
 @RequestMapping("/api")
 public class MonitorTargetController {
     private final MonitorTargetService targetService;
+    private final MonitorDeployService deployService;
 
-    public MonitorTargetController(MonitorTargetService targetService) {
+    public MonitorTargetController(MonitorTargetService targetService, MonitorDeployService deployService) {
         this.targetService = targetService;
+        this.deployService = deployService;
     }
 
     @GetMapping("/projects/{projectId}/monitor-targets")
@@ -50,6 +54,11 @@ public class MonitorTargetController {
         return targetService.checkTarget(targetId);
     }
 
+    @PostMapping("/monitor-targets/{targetId}/deploy")
+    public MonitorDeployResult deployTarget(@PathVariable long targetId) {
+        return deployService.deployTarget(targetId);
+    }
+
     @DeleteMapping("/monitor-targets/{targetId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteTarget(@PathVariable long targetId) {
@@ -60,6 +69,10 @@ public class MonitorTargetController {
             @NotBlank String name,
             String serviceName,
             @NotBlank String host,
+            String sshUsername,
+            String sshPassword,
+            Integer sshPort,
+            String pluginDir,
             @NotNull Integer port,
             String metricsPath,
             String env,
@@ -68,7 +81,21 @@ public class MonitorTargetController {
             Boolean enabled
     ) {
         MonitorTargetService.MonitorTargetInput toInput() {
-            return new MonitorTargetService.MonitorTargetInput(name, serviceName, host, port, metricsPath, env, labels, items, enabled);
+            return new MonitorTargetService.MonitorTargetInput(
+                    name,
+                    serviceName,
+                    host,
+                    sshUsername,
+                    sshPassword,
+                    sshPort,
+                    pluginDir,
+                    port,
+                    metricsPath,
+                    env,
+                    labels,
+                    items,
+                    enabled
+            );
         }
     }
 }

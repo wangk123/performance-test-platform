@@ -54,6 +54,10 @@ public class MonitorTargetService {
                 normalized.name(),
                 normalized.serviceName(),
                 normalized.host(),
+                normalized.sshUsername(),
+                normalized.sshPassword(),
+                normalized.sshPort(),
+                normalized.pluginDir(),
                 normalized.port(),
                 normalized.metricsPath(),
                 normalized.env(),
@@ -69,11 +73,15 @@ public class MonitorTargetService {
     public MonitorTarget updateTarget(long targetId, MonitorTargetInput input) {
         PersistentMonitorTargetRecord record = targetRepository.findById(targetId)
                 .orElseThrow(() -> new MonitoringValidationException("monitor target does not exist"));
-        MonitorTargetInput normalized = normalize(input);
+        MonitorTargetInput normalized = normalizeForUpdate(record, normalize(input));
         record.update(
                 normalized.name(),
                 normalized.serviceName(),
                 normalized.host(),
+                normalized.sshUsername(),
+                normalized.sshPassword(),
+                normalized.sshPort(),
+                normalized.pluginDir(),
                 normalized.port(),
                 normalized.metricsPath(),
                 normalized.env(),
@@ -130,6 +138,10 @@ public class MonitorTargetService {
                 record.getName(),
                 record.getServiceName(),
                 record.getHost(),
+                record.getSshUsername(),
+                record.getSshPort(),
+                record.getPluginDir(),
+                record.getSshPassword() != null && !record.getSshPassword().isBlank(),
                 record.getPort(),
                 record.getMetricsPath(),
                 record.getEnv(),
@@ -161,7 +173,43 @@ public class MonitorTargetService {
         }
         String env = input.env() == null || input.env().isBlank() ? "default" : input.env().trim();
         List<MonitorItem> items = MonitoringJson.readItems(objectMapper, MonitoringJson.writeItems(objectMapper, input.items()));
-        return new MonitorTargetInput(name, serviceName, host, port, metricsPath, env, input.labels(), items, input.enabled() == null || input.enabled());
+        return new MonitorTargetInput(
+                name,
+                serviceName,
+                host,
+                blankToNull(input.sshUsername()),
+                blankToNull(input.sshPassword()),
+                input.sshPort(),
+                blankToNull(input.pluginDir()),
+                port,
+                metricsPath,
+                env,
+                input.labels(),
+                items,
+                input.enabled() == null || input.enabled()
+        );
+    }
+
+    private MonitorTargetInput normalizeForUpdate(PersistentMonitorTargetRecord existing, MonitorTargetInput normalized) {
+        return new MonitorTargetInput(
+                normalized.name(),
+                normalized.serviceName(),
+                normalized.host(),
+                normalized.sshUsername() != null ? normalized.sshUsername() : existing.getSshUsername(),
+                normalized.sshPassword() != null ? normalized.sshPassword() : existing.getSshPassword(),
+                normalized.sshPort() != null ? normalized.sshPort() : existing.getSshPort(),
+                normalized.pluginDir() != null ? normalized.pluginDir() : existing.getPluginDir(),
+                normalized.port(),
+                normalized.metricsPath(),
+                normalized.env(),
+                normalized.labels(),
+                normalized.items(),
+                normalized.enabled()
+        );
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private String required(String value, String message) {
@@ -182,6 +230,10 @@ public class MonitorTargetService {
             String name,
             String serviceName,
             String host,
+            String sshUsername,
+            String sshPassword,
+            Integer sshPort,
+            String pluginDir,
             Integer port,
             String metricsPath,
             String env,

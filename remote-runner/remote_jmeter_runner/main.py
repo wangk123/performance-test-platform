@@ -23,13 +23,16 @@ RESULT_SAVE_PROPERTIES = {
 }
 
 
-def respond(ok, message="", log="", exit_code=0):
-    print(json.dumps({
+def respond(ok, message="", log="", exit_code=0, start_results=None):
+    body = {
         "ok": ok,
         "exitCode": exit_code,
         "message": message,
         "log": log,
-    }, ensure_ascii=False))
+    }
+    if start_results is not None:
+        body["startResults"] = start_results
+    print(json.dumps(body, ensure_ascii=False))
     return 0 if ok else 1
 
 
@@ -105,6 +108,105 @@ def result_save_args():
 
 def shell_quote(value):
     return "'" + value.replace("'", "'\"'\"'") + "'"
+
+
+def start_exporter(client, directory, port, extra_arg=None):
+    args = [str(port)]
+    if extra_arg is not None:
+        args.append(extra_arg)
+    args_text = " ".join(shell_quote(arg) for arg in args)
+    command = " ".join([
+        f"cd {shell_quote(directory)} &&",
+        f"./start.sh {args_text}",
+    ])
+    return run(client, command)
+
+
+def deploy_monitoring(payload):
+    client = None
+    try:
+        plugin_dir = payload["pluginDir"].rstrip("/")
+        remote_root = f"{plugin_dir}/prometheus"
+        client = connect(payload)
+        run(client, f"mkdir -p {shell_quote(remote_root + '/file_sd')}")
+        uploaded = []
+        for item in payload.get("files", []):
+            local_path = item["localPath"]
+            relative_path = item["relativePath"]
+            remote_path = Path(remote_root) / relative_path
+            sftp_put(client, local_path, remote_path)
+            uploaded.append(str(remote_path))
+        shell_files = [path for path in uploaded if path.endswith(".sh")]
+        if shell_files:
+            quoted = " ".join(shell_quote(path) for path in shell_files)
+            run(client, f"chmod +x {quoted}")
+        binary_names = (
+            "node_exporter",
+            "mysqld_exporter",
+            "redis_exporter",
+            "nginx-prometheus-exporter",
+            "kafka_exporter",
+            "jmx_prometheus_javaagent.jar",
+        )
+        binaries = [path for path in uploaded if path.rsplit("/", 1)[-1] in binary_names]
+        if binaries:
+            quoted = " ".join(shell_quote(path) for path in binaries)
+            run(client, f"chmod +x {quoted}")
+        start_results = []
+        node_port = payload.get("nodeExporterPort", 9100)
+        code, output = start_exporter(client, f"{remote_root}/node-exporter", node_port)
+        start_results.append({
+            "title": "Node Exporter",
+            "success": code == 0,
+            "output": output.strip() or ("started on :" + str(node_port) if code == 0 else "start failed"),
+        })
+        for item in payload.get("items", []):
+            item_type = item.get("type")
+            name = item.get("name") or item_type
+            port = item.get("port")
+            if item_type == "JAVA_JMX_AGENT":
+                continue
+            if item_type == "MYSQL_EXPORTER":
+                code, output = start_exporter(
+                    client,
+                    f"{remote_root}/mysql-exporter",
+                    port,
+                    "user:pass@(127.0.0.1:3306)/",
+                )
+            elif item_type == "REDIS_EXPORTER":
+                code, output = start_exporter(
+                    client,
+                    f"{remote_root}/redis-exporter",
+                    port,
+                    "redis://127.0.0.1:6379",
+                )
+            elif item_type == "NGINX_EXPORTER":
+                code, output = start_exporter(
+                    client,
+                    f"{remote_root}/nginx-exporter",
+                    port,
+                    "http://127.0.0.1/stub_status",
+                )
+            elif item_type == "KAFKA_EXPORTER":
+                code, output = start_exporter(
+                    client,
+                    f"{remote_root}/kafka-exporter",
+                    port,
+                    "127.0.0.1:9092",
+                )
+            else:
+                continue
+            start_results.append({
+                "title": name,
+                "success": code == 0,
+                "output": output.strip() or ("started on :" + str(port) if code == 0 else "start failed"),
+            })
+        return respond(True, "uploaded", "\n".join(uploaded), start_results=start_results)
+    except Exception as exc:
+        return respond(False, str(exc))
+    finally:
+        if client:
+            client.close()
 
 
 def check_node(payload):
@@ -331,7 +433,7 @@ def stop_run(payload):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["check-node", "install-key", "start-run", "poll-run", "collect-run", "stop-run"])
+    parser.add_argument("command", choices=["check-node", "install-key", "deploy-monitoring", "start-run", "poll-run", "collect-run", "stop-run"])
     parser.add_argument("payload")
     args = parser.parse_args()
     payload = json.loads(args.payload)
@@ -339,6 +441,8 @@ def main():
         return check_node(payload)
     if args.command == "install-key":
         return install_key(payload)
+    if args.command == "deploy-monitoring":
+        return deploy_monitoring(payload)
     if args.command == "start-run":
         return start_run(payload)
     if args.command == "poll-run":

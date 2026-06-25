@@ -1,6 +1,7 @@
 package com.yr.perftest.platform.execution.distributed;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yr.perftest.platform.monitoring.MonitorDeployStartResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +31,10 @@ public class RemoteRunnerClient {
         this.pythonExecutable = pythonExecutable;
         this.runnerEntry = resolveRunnerEntry(runnerEntry);
         this.connectTimeout = Duration.ofSeconds(connectTimeoutSeconds);
+    }
+
+    public RemoteRunnerResult deployMonitoring(Map<String, Object> payload) {
+        return run("deploy-monitoring", payload);
     }
 
     public RemoteRunnerResult checkNode(PersistentExecutionNodeRecord node) {
@@ -76,11 +81,20 @@ public class RemoteRunnerClient {
                 }
                 String output = Files.readString(outputPath, StandardCharsets.UTF_8);
                 if (output.isBlank()) {
-                    return new RemoteRunnerResult(process.exitValue() == 0, process.exitValue(), "", "");
+                    return new RemoteRunnerResult(process.exitValue() == 0, process.exitValue(), "", "", List.of());
                 }
                 try {
                     RemoteRunnerResult result = objectMapper.readValue(output, RemoteRunnerResult.class);
-                    return new RemoteRunnerResult(result.ok(), result.exitCode(), result.message(), result.log());
+                    List<MonitorDeployStartResult> startResults = result.startResults() == null
+                            ? List.of()
+                            : result.startResults();
+                    return new RemoteRunnerResult(
+                            result.ok(),
+                            result.exitCode(),
+                            result.message(),
+                            result.log(),
+                            startResults
+                    );
                 } catch (Exception exception) {
                     return RemoteRunnerResult.failed(output.length() > 2000 ? output.substring(0, 2000) : output);
                 }
