@@ -9,6 +9,7 @@ import com.yr.perftest.platform.execution.PersistentTaskExecutionRecord;
 import com.yr.perftest.platform.execution.PersistentTaskExecutionRepository;
 import com.yr.perftest.platform.execution.PersistentTestTaskRecord;
 import com.yr.perftest.platform.execution.PersistentTestTaskRepository;
+import com.yr.perftest.platform.monitoring.ExecutionMonitorBindingService;
 import com.yr.perftest.platform.script.JmeterScriptNormalizer;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
@@ -39,6 +40,7 @@ public class DistributedJmeterExecutionRunner {
     private final JmeterBackendListenerInjector backendListenerInjector;
     private final JmeterDependencyCollector dependencyCollector;
     private final JmeterScriptNormalizer scriptNormalizer;
+    private final ExecutionMonitorBindingService monitorBindingService;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
     private final Path storageRoot;
@@ -57,6 +59,7 @@ public class DistributedJmeterExecutionRunner {
             JmeterBackendListenerInjector backendListenerInjector,
             JmeterDependencyCollector dependencyCollector,
             JmeterScriptNormalizer scriptNormalizer,
+            ExecutionMonitorBindingService monitorBindingService,
             TransactionTemplate transactionTemplate,
             ObjectMapper objectMapper,
             @Value("${platform.storage.root:./storage}") String storageRoot,
@@ -74,6 +77,7 @@ public class DistributedJmeterExecutionRunner {
         this.backendListenerInjector = backendListenerInjector;
         this.dependencyCollector = dependencyCollector;
         this.scriptNormalizer = scriptNormalizer;
+        this.monitorBindingService = monitorBindingService;
         this.transactionTemplate = transactionTemplate;
         this.objectMapper = objectMapper;
         this.storageRoot = Path.of(storageRoot);
@@ -288,6 +292,7 @@ public class DistributedJmeterExecutionRunner {
             PersistentTestTaskRecord task = taskRepository.findById(execution.getTaskId()).orElseThrow();
             execution.markRunning(resultPath.toString(), logPath.toString());
             task.changeStatus(ExecutionStatus.RUNNING);
+            monitorBindingService.markStart(executionId, execution.getStartTime());
         });
     }
 
@@ -297,6 +302,7 @@ public class DistributedJmeterExecutionRunner {
             PersistentTestTaskRecord task = taskRepository.findById(execution.getTaskId()).orElseThrow();
             execution.markSuccess(0);
             task.changeStatus(ExecutionStatus.SUCCESS);
+            monitorBindingService.markEnd(executionId, execution.getEndTime());
         });
     }
 
@@ -308,6 +314,7 @@ public class DistributedJmeterExecutionRunner {
             }
             PersistentTestTaskRecord task = taskRepository.findById(execution.getTaskId()).orElse(null);
             execution.markFailed(exitCode, normalizeMessage(message));
+            monitorBindingService.markEnd(executionId, execution.getEndTime());
             if (task != null) {
                 task.changeStatus(ExecutionStatus.FAILED);
             }

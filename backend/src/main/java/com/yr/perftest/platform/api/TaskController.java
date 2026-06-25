@@ -7,6 +7,8 @@ import com.yr.perftest.platform.execution.TaskMonitoringResult;
 import com.yr.perftest.platform.execution.TaskSamplePage;
 import com.yr.perftest.platform.execution.TestExecutionService;
 import com.yr.perftest.platform.execution.TestTask;
+import com.yr.perftest.platform.monitoring.ExecutionMonitorBindingService;
+import com.yr.perftest.platform.monitoring.TargetMonitoringResult;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -30,9 +32,11 @@ import java.util.Map;
 @RequestMapping("/api")
 public class TaskController {
     private final TestExecutionService executionService;
+    private final ExecutionMonitorBindingService monitorBindingService;
 
-    public TaskController(TestExecutionService executionService) {
+    public TaskController(TestExecutionService executionService, ExecutionMonitorBindingService monitorBindingService) {
         this.executionService = executionService;
+        this.monitorBindingService = monitorBindingService;
     }
 
     @PostMapping("/projects/{projectId}/tasks")
@@ -92,6 +96,11 @@ public class TaskController {
         return executionService.getTaskMonitoring(taskId);
     }
 
+    @GetMapping("/tasks/{taskId}/target-monitoring")
+    public TargetMonitoringResult getTargetMonitoring(@PathVariable long taskId) {
+        return monitorBindingService.getTaskMonitoring(taskId);
+    }
+
     public record SubmitTaskRequest(
             @NotNull Long scriptVersionId,
             @NotBlank String name,
@@ -102,6 +111,7 @@ public class TaskController {
             Map<String, String> jmeterProperties,
             Long controllerNodeId,
             List<Long> workerNodeIds,
+            List<Long> monitorTargetIds,
             String remark
     ) {
         ExecutionConfig toExecutionConfig() {
@@ -113,7 +123,8 @@ public class TaskController {
                     jmeterProperties == null ? Map.of() : jmeterProperties,
                     ExecutionMode.DISTRIBUTED,
                     controllerNodeId,
-                    workerNodeIds == null ? List.of() : workerNodeIds
+                    workerNodeIds == null ? List.of() : workerNodeIds,
+                    monitorTargetIds == null ? List.of() : monitorTargetIds
             );
         }
     }

@@ -2,6 +2,7 @@ package com.yr.perftest.platform.execution;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.execution.distributed.DistributedJmeterExecutionRunner;
+import com.yr.perftest.platform.monitoring.ExecutionMonitorBindingService;
 import com.yr.perftest.platform.project.PersistentProjectRepository;
 import com.yr.perftest.platform.project.ProjectValidationException;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
@@ -25,6 +26,7 @@ public class TestExecutionService {
     private final PersistentTestTaskRepository taskRepository;
     private final PersistentTaskExecutionRepository executionRepository;
     private final DistributedJmeterExecutionRunner distributedJmeterExecutionRunner;
+    private final ExecutionMonitorBindingService monitorBindingService;
     private final JmeterResultParser jmeterResultParser;
     private final InfluxdbMonitoringClient monitoringClient;
     private final ObjectMapper objectMapper;
@@ -37,6 +39,7 @@ public class TestExecutionService {
             PersistentTestTaskRepository taskRepository,
             PersistentTaskExecutionRepository executionRepository,
             DistributedJmeterExecutionRunner distributedJmeterExecutionRunner,
+            ExecutionMonitorBindingService monitorBindingService,
             JmeterResultParser jmeterResultParser,
             InfluxdbMonitoringClient monitoringClient,
             ObjectMapper objectMapper,
@@ -48,6 +51,7 @@ public class TestExecutionService {
         this.taskRepository = taskRepository;
         this.executionRepository = executionRepository;
         this.distributedJmeterExecutionRunner = distributedJmeterExecutionRunner;
+        this.monitorBindingService = monitorBindingService;
         this.jmeterResultParser = jmeterResultParser;
         this.monitoringClient = monitoringClient;
         this.objectMapper = objectMapper;
@@ -85,6 +89,7 @@ public class TestExecutionService {
                 task.getId(),
                 writeConfig(normalizedConfig)
         ));
+        monitorBindingService.bindTargets(projectId, execution.getId(), normalizedConfig.monitorTargetIds());
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
@@ -117,6 +122,8 @@ public class TestExecutionService {
         if (task.getStatus() == ExecutionStatus.RUNNING) {
             throw new ExecutionValidationException("running task cannot be deleted");
         }
+        executionRepository.findAllByTaskId(task.getId())
+                .forEach(execution -> monitorBindingService.deleteBindings(execution.getId()));
         executionRepository.deleteAllByTaskId(task.getId());
         taskRepository.delete(task);
     }
@@ -210,7 +217,7 @@ public class TestExecutionService {
 
     private ExecutionConfig normalizeConfig(ExecutionConfig config) {
         ExecutionConfig source = config == null
-                ? new ExecutionConfig(1, 0, 0, 1, Map.of(), ExecutionMode.DISTRIBUTED, null, List.of())
+                ? new ExecutionConfig(1, 0, 0, 1, Map.of(), ExecutionMode.DISTRIBUTED, null, List.of(), List.of())
                 : config;
         if (source.threads() <= 0) {
             throw new ExecutionValidationException("threads must be greater than 0");
@@ -237,7 +244,8 @@ public class TestExecutionService {
                 source.jmeterProperties(),
                 ExecutionMode.DISTRIBUTED,
                 source.controllerNodeId(),
-                workerNodeIds
+                workerNodeIds,
+                source.monitorTargetIds()
         );
     }
 

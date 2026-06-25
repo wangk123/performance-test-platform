@@ -1,5 +1,6 @@
 import type { ScriptAsset, TaskAggregateRow, TaskMetricPoint, TaskMonitoringResult, TaskSample, TaskSamplePage, TaskSummary, TestTask } from '../types';
 import { request } from './http';
+import { getTargetMonitoringApi } from './monitoring';
 
 type BackendTask = {
   id: number;
@@ -15,6 +16,7 @@ type BackendTask = {
     mode?: 'LOCAL' | 'DISTRIBUTED';
     controllerNodeId?: number | null;
     workerNodeIds?: number[];
+    monitorTargetIds?: number[];
   };
   remark: string;
   createdAt: string;
@@ -62,6 +64,7 @@ export function submitTaskApi(projectId: number, task: TestTask, username: strin
       name: task.name,
       controllerNodeId: task.controllerNodeId,
       workerNodeIds: task.workerNodeIds,
+      monitorTargetIds: task.monitorTargetIds,
       remark: task.remark,
     }),
   });
@@ -83,6 +86,10 @@ export function getTaskLogsApi(taskId: number) {
   return request<string>(`/api/tasks/${taskId}/logs`);
 }
 
+export function getTaskTargetMonitoringApi(taskId: number) {
+  return getTargetMonitoringApi(taskId);
+}
+
 export function deleteTaskApi(taskId: number) {
   return request<void>(`/api/tasks/${taskId}`, { method: 'DELETE' });
 }
@@ -97,6 +104,8 @@ export function mapBackendTask(task: BackendTask, result?: BackendTaskResult, mo
     executionMode: task.config.mode ?? 'DISTRIBUTED',
     controllerNodeId: task.config.controllerNodeId ?? null,
     workerNodeIds: task.config.workerNodeIds ?? [],
+    monitorTargetIds: task.config.monitorTargetIds ?? [],
+    targetMonitoring: null,
     grafanaUrl: task.grafanaUrl,
     remark: task.remark,
     createdAt: task.createdAt,

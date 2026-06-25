@@ -1,0 +1,32 @@
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+rules:
+  - pattern: "java.lang<type=Memory><HeapMemoryUsage>(used|committed|max)"
+    name: jvm_memory_bytes_$1
+    labels:
+      area: heap
+  - pattern: "java.lang<type=Memory><NonHeapMemoryUsage>(used|committed|max)"
+    name: jvm_memory_bytes_$1
+    labels:
+      area: nonheap
+  - pattern: "java.lang<type=GarbageCollector,name=(.+)><>CollectionCount"
+    name: jvm_gc_collection_seconds_count
+    labels:
+      gc: "$1"
+  - pattern: "java.lang<type=GarbageCollector,name=(.+)><>CollectionTime"
+    name: jvm_gc_collection_seconds_sum
+    labels:
+      gc: "$1"
+    valueFactor: 0.001
+  - pattern: "java.lang<type=Threading><>(ThreadCount|DaemonThreadCount|PeakThreadCount)"
+    name: jvm_threads_$1
+  - pattern: "java.lang<type=ClassLoading><>LoadedClassCount"
+    name: jvm_classes_loaded
+  - pattern: "com.zaxxer.hikari<type=Pool \\((.+)\\)><>(ActiveConnections|IdleConnections|PendingThreads|TotalConnections)"
+    name: hikari_pool_$2
+    labels:
+      pool: "$1"
+  - pattern: "Catalina<type=ThreadPool,name=(.+)><>(currentThreadsBusy|currentThreadCount|maxThreads)"
+    name: tomcat_threadpool_$2
+    labels:
+      connector: "$1"

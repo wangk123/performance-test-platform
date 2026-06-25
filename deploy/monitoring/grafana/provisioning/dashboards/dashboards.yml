@@ -9,3 +9,11 @@ providers:
     editable: true
     options:
       path: /var/lib/grafana/dashboards
+  - name: JMX
+    orgId: 1
+    folder: JVM
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/jmx-dashboards

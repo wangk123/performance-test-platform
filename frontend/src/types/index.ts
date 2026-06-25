@@ -177,6 +177,9 @@ export type TaskStatusFilter = 'ALL' | TaskStatus;
 export type ExecutionMode = 'LOCAL' | 'DISTRIBUTED';
 export type ExecutionNodeRole = 'CONTROLLER' | 'WORKER' | 'BOTH';
 export type ExecutionNodeStatus = 'UNKNOWN' | 'AVAILABLE' | 'OFFLINE';
+export type MonitorTargetType = 'SERVER';
+export type MonitorTargetCheckStatus = 'UNKNOWN' | 'SUCCESS' | 'FAILED';
+export type MonitorItemType = 'JAVA_JMX_AGENT' | 'MYSQL_EXPORTER' | 'REDIS_EXPORTER' | 'NGINX_EXPORTER' | 'KAFKA_EXPORTER';
 
 export type ExecutionNode = {
   id: number;
@@ -192,6 +195,49 @@ export type ExecutionNode = {
   lastMessage: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type MonitorTarget = {
+  id: number;
+  projectId: number;
+  type: MonitorTargetType;
+  name: string;
+  serviceName: string;
+  host: string;
+  port: number;
+  metricsPath: string;
+  env: string;
+  labels: Record<string, string>;
+  items: MonitorItem[];
+  enabled: boolean;
+  lastCheckStatus: MonitorTargetCheckStatus;
+  lastCheckMessage: string | null;
+  lastCheckedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  address: string;
+};
+
+export type MonitorItem = {
+  id: string;
+  type: MonitorItemType;
+  name: string;
+  port: number;
+  metricsPath: string;
+  serviceName: string | null;
+  processKeyword: string | null;
+  instanceName: string | null;
+  databaseName: string | null;
+  labels: Record<string, string>;
+};
+
+export type TargetMonitoringResult = {
+  taskId: number;
+  executionId: number;
+  startTime: string | null;
+  endTime: string | null;
+  grafanaUrl: string | null;
+  targets: MonitorTarget[];
 };
 
 export type TaskMetricPoint = {
@@ -269,6 +315,8 @@ export type TestTask = {
   executionMode: ExecutionMode;
   controllerNodeId: number | null;
   workerNodeIds: number[];
+  monitorTargetIds: number[];
+  targetMonitoring: TargetMonitoringResult | null;
   grafanaUrl: string | null;
   remark: string;
   createdAt: string;

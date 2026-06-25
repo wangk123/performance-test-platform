@@ -57,6 +57,14 @@
           </a-form-item>
         </div>
 
+        <a-form-item label="监控目标">
+          <a-select v-model:value="form.monitorTargetIds" :loading="loadingMonitorTargets" mode="multiple" placeholder="选择项目内 JMX 监控目标">
+            <a-select-option v-for="target in selectableMonitorTargets" :key="target.id" :value="target.id">
+              {{ target.serviceName }} / {{ target.env }} / {{ target.address }}
+            </a-select-option>
+          </a-select>
+        </a-form-item>
+
         <a-form-item label="备注">
           <a-input v-model:value="form.remark" placeholder="请输入备注" />
         </a-form-item>
@@ -79,6 +87,7 @@ import { useWorkspace } from '../../composables/useWorkspace';
 import { useTaskSchedule } from '../../composables/useTaskSchedule';
 import { useThreadGroups } from '../../composables/useThreadGroups';
 import { useExecutionNodes } from '../../composables/useExecutionNodes';
+import { useMonitoring } from '../../composables/useMonitoring';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -89,9 +98,10 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void;
 }>();
 
-const { currentProjectScripts } = useWorkspace();
+const { currentProject, currentProjectScripts } = useWorkspace();
 const { saveTask } = useTaskSchedule();
 const { controllerNodes, workerNodes, loading, loadNodes } = useExecutionNodes();
+const { enabledMonitorTargets, loadingMonitorTargets, loadMonitorTargets } = useMonitoring();
 
 const visible = computed({
   get: () => props.modelValue,
@@ -104,6 +114,7 @@ const form = reactive({
   name: '',
   controllerNodeId: null as number | null,
   workerNodeIds: [] as number[],
+  monitorTargetIds: [] as number[],
   remark: '',
 });
 
@@ -118,6 +129,9 @@ const selectedScriptThreadGroups = computed(() => {
   }
   return useThreadGroups(() => script.steps).threadGroups.value;
 });
+const selectableMonitorTargets = computed(() =>
+  currentProject.value ? enabledMonitorTargets.value.filter((target) => target.projectId === currentProject.value?.id) : [],
+);
 
 const canSave = computed(() =>
   form.scriptId !== null
@@ -132,6 +146,9 @@ watch(
       return;
     }
     void loadNodes();
+    if (currentProject.value) {
+      void loadMonitorTargets(currentProject.value.id);
+    }
     const script = props.editingTask
       ? currentProjectScripts.value.find((item) => item.id === props.editingTask?.scriptId)
       : currentProjectScripts.value[0];
@@ -140,6 +157,7 @@ watch(
     form.name = props.editingTask?.name ?? (script ? `${script.name} / 回归验证` : '');
     form.controllerNodeId = props.editingTask?.controllerNodeId ?? null;
     form.workerNodeIds = props.editingTask?.workerNodeIds ?? [];
+    form.monitorTargetIds = props.editingTask?.monitorTargetIds ?? [];
     form.remark = props.editingTask?.remark ?? '用于回归验证链路稳定性';
   },
   { immediate: true },

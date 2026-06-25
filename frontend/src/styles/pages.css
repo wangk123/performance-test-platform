@@ -1158,6 +1158,30 @@
   background: var(--surface-soft);
 }
 
+.monitor-target-list {
+  display: grid;
+  gap: 10px;
+}
+
+.monitor-target-chip {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-soft);
+}
+
+.monitor-target-chip strong {
+  color: var(--text);
+}
+
+.monitor-target-chip span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .task-result-workbench {
   --result-panel-height: clamp(560px, 64vh, 760px);
   display: grid;

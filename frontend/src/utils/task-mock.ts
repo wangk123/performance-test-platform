@@ -12,6 +12,8 @@ export function createMockTask(script: ScriptAsset, index: number): TestTask {
     executionMode: 'DISTRIBUTED',
     controllerNodeId: null,
     workerNodeIds: [],
+    monitorTargetIds: [],
+    targetMonitoring: null,
     grafanaUrl: null,
     remark: 'Mock 任务配置，后续接入后端任务接口。',
     createdAt: `2026-06-0${index + 1}T10:00:00.000Z`,

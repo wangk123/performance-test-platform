@@ -38,19 +38,6 @@ public class ModuleMockController {
         );
     }
 
-    @GetMapping("/projects/{projectId}/monitor-targets")
-    public List<Map<String, Object>> listMonitorTargets(@PathVariable long projectId) {
-        return List.of(
-                Map.of("id", 1, "projectId", projectId, "name", "应用服务器", "host", "10.12.4.18", "status", "ONLINE"),
-                Map.of("id", 2, "projectId", projectId, "name", "数据库服务器", "host", "10.12.4.21", "status", "ONLINE")
-        );
-    }
-
-    @PostMapping("/projects/{projectId}/monitor-targets")
-    public Map<String, Object> createMonitorTarget(@PathVariable long projectId) {
-        return Map.of("id", 1001, "projectId", projectId, "status", "MOCK_CREATED");
-    }
-
     @GetMapping("/executions/{executionId}/metrics")
     public List<Map<String, Object>> listExecutionMetrics(@PathVariable long executionId) {
         return List.of(

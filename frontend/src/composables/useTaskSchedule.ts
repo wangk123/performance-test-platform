@@ -11,7 +11,7 @@ import { nextId } from '../utils/format';
 import { createMockTask } from '../utils/task-mock';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
-import { deleteTaskApi, getTaskApi, getTaskLogsApi, getTaskMonitoringApi, getTaskResultApi, getTaskSamplesApi, listTasksApi, mapBackendTask, submitScriptTaskApi, submitTaskApi } from '../api/tasks';
+import { deleteTaskApi, getTaskApi, getTaskLogsApi, getTaskMonitoringApi, getTaskResultApi, getTaskSamplesApi, getTaskTargetMonitoringApi, listTasksApi, mapBackendTask, submitScriptTaskApi, submitTaskApi } from '../api/tasks';
 import { confirmAction } from '../utils/feedback';
 
 type TaskFormPayload = {
@@ -20,6 +20,7 @@ type TaskFormPayload = {
   name: string;
   controllerNodeId: number | null;
   workerNodeIds: number[];
+  monitorTargetIds: number[];
   remark: string;
 };
 
@@ -77,13 +78,15 @@ export function useTaskSchedule() {
 
   async function refreshTask(taskId: number) {
     try {
-      const [backendTask, result, monitoring, samplePage] = await Promise.all([
+      const [backendTask, result, monitoring, targetMonitoring, samplePage] = await Promise.all([
         getTaskApi(taskId),
         getTaskResultApi(taskId),
         getTaskMonitoringApi(taskId),
+        getTaskTargetMonitoringApi(taskId),
         getTaskSamplesApi(taskId, resultPage.value, pageSize.value),
       ]);
       const remoteTask = mapBackendTask(backendTask, result, monitoring);
+      remoteTask.targetMonitoring = targetMonitoring;
       remoteTask.samples = samplePage.samples;
       remoteTask.sampleTotal = samplePage.total;
       if (remoteTask.status === 'FAILED') {
@@ -216,6 +219,7 @@ export function useTaskSchedule() {
           executionMode: 'DISTRIBUTED',
           controllerNodeId: payload.controllerNodeId,
           workerNodeIds: payload.workerNodeIds,
+          monitorTargetIds: payload.monitorTargetIds,
           remark: payload.remark,
         });
         selectedTaskId.value = target.id;
@@ -233,6 +237,8 @@ export function useTaskSchedule() {
       executionMode: 'DISTRIBUTED',
       controllerNodeId: payload.controllerNodeId,
       workerNodeIds: payload.workerNodeIds,
+      monitorTargetIds: payload.monitorTargetIds,
+      targetMonitoring: null,
       grafanaUrl: null,
       monitoring: { interfaces: [], points: [] },
       remark: payload.remark,

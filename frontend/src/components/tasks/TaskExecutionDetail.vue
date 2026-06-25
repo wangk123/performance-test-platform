@@ -78,6 +78,26 @@
       <TaskMonitoringCharts :monitoring="task.monitoring" :fallback-metrics="metrics" />
     </div>
 
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <span class="eyebrow">Target Metrics</span>
+          <h2>被测目标监控</h2>
+          <p>按本次执行绑定的 JMX Agent 目标打开 Grafana JVM 模板。</p>
+        </div>
+        <a-button v-if="targetMonitoring?.grafanaUrl" type="primary" :href="targetMonitoring.grafanaUrl" target="_blank">
+          打开 Grafana
+        </a-button>
+      </div>
+      <div class="monitor-target-list">
+        <div v-for="target in targetMonitoringTargets" :key="target.id" class="monitor-target-chip">
+          <strong>{{ target.serviceName }}</strong>
+          <span>{{ target.env }} · {{ target.address }}</span>
+        </div>
+        <a-empty v-if="!targetMonitoringTargets.length" description="当前任务未绑定被测目标监控" />
+      </div>
+    </div>
+
     <section class="task-result-workbench">
       <div class="panel result-tree-panel">
         <div class="panel-header">
@@ -180,6 +200,8 @@ function showResultTotal(total: number) {
 
 const script = computed(() => (props.task ? scriptById(props.task.scriptId) : null));
 const aggregateRows = computed(() => props.task?.aggregateRows ?? []);
+const targetMonitoring = computed(() => props.task?.targetMonitoring ?? null);
+const targetMonitoringTargets = computed(() => targetMonitoring.value?.targets ?? []);
 const activePayload = computed(() => payloadMode.value === 'request' ? selectedSample.value?.request ?? '' : selectedSample.value?.response ?? '');
 const activePayloadTitle = computed(() => payloadMode.value === 'request' ? 'HTTP Request' : `HTTP ${selectedSample.value?.statusCode ?? '-'}`);
 const metrics = computed(() => props.task?.metrics ?? []);
