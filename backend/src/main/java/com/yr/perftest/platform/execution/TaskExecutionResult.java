@@ -62,7 +62,13 @@ public record TaskExecutionResult(
             String message,
             String threadName,
             String request,
-            String response
+            String response,
+            String requestLine,
+            String requestHeaders,
+            String requestBody,
+            String responseHeaders,
+            String responseBody,
+            String failureMessage
     ) {
     }
 }

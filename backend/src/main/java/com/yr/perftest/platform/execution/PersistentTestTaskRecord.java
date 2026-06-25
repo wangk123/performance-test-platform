@@ -99,4 +99,14 @@ public class PersistentTestTaskRecord {
         this.status = status;
         this.updatedAt = Instant.now();
     }
+
+    public void updateProfile(String name, String remark) {
+        if (name != null && !name.trim().isEmpty()) {
+            this.name = name.trim();
+        }
+        if (remark != null) {
+            this.remark = remark;
+        }
+        this.updatedAt = Instant.now();
+    }
 }

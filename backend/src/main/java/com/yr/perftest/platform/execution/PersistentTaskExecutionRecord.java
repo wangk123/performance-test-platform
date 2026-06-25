@@ -69,6 +69,10 @@ public class PersistentTaskExecutionRecord {
         return configJson;
     }
 
+    public void updateConfig(String configJson) {
+        this.configJson = configJson;
+    }
+
     public ExecutionStatus getStatus() {
         return status;
     }

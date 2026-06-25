@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -66,6 +67,21 @@ public class TaskController {
         return executionService.getTask(taskId);
     }
 
+    @PutMapping("/tasks/{taskId}")
+    public TestTask updateTask(
+            @PathVariable long taskId,
+            @Valid @RequestBody UpdateTaskRequest request
+    ) {
+        return executionService.updateTask(
+                taskId,
+                request.name(),
+                request.controllerNodeId(),
+                request.workerNodeIds(),
+                request.monitorTargetIds(),
+                request.remark()
+        );
+    }
+
     @DeleteMapping("/tasks/{taskId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteTask(@PathVariable long taskId) {
@@ -99,6 +115,15 @@ public class TaskController {
     @GetMapping("/tasks/{taskId}/target-monitoring")
     public TargetMonitoringResult getTargetMonitoring(@PathVariable long taskId) {
         return monitorBindingService.getTaskMonitoring(taskId);
+    }
+
+    public record UpdateTaskRequest(
+            @NotBlank String name,
+            Long controllerNodeId,
+            List<Long> workerNodeIds,
+            List<Long> monitorTargetIds,
+            String remark
+    ) {
     }
 
     public record SubmitTaskRequest(

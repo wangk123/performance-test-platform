@@ -101,7 +101,7 @@ const emit = defineEmits<{
 const { currentProject, currentProjectScripts } = useWorkspace();
 const { saveTask } = useTaskSchedule();
 const { controllerNodes, workerNodes, loading, loadNodes } = useExecutionNodes();
-const { enabledMonitorTargets, loadingMonitorTargets, loadMonitorTargets } = useMonitoring();
+const { monitorTargets, loadingMonitorTargets, loadMonitorTargets } = useMonitoring();
 
 const visible = computed({
   get: () => props.modelValue,
@@ -129,9 +129,14 @@ const selectedScriptThreadGroups = computed(() => {
   }
   return useThreadGroups(() => script.steps).threadGroups.value;
 });
-const selectableMonitorTargets = computed(() =>
-  currentProject.value ? enabledMonitorTargets.value.filter((target) => target.projectId === currentProject.value?.id) : [],
-);
+const selectableMonitorTargets = computed(() => {
+  if (!currentProject.value) {
+    return [];
+  }
+  const projectTargets = monitorTargets.value.filter((target) => target.projectId === currentProject.value?.id);
+  const selectedIds = new Set(form.monitorTargetIds);
+  return projectTargets.filter((target) => target.enabled || selectedIds.has(target.id));
+});
 
 const canSave = computed(() =>
   form.scriptId !== null
@@ -141,13 +146,13 @@ const canSave = computed(() =>
 
 watch(
   () => [props.modelValue, props.editingTask, currentProjectScripts.value] as const,
-  () => {
+  async () => {
     if (!props.modelValue) {
       return;
     }
     void loadNodes();
     if (currentProject.value) {
-      void loadMonitorTargets(currentProject.value.id);
+      await loadMonitorTargets(currentProject.value.id);
     }
     const script = props.editingTask
       ? currentProjectScripts.value.find((item) => item.id === props.editingTask?.scriptId)
@@ -156,8 +161,8 @@ watch(
     form.scriptId = props.editingTask?.scriptId ?? script?.id ?? null;
     form.name = props.editingTask?.name ?? (script ? `${script.name} / 回归验证` : '');
     form.controllerNodeId = props.editingTask?.controllerNodeId ?? null;
-    form.workerNodeIds = props.editingTask?.workerNodeIds ?? [];
-    form.monitorTargetIds = props.editingTask?.monitorTargetIds ?? [];
+    form.workerNodeIds = [...(props.editingTask?.workerNodeIds ?? [])];
+    form.monitorTargetIds = (props.editingTask?.monitorTargetIds ?? []).map((id) => Number(id));
     form.remark = props.editingTask?.remark ?? '用于回归验证链路稳定性';
   },
   { immediate: true },
@@ -184,8 +189,11 @@ function threadGroupSummary(group: ThreadGroup): string {
   return `${group.threads} 线程 · Ramp-Up ${group.rampUp}s · 循环 ${group.loops} 次`;
 }
 
-function onSave() {
-  if (saveTask({ ...form })) {
+async function onSave() {
+  if (await saveTask({
+    ...form,
+    monitorTargetIds: form.monitorTargetIds.map((id) => Number(id)),
+  })) {
     visible.value = false;
   }
 }

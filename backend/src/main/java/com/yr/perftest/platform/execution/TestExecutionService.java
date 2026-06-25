@@ -99,6 +99,41 @@ public class TestExecutionService {
         return toTestTask(task, execution);
     }
 
+    @Transactional
+    public TestTask updateTask(
+            long taskId,
+            String name,
+            Long controllerNodeId,
+            List<Long> workerNodeIds,
+            List<Long> monitorTargetIds,
+            String remark
+    ) {
+        PersistentTestTaskRecord task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ExecutionValidationException("task does not exist"));
+        if (task.getStatus() == ExecutionStatus.RUNNING) {
+            throw new ExecutionValidationException("running task cannot be updated");
+        }
+        PersistentTaskExecutionRecord execution = executionRepository.findFirstByTaskIdOrderByIdDesc(task.getId())
+                .orElseThrow(() -> new ExecutionValidationException("execution does not exist"));
+        task.updateProfile(name, remark);
+        ExecutionConfig current = readConfig(execution.getConfigJson());
+        ExecutionConfig updated = new ExecutionConfig(
+                current.threads(),
+                current.rampUp(),
+                current.duration(),
+                current.loops(),
+                current.jmeterProperties(),
+                current.mode(),
+                controllerNodeId != null ? controllerNodeId : current.controllerNodeId(),
+                workerNodeIds != null ? workerNodeIds : current.workerNodeIds(),
+                monitorTargetIds != null ? monitorTargetIds : current.monitorTargetIds()
+        );
+        ExecutionConfig normalizedConfig = normalizeConfig(updated);
+        execution.updateConfig(writeConfig(normalizedConfig));
+        monitorBindingService.bindTargets(task.getProjectId(), execution.getId(), normalizedConfig.monitorTargetIds());
+        return toTestTask(task, execution);
+    }
+
     @Transactional(readOnly = true)
     public List<TestTask> listTasks(long projectId) {
         if (!projectRepository.existsById(projectId)) {

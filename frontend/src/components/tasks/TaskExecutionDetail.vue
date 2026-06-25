@@ -107,37 +107,37 @@
             <p>仅展示最近 1000 条异常样本，按页读取。</p>
           </div>
         </div>
-        <div class="sample-list">
-          <button
-            v-for="sample in pagedSamples"
-            :key="sample.id"
-            class="sample-row"
-            :class="{ selected: selectedSample?.id === sample.id }"
-            type="button"
-            @click="selectedSampleId = sample.id"
-          >
-            <span class="status" :class="sample.success ? 'success' : 'error'">{{ sample.statusCode }}</span>
-            <span class="sample-row-main">
-              <strong>{{ sample.label }}</strong>
-              <small>{{ sample.threadName }}</small>
-            </span>
-            <span class="sample-row-meta">
-              <strong>{{ sample.elapsed }}ms</strong>
-              <small>{{ sample.message }}</small>
-            </span>
-          </button>
-        </div>
-        <div class="result-pagination">
-          <a-pagination
-            v-model:current="resultPage"
-            v-model:page-size="pageSize"
-            :total="resultTotal"
-            :page-size-options="['10', '20', '50']"
-            show-size-changer
-            :show-total="showResultTotal"
-            size="small"
-          />
-        </div>
+        <a-table
+          class="workspace-table result-sample-table"
+          :columns="sampleColumns"
+          :data-source="pagedSamples"
+          :pagination="samplePagination"
+          :row-key="(record: TaskSample) => record.id"
+          :custom-row="sampleRowEvents"
+          :row-class-name="sampleRowClassName"
+          :scroll="{ y: sampleTableScrollY }"
+          size="small"
+          :locale="{ emptyText: '暂无异常样本。' }"
+          @change="onSampleTableChange"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'statusCode'">
+              <a-tag :color="record.success ? 'success' : 'error'">{{ record.statusCode }}</a-tag>
+            </template>
+            <template v-else-if="column.key === 'label'">
+              <div class="table-main-cell">
+                <strong>{{ record.label }}</strong>
+                <small>{{ record.threadName }}</small>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'elapsed'">
+              <div class="table-main-cell table-main-cell-end">
+                <strong>{{ record.elapsed }}ms</strong>
+                <small>{{ record.message }}</small>
+              </div>
+            </template>
+          </template>
+        </a-table>
       </div>
 
       <div class="panel sample-detail-panel">
@@ -165,7 +165,8 @@
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref } from 'vue';
-import type { TestTask } from '../../types';
+import type { TableColumnsType, TableProps } from 'ant-design-vue';
+import type { TaskSample, TestTask } from '../../types';
 import { useTaskSchedule } from '../../composables/useTaskSchedule';
 const TaskMonitoringCharts = defineAsyncComponent(() => import('./TaskMonitoringCharts.vue'));
 
@@ -194,15 +195,75 @@ const payloadModeOptions = [
   { label: '响应内容', value: 'response' },
 ];
 
-function showResultTotal(total: number) {
-  return `${total} 条样本`;
+const sampleTableScrollY = 'calc(var(--result-panel-height) - 220px)';
+
+const sampleColumns: TableColumnsType<TaskSample> = [
+  { title: '状态', key: 'statusCode', width: 72 },
+  { title: '样本', key: 'label', ellipsis: true },
+  { title: '耗时', key: 'elapsed', width: 120, align: 'right' },
+];
+
+const samplePagination = computed(() => ({
+  current: resultPage.value,
+  pageSize: pageSize.value,
+  total: resultTotal.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50'],
+  showTotal: (total: number) => `${total} 条样本`,
+  size: 'small' as const,
+}));
+
+function onSampleTableChange(pagination: { current?: number; pageSize?: number }) {
+  if (pagination.current) {
+    resultPage.value = pagination.current;
+  }
+  if (pagination.pageSize) {
+    pageSize.value = pagination.pageSize;
+  }
 }
+
+const sampleRowEvents: TableProps<TaskSample>['customRow'] = (record) => ({
+  onClick: () => {
+    selectedSampleId.value = record.id;
+  },
+});
+
+const sampleRowClassName: TableProps<TaskSample>['rowClassName'] = (record) =>
+  selectedSample.value?.id === record.id ? 'selected-table-row' : '';
 
 const script = computed(() => (props.task ? scriptById(props.task.scriptId) : null));
 const aggregateRows = computed(() => props.task?.aggregateRows ?? []);
 const targetMonitoring = computed(() => props.task?.targetMonitoring ?? null);
 const targetMonitoringTargets = computed(() => targetMonitoring.value?.targets ?? []);
-const activePayload = computed(() => payloadMode.value === 'request' ? selectedSample.value?.request ?? '' : selectedSample.value?.response ?? '');
+const activePayload = computed(() => {
+  const sample = selectedSample.value;
+  if (!sample) {
+    return '';
+  }
+  return payloadMode.value === 'request' ? buildRequestContent(sample) : buildResponseContent(sample);
+});
 const activePayloadTitle = computed(() => payloadMode.value === 'request' ? 'HTTP Request' : `HTTP ${selectedSample.value?.statusCode ?? '-'}`);
 const metrics = computed(() => props.task?.metrics ?? []);
+
+function buildRequestContent(sample: TaskSample) {
+  const parts = [sample.requestLine, sample.requestHeaders, sample.requestBody].filter((part) => !!part?.trim());
+  return parts.length ? parts.join('\n\n') : (sample.request ?? '');
+}
+
+function buildResponseContent(sample: TaskSample) {
+  const parts: string[] = [];
+  if (sample.statusCode) {
+    parts.push(`HTTP ${sample.statusCode}${sample.message ? ` ${sample.message}` : ''}`);
+  }
+  if (sample.responseHeaders?.trim()) {
+    parts.push(sample.responseHeaders);
+  }
+  if (sample.responseBody?.trim()) {
+    parts.push(sample.responseBody);
+  }
+  if (sample.failureMessage?.trim()) {
+    parts.push(`--- Failure Message ---\n${sample.failureMessage}`);
+  }
+  return parts.length ? parts.join('\n\n') : (sample.response ?? '');
+}
 </script>

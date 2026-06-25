@@ -313,6 +313,12 @@ export type TaskSample = {
   threadName: string;
   request: string;
   response: string;
+  requestLine?: string;
+  requestHeaders?: string;
+  requestBody?: string;
+  responseHeaders?: string;
+  responseBody?: string;
+  failureMessage?: string;
 };
 
 export type TaskSamplePage = {

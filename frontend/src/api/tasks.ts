@@ -90,6 +90,20 @@ export function getTaskTargetMonitoringApi(taskId: number) {
   return getTargetMonitoringApi(taskId);
 }
 
+export function updateTaskApi(taskId: number, task: Pick<TestTask, 'name' | 'controllerNodeId' | 'workerNodeIds' | 'monitorTargetIds' | 'remark'>) {
+  return request<BackendTask>(`/api/tasks/${taskId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: task.name,
+      controllerNodeId: task.controllerNodeId,
+      workerNodeIds: task.workerNodeIds,
+      monitorTargetIds: task.monitorTargetIds,
+      remark: task.remark,
+    }),
+  });
+}
+
 export function deleteTaskApi(taskId: number) {
   return request<void>(`/api/tasks/${taskId}`, { method: 'DELETE' });
 }

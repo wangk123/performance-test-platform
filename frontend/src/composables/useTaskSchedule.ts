@@ -11,7 +11,7 @@ import { nextId } from '../utils/format';
 import { createMockTask } from '../utils/task-mock';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
-import { deleteTaskApi, getTaskApi, getTaskLogsApi, getTaskMonitoringApi, getTaskResultApi, getTaskSamplesApi, getTaskTargetMonitoringApi, listTasksApi, mapBackendTask, submitScriptTaskApi, submitTaskApi } from '../api/tasks';
+import { deleteTaskApi, getTaskApi, getTaskLogsApi, getTaskMonitoringApi, getTaskResultApi, getTaskSamplesApi, getTaskTargetMonitoringApi, listTasksApi, mapBackendTask, submitScriptTaskApi, submitTaskApi, updateTaskApi } from '../api/tasks';
 import { confirmAction } from '../utils/feedback';
 
 type TaskFormPayload = {
@@ -203,13 +203,32 @@ export function useTaskSchedule() {
     }
   }
 
-  function saveTask(payload: TaskFormPayload) {
+  async function saveTask(payload: TaskFormPayload) {
     if (!currentProject.value || !payload.scriptId) {
       message.error('请选择脚本');
       return false;
     }
     const script = scriptById(payload.scriptId);
+    const monitorTargetIds = payload.monitorTargetIds.map((id) => Number(id));
     const now = new Date().toISOString();
+    if (payload.id && payload.id > 0) {
+      try {
+        const remoteTask = mapBackendTask(await updateTaskApi(payload.id, {
+          name: payload.name,
+          controllerNodeId: payload.controllerNodeId,
+          workerNodeIds: payload.workerNodeIds,
+          monitorTargetIds,
+          remark: payload.remark,
+        }));
+        replaceTask(remoteTask);
+        selectedTaskId.value = remoteTask.id;
+        message.success('任务已更新');
+        return true;
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '任务更新失败');
+        return false;
+      }
+    }
     if (payload.id) {
       const target = tasks.value.find((task) => task.id === payload.id);
       if (target) {
@@ -219,7 +238,7 @@ export function useTaskSchedule() {
           executionMode: 'DISTRIBUTED',
           controllerNodeId: payload.controllerNodeId,
           workerNodeIds: payload.workerNodeIds,
-          monitorTargetIds: payload.monitorTargetIds,
+          monitorTargetIds,
           remark: payload.remark,
         });
         selectedTaskId.value = target.id;
@@ -237,7 +256,7 @@ export function useTaskSchedule() {
       executionMode: 'DISTRIBUTED',
       controllerNodeId: payload.controllerNodeId,
       workerNodeIds: payload.workerNodeIds,
-      monitorTargetIds: payload.monitorTargetIds,
+      monitorTargetIds,
       targetMonitoring: null,
       grafanaUrl: null,
       monitoring: { interfaces: [], points: [] },
