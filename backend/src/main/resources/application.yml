@@ -21,6 +21,10 @@ platform:
     root: ./storage
   execution:
     max-concurrent-tasks: 1
+    failure-sample:
+      per-label-limit: 50
+      global-limit: 1000
+      detail-limit-per-label: 10
   jmeter:
     executable: ${JMETER_EXECUTABLE:/Users/wangk/Documents/config/apache-jmeter-5.6.3/bin/jmeter}
     java-home: ${JMETER_JAVA_HOME:/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home}
@@ -39,4 +43,5 @@ platform:
       bundle-path: ${MONITORING_DEPLOY_BUNDLE_PATH:../deploy/monitoring/prometheus}
     prometheus:
       file-sd-path: ${PROMETHEUS_JMX_FILE_SD_PATH:./deploy/monitoring/prometheus/file_sd/jmx-targets.json}
-    grafana-dashboard-url: ${JMX_GRAFANA_DASHBOARD_URL:http://127.0.0.1:3000/d/jmx-jvm/jmx-exporter-jvm?orgId=1&refresh=5s}
+      base-url: ${PROMETHEUS_BASE_URL:http://192.168.17.216:9090}
+      query-timeout-ms: ${PROMETHEUS_QUERY_TIMEOUT_MS:5000}

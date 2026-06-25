@@ -25,8 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.url=jdbc:h2:mem:monitoring-api-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.h2.console.enabled=false",
-        "platform.monitoring.prometheus.file-sd-path=build/test-monitoring/jmx-targets.json",
-        "platform.monitoring.grafana-dashboard-url=http://127.0.0.1:3000/d/jvm/jmx-exporter"
+        "platform.monitoring.prometheus.file-sd-path=build/test-monitoring/jmx-targets.json"
 })
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)

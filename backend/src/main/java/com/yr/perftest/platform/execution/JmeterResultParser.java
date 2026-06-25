@@ -16,11 +16,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 public class JmeterResultParser {
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss")
             .withZone(ZoneId.systemDefault());
+    private static final Pattern XML_SAMPLE_BLOCK = Pattern.compile(
+            "<(httpSample|java\\.net\\.URL|sample)\\b[^>]*>[\\s\\S]*?</\\1>",
+            Pattern.CASE_INSENSITIVE
+    );
 
     public TaskSamplePage parseSamplePage(Path samplePath, int page, int pageSize) {
         int safePage = Math.max(1, page);
@@ -28,7 +34,122 @@ public class JmeterResultParser {
         if (samplePath == null || !Files.exists(samplePath)) {
             return new TaskSamplePage(safePage, safePageSize, 0, List.of());
         }
-        try (BufferedReader reader = Files.newBufferedReader(samplePath)) {
+        try {
+            String content = Files.readString(samplePath, StandardCharsets.UTF_8);
+            if (content.isBlank()) {
+                return new TaskSamplePage(safePage, safePageSize, 0, List.of());
+            }
+            if (looksLikeXml(content)) {
+                return parseXmlSamplePage(content, safePage, safePageSize);
+            }
+            return parseCsvSamplePage(content, safePage, safePageSize);
+        } catch (Exception exception) {
+            return new TaskSamplePage(safePage, safePageSize, 0, List.of());
+        }
+    }
+
+    private boolean looksLikeXml(String content) {
+        String trimmed = content.stripLeading();
+        return trimmed.startsWith("<?xml") || trimmed.startsWith("<testResults");
+    }
+
+    private TaskSamplePage parseXmlSamplePage(String content, int safePage, int safePageSize) {
+        List<Row> rows = new ArrayList<>();
+        Matcher matcher = XML_SAMPLE_BLOCK.matcher(content);
+        while (matcher.find()) {
+            rows.add(parseXmlSampleBlock(matcher.group()));
+        }
+        int offset = (safePage - 1) * safePageSize;
+        int total = rows.size();
+        List<TaskExecutionResult.Sample> samples = new ArrayList<>();
+        for (int index = offset; index < rows.size() && samples.size() < safePageSize; index++) {
+            samples.add(toSample(rows.get(index)));
+        }
+        return new TaskSamplePage(safePage, safePageSize, total, samples);
+    }
+
+    private Row parseXmlSampleBlock(String block) {
+        String opening = block.substring(0, block.indexOf('>'));
+        Map<String, String> attributes = parseAttributes(opening);
+        String failureMessage = extractXmlChild(block, "failureMessage");
+        if (failureMessage.isBlank()) {
+            failureMessage = extractAssertionFailure(block);
+        }
+        return new Row(
+                readLong(attributes.get("ts")),
+                readLong(attributes.get("t")),
+                attributes.getOrDefault("lb", ""),
+                attributes.getOrDefault("rc", ""),
+                attributes.getOrDefault("rm", ""),
+                attributes.getOrDefault("tn", ""),
+                !"false".equalsIgnoreCase(attributes.get("s")),
+                failureMessage,
+                extractXmlChild(block, "java.net.URL"),
+                extractXmlChild(block, "queryString"),
+                extractXmlChild(block, "samplerData"),
+                extractXmlChild(block, "requestHeader"),
+                extractXmlChild(block, "responseData"),
+                extractXmlChild(block, "responseHeader")
+        );
+    }
+
+    private Map<String, String> parseAttributes(String openingTag) {
+        Map<String, String> attributes = new LinkedHashMap<>();
+        Matcher matcher = Pattern.compile("(\\w+)=\"([^\"]*)\"").matcher(openingTag);
+        while (matcher.find()) {
+            attributes.put(matcher.group(1), matcher.group(2));
+        }
+        return attributes;
+    }
+
+    private String extractXmlChild(String block, String tagName) {
+        Pattern pattern = Pattern.compile(
+                "<" + Pattern.quote(tagName) + "(?:\\s[^>]*)?>([\\s\\S]*?)</" + Pattern.quote(tagName) + ">",
+                Pattern.CASE_INSENSITIVE
+        );
+        Matcher matcher = pattern.matcher(block);
+        if (!matcher.find()) {
+            return "";
+        }
+        return decodeXmlText(matcher.group(1));
+    }
+
+    private String extractAssertionFailure(String block) {
+        Matcher matcher = Pattern.compile(
+                "<failure\\b[^>]*>([\\s\\S]*?)</failure>",
+                Pattern.CASE_INSENSITIVE
+        ).matcher(block);
+        if (!matcher.find()) {
+            return "";
+        }
+        return decodeXmlText(matcher.group(1)).trim();
+    }
+
+    private String decodeXmlText(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        return value
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&amp;", "&")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'");
+    }
+
+    private long readLong(String value) {
+        if (value == null || value.isBlank()) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (Exception exception) {
+            return 0L;
+        }
+    }
+
+    private TaskSamplePage parseCsvSamplePage(String content, int safePage, int safePageSize) {
+        try (BufferedReader reader = new BufferedReader(new java.io.StringReader(content))) {
             String headerRecord = readRecord(reader);
             if (headerRecord == null) {
                 return new TaskSamplePage(safePage, safePageSize, 0, List.of());
@@ -265,7 +386,7 @@ public class JmeterResultParser {
         try {
             return Long.parseLong(read(values, header, name));
         } catch (Exception exception) {
-            return 0;
+            return 0L;
         }
     }
 

@@ -1,5 +1,4 @@
 import argparse
-import csv
 import json
 import sys
 import time
@@ -9,19 +8,6 @@ import paramiko
 
 
 JMETER_IMAGE = "justb4/jmeter:latest"
-FAILURE_SAMPLE_LIMIT = 1000
-RESULT_SAVE_PROPERTIES = {
-    "jmeter.save.saveservice.output_format": "csv",
-    "jmeter.save.saveservice.print_field_names": "true",
-    "jmeter.save.saveservice.url": "true",
-    "jmeter.save.saveservice.queryString": "true",
-    "jmeter.save.saveservice.samplerData": "true",
-    "jmeter.save.saveservice.requestHeaders": "true",
-    "jmeter.save.saveservice.response_data": "true",
-    "jmeter.save.saveservice.response_data.on_error": "true",
-    "jmeter.save.saveservice.responseHeaders": "true",
-    "jmeter.save.saveservice.assertion_results_failure_message": "true",
-}
 
 
 def respond(ok, message="", log="", exit_code=0, start_results=None):
@@ -75,36 +61,6 @@ def sftp_get(client, remote_path, local_path):
     Path(local_path).parent.mkdir(parents=True, exist_ok=True)
     with client.open_sftp() as sftp:
         sftp.get(str(remote_path), str(local_path))
-
-
-def retain_recent_failures(result_path, failure_result_path):
-    path = Path(result_path)
-    if not path.exists():
-        return
-    with path.open("r", encoding="utf-8", newline="") as source:
-        rows = list(csv.reader(source))
-    if not rows:
-        return
-    header = rows[0]
-    try:
-        success_index = header.index("success")
-    except ValueError:
-        return
-    failures = [row for row in rows[1:] if len(row) > success_index and row[success_index].lower() == "false"]
-    retained = failures[-FAILURE_SAMPLE_LIMIT:]
-    failure_path = Path(failure_result_path)
-    failure_path.parent.mkdir(parents=True, exist_ok=True)
-    with failure_path.open("w", encoding="utf-8", newline="") as target:
-        writer = csv.writer(target)
-        writer.writerow(header)
-        writer.writerows(retained)
-
-
-def result_save_args():
-    args = []
-    for key, value in RESULT_SAVE_PROPERTIES.items():
-        args.extend([f"-J{key}={value}", f"-G{key}={value}"])
-    return args
 
 
 def shell_quote(value):
@@ -319,6 +275,7 @@ def launch_controller(controller, payload):
         target = remote_dir / dependency["targetPath"]
         sftp_put(client, source, target)
     worker_hosts = ",".join([node["host"] for node in payload["workers"]])
+    detail_limit = payload.get("detailLimitPerLabel", 10)
     command = " ".join([
         "docker rm -f", shell_quote(container_name), ">/dev/null 2>&1 || true;",
         "docker run -d --name", shell_quote(container_name),
@@ -328,7 +285,7 @@ def launch_controller(controller, payload):
         shell_quote(f"-Djava.rmi.server.hostname={controller['host']}"),
         "-n",
         "-t", shell_quote(f"/test/{remote_script.name}"),
-        "-l", "/test/result.jtl",
+        "-l", "/test/discard.jtl",
         "-j", "/test/jmeter.log",
         "-R", shell_quote(worker_hosts),
         "-Jclient.rmi.localport=4001",
@@ -336,7 +293,7 @@ def launch_controller(controller, payload):
         "-Jmode=Standard",
         "-Jbackend_influxdb.send_interval=1",
         "-Gbackend_influxdb.send_interval=1",
-        *result_save_args(),
+        f"-JfailureDetailLimitPerLabel={detail_limit}",
     ])
     code, output = run(client, command)
     client.close()
@@ -347,12 +304,11 @@ def collect_artifacts(controller, payload):
     client = connect(controller)
     run_id = payload["runId"]
     remote_dir = Path(controller.get("remoteWorkDir", "/tmp/perftest-platform")) / run_id
-    remote_result = remote_dir / "result.jtl"
+    remote_failure = remote_dir / "failure-result.jtl"
     remote_log = remote_dir / "jmeter.log"
     logs = []
     try:
-        sftp_get(client, remote_result, payload["resultPath"])
-        retain_recent_failures(payload["resultPath"], payload["failureResultPath"])
+        sftp_get(client, remote_failure, payload["failureResultPath"])
     except Exception as exc:
         logs.append(str(exc))
     try:
@@ -371,14 +327,14 @@ def start_run(payload):
     try:
         for worker in workers:
             code, output = start_worker(worker, payload["runId"])
-            logs.append(output)
+            logs.append(f"worker {worker['host']}: {output.strip()}")
             if code != 0:
-                return respond(False, output.strip(), "\n".join(logs), code)
+                return respond(False, output.strip() or f"worker {worker['host']} failed to start", "\n".join(logs), code)
         time.sleep(5)
         code, output = launch_controller(controller, payload)
-        logs.append(output)
+        logs.append(f"controller {controller['host']}: {output.strip()}")
         if code != 0:
-            return respond(False, output.strip(), "\n".join(logs), code)
+            return respond(False, output.strip() or f"controller {controller['host']} failed to start", "\n".join(logs), code)
         return respond(True, "launched", "\n".join(logs), 0)
     except Exception as exc:
         return respond(False, str(exc), "\n".join(logs))
@@ -393,8 +349,9 @@ def poll_run(payload):
         if status == "running":
             return respond(True, "running", "", 0)
         if status == "missing":
-            return respond(False, "controller container not found", "", -1)
-        return respond(exit_code == 0, "finished", "", exit_code)
+            return respond(True, "finished", "controller container not found", -1)
+        log = "" if exit_code == 0 else f"JMeter controller exited with code {exit_code}"
+        return respond(True, "finished", log, exit_code)
     except Exception as exc:
         return respond(False, str(exc))
     finally:
