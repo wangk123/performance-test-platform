@@ -49,6 +49,6 @@ export function deployMonitorTargetApi(targetId: number) {
   return request<MonitorDeployResult>(`/api/monitor-targets/${targetId}/deploy`, { method: 'POST' });
 }
 
-export function getTargetMonitoringApi(taskId: number) {
-  return request<TargetMonitoringResult>(`/api/tasks/${taskId}/target-monitoring`);
+export function getTargetMonitoringApi(executionId: number) {
+  return request<TargetMonitoringResult>(`/api/executions/${executionId}/target-monitoring`);
 }

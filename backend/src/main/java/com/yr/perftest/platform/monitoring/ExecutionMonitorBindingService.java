@@ -1,42 +1,44 @@
 package com.yr.perftest.platform.monitoring;
 
 import com.yr.perftest.platform.execution.ExecutionValidationException;
-import com.yr.perftest.platform.execution.PersistentTaskExecutionRecord;
-import com.yr.perftest.platform.execution.PersistentTaskExecutionRepository;
-import com.yr.perftest.platform.execution.PersistentTestTaskRecord;
-import com.yr.perftest.platform.execution.PersistentTestTaskRepository;
-import org.springframework.beans.factory.annotation.Value;
+import com.yr.perftest.platform.task.PersistentScenarioExecutionRecord;
+import com.yr.perftest.platform.task.PersistentScenarioExecutionRepository;
+import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
+import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
+import com.yr.perftest.platform.task.PersistentTaskScenarioRecord;
+import com.yr.perftest.platform.task.PersistentTaskScenarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class ExecutionMonitorBindingService {
     private final PersistentExecutionMonitorBindingRepository bindingRepository;
     private final PersistentMonitorTargetRepository targetRepository;
-    private final PersistentTaskExecutionRepository executionRepository;
-    private final PersistentTestTaskRepository taskRepository;
+    private final PersistentScenarioExecutionRepository executionRepository;
+    private final PersistentTaskScenarioRepository scenarioRepository;
+    private final PersistentTaskPlanRepository planRepository;
     private final MonitorTargetService targetService;
-    private final String grafanaDashboardUrl;
 
     public ExecutionMonitorBindingService(
             PersistentExecutionMonitorBindingRepository bindingRepository,
             PersistentMonitorTargetRepository targetRepository,
-            PersistentTaskExecutionRepository executionRepository,
-            PersistentTestTaskRepository taskRepository,
-            MonitorTargetService targetService,
-            @Value("${platform.monitoring.grafana-dashboard-url:http://127.0.0.1:3000/d/jmx/jmx-exporter-jvm?orgId=1}") String grafanaDashboardUrl
+            PersistentScenarioExecutionRepository executionRepository,
+            PersistentTaskScenarioRepository scenarioRepository,
+            PersistentTaskPlanRepository planRepository,
+            MonitorTargetService targetService
     ) {
         this.bindingRepository = bindingRepository;
         this.targetRepository = targetRepository;
         this.executionRepository = executionRepository;
-        this.taskRepository = taskRepository;
+        this.scenarioRepository = scenarioRepository;
+        this.planRepository = planRepository;
         this.targetService = targetService;
-        this.grafanaDashboardUrl = grafanaDashboardUrl;
     }
 
     @Transactional
@@ -77,11 +79,13 @@ public class ExecutionMonitorBindingService {
     }
 
     @Transactional(readOnly = true)
-    public TargetMonitoringResult getTaskMonitoring(long taskId) {
-        PersistentTestTaskRecord task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ExecutionValidationException("task does not exist"));
-        PersistentTaskExecutionRecord execution = executionRepository.findFirstByTaskIdOrderByIdDesc(task.getId())
+    public TargetMonitoringResult getExecutionMonitoring(long executionId) {
+        PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId)
                 .orElseThrow(() -> new ExecutionValidationException("execution does not exist"));
+        PersistentTaskScenarioRecord scenario = scenarioRepository.findById(execution.getScenarioId())
+                .orElseThrow(() -> new ExecutionValidationException("scenario does not exist"));
+        PersistentTaskPlanRecord plan = planRepository.findById(scenario.getPlanId())
+                .orElseThrow(() -> new ExecutionValidationException("task plan does not exist"));
         List<PersistentExecutionMonitorBindingRecord> bindings = bindingRepository.findAllByExecutionIdOrderByIdAsc(execution.getId());
         List<MonitorTarget> targets = bindings.stream()
                 .map(binding -> targetRepository.findById(binding.getTargetId()))
@@ -90,30 +94,47 @@ public class ExecutionMonitorBindingService {
                 .toList();
         Instant startTime = bindings.stream()
                 .map(PersistentExecutionMonitorBindingRecord::getStartTime)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .findFirst()
                 .orElse(execution.getStartTime());
         Instant endTime = bindings.stream()
                 .map(PersistentExecutionMonitorBindingRecord::getEndTime)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .findFirst()
                 .orElse(execution.getEndTime());
-        return new TargetMonitoringResult(task.getId(), execution.getId(), startTime, endTime, grafanaUrl(targets, startTime, endTime), targets);
+        return new TargetMonitoringResult(
+                execution.getId(),
+                execution.getId(),
+                startTime,
+                endTime,
+                toServerTargets(targets),
+                toJvmInstances(targets),
+                targets
+        );
     }
 
-    private String grafanaUrl(List<MonitorTarget> targets, Instant startTime, Instant endTime) {
-        if (targets.isEmpty()) {
-            return null;
+    private List<ServerSelectable> toServerTargets(List<MonitorTarget> targets) {
+        return targets.stream()
+                .map(target -> new ServerSelectable(target.id(), target.name(), target.host()))
+                .toList();
+    }
+
+    private List<JvmInstanceSelectable> toJvmInstances(List<MonitorTarget> targets) {
+        List<JvmInstanceSelectable> instances = new ArrayList<>();
+        for (MonitorTarget target : targets) {
+            for (MonitorItem item : target.items()) {
+                if (item.type() != MonitorItemType.JAVA_JMX_AGENT) {
+                    continue;
+                }
+                instances.add(new JvmInstanceSelectable(
+                        target.id(),
+                        item.id(),
+                        item.serviceName() != null && !item.serviceName().isBlank() ? item.serviceName() : item.name(),
+                        target.host(),
+                        item.processKeyword()
+                ));
+            }
         }
-        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(grafanaDashboardUrl)
-                .queryParam("var-project_id", targets.get(0).projectId());
-        targets.forEach(target -> builder.queryParam("var-target_id", target.id()));
-        if (startTime != null) {
-            builder.queryParam("from", startTime.toEpochMilli());
-        }
-        if (endTime != null) {
-            builder.queryParam("to", endTime.toEpochMilli());
-        }
-        return builder.build().toUriString();
+        return instances;
     }
 }

@@ -8,7 +8,7 @@ export type ProjectStatus = 'ACTIVE' | 'ARCHIVED';
 export type ProjectRole = 'OWNER' | 'MEMBER';
 export type ParseStatus = 'PARSED' | 'PARSE_FAILED';
 export type StatusFilter = 'ALL' | ProjectStatus;
-export type ProjectTab = 'overview' | 'scripts' | 'tasks' | 'monitoring' | 'reports' | 'data' | 'functions' | 'members';
+export type ProjectTab = 'overview' | 'scripts' | 'task-plans' | 'monitoring' | 'reports' | 'data' | 'functions' | 'members';
 export type MainNav = 'home' | 'projects' | 'executionNodes' | 'settings';
 export type ConfigTab = 'users' | 'roles' | 'permissions' | 'nodes';
 export type ScriptStepType =
@@ -172,8 +172,9 @@ export type FlatStepItem = {
   parentId: string | null;
 };
 
-export type TaskStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED';
-export type TaskStatusFilter = 'ALL' | TaskStatus;
+export type ExecutionStatus = 'QUEUED' | 'RUNNING' | 'STOPPING' | 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'INTERRUPTED';
+export type ExecutionUiStatus = 'PENDING' | 'RUNNING' | 'STOPPING' | 'SUCCESS' | 'FAILED' | 'INTERRUPTED';
+export type ExecutionStatusFilter = 'ALL' | ExecutionUiStatus;
 export type ExecutionMode = 'LOCAL' | 'DISTRIBUTED';
 export type ExecutionNodeRole = 'CONTROLLER' | 'WORKER' | 'BOTH';
 export type ExecutionNodeStatus = 'UNKNOWN' | 'AVAILABLE' | 'OFFLINE';
@@ -255,13 +256,135 @@ export type MonitorItem = {
   labels: Record<string, string>;
 };
 
+export type MetricKind =
+  | 'SERVER_CPU'
+  | 'SERVER_LOAD'
+  | 'SERVER_MEM'
+  | 'SERVER_DISK_IO'
+  | 'SERVER_NET'
+  | 'SERVER_TCP'
+  | 'JVM_HEAP_PCT'
+  | 'JVM_MEMORY_BYTES'
+  | 'JVM_GC'
+  | 'JVM_THREADS'
+  | 'JVM_CPU';
+
+export type MetricSeriesPoint = {
+  timestamp: number;
+  value: number;
+};
+
+export type MetricSeries = {
+  displayName: string;
+  labels: Record<string, string>;
+  points: MetricSeriesPoint[];
+  yAxisIndex: number;
+};
+
+export type TargetMetricsQueryResult = {
+  kind: MetricKind;
+  unit: string;
+  series: MetricSeries[];
+};
+
+export type ServerSelectable = {
+  id: number;
+  name: string;
+  host: string;
+};
+
+export type JvmInstanceSelectable = {
+  targetId: number;
+  itemId: string;
+  serviceName: string;
+  host: string;
+  processKeyword: string | null;
+};
+
 export type TargetMonitoringResult = {
   taskId: number;
   executionId: number;
   startTime: string | null;
   endTime: string | null;
-  grafanaUrl: string | null;
+  serverTargets: ServerSelectable[];
+  jvmInstances: JvmInstanceSelectable[];
   targets: MonitorTarget[];
+};
+
+export type ExecutionConfig = {
+  threads: number;
+  rampUp: number;
+  duration: number;
+  loops: number;
+  mode?: ExecutionMode;
+  controllerNodeId?: number | null;
+  workerNodeIds?: number[];
+  monitorTargetIds?: number[];
+  jmeterProperties?: Record<string, string>;
+};
+
+export type TaskPlan = {
+  id: number;
+  projectId: number;
+  name: string;
+  remark: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  defaultControllerNodeId: number | null;
+  defaultWorkerNodeIds: number[];
+  defaultMonitorTargetIds: number[];
+  scenarioCount: number;
+};
+
+export type TaskScenario = {
+  id: number;
+  planId: number;
+  scriptVersionId: number;
+  name: string;
+  sortOrder: number;
+  threads: number;
+  rampUp: number;
+  duration: number;
+  loops: number;
+  jmeterProperties: Record<string, string>;
+  controllerNodeId: number | null;
+  workerNodeIds: number[] | null;
+  monitorTargetIds: number[] | null;
+  latestExecutionStatus: ExecutionStatus | null;
+  latestExecutionAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ScenarioExecution = {
+  id: number;
+  scenarioId: number;
+  planId: number;
+  projectId: number;
+  scriptVersionId: number;
+  scenarioName: string;
+  status: ExecutionStatus;
+  config: ExecutionConfig;
+  createdAt: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  durationMs: number | null;
+  resultFilePath: string | null;
+  logFilePath: string | null;
+  errorMessage: string | null;
+  grafanaUrl: string | null;
+};
+
+export type ExecutionDetail = ScenarioExecution & {
+  executionLogs: string;
+  summary: TaskSummary;
+  metrics: TaskMetricPoint[];
+  monitoring: TaskMonitoringResult;
+  targetMonitoring: TargetMonitoringResult | null;
+  aggregateRows: TaskAggregateRow[];
+  samples: TaskSample[];
+  sampleTotal: number;
 };
 
 export type TaskMetricPoint = {
@@ -336,28 +459,3 @@ export type TaskSummary = {
   errorRate: number;
 };
 
-export type TestTask = {
-  id: number;
-  projectId: number;
-  scriptId: number;
-  name: string;
-  status: TaskStatus;
-  executionMode: ExecutionMode;
-  controllerNodeId: number | null;
-  workerNodeIds: number[];
-  monitorTargetIds: number[];
-  targetMonitoring: TargetMonitoringResult | null;
-  grafanaUrl: string | null;
-  remark: string;
-  createdAt: string;
-  lastRunAt: string | null;
-  endedAt: string | null;
-  errorMessage: string | null;
-  executionLogs: string;
-  summary: TaskSummary;
-  metrics: TaskMetricPoint[];
-  monitoring: TaskMonitoringResult;
-  aggregateRows: TaskAggregateRow[];
-  samples: TaskSample[];
-  sampleTotal: number;
-};

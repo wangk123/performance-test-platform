@@ -10,8 +10,8 @@ function routeTab(name: string | symbol | null | undefined): ProjectTab {
   if (name === 'project-scripts' || name === 'script-editor') {
     return 'scripts';
   }
-  if (name === 'project-tasks' || name === 'project-task-detail') {
-    return 'tasks';
+  if (name === 'project-task-plans' || name === 'project-task-plan-detail' || name === 'project-scenario-detail' || name === 'project-execution-detail') {
+    return 'task-plans';
   }
   if (name === 'project-monitoring') {
     return 'monitoring';

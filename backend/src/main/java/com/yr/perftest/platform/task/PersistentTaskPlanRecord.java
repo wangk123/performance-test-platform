@@ -1,19 +1,18 @@
-package com.yr.perftest.platform.execution;
+package com.yr.perftest.platform.task;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
 
 @Entity
-@Table(name = "test_tasks")
-public class PersistentTestTaskRecord {
+@Table(name = "task_plans")
+public class PersistentTaskPlanRecord {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -21,18 +20,19 @@ public class PersistentTestTaskRecord {
     @Column(nullable = false)
     private Long projectId;
 
-    @Column(nullable = false)
-    private Long scriptVersionId;
-
     @Column(nullable = false, length = 160)
     private String name;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 24)
-    private ExecutionStatus status;
-
     @Column(length = 1000)
     private String remark;
+
+    private Long defaultControllerNodeId;
+
+    @Lob
+    private String defaultWorkerNodeIdsJson;
+
+    @Lob
+    private String defaultMonitorTargetIdsJson;
 
     @Column(nullable = false, length = 80)
     private String createdBy;
@@ -43,20 +43,12 @@ public class PersistentTestTaskRecord {
     @Column(nullable = false)
     private Instant updatedAt;
 
-    protected PersistentTestTaskRecord() {
+    protected PersistentTaskPlanRecord() {
     }
 
-    public PersistentTestTaskRecord(
-            Long projectId,
-            Long scriptVersionId,
-            String name,
-            String remark,
-            String createdBy
-    ) {
+    public PersistentTaskPlanRecord(Long projectId, String name, String remark, String createdBy) {
         this.projectId = projectId;
-        this.scriptVersionId = scriptVersionId;
         this.name = name;
-        this.status = ExecutionStatus.QUEUED;
         this.remark = remark;
         this.createdBy = createdBy;
         this.createdAt = Instant.now();
@@ -71,20 +63,24 @@ public class PersistentTestTaskRecord {
         return projectId;
     }
 
-    public Long getScriptVersionId() {
-        return scriptVersionId;
-    }
-
     public String getName() {
         return name;
     }
 
-    public ExecutionStatus getStatus() {
-        return status;
-    }
-
     public String getRemark() {
         return remark;
+    }
+
+    public Long getDefaultControllerNodeId() {
+        return defaultControllerNodeId;
+    }
+
+    public String getDefaultWorkerNodeIdsJson() {
+        return defaultWorkerNodeIdsJson;
+    }
+
+    public String getDefaultMonitorTargetIdsJson() {
+        return defaultMonitorTargetIdsJson;
     }
 
     public String getCreatedBy() {
@@ -95,18 +91,20 @@ public class PersistentTestTaskRecord {
         return createdAt;
     }
 
-    public void changeStatus(ExecutionStatus status) {
-        this.status = status;
-        this.updatedAt = Instant.now();
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 
-    public void updateProfile(String name, String remark) {
+    public void updateProfile(String name, String remark, Long defaultControllerNodeId, String workerJson, String monitorJson) {
         if (name != null && !name.trim().isEmpty()) {
             this.name = name.trim();
         }
         if (remark != null) {
             this.remark = remark;
         }
+        this.defaultControllerNodeId = defaultControllerNodeId;
+        this.defaultWorkerNodeIdsJson = workerJson;
+        this.defaultMonitorTargetIdsJson = monitorJson;
         this.updatedAt = Instant.now();
     }
 }

@@ -142,7 +142,7 @@ import { useScriptEditor } from '../../composables/useScriptEditor';
 import { useScriptImport } from '../../composables/useScriptImport';
 import { useScriptCreate } from '../../composables/useScriptCreate';
 import { useScriptParams } from '../../composables/useScriptParams';
-import { useTaskSchedule } from '../../composables/useTaskSchedule';
+import { useTaskPlans } from '../../composables/useTaskPlans';
 import { useThreadGroups } from '../../composables/useThreadGroups';
 import { useWorkspace } from '../../composables/useWorkspace';
 import type { ScriptAsset, ThreadGroup } from '../../types';
@@ -152,7 +152,7 @@ const editor = useScriptEditor();
 const { openScriptImportDialog } = useScriptImport();
 const { openScriptCreateDialog } = useScriptCreate();
 const { openParamDrawer } = useScriptParams();
-const { runScriptAsset } = useTaskSchedule();
+const { runScriptAsset } = useTaskPlans();
 const selectedScriptIds = ref<number[]>([]);
 const {
   scriptKeyword,

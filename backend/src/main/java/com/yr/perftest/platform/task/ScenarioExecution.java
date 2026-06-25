@@ -1,17 +1,19 @@
-package com.yr.perftest.platform.execution;
+package com.yr.perftest.platform.task;
+
+import com.yr.perftest.platform.execution.ExecutionConfig;
+import com.yr.perftest.platform.execution.ExecutionStatus;
 
 import java.time.Instant;
 
-public record TestTask(
+public record ScenarioExecution(
         long id,
-        long executionId,
+        long scenarioId,
+        long planId,
         long projectId,
         long scriptVersionId,
-        String name,
+        String scenarioName,
         ExecutionStatus status,
         ExecutionConfig config,
-        String remark,
-        String createdBy,
         Instant createdAt,
         Instant startedAt,
         Instant endedAt,

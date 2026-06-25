@@ -1,5 +1,6 @@
-package com.yr.perftest.platform.execution;
+package com.yr.perftest.platform.task;
 
+import com.yr.perftest.platform.execution.ExecutionStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,14 +15,14 @@ import java.time.Duration;
 import java.time.Instant;
 
 @Entity
-@Table(name = "task_executions")
-public class PersistentTaskExecutionRecord {
+@Table(name = "scenario_executions")
+public class PersistentScenarioExecutionRecord {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private Long taskId;
+    private Long scenarioId;
 
     @Lob
     @Column(nullable = false)
@@ -30,6 +31,9 @@ public class PersistentTaskExecutionRecord {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 24)
     private ExecutionStatus status;
+
+    @Column(nullable = false)
+    private Instant createdAt;
 
     private Instant startTime;
 
@@ -48,33 +52,34 @@ public class PersistentTaskExecutionRecord {
 
     private Integer exitCode;
 
-    protected PersistentTaskExecutionRecord() {
+    protected PersistentScenarioExecutionRecord() {
     }
 
-    public PersistentTaskExecutionRecord(Long taskId, String configJson) {
-        this.taskId = taskId;
+    public PersistentScenarioExecutionRecord(Long scenarioId, String configJson) {
+        this.scenarioId = scenarioId;
         this.configJson = configJson;
         this.status = ExecutionStatus.QUEUED;
+        this.createdAt = Instant.now();
     }
 
     public Long getId() {
         return id;
     }
 
-    public Long getTaskId() {
-        return taskId;
+    public Long getScenarioId() {
+        return scenarioId;
     }
 
     public String getConfigJson() {
         return configJson;
     }
 
-    public void updateConfig(String configJson) {
-        this.configJson = configJson;
-    }
-
     public ExecutionStatus getStatus() {
         return status;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
     }
 
     public Instant getStartTime() {
@@ -101,11 +106,19 @@ public class PersistentTaskExecutionRecord {
         return errorMessage;
     }
 
+    public Integer getExitCode() {
+        return exitCode;
+    }
+
     public void markRunning(String resultFilePath, String logFilePath) {
         this.status = ExecutionStatus.RUNNING;
         this.startTime = Instant.now();
         this.resultFilePath = resultFilePath;
         this.logFilePath = logFilePath;
+    }
+
+    public void markStopping() {
+        this.status = ExecutionStatus.STOPPING;
     }
 
     public void markSuccess(int exitCode) {
@@ -114,6 +127,10 @@ public class PersistentTaskExecutionRecord {
 
     public void markFailed(Integer exitCode, String errorMessage) {
         finish(ExecutionStatus.FAILED, exitCode, errorMessage);
+    }
+
+    public void markInterrupted(Integer exitCode, String errorMessage) {
+        finish(ExecutionStatus.INTERRUPTED, exitCode, errorMessage);
     }
 
     private void finish(ExecutionStatus status, Integer exitCode, String errorMessage) {

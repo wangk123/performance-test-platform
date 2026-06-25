@@ -8,7 +8,8 @@ public record TargetMonitoringResult(
         long executionId,
         Instant startTime,
         Instant endTime,
-        String grafanaUrl,
+        List<ServerSelectable> serverTargets,
+        List<JvmInstanceSelectable> jvmInstances,
         List<MonitorTarget> targets
 ) {
 }

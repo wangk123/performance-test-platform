@@ -1182,6 +1182,64 @@
   font-size: 13px;
 }
 
+.target-metric-section {
+  margin-top: 16px;
+}
+
+.target-metric-section + .target-metric-section {
+  margin-top: 20px;
+}
+
+.target-metric-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.target-metric-toolbar-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.target-metric-select {
+  min-width: 260px;
+}
+
+.target-metric-interval-select {
+  min-width: 96px;
+}
+
+.target-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.target-metric-card .echarts-panel {
+  margin-top: 12px;
+}
+
+.metric-chart-wrap {
+  margin-top: 12px;
+}
+
+.metric-chart-canvas {
+  height: 260px;
+}
+
+.metric-chart-empty {
+  min-height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
 .task-result-workbench {
   --result-panel-height: clamp(560px, 64vh, 760px);
   display: grid;

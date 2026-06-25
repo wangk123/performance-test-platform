@@ -7,7 +7,7 @@
 
   <ScriptWorkspace v-else-if="activeProjectTab === 'scripts'" />
 
-  <TaskScheduleView v-else-if="activeProjectTab === 'tasks'" />
+  <TaskPlanList v-else-if="activeProjectTab === 'task-plans'" />
 
   <ProjectMonitoringView v-else-if="activeProjectTab === 'monitoring'" />
 
@@ -68,7 +68,7 @@ import type { Project, ProjectMember } from '../../types';
 import ProjectOverview from './ProjectOverview.vue';
 import ProjectMonitoringView from './ProjectMonitoringView.vue';
 import ScriptWorkspace from '../scripts/ScriptWorkspace.vue';
-import TaskScheduleView from '../tasks/TaskScheduleView.vue';
+import TaskPlanList from '../task-plans/TaskPlanList.vue';
 
 defineEmits<{
   (e: 'edit', project: Project): void;
@@ -105,7 +105,7 @@ watch(
     workspaceProjectId.value = id;
     selectedProjectId.value = id;
     void loadProject(id);
-    if (['project-overview', 'project-scripts', 'project-tasks', 'project-task-detail'].includes(String(route.name))) {
+    if (['project-overview', 'project-scripts', 'project-task-plans', 'project-task-plan-detail', 'project-scenario-detail', 'project-execution-detail'].includes(String(route.name))) {
       void loadProjectScripts(id);
     }
     if (route.name === 'project-members') {
