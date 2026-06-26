@@ -174,13 +174,8 @@ public class FailureSampleIngestor {
     }
 
     private TaskExecutionResult.Sample toDetail(long persistedId, FailureSampleRecord record) {
-        String requestHeaders = safe(record.requestHeaders());
-        String requestBody = safe(record.requestBody());
-        String responseHeaders = safe(record.responseHeaders());
-        String responseBody = safe(record.responseBody());
-        String failureMessage = safe(record.failureMessage());
-        String url = safe(record.url());
-        String requestLine = requestBody.isBlank() ? url : requestBody.lines().findFirst().orElse(url);
+        String rawRequestBody = safe(record.requestBody());
+        String requestLine = FailureSampleNormalizer.extractRequestLine(rawRequestBody, safe(record.url()));
         return new TaskExecutionResult.Sample(
                 (int) persistedId,
                 formatTime(record.ts()),
@@ -190,56 +185,13 @@ public class FailureSampleIngestor {
                 record.elapsed(),
                 safe(record.message()),
                 safe(record.threadName()),
-                formatSection(requestLine, requestHeaders, requestBody),
-                formatResponseSection(record.code(), record.message(), responseHeaders, responseBody, failureMessage),
                 requestLine,
-                requestHeaders,
-                requestBody,
-                responseHeaders,
-                responseBody,
-                failureMessage
+                safe(record.requestHeaders()),
+                FailureSampleNormalizer.cleanRequestBody(rawRequestBody),
+                FailureSampleNormalizer.cleanResponseHeaders(safe(record.responseHeaders())),
+                safe(record.responseBody()),
+                safe(record.failureMessage())
         );
-    }
-
-    private String formatSection(String requestLine, String requestHeaders, String requestBody) {
-        StringBuilder builder = new StringBuilder();
-        if (!requestLine.isBlank()) builder.append(requestLine);
-        if (!requestHeaders.isBlank()) {
-            if (builder.length() > 0) builder.append("\n\n");
-            builder.append(requestHeaders);
-        }
-        if (!requestBody.isBlank()) {
-            if (builder.length() > 0) builder.append("\n\n");
-            builder.append(requestBody);
-        }
-        return builder.toString();
-    }
-
-    private String formatResponseSection(
-            String code,
-            String message,
-            String responseHeaders,
-            String responseBody,
-            String failureMessage
-    ) {
-        StringBuilder builder = new StringBuilder();
-        if (code != null && !code.isBlank()) {
-            builder.append("HTTP ").append(code);
-            if (message != null && !message.isBlank()) builder.append(' ').append(message);
-        }
-        if (!responseHeaders.isBlank()) {
-            if (builder.length() > 0) builder.append("\n\n");
-            builder.append(responseHeaders);
-        }
-        if (!responseBody.isBlank()) {
-            if (builder.length() > 0) builder.append("\n\n");
-            builder.append(responseBody);
-        }
-        if (!failureMessage.isBlank()) {
-            if (builder.length() > 0) builder.append("\n\n");
-            builder.append("--- Failure Message ---\n").append(failureMessage);
-        }
-        return builder.toString();
     }
 
     private String formatTime(long timestamp) {
