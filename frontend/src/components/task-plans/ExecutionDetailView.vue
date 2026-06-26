@@ -32,6 +32,7 @@
         <div>
           <span class="eyebrow">Aggregate Report</span>
           <h2>聚合报告</h2>
+          <span v-if="accuracyLabel" class="aggregate-accuracy-badge" :class="accuracyClass">{{ accuracyLabel }}</span>
         </div>
       </div>
       <div class="summary-strip task-summary-strip">
@@ -73,7 +74,7 @@
       <div class="panel-header">
         <div><span class="eyebrow">Live Metrics</span><h2>实时监控</h2></div>
       </div>
-      <TaskMonitoringCharts :monitoring="execution.monitoring" :fallback-metrics="metrics" />
+      <TaskMonitoringCharts :monitoring="execution.monitoring" />
     </div>
 
     <div class="panel">
@@ -181,9 +182,22 @@ const payloadModeOptions = [
 const uiStatus = computed(() => (props.execution ? toUiStatus(props.execution.status) : 'PENDING'));
 const script = computed(() => (props.execution ? scriptById(props.execution.scriptVersionId) : null));
 const aggregateRows = computed(() => props.execution?.aggregateRows ?? []);
+const accuracyLabel = computed(() => {
+  const accuracy = props.execution?.summary.accuracy;
+  if (accuracy === 'final') return '最终精确报告';
+  if (accuracy === 'final_partial') return '中断后的最终报告（不完整）';
+  if (accuracy === 'live') return '实时精确（每 3 秒刷新）';
+  return '';
+});
+const accuracyClass = computed(() => {
+  const accuracy = props.execution?.summary.accuracy;
+  if (accuracy === 'final') return 'is-final';
+  if (accuracy === 'final_partial') return 'is-partial';
+  if (accuracy === 'live') return 'is-live';
+  return '';
+});
 const targetMonitoring = computed(() => props.execution?.targetMonitoring ?? null);
 const targetMonitoringPolling = computed(() => ['RUNNING', 'PENDING', 'STOPPING'].includes(uiStatus.value));
-const metrics = computed(() => props.execution?.metrics ?? []);
 
 const sampleColumns: TableColumnsType<TaskSample> = [
   { title: '状态', key: 'statusCode', width: 72 },

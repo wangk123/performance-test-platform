@@ -7,7 +7,7 @@ import com.yr.perftest.platform.task.TaskPlanService;
 import com.yr.perftest.platform.task.TaskScenario;
 import com.yr.perftest.platform.task.TaskScenarioService;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
-import com.yr.perftest.platform.execution.TaskMonitoringResult;
+import com.yr.perftest.platform.execution.TaskMetricSeries;
 import com.yr.perftest.platform.execution.TaskSamplePage;
 import com.yr.perftest.platform.monitoring.ExecutionMonitorBindingService;
 import com.yr.perftest.platform.monitoring.MetricKind;
@@ -221,8 +221,13 @@ public class TaskPlanController {
         return executionService.streamSamples(executionId, lastEventId);
     }
 
+    @GetMapping(value = "/executions/{executionId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamExecution(@PathVariable long executionId) {
+        return executionService.streamExecution(executionId);
+    }
+
     @GetMapping("/executions/{executionId}/monitoring")
-    public TaskMonitoringResult getMonitoring(@PathVariable long executionId) {
+    public TaskMetricSeries getMonitoring(@PathVariable long executionId) {
         return executionService.getMonitoring(executionId);
     }
 

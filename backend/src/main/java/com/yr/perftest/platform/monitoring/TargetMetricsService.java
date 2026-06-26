@@ -26,6 +26,8 @@ public class TargetMetricsService {
     private final PersistentScenarioExecutionRepository executionRepository;
     private final PersistentTaskScenarioRepository scenarioRepository;
     private final PersistentTaskPlanRepository planRepository;
+    private final PersistentTargetMetricsSnapshotRepository snapshotRepository;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     public TargetMetricsService(
             PrometheusQueryClient prometheusQueryClient,
@@ -33,7 +35,9 @@ public class TargetMetricsService {
             PersistentMonitorTargetRepository targetRepository,
             PersistentScenarioExecutionRepository executionRepository,
             PersistentTaskScenarioRepository scenarioRepository,
-            PersistentTaskPlanRepository planRepository
+            PersistentTaskPlanRepository planRepository,
+            PersistentTargetMetricsSnapshotRepository snapshotRepository,
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper
     ) {
         this.prometheusQueryClient = prometheusQueryClient;
         this.bindingRepository = bindingRepository;
@@ -41,6 +45,8 @@ public class TargetMetricsService {
         this.executionRepository = executionRepository;
         this.scenarioRepository = scenarioRepository;
         this.planRepository = planRepository;
+        this.snapshotRepository = snapshotRepository;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional(readOnly = true)
@@ -52,6 +58,12 @@ public class TargetMetricsService {
             Integer stepSeconds
     ) {
         ExecutionContext context = loadContext(executionId);
+        if (isFinishedStatus(context.status()) && (targetIds == null || targetIds.isEmpty()) && itemId == null) {
+            java.util.Optional<TargetMetricsQueryResult> snapshot = loadSnapshot(executionId, kind);
+            if (snapshot.isPresent()) {
+                return snapshot.get();
+            }
+        }
         if (context.boundTargetIds().isEmpty()) {
             return new TargetMetricsQueryResult(kind, kind.unit(), List.of());
         }
@@ -94,7 +106,29 @@ public class TargetMetricsService {
         if (startTime == null) {
             startTime = endTime.minus(Duration.ofMinutes(5));
         }
-        return new ExecutionContext(plan.getProjectId(), boundTargetIds, startTime, endTime);
+        return new ExecutionContext(plan.getProjectId(), boundTargetIds, startTime, endTime, execution.getStatus());
+    }
+
+    private boolean isFinishedStatus(com.yr.perftest.platform.execution.ExecutionStatus status) {
+        return status == com.yr.perftest.platform.execution.ExecutionStatus.SUCCESS
+                || status == com.yr.perftest.platform.execution.ExecutionStatus.FAILED
+                || status == com.yr.perftest.platform.execution.ExecutionStatus.CANCELLED
+                || status == com.yr.perftest.platform.execution.ExecutionStatus.INTERRUPTED;
+    }
+
+    private java.util.Optional<TargetMetricsQueryResult> loadSnapshot(long executionId, MetricKind kind) {
+        return snapshotRepository.findByExecutionIdAndKind(executionId, kind.name())
+                .flatMap(record -> {
+                    try {
+                        List<MetricSeries> series = objectMapper.readValue(
+                                record.getSeriesJson(),
+                                objectMapper.getTypeFactory().constructCollectionType(List.class, MetricSeries.class)
+                        );
+                        return java.util.Optional.of(new TargetMetricsQueryResult(kind, record.getUnit(), series));
+                    } catch (Exception exception) {
+                        return java.util.Optional.<TargetMetricsQueryResult>empty();
+                    }
+                });
     }
 
     private List<Long> filterTargetIds(List<Long> boundTargetIds, List<Long> requested) {
@@ -183,9 +217,19 @@ public class TargetMetricsService {
 
     private int resolveStep(Instant start, Instant end) {
         long durationSeconds = Duration.between(start, end).getSeconds();
-        return durationSeconds < 600 ? 5 : 15;
+        if (durationSeconds <= 600) return 5;
+        if (durationSeconds <= 1800) return 10;
+        if (durationSeconds <= 3600) return 15;
+        if (durationSeconds <= 7200) return 30;
+        return 60;
     }
 
-    private record ExecutionContext(long projectId, List<Long> boundTargetIds, Instant startTime, Instant endTime) {
+    private record ExecutionContext(
+            long projectId,
+            List<Long> boundTargetIds,
+            Instant startTime,
+            Instant endTime,
+            com.yr.perftest.platform.execution.ExecutionStatus status
+    ) {
     }
 }

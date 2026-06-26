@@ -18,7 +18,17 @@ export function usePrometheusSeries(options: {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const initialized = ref(false);
-  let timer: ReturnType<typeof setInterval> | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let inFlight = false;
+  const visibilityHandler = () => {
+    if (typeof document !== 'undefined' && !document.hidden) {
+      void load(true);
+      restartTimer();
+    }
+  };
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', visibilityHandler);
+  }
 
   function resolvedExecutionId() {
     return options.executionId?.value ?? options.taskId.value;
@@ -31,9 +41,13 @@ export function usePrometheusSeries(options: {
       initialized.value = false;
       return;
     }
+    if (inFlight) {
+      return;
+    }
     if (!background && !initialized.value) {
       loading.value = true;
     }
+    inFlight = true;
     try {
       const result = await getTargetMonitoringSeriesApi(executionId, options.kind, {
         targetIds: options.targetIds.value,
@@ -50,24 +64,29 @@ export function usePrometheusSeries(options: {
       }
     } finally {
       loading.value = false;
+      inFlight = false;
     }
   }
 
   function clearTimer() {
     if (timer) {
-      clearInterval(timer);
+      clearTimeout(timer);
       timer = null;
     }
   }
 
-  function restartTimer() {
+  function scheduleNext() {
     clearTimer();
-    if (!options.polling.value) {
-      return;
-    }
-    timer = setInterval(() => {
-      void load(true);
+    if (!options.polling.value) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
+    timer = setTimeout(async () => {
+      await load(true);
+      scheduleNext();
     }, options.refreshIntervalMs.value);
+  }
+
+  function restartTimer() {
+    scheduleNext();
   }
 
   watch(
@@ -87,7 +106,12 @@ export function usePrometheusSeries(options: {
     { immediate: true },
   );
 
-  onUnmounted(clearTimer);
+  onUnmounted(() => {
+    clearTimer();
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', visibilityHandler);
+    }
+  });
 
   return { series, unit, loading, error, reload: load };
 }

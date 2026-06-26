@@ -20,7 +20,6 @@ public record ScenarioExecution(
         Long durationMs,
         String resultFilePath,
         String logFilePath,
-        String errorMessage,
-        String grafanaUrl
+        String errorMessage
 ) {
 }

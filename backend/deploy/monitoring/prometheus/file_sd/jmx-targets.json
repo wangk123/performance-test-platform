@@ -1,0 +1,27 @@
+[ {
+  "labels" : {
+    "__metrics_path__" : "/metrics",
+    "project_id" : "1",
+    "target_id" : "8",
+    "server" : "测试",
+    "env" : "test",
+    "target_type" : "SERVER",
+    "target_kind" : "SERVER_RESOURCE"
+  },
+  "targets" : [ "192.168.66.124:9100" ]
+}, {
+  "labels" : {
+    "__metrics_path__" : "/metrics",
+    "project_id" : "1",
+    "target_id" : "8",
+    "server" : "测试",
+    "env" : "test",
+    "target_type" : "SERVER",
+    "target_kind" : "JAVA_JMX_AGENT",
+    "item_id" : "20f7f359-0b25-4857-83d2-ee0b99765e24",
+    "item_name" : "Dispatcher",
+    "service" : "Dispatcher",
+    "process_keyword" : "dispatcher1237yz"
+  },
+  "targets" : [ "192.168.66.124:9404" ]
+} ]

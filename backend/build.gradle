@@ -20,6 +20,7 @@ dependencies {
     runtimeOnly 'com.h2database:h2'
     runtimeOnly 'com.mysql:mysql-connector-j'
     implementation 'org.xerial:sqlite-jdbc:3.49.1.0'
+    implementation 'org.hdrhistogram:HdrHistogram:2.2.2'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

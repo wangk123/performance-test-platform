@@ -373,41 +373,35 @@ export type ScenarioExecution = {
   resultFilePath: string | null;
   logFilePath: string | null;
   errorMessage: string | null;
-  grafanaUrl: string | null;
 };
 
 export type ExecutionDetail = ScenarioExecution & {
   executionLogs: string;
   summary: TaskSummary;
-  metrics: TaskMetricPoint[];
-  monitoring: TaskMonitoringResult;
+  monitoring: TaskMetricSeries;
   targetMonitoring: TargetMonitoringResult | null;
   aggregateRows: TaskAggregateRow[];
   samples: TaskSample[];
   sampleTotal: number;
 };
 
-export type TaskMetricPoint = {
-  time: string;
-  tps: number;
-  targetTps: number;
-  avgRt: number;
-  p90: number;
-  p95: number;
+export type MetricLabelPoint = {
+  label: string;
+  samples: number;
+  errorSamples: number;
+  throughput: number;
+  avgRtMs: number;
+  p95RtMs: number;
 };
 
-export type TaskMonitoringPoint = {
-  time: string;
-  interfaceName: string;
-  tps: number;
-  avgRt: number;
-  p90: number;
-  p95: number;
+export type MetricTick = {
+  bucketTimeMs: number;
+  labels: MetricLabelPoint[];
+  overall: MetricLabelPoint;
 };
 
-export type TaskMonitoringResult = {
-  interfaces: string[];
-  points: TaskMonitoringPoint[];
+export type TaskMetricSeries = {
+  ticks: MetricTick[];
 };
 
 export type TaskAggregateRow = {
@@ -457,5 +451,6 @@ export type TaskSummary = {
   avgRt: number;
   p95: number;
   errorRate: number;
+  accuracy?: 'final' | 'final_partial' | 'live' | null;
 };
 

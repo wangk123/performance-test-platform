@@ -4,6 +4,7 @@ import { message } from 'ant-design-vue';
 import type {
   ExecutionDetail,
   ExecutionUiStatus,
+  MetricTick,
   ScriptAsset,
   TaskPlan,
   TaskScenario,
@@ -48,6 +49,7 @@ const selectedSampleId = ref<number | null>(null);
 const selectedSampleDetail = ref<TaskSample | null>(null);
 const sampleDetailLoading = ref(false);
 let refreshTimer: number | null = null;
+let sampleStreamBackoffStep = 0;
 let sampleStream: EventSource | null = null;
 let sampleStreamExecutionId: number | null = null;
 let sampleStreamRetryTimer: number | null = null;
@@ -125,7 +127,7 @@ export function useTaskPlans() {
     if (sampleStream && sampleStreamExecutionId === executionId) return;
     disconnectSampleStream();
     sampleStreamExecutionId = executionId;
-    sampleStream = new EventSource(`/api/executions/${executionId}/samples/stream`);
+    sampleStream = new EventSource(`/api/executions/${executionId}/stream`);
     sampleStream.addEventListener('sample', (event) => {
       if (!executionDetail.value || executionDetail.value.id !== executionId) return;
       try {
@@ -136,21 +138,42 @@ export function useTaskPlans() {
       } catch {
       }
     });
+    sampleStream.addEventListener('metric-tick', (event) => {
+      if (!executionDetail.value || executionDetail.value.id !== executionId) return;
+      try {
+        const tick = JSON.parse(event.data) as MetricTick;
+        const ticks = executionDetail.value.monitoring.ticks;
+        if (ticks.length && ticks[ticks.length - 1].bucketTimeMs >= tick.bucketTimeMs) return;
+        ticks.push(tick);
+        if (ticks.length > 1200) ticks.splice(0, ticks.length - 1200);
+      } catch {
+      }
+    });
     sampleStream.onerror = () => {
       disconnectSampleStream();
+      const delay = Math.min(30000, 1000 * Math.pow(2, sampleStreamBackoffStep));
+      sampleStreamBackoffStep = Math.min(5, sampleStreamBackoffStep + 1);
       sampleStreamRetryTimer = window.setTimeout(() => {
         if (!executionDetail.value || executionDetail.value.id !== executionId) return;
         const status = toUiStatus(executionDetail.value.status);
         if (status === 'RUNNING' || status === 'PENDING' || status === 'STOPPING') {
           connectSampleStream(executionId);
         }
-      }, 2000);
+      }, delay);
+    };
+    sampleStream.onopen = () => {
+      sampleStreamBackoffStep = 0;
     };
   }
 
   async function loadSelectedSampleDetail(executionId: number, sampleId: number | null) {
     if (!sampleId) {
       selectedSampleDetail.value = null;
+      return;
+    }
+    const cached = executionDetail.value?.samples.find((s) => s.id === sampleId);
+    if (cached && (cached.responseBody || cached.requestBody || cached.failureMessage)) {
+      selectedSampleDetail.value = cached;
       return;
     }
     sampleDetailLoading.value = true;
@@ -193,7 +216,11 @@ export function useTaskPlans() {
 
   function scheduleRefresh(executionId: number) {
     if (refreshTimer !== null) window.clearTimeout(refreshTimer);
-    refreshTimer = window.setTimeout(() => void refreshExecution(executionId), 1500);
+    if (typeof document !== 'undefined' && document.hidden) {
+      refreshTimer = window.setTimeout(() => void refreshExecution(executionId), 10000);
+      return;
+    }
+    refreshTimer = window.setTimeout(() => void refreshExecution(executionId), 5000);
   }
 
   watch([currentProject], () => void loadPlans(), { immediate: true });

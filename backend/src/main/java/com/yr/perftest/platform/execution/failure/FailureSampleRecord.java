@@ -12,6 +12,7 @@ public record FailureSampleRecord(
         long elapsed,
         String message,
         String threadName,
+        String host,
         String url,
         String requestHeaders,
         String requestBody,

@@ -11,7 +11,7 @@ import paramiko
 JMETER_IMAGE = "justb4/jmeter:latest"
 
 
-def respond(ok, message="", log="", exit_code=0, start_results=None, tail_data=None, new_offset=None, eof=None):
+def respond(ok, message="", log="", exit_code=0, start_results=None, tail_data=None, new_offset=None, eof=None, snapshot_data=None, snapshot_mtime=None, snapshots=None):
     body = {
         "ok": ok,
         "exitCode": exit_code,
@@ -26,6 +26,12 @@ def respond(ok, message="", log="", exit_code=0, start_results=None, tail_data=N
         body["newOffset"] = new_offset
     if eof is not None:
         body["eof"] = eof
+    if snapshot_data is not None:
+        body["snapshotData"] = snapshot_data
+    if snapshot_mtime is not None:
+        body["snapshotMtime"] = snapshot_mtime
+    if snapshots is not None:
+        body["snapshots"] = snapshots
     print(json.dumps(body, ensure_ascii=False))
     return 0 if ok else 1
 
@@ -256,22 +262,38 @@ def controller_status(client, run_id):
     return "finished", exit_code
 
 
-def start_worker(node, run_id):
+def start_worker(node, run_id, hdr_source=None):
     client = connect(node)
     remote_dir = Path(node.get("remoteWorkDir", "/tmp/perftest-platform")) / run_id
     container_name = f"jmeter-worker-{run_id}"
-    command = " ".join([
-        "docker ps -a --filter name=jmeter-worker- -q | xargs -r docker rm -f >/dev/null 2>&1 || true;",
-        "mkdir -p", shell_quote(str(remote_dir)) + ";",
-        "docker run -d --name", shell_quote(container_name),
-        "--network host",
-        "-v", shell_quote(f"{remote_dir}:/test"),
-        JMETER_IMAGE,
+    role_host = f"worker-{node['host']}"
+    code, output = run(client, " ".join(["mkdir -p", shell_quote(str(remote_dir))]))
+    if code != 0:
+        client.close()
+        return code, output
+    if hdr_source:
+        sftp_put(client, Path(hdr_source), remote_dir / Path(hdr_source).name)
+    jmeter_args = " ".join([
         shell_quote(f"-Djava.rmi.server.hostname={node['host']}"),
         "-s",
         "-Jserver.rmi.localport=4000",
         "-Jserver_port=1099",
         "-Jserver.rmi.ssl.disable=true",
+        shell_quote(f"-JjmeterRoleHost={role_host}"),
+    ])
+    shell_cmd = " ".join([
+        "JMETER_HOME=${JMETER_HOME:-$(find /opt -maxdepth 1 -name 'apache-jmeter-*' -type d 2>/dev/null | head -1)}",
+        "&& (ls /test/HdrHistogram*.jar >/dev/null 2>&1 && cp /test/HdrHistogram*.jar \"$JMETER_HOME/lib/ext/\" || true)",
+        f"&& exec /entrypoint.sh {jmeter_args}",
+    ])
+    command = " ".join([
+        "docker ps -a --filter name=jmeter-worker- -q | xargs -r docker rm -f >/dev/null 2>&1 || true;",
+        "docker run -d --name", shell_quote(container_name),
+        "--network host",
+        "-v", shell_quote(f"{remote_dir}:/test"),
+        "--entrypoint", shell_quote("/bin/sh"),
+        JMETER_IMAGE,
+        "-c", shell_quote(shell_cmd),
     ])
     code, output = run(client, command)
     client.close()
@@ -290,13 +312,10 @@ def launch_controller(controller, payload):
         target = remote_dir / dependency["targetPath"]
         sftp_put(client, source, target)
     worker_hosts = ",".join([node["host"] for node in payload["workers"]])
-    per_label_limit = payload.get("perLabelLimit", 10)
-    command = " ".join([
-        "docker rm -f", shell_quote(container_name), ">/dev/null 2>&1 || true;",
-        "docker run -d --name", shell_quote(container_name),
-        "--network host",
-        "-v", shell_quote(f"{remote_dir}:/test"),
-        JMETER_IMAGE,
+    per_label_limit = payload.get("perLabelLimit", 50)
+    global_limit = payload.get("globalLimit", 1000)
+    role_host = f"controller-{controller['host']}"
+    jmeter_args = " ".join([
         shell_quote(f"-Djava.rmi.server.hostname={controller['host']}"),
         "-n",
         "-t", shell_quote(f"/test/{remote_script.name}"),
@@ -306,12 +325,29 @@ def launch_controller(controller, payload):
         "-Jclient.rmi.localport=4001",
         "-Jserver.rmi.ssl.disable=true",
         "-Jmode=Standard",
-        "-Jbackend_influxdb.send_interval=1",
-        "-Gbackend_influxdb.send_interval=1",
         "-GfailureSamplesPath=/test/failure-samples.jsonl",
         f"-GfailureSamplePerLabelLimit={per_label_limit}",
+        f"-GfailureSampleGlobalLimit={global_limit}",
         "-JfailureSamplesPath=/test/failure-samples.jsonl",
         f"-JfailureSamplePerLabelLimit={per_label_limit}",
+        f"-JfailureSampleGlobalLimit={global_limit}",
+        "-JaggregateSnapshotPath=/test/aggregate-snapshot.bin",
+        "-GaggregateSnapshotPath=/test/aggregate-snapshot.bin",
+        shell_quote(f"-JjmeterRoleHost={role_host}"),
+    ])
+    shell_cmd = " ".join([
+        "JMETER_HOME=${JMETER_HOME:-$(find /opt -maxdepth 1 -name 'apache-jmeter-*' -type d 2>/dev/null | head -1)}",
+        "&& cp /test/HdrHistogram*.jar \"$JMETER_HOME/lib/ext/\"",
+        f"&& exec /entrypoint.sh {jmeter_args}",
+    ])
+    command = " ".join([
+        "docker rm -f", shell_quote(container_name), ">/dev/null 2>&1 || true;",
+        "docker run -d --name", shell_quote(container_name),
+        "--network host",
+        "-v", shell_quote(f"{remote_dir}:/test"),
+        "--entrypoint", shell_quote("/bin/sh"),
+        JMETER_IMAGE,
+        "-c", shell_quote(shell_cmd),
     ])
     code, output = run(client, command)
     client.close()
@@ -379,13 +415,59 @@ def tail_failure_samples(payload):
             client.close()
 
 
+def fetch_aggregate_snapshot(payload):
+    last_mtime = int(payload.get("lastMtime", 0))
+    sources = [node_ref(payload["controller"])] + [node_ref(node) for node in payload.get("workers", [])]
+    run_id = payload["runId"]
+    snapshots = []
+    overall_mtime = last_mtime
+    for source in sources:
+        client = None
+        try:
+            client = connect(source)
+            remote_path = Path(source.get("remoteWorkDir", "/tmp/perftest-platform")) / run_id / "aggregate-snapshot.bin"
+            with client.open_sftp() as sftp:
+                try:
+                    stat = sftp.stat(str(remote_path))
+                except FileNotFoundError:
+                    continue
+                mtime = int(stat.st_mtime * 1000)
+                if mtime > overall_mtime:
+                    overall_mtime = mtime
+                with sftp.open(str(remote_path), "rb") as remote_file:
+                    data = remote_file.read()
+                if not data:
+                    continue
+                snapshots.append({
+                    "host": source["host"],
+                    "mtime": mtime,
+                    "data": base64.b64encode(data).decode("ascii"),
+                })
+        except Exception:
+            continue
+        finally:
+            if client:
+                client.close()
+    if not snapshots:
+        return respond(True, "missing", "", 0, snapshots=[], snapshot_mtime=last_mtime)
+    if overall_mtime <= last_mtime:
+        return respond(True, "noop", "", 0, snapshots=[], snapshot_mtime=overall_mtime)
+    return respond(True, "changed", "", 0, snapshots=snapshots, snapshot_mtime=overall_mtime)
+
+
 def start_run(payload):
     logs = []
     workers = [node_ref(node) for node in payload["workers"]]
     controller = node_ref(payload["controller"])
+    hdr_jar = None
+    for dependency in payload.get("dependencies", []):
+        target = str(dependency.get("targetPath", ""))
+        if target.startswith("HdrHistogram") and target.endswith(".jar"):
+            hdr_jar = dependency.get("sourcePath")
+            break
     try:
         for worker in workers:
-            code, output = start_worker(worker, payload["runId"])
+            code, output = start_worker(worker, payload["runId"], hdr_source=hdr_jar)
             logs.append(f"worker {worker['host']}: {output.strip()}")
             if code != 0:
                 return respond(False, output.strip() or f"worker {worker['host']} failed to start", "\n".join(logs), code)
@@ -460,6 +542,7 @@ def main():
             "poll-run",
             "collect-run",
             "tail-failure-samples",
+            "fetch-aggregate-snapshot",
             "stop-run",
         ],
     )
@@ -480,6 +563,8 @@ def main():
         return collect_run(payload)
     if args.command == "tail-failure-samples":
         return tail_failure_samples(payload)
+    if args.command == "fetch-aggregate-snapshot":
+        return fetch_aggregate_snapshot(payload)
     return stop_run(payload)
 
 

@@ -22,19 +22,20 @@ public class PrometheusQueryClient {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final String baseUrl;
-    private final long queryTimeoutMs;
+    private final long requestTimeoutMs;
 
     public PrometheusQueryClient(
             ObjectMapper objectMapper,
             @Value("${platform.monitoring.prometheus.base-url:http://192.168.17.216:9090}") String baseUrl,
-            @Value("${platform.monitoring.prometheus.query-timeout-ms:5000}") long queryTimeoutMs
+            @Value("${platform.monitoring.prometheus.connect-timeout-ms:3000}") long connectTimeoutMs,
+            @Value("${platform.monitoring.prometheus.request-timeout-ms:10000}") long requestTimeoutMs
     ) {
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(queryTimeoutMs))
+                .connectTimeout(Duration.ofMillis(connectTimeoutMs))
                 .build();
         this.objectMapper = objectMapper;
         this.baseUrl = trimTrailingSlash(baseUrl);
-        this.queryTimeoutMs = queryTimeoutMs;
+        this.requestTimeoutMs = requestTimeoutMs;
     }
 
     public List<MetricSeries> queryRange(String promql, long startEpochSeconds, long endEpochSeconds, int stepSeconds) {
@@ -45,7 +46,7 @@ public class PrometheusQueryClient {
                     + "&end=" + endEpochSeconds
                     + "&step=" + stepSeconds;
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                    .timeout(Duration.ofMillis(queryTimeoutMs))
+                    .timeout(Duration.ofMillis(requestTimeoutMs))
                     .GET()
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());

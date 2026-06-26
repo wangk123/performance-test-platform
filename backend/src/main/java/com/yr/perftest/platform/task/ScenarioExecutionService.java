@@ -2,33 +2,36 @@ package com.yr.perftest.platform.task;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.execution.ExecutionConfig;
+import com.yr.perftest.platform.execution.ExecutionEventBroadcaster;
 import com.yr.perftest.platform.execution.ExecutionMode;
 import com.yr.perftest.platform.execution.ExecutionStatus;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
-import com.yr.perftest.platform.execution.InfluxdbMonitoringClient;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
-import com.yr.perftest.platform.execution.TaskMonitoringResult;
+import com.yr.perftest.platform.execution.TaskMetricSeries;
 import com.yr.perftest.platform.execution.TaskSamplePage;
+import com.yr.perftest.platform.execution.aggregate.ExecutionMetricSeriesService;
+import com.yr.perftest.platform.execution.aggregate.MetricTick;
+import com.yr.perftest.platform.execution.aggregate.PersistentExecutionMetricSeriesRecord;
 import com.yr.perftest.platform.execution.failure.FailureSampleIngestor;
 import com.yr.perftest.platform.execution.failure.FailureSamplePaths;
 import com.yr.perftest.platform.execution.failure.FailureSampleQuery;
 import com.yr.perftest.platform.execution.failure.FailureSampleSseHub;
 import com.yr.perftest.platform.execution.failure.FailureSampleStore;
+import com.yr.perftest.platform.execution.aggregate.AggregateReportService;
 import com.yr.perftest.platform.execution.distributed.DistributedJmeterExecutionRunner;
 import com.yr.perftest.platform.monitoring.ExecutionMonitorBindingService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -44,10 +47,10 @@ public class ScenarioExecutionService {
     private final FailureSampleStore failureSampleStore;
     private final FailureSampleIngestor failureSampleIngestor;
     private final FailureSampleSseHub failureSampleSseHub;
-    private final InfluxdbMonitoringClient monitoringClient;
+    private final AggregateReportService aggregateReportService;
+    private final ExecutionMetricSeriesService metricSeriesService;
+    private final ExecutionEventBroadcaster executionEventBroadcaster;
     private final ObjectMapper objectMapper;
-    private final String grafanaPanelUrl;
-    private final String influxdbMeasurement;
 
     public ScenarioExecutionService(
             PersistentTaskPlanRepository planRepository,
@@ -60,10 +63,10 @@ public class ScenarioExecutionService {
             FailureSampleStore failureSampleStore,
             FailureSampleIngestor failureSampleIngestor,
             FailureSampleSseHub failureSampleSseHub,
-            InfluxdbMonitoringClient monitoringClient,
-            ObjectMapper objectMapper,
-            @Value("${platform.distributed.grafana-panel-url:http://127.0.0.1:3000/d/jmeter-5496/jmeter-load-test?orgId=1&refresh=5s}") String grafanaPanelUrl,
-            @Value("${platform.distributed.influxdb-measurement:jmeter_runtime}") String influxdbMeasurement
+            AggregateReportService aggregateReportService,
+            ExecutionMetricSeriesService metricSeriesService,
+            ExecutionEventBroadcaster executionEventBroadcaster,
+            ObjectMapper objectMapper
     ) {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
@@ -75,10 +78,16 @@ public class ScenarioExecutionService {
         this.failureSampleStore = failureSampleStore;
         this.failureSampleIngestor = failureSampleIngestor;
         this.failureSampleSseHub = failureSampleSseHub;
-        this.monitoringClient = monitoringClient;
+        this.aggregateReportService = aggregateReportService;
+        this.metricSeriesService = metricSeriesService;
+        this.executionEventBroadcaster = executionEventBroadcaster;
         this.objectMapper = objectMapper;
-        this.grafanaPanelUrl = grafanaPanelUrl;
-        this.influxdbMeasurement = influxdbMeasurement;
+    }
+
+    @Transactional(readOnly = true)
+    public SseEmitter streamExecution(long executionId) {
+        requireExecution(executionId);
+        return executionEventBroadcaster.connect(executionId);
     }
 
     @Transactional
@@ -140,6 +149,7 @@ public class ScenarioExecutionService {
             throw new ExecutionValidationException("running execution cannot be deleted");
         }
         monitorBindingService.deleteBindings(executionId);
+        aggregateReportService.deleteByExecutionId(executionId);
         FailureSamplePaths.deleteArtifacts(
                 execution.getLogFilePath() == null ? null : Path.of(execution.getLogFilePath())
         );
@@ -163,7 +173,13 @@ public class ScenarioExecutionService {
     @Transactional(readOnly = true)
     public TaskExecutionResult getResult(long executionId) {
         PersistentScenarioExecutionRecord execution = requireExecution(executionId);
-        return monitoringClient.aggregate(execution.getId(), executionSeconds(execution));
+        double durationSeconds = executionSeconds(execution);
+        if (isFinished(execution.getStatus())) {
+            return aggregateReportService.loadPersisted(executionId)
+                    .orElse(TaskExecutionResult.empty());
+        }
+        return aggregateReportService.loadLive(executionId, durationSeconds)
+                .orElse(TaskExecutionResult.empty());
     }
 
     @Transactional(readOnly = true)
@@ -253,9 +269,70 @@ public class ScenarioExecutionService {
     }
 
     @Transactional(readOnly = true)
-    public TaskMonitoringResult getMonitoring(long executionId) {
-        requireExecution(executionId);
-        return monitoringClient.query(executionId);
+    public TaskMetricSeries getMonitoring(long executionId) {
+        PersistentScenarioExecutionRecord execution = requireExecution(executionId);
+        if (isFinished(execution.getStatus())) {
+            return loadPersistedMetricSeries(executionId);
+        }
+        return new TaskMetricSeries(metricSeriesService.latestLiveTicks(executionId, 1200));
+    }
+
+    private TaskMetricSeries loadPersistedMetricSeries(long executionId) {
+        List<PersistentExecutionMetricSeriesRecord> records = metricSeriesService.loadPersisted(executionId);
+        if (records.isEmpty()) {
+            return TaskMetricSeries.empty();
+        }
+        Map<Long, BucketAccumulator> buckets = new LinkedHashMap<>();
+        for (PersistentExecutionMetricSeriesRecord record : records) {
+            BucketAccumulator bucket = buckets.computeIfAbsent(record.getBucketTimeMs(), BucketAccumulator::new);
+            bucket.add(record);
+        }
+        List<MetricTick> ticks = new ArrayList<>(buckets.size());
+        buckets.values().forEach(bucket -> ticks.add(bucket.toTick()));
+        return new TaskMetricSeries(ticks);
+    }
+
+    private static final class BucketAccumulator {
+        private final long bucketTimeMs;
+        private final List<MetricTick.LabelMetric> labels = new ArrayList<>();
+        private long totalSamples;
+        private long totalErrors;
+        private double totalThroughput;
+        private long weightedAvgRtSum;
+        private long weightedP95Sum;
+
+        private BucketAccumulator(long bucketTimeMs) {
+            this.bucketTimeMs = bucketTimeMs;
+        }
+
+        private void add(PersistentExecutionMetricSeriesRecord record) {
+            labels.add(new MetricTick.LabelMetric(
+                    record.getLabel(),
+                    record.getSamples(),
+                    record.getErrorSamples(),
+                    record.getThroughput(),
+                    record.getAvgRtMs(),
+                    record.getP95RtMs()
+            ));
+            totalSamples += record.getSamples();
+            totalErrors += record.getErrorSamples();
+            totalThroughput += record.getThroughput();
+            weightedAvgRtSum += record.getAvgRtMs() * record.getSamples();
+            weightedP95Sum = Math.max(weightedP95Sum, record.getP95RtMs());
+        }
+
+        private MetricTick toTick() {
+            long divisor = Math.max(1, totalSamples);
+            MetricTick.LabelMetric overall = new MetricTick.LabelMetric(
+                    "__total__",
+                    totalSamples,
+                    totalErrors,
+                    Math.round(totalThroughput * 100.0) / 100.0,
+                    weightedAvgRtSum / divisor,
+                    weightedP95Sum
+            );
+            return new MetricTick(bucketTimeMs, labels, overall);
+        }
     }
 
     private PersistentTaskScenarioRecord requireScenario(long scenarioId) {
@@ -289,8 +366,7 @@ public class ScenarioExecutionService {
                 execution.getDurationMs(),
                 execution.getResultFilePath(),
                 execution.getLogFilePath(),
-                execution.getErrorMessage(),
-                grafanaUrl(execution, config)
+                execution.getErrorMessage()
         );
     }
 
@@ -355,22 +431,11 @@ public class ScenarioExecutionService {
         return Math.max(1, seconds);
     }
 
-    private String grafanaUrl(PersistentScenarioExecutionRecord execution, ExecutionConfig config) {
-        String timeRange = "";
-        if (execution.getStartTime() != null && execution.getEndTime() != null) {
-            long from = execution.getStartTime().minusSeconds(30).toEpochMilli();
-            long to = execution.getEndTime().plusSeconds(30).toEpochMilli();
-            timeRange = "&from=" + from + "&to=" + to;
-        }
-        String separator = grafanaPanelUrl.contains("?") ? "&" : "?";
-        return grafanaPanelUrl
-                + separator
-                + "var-data_source="
-                + URLEncoder.encode("JMeter InfluxDB", StandardCharsets.UTF_8)
-                + "&var-measurement_name="
-                + URLEncoder.encode(influxdbMeasurement, StandardCharsets.UTF_8)
-                + "&var-application=execution-"
-                + execution.getId()
-                + timeRange;
+    private boolean isFinished(ExecutionStatus status) {
+        return status == ExecutionStatus.SUCCESS
+                || status == ExecutionStatus.FAILED
+                || status == ExecutionStatus.CANCELLED
+                || status == ExecutionStatus.INTERRUPTED;
     }
+
 }

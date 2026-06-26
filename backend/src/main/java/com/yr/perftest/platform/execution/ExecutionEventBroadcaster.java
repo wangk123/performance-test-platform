@@ -1,7 +1,6 @@
-package com.yr.perftest.platform.execution.failure;
+package com.yr.perftest.platform.execution;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yr.perftest.platform.execution.TaskExecutionResult;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -10,45 +9,51 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Component
-public class FailureSampleSseHub {
+public class ExecutionEventBroadcaster {
     private static final long TIMEOUT_MS = 30 * 60 * 1000L;
-    private static final int REPLAY_LIMIT = 200;
 
     private final ObjectMapper objectMapper;
-    private final FailureSampleStore failureSampleStore;
     private final Map<Long, CopyOnWriteArrayList<SseEmitter>> emitters = new ConcurrentHashMap<>();
+    private final AtomicLong eventIdSeq = new AtomicLong();
 
-    public FailureSampleSseHub(ObjectMapper objectMapper, FailureSampleStore failureSampleStore) {
+    public ExecutionEventBroadcaster(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        this.failureSampleStore = failureSampleStore;
     }
 
-    public SseEmitter connect(long executionId, PathContext pathContext, long lastEventId) {
+    public SseEmitter connect(long executionId) {
         SseEmitter emitter = new SseEmitter(TIMEOUT_MS);
         emitters.computeIfAbsent(executionId, ignored -> new CopyOnWriteArrayList<>()).add(emitter);
         emitter.onCompletion(() -> remove(executionId, emitter));
         emitter.onTimeout(() -> remove(executionId, emitter));
         emitter.onError(error -> remove(executionId, emitter));
         try {
-            replay(emitter, pathContext, lastEventId);
-        } catch (Exception ignored) {
+            emitter.send(SseEmitter.event().name("hello").data("{}"));
+        } catch (IOException ignored) {
         }
         return emitter;
     }
 
-    public void publish(long executionId, TaskExecutionResult.Sample sample) {
+    public void publish(long executionId, String eventName, Object payload) {
         List<SseEmitter> activeEmitters = emitters.get(executionId);
         if (activeEmitters == null || activeEmitters.isEmpty()) {
             return;
         }
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(payload);
+        } catch (Exception exception) {
+            return;
+        }
+        String id = String.valueOf(eventIdSeq.incrementAndGet());
         for (SseEmitter emitter : activeEmitters) {
             try {
                 emitter.send(SseEmitter.event()
-                        .id(String.valueOf(sample.id()))
-                        .name("sample")
-                        .data(objectMapper.writeValueAsString(sample)));
+                        .id(id)
+                        .name(eventName)
+                        .data(json));
             } catch (IOException exception) {
                 remove(executionId, emitter);
             }
@@ -61,21 +66,10 @@ public class FailureSampleSseHub {
             return;
         }
         for (SseEmitter emitter : activeEmitters) {
-            emitter.complete();
-        }
-    }
-
-    private void replay(SseEmitter emitter, PathContext pathContext, long lastEventId) throws Exception {
-        List<TaskExecutionResult.Sample> samples = failureSampleStore.listDetailsAfter(
-                pathContext.dbPath(),
-                lastEventId,
-                REPLAY_LIMIT
-        );
-        for (TaskExecutionResult.Sample sample : samples) {
-            emitter.send(SseEmitter.event()
-                    .id(String.valueOf(sample.id()))
-                    .name("sample")
-                    .data(objectMapper.writeValueAsString(sample)));
+            try {
+                emitter.complete();
+            } catch (Exception ignored) {
+            }
         }
     }
 
@@ -88,8 +82,5 @@ public class FailureSampleSseHub {
         if (activeEmitters.isEmpty()) {
             emitters.remove(executionId, activeEmitters);
         }
-    }
-
-    public record PathContext(java.nio.file.Path jsonlPath, java.nio.file.Path dbPath) {
     }
 }

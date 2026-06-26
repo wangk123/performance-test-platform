@@ -1,6 +1,7 @@
 package com.yr.perftest.platform.execution.failure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yr.perftest.platform.execution.ExecutionEventBroadcaster;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.distributed.FailureSampleTailResult;
 import com.yr.perftest.platform.execution.distributed.RemoteRunnerClient;
@@ -16,13 +17,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 public class FailureSampleIngestor {
     private final ObjectMapper objectMapper;
     private final FailureSampleStore failureSampleStore;
     private final FailureSampleSseHub failureSampleSseHub;
+    private final ExecutionEventBroadcaster broadcaster;
     private final RemoteRunnerClient remoteRunnerClient;
     private final Map<Long, IngestState> states = new ConcurrentHashMap<>();
 
@@ -30,11 +31,13 @@ public class FailureSampleIngestor {
             ObjectMapper objectMapper,
             FailureSampleStore failureSampleStore,
             FailureSampleSseHub failureSampleSseHub,
+            ExecutionEventBroadcaster broadcaster,
             RemoteRunnerClient remoteRunnerClient
     ) {
         this.objectMapper = objectMapper;
         this.failureSampleStore = failureSampleStore;
         this.failureSampleSseHub = failureSampleSseHub;
+        this.broadcaster = broadcaster;
         this.remoteRunnerClient = remoteRunnerClient;
     }
 
@@ -43,17 +46,14 @@ public class FailureSampleIngestor {
             Path jsonlPath = FailureSamplePaths.jsonl(executionDirectory);
             Path dbPath = FailureSamplePaths.sqlite(executionDirectory);
             Files.createDirectories(executionDirectory);
-            if (!Files.exists(jsonlPath)) {
-                Files.writeString(jsonlPath, "", StandardCharsets.UTF_8, StandardOpenOption.CREATE);
-            }
+            Files.writeString(jsonlPath, "", StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             failureSampleStore.initialize(dbPath);
             states.put(executionId, new IngestState(
                     jsonlPath,
                     dbPath,
                     new ConcurrentHashMap<>(),
                     new StringBuilder(),
-                    ConcurrentHashMap.newKeySet(),
-                    new AtomicLong(0)
+                    ConcurrentHashMap.newKeySet()
             ));
         } catch (Exception ignored) {
         }
@@ -105,7 +105,11 @@ public class FailureSampleIngestor {
 
     public void finish(long executionId) {
         failureSampleSseHub.close(executionId);
-        states.remove(executionId);
+        broadcaster.close(executionId);
+        IngestState state = states.remove(executionId);
+        if (state != null) {
+            failureSampleStore.closeConnection(state.dbPath());
+        }
     }
 
     public FailureSampleSseHub.PathContext pathContext(long executionId) {
@@ -153,37 +157,32 @@ public class FailureSampleIngestor {
             state.lineBuffer().delete(0, newlineIndex + 1);
             if (!line.isBlank()) {
                 FailureSampleRecord parsed = objectMapper.readValue(line, FailureSampleRecord.class);
-                String fingerprint = safe(parsed.threadName()) + "|" + parsed.ts() + "|" + safe(parsed.label());
+                String fingerprint = safe(parsed.host()) + ":" + parsed.id();
                 if (!state.dedupKeys().add(fingerprint)) {
                     continue;
                 }
-                long id = state.idCounter().incrementAndGet();
-                FailureSampleRecord stored = new FailureSampleRecord(
-                        id,
-                        parsed.ts(),
-                        parsed.label(),
-                        parsed.code(),
-                        parsed.success(),
-                        parsed.elapsed(),
-                        parsed.message(),
-                        parsed.threadName(),
-                        parsed.url(),
-                        parsed.requestHeaders(),
-                        parsed.requestBody(),
-                        parsed.responseHeaders(),
-                        parsed.responseBody(),
-                        parsed.failureMessage()
-                );
-                failureSampleStore.insert(state.dbPath(), stored);
-                failureSampleSseHub.publish(executionId, toSummary(stored));
+                Long persistedId = failureSampleStore.insertReturningId(state.dbPath(), parsed);
+                if (persistedId == null) {
+                    continue;
+                }
+                TaskExecutionResult.Sample detail = toDetail(persistedId, parsed);
+                failureSampleSseHub.publish(executionId, detail);
+                broadcaster.publish(executionId, "sample", detail);
             }
             newlineIndex = state.lineBuffer().indexOf("\n");
         }
     }
 
-    private TaskExecutionResult.Sample toSummary(FailureSampleRecord record) {
+    private TaskExecutionResult.Sample toDetail(long persistedId, FailureSampleRecord record) {
+        String requestHeaders = safe(record.requestHeaders());
+        String requestBody = safe(record.requestBody());
+        String responseHeaders = safe(record.responseHeaders());
+        String responseBody = safe(record.responseBody());
+        String failureMessage = safe(record.failureMessage());
+        String url = safe(record.url());
+        String requestLine = requestBody.isBlank() ? url : requestBody.lines().findFirst().orElse(url);
         return new TaskExecutionResult.Sample(
-                (int) record.id(),
+                (int) persistedId,
                 formatTime(record.ts()),
                 safe(record.code()),
                 record.success(),
@@ -191,15 +190,56 @@ public class FailureSampleIngestor {
                 record.elapsed(),
                 safe(record.message()),
                 safe(record.threadName()),
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                safe(record.failureMessage())
+                formatSection(requestLine, requestHeaders, requestBody),
+                formatResponseSection(record.code(), record.message(), responseHeaders, responseBody, failureMessage),
+                requestLine,
+                requestHeaders,
+                requestBody,
+                responseHeaders,
+                responseBody,
+                failureMessage
         );
+    }
+
+    private String formatSection(String requestLine, String requestHeaders, String requestBody) {
+        StringBuilder builder = new StringBuilder();
+        if (!requestLine.isBlank()) builder.append(requestLine);
+        if (!requestHeaders.isBlank()) {
+            if (builder.length() > 0) builder.append("\n\n");
+            builder.append(requestHeaders);
+        }
+        if (!requestBody.isBlank()) {
+            if (builder.length() > 0) builder.append("\n\n");
+            builder.append(requestBody);
+        }
+        return builder.toString();
+    }
+
+    private String formatResponseSection(
+            String code,
+            String message,
+            String responseHeaders,
+            String responseBody,
+            String failureMessage
+    ) {
+        StringBuilder builder = new StringBuilder();
+        if (code != null && !code.isBlank()) {
+            builder.append("HTTP ").append(code);
+            if (message != null && !message.isBlank()) builder.append(' ').append(message);
+        }
+        if (!responseHeaders.isBlank()) {
+            if (builder.length() > 0) builder.append("\n\n");
+            builder.append(responseHeaders);
+        }
+        if (!responseBody.isBlank()) {
+            if (builder.length() > 0) builder.append("\n\n");
+            builder.append(responseBody);
+        }
+        if (!failureMessage.isBlank()) {
+            if (builder.length() > 0) builder.append("\n\n");
+            builder.append("--- Failure Message ---\n").append(failureMessage);
+        }
+        return builder.toString();
     }
 
     private String formatTime(long timestamp) {
@@ -217,8 +257,7 @@ public class FailureSampleIngestor {
             Path dbPath,
             Map<String, Long> remoteOffsets,
             StringBuilder lineBuffer,
-            Set<String> dedupKeys,
-            AtomicLong idCounter
+            Set<String> dedupKeys
     ) {
     }
 }

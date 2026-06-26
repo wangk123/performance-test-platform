@@ -4,8 +4,7 @@ import type {
   TaskPlan,
   TaskScenario,
   TaskAggregateRow,
-  TaskMetricPoint,
-  TaskMonitoringResult,
+  TaskMetricSeries,
   TaskSamplePage,
   TaskSummary,
   TargetMonitoringResult,
@@ -14,7 +13,6 @@ import { request } from './http';
 
 export type BackendExecutionResult = {
   summary: TaskSummary;
-  metrics: TaskMetricPoint[];
   aggregateRows: TaskAggregateRow[];
   samples: unknown[];
 };
@@ -153,7 +151,7 @@ export function getExecutionResultApi(executionId: number) {
 }
 
 export function getExecutionMonitoringApi(executionId: number) {
-  return request<TaskMonitoringResult>(`/api/executions/${executionId}/monitoring`);
+  return request<TaskMetricSeries>(`/api/executions/${executionId}/monitoring`);
 }
 
 export function getExecutionTargetMonitoringApi(executionId: number) {
@@ -183,15 +181,14 @@ export function getExecutionSampleDetailApi(executionId: number, sampleId: numbe
 export function mapExecutionDetail(
   execution: ScenarioExecution,
   result?: BackendExecutionResult,
-  monitoring?: TaskMonitoringResult,
+  monitoring?: TaskMetricSeries,
   targetMonitoring?: TargetMonitoringResult | null,
 ): ExecutionDetail {
   return {
     ...execution,
     executionLogs: '',
-    summary: result?.summary ?? { samples: 0, throughput: 0, avgRt: 0, p95: 0, errorRate: 0 },
-    metrics: result?.metrics ?? [],
-    monitoring: monitoring ?? { interfaces: [], points: [] },
+    summary: result?.summary ?? { samples: 0, throughput: 0, avgRt: 0, p95: 0, errorRate: 0, accuracy: null },
+    monitoring: monitoring ?? { ticks: [] },
     targetMonitoring: targetMonitoring ?? null,
     aggregateRows: result?.aggregateRows ?? [],
     samples: [],

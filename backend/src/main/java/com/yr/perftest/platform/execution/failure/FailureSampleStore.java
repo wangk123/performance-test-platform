@@ -10,25 +10,35 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class FailureSampleStore {
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss")
             .withZone(ZoneId.systemDefault());
 
+    private final Map<String, Connection> connections = new ConcurrentHashMap<>();
+
     public void initialize(Path dbPath) throws Exception {
         Files.createDirectories(dbPath.getParent());
-        try (Connection connection = open(dbPath); Statement statement = connection.createStatement()) {
+        Connection connection = openSharedConnection(dbPath);
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("PRAGMA journal_mode = WAL");
+            statement.execute("PRAGMA synchronous = NORMAL");
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS samples (
-                        id INTEGER PRIMARY KEY,
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        external_id INTEGER NOT NULL,
+                        host TEXT NOT NULL,
                         ts INTEGER NOT NULL,
                         label TEXT NOT NULL,
                         code TEXT NOT NULL,
@@ -41,35 +51,44 @@ public class FailureSampleStore {
                         request_body TEXT,
                         response_headers TEXT,
                         response_body TEXT,
-                        failure_message TEXT
+                        failure_message TEXT,
+                        UNIQUE(host, external_id)
                     )
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_samples_label_code_ts ON samples(label, code, ts)");
         }
     }
 
-    public void insert(Path dbPath, FailureSampleRecord record) throws Exception {
-        try (Connection connection = open(dbPath); PreparedStatement statement = connection.prepareStatement("""
+    public Long insertReturningId(Path dbPath, FailureSampleRecord record) throws SQLException {
+        Connection connection = openSharedConnection(dbPath);
+        try (PreparedStatement statement = connection.prepareStatement("""
                 INSERT OR IGNORE INTO samples (
-                    id, ts, label, code, success, elapsed, message, thread_name, url,
+                    external_id, host, ts, label, code, success, elapsed, message, thread_name, url,
                     request_headers, request_body, response_headers, response_body, failure_message
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """)) {
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, Statement.RETURN_GENERATED_KEYS)) {
             statement.setLong(1, record.id());
-            statement.setLong(2, record.ts());
-            statement.setString(3, record.label());
-            statement.setString(4, record.code());
-            statement.setInt(5, record.success() ? 1 : 0);
-            statement.setLong(6, record.elapsed());
-            statement.setString(7, record.message());
-            statement.setString(8, record.threadName());
-            statement.setString(9, record.url());
-            statement.setString(10, record.requestHeaders());
-            statement.setString(11, record.requestBody());
-            statement.setString(12, record.responseHeaders());
-            statement.setString(13, record.responseBody());
-            statement.setString(14, record.failureMessage());
-            statement.executeUpdate();
+            statement.setString(2, safe(record.host()));
+            statement.setLong(3, record.ts());
+            statement.setString(4, record.label());
+            statement.setString(5, record.code());
+            statement.setInt(6, record.success() ? 1 : 0);
+            statement.setLong(7, record.elapsed());
+            statement.setString(8, record.message());
+            statement.setString(9, record.threadName());
+            statement.setString(10, record.url());
+            statement.setString(11, record.requestHeaders());
+            statement.setString(12, record.requestBody());
+            statement.setString(13, record.responseHeaders());
+            statement.setString(14, record.responseBody());
+            statement.setString(15, record.failureMessage());
+            int affected = statement.executeUpdate();
+            if (affected <= 0) {
+                return null;
+            }
+            try (ResultSet keys = statement.getGeneratedKeys()) {
+                return keys.next() ? keys.getLong(1) : null;
+            }
         }
     }
 
@@ -81,7 +100,8 @@ public class FailureSampleStore {
         int safePageSize = Math.max(1, Math.min(100, pageSize));
         int offset = (safePage - 1) * safePageSize;
         FilterSql filterSql = buildFilter(query);
-        int total = count(dbPath, filterSql);
+        Connection connection = openSharedConnection(dbPath);
+        int total = count(connection, filterSql);
         List<TaskExecutionResult.Sample> samples = new ArrayList<>();
         String sql = """
                 SELECT id, ts, label, code, success, elapsed, message, thread_name
@@ -90,7 +110,7 @@ public class FailureSampleStore {
                 ORDER BY id DESC
                 LIMIT ? OFFSET ?
                 """;
-        try (Connection connection = open(dbPath); PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             bindFilter(statement, filterSql, 1);
             statement.setInt(filterSql.paramCount() + 1, safePageSize);
             statement.setInt(filterSql.paramCount() + 2, offset);
@@ -107,7 +127,8 @@ public class FailureSampleStore {
         if (!Files.exists(dbPath)) {
             return Optional.empty();
         }
-        try (Connection connection = open(dbPath); PreparedStatement statement = connection.prepareStatement("""
+        Connection connection = openSharedConnection(dbPath);
+        try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT id, ts, label, code, success, elapsed, message, thread_name, url,
                        request_headers, request_body, response_headers, response_body, failure_message
                 FROM samples WHERE id = ?
@@ -127,7 +148,8 @@ public class FailureSampleStore {
             return List.of();
         }
         List<TaskExecutionResult.Sample> samples = new ArrayList<>();
-        try (Connection connection = open(dbPath); PreparedStatement statement = connection.prepareStatement("""
+        Connection connection = openSharedConnection(dbPath);
+        try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT id, ts, label, code, success, elapsed, message, thread_name
                 FROM samples
                 WHERE id > ?
@@ -145,9 +167,56 @@ public class FailureSampleStore {
         return samples;
     }
 
-    private int count(Path dbPath, FilterSql filterSql) throws Exception {
+    public List<TaskExecutionResult.Sample> listDetailsAfter(Path dbPath, long lastEventId, int limit) throws Exception {
+        if (!Files.exists(dbPath)) {
+            return List.of();
+        }
+        List<TaskExecutionResult.Sample> samples = new ArrayList<>();
+        Connection connection = openSharedConnection(dbPath);
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT id, ts, label, code, success, elapsed, message, thread_name, url,
+                       request_headers, request_body, response_headers, response_body, failure_message
+                FROM samples
+                WHERE id > ?
+                ORDER BY id ASC
+                LIMIT ?
+                """)) {
+            statement.setLong(1, lastEventId);
+            statement.setInt(2, Math.max(1, limit));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    samples.add(toDetail(resultSet));
+                }
+            }
+        }
+        return samples;
+    }
+
+    public void closeConnection(Path dbPath) {
+        Connection connection = connections.remove(dbPath.toAbsolutePath().toString());
+        if (connection != null) {
+            try {
+                connection.close();
+            } catch (SQLException ignored) {
+            }
+        }
+    }
+
+    private synchronized Connection openSharedConnection(Path dbPath) throws SQLException {
+        String key = dbPath.toAbsolutePath().toString();
+        Connection existing = connections.get(key);
+        if (existing != null && !existing.isClosed()) {
+            return existing;
+        }
+        Connection connection = DriverManager.getConnection("jdbc:sqlite:" + key);
+        connection.setAutoCommit(true);
+        connections.put(key, connection);
+        return connection;
+    }
+
+    private int count(Connection connection, FilterSql filterSql) throws SQLException {
         String sql = "SELECT COUNT(1) FROM samples " + filterSql.whereClause();
-        try (Connection connection = open(dbPath); PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             bindFilter(statement, filterSql, 1);
             try (ResultSet resultSet = statement.executeQuery()) {
                 return resultSet.next() ? resultSet.getInt(1) : 0;
@@ -155,7 +224,7 @@ public class FailureSampleStore {
         }
     }
 
-    private TaskExecutionResult.Sample toSummary(ResultSet resultSet) throws Exception {
+    private TaskExecutionResult.Sample toSummary(ResultSet resultSet) throws SQLException {
         return new TaskExecutionResult.Sample(
                 (int) resultSet.getLong("id"),
                 TIME_FORMATTER.format(Instant.ofEpochMilli(resultSet.getLong("ts"))),
@@ -176,7 +245,7 @@ public class FailureSampleStore {
         );
     }
 
-    private TaskExecutionResult.Sample toDetail(ResultSet resultSet) throws Exception {
+    private TaskExecutionResult.Sample toDetail(ResultSet resultSet) throws SQLException {
         String requestHeaders = safe(resultSet.getString("request_headers"));
         String requestBody = safe(resultSet.getString("request_body"));
         String responseHeaders = safe(resultSet.getString("response_headers"));
@@ -266,7 +335,7 @@ public class FailureSampleStore {
         return new FilterSql("WHERE " + String.join(" AND ", clauses), params);
     }
 
-    private void bindFilter(PreparedStatement statement, FilterSql filterSql, int startIndex) throws Exception {
+    private void bindFilter(PreparedStatement statement, FilterSql filterSql, int startIndex) throws SQLException {
         int index = startIndex;
         for (Object param : filterSql.params()) {
             if (param instanceof String value) {
@@ -275,10 +344,6 @@ public class FailureSampleStore {
                 statement.setInt(index++, value);
             }
         }
-    }
-
-    private Connection open(Path dbPath) throws Exception {
-        return DriverManager.getConnection("jdbc:sqlite:" + dbPath.toAbsolutePath());
     }
 
     private TaskSamplePage emptyPage(int page, int pageSize) {
