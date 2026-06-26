@@ -1,6 +1,6 @@
 package com.yr.perftest.platform.api;
 
-import com.yr.perftest.platform.execution.PersistentTestTaskRepository;
+import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
 import com.yr.perftest.platform.project.Project;
 import com.yr.perftest.platform.project.ProjectOperations;
 import com.yr.perftest.platform.project.ProjectStatus;
@@ -17,16 +17,16 @@ import java.util.List;
 public class DashboardController {
     private final ProjectOperations projectService;
     private final PersistentScriptVersionRepository scriptVersionRepository;
-    private final PersistentTestTaskRepository taskRepository;
+    private final PersistentTaskPlanRepository planRepository;
 
     public DashboardController(
             ProjectOperations projectService,
             PersistentScriptVersionRepository scriptVersionRepository,
-            PersistentTestTaskRepository taskRepository
+            PersistentTaskPlanRepository planRepository
     ) {
         this.projectService = projectService;
         this.scriptVersionRepository = scriptVersionRepository;
-        this.taskRepository = taskRepository;
+        this.planRepository = planRepository;
     }
 
     @GetMapping("/summary")
@@ -44,7 +44,7 @@ public class DashboardController {
                 activeProjectCount,
                 archivedProjectCount,
                 scriptVersionRepository.count(),
-                taskRepository.count(),
+                planRepository.count(),
                 recentProjects
         );
     }

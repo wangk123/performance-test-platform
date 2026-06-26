@@ -21,16 +21,30 @@ platform:
     root: ./storage
   execution:
     max-concurrent-tasks: 1
+    failure-sample:
+      per-label-limit: 50
+      global-limit: 1000
+      tail-interval-ms: 3000
+    aggregate:
+      snapshot-flush-ms: 1000
+      fetch-interval-ms: 3000
+      histogram-max-ms: 3600000
+      histogram-precision: 3
   jmeter:
     executable: ${JMETER_EXECUTABLE:/Users/wangk/Documents/config/apache-jmeter-5.6.3/bin/jmeter}
     java-home: ${JMETER_JAVA_HOME:/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home}
   distributed:
-    influxdb-url: ${JMETER_INFLUXDB_URL:http://192.168.17.216:8086/write?db=jmeter}
-    influxdb-measurement: ${JMETER_INFLUXDB_MEASUREMENT:jmeter_runtime}
-    grafana-panel-url: ${JMETER_GRAFANA_PANEL_URL:http://192.168.17.216:3000/d/jmeter-5496/apache-jmeter-dashboard-using-core-influxdbbackendlistenerclient?orgId=1&refresh=5s}
     runner:
       python: ${REMOTE_RUNNER_PYTHON:python3}
       entry: ${REMOTE_RUNNER_ENTRY:./remote-runner/remote_jmeter_runner/main.py}
       connect-timeout-seconds: ${REMOTE_RUNNER_CONNECT_TIMEOUT_SECONDS:120}
       idle-timeout-seconds: ${REMOTE_RUNNER_IDLE_TIMEOUT_SECONDS:300}
       poll-interval-seconds: ${REMOTE_RUNNER_POLL_INTERVAL_SECONDS:10}
+  monitoring:
+    deploy:
+      bundle-path: ${MONITORING_DEPLOY_BUNDLE_PATH:../deploy/monitoring/prometheus}
+    prometheus:
+      file-sd-path: ${PROMETHEUS_JMX_FILE_SD_PATH:./deploy/monitoring/prometheus/file_sd/jmx-targets.json}
+      base-url: ${PROMETHEUS_BASE_URL:http://192.168.17.216:9090}
+      connect-timeout-ms: ${PROMETHEUS_CONNECT_TIMEOUT_MS:3000}
+      request-timeout-ms: ${PROMETHEUS_REQUEST_TIMEOUT_MS:10000}

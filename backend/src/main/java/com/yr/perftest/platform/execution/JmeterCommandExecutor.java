@@ -25,7 +25,7 @@ public class JmeterCommandExecutor {
 
     public int execute(
             Path testPlanPath,
-            Path resultPath,
+            Path discardPath,
             Path logPath,
             ExecutionConfig config
     ) throws IOException, InterruptedException {
@@ -35,11 +35,9 @@ public class JmeterCommandExecutor {
         command.add("-t");
         command.add(testPlanPath.toString());
         command.add("-l");
-        command.add(resultPath.toString());
+        command.add(discardPath.toString());
         command.add("-j");
         command.add(logPath.toString());
-        resultProperties().forEach((key, value) -> command.add("-J" + key + "=" + value));
-
         jmeterProperties(config).forEach((key, value) -> command.add("-J" + key + "=" + value));
 
         ProcessBuilder processBuilder = new ProcessBuilder(command)
@@ -60,17 +58,6 @@ public class JmeterCommandExecutor {
         properties.put("duration", String.valueOf(config.duration()));
         properties.put("rampUp", String.valueOf(config.rampUp()));
         properties.putAll(config.jmeterProperties());
-        return properties;
-    }
-
-    private Map<String, String> resultProperties() {
-        Map<String, String> properties = new LinkedHashMap<>();
-        properties.put("jmeter.save.saveservice.samplerData", "true");
-        properties.put("jmeter.save.saveservice.requestHeaders", "true");
-        properties.put("jmeter.save.saveservice.response_data", "false");
-        properties.put("jmeter.save.saveservice.response_data.on_error", "true");
-        properties.put("jmeter.save.saveservice.responseHeaders", "true");
-        properties.put("jmeter.save.saveservice.assertion_results_failure_message", "true");
         return properties;
     }
 }

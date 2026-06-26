@@ -4,16 +4,25 @@ import java.util.List;
 
 public record TaskExecutionResult(
         Summary summary,
-        List<MetricPoint> metrics,
         List<AggregateRow> aggregateRows,
         List<Sample> samples
 ) {
     public static TaskExecutionResult empty() {
         return new TaskExecutionResult(
-                new Summary(0, 0, 0, 0, 0),
-                List.of(),
+                new Summary(0, 0, 0, 0, 0, null),
                 List.of(),
                 List.of()
+        );
+    }
+
+    public TaskExecutionResult withAccuracy(String accuracy) {
+        if (summary == null || accuracy == null || accuracy.equals(summary.accuracy())) {
+            return this;
+        }
+        return new TaskExecutionResult(
+                new Summary(summary.samples(), summary.throughput(), summary.avgRt(), summary.p95(), summary.errorRate(), accuracy),
+                aggregateRows,
+                samples
         );
     }
 
@@ -22,17 +31,8 @@ public record TaskExecutionResult(
             double throughput,
             long avgRt,
             long p95,
-            double errorRate
-    ) {
-    }
-
-    public record MetricPoint(
-            String time,
-            double tps,
-            double targetTps,
-            long avgRt,
-            long p90,
-            long p95
+            double errorRate,
+            String accuracy
     ) {
     }
 
@@ -62,7 +62,13 @@ public record TaskExecutionResult(
             String message,
             String threadName,
             String request,
-            String response
+            String response,
+            String requestLine,
+            String requestHeaders,
+            String requestBody,
+            String responseHeaders,
+            String responseBody,
+            String failureMessage
     ) {
     }
 }

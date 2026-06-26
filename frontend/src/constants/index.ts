@@ -12,7 +12,7 @@ export const projectStatusOptions = [
 export const projectTabOptions: Array<{ label: string; value: ProjectTab }> = [
   { label: '项目概览', value: 'overview' },
   { label: '脚本管理', value: 'scripts' },
-  { label: '任务计划', value: 'tasks' },
+  { label: '任务计划', value: 'task-plans' },
   { label: '监控配置', value: 'monitoring' },
   { label: '报告管理', value: 'reports' },
   { label: '造数工厂', value: 'data' },

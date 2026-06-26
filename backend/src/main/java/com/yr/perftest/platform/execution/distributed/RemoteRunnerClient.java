@@ -1,6 +1,7 @@
 package com.yr.perftest.platform.execution.distributed;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yr.perftest.platform.monitoring.MonitorDeployStartResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -32,6 +33,10 @@ public class RemoteRunnerClient {
         this.connectTimeout = Duration.ofSeconds(connectTimeoutSeconds);
     }
 
+    public RemoteRunnerResult deployMonitoring(Map<String, Object> payload) {
+        return run("deploy-monitoring", payload);
+    }
+
     public RemoteRunnerResult checkNode(PersistentExecutionNodeRecord node) {
         return run("check-node", nodePayload(node));
     }
@@ -50,6 +55,107 @@ public class RemoteRunnerClient {
 
     public RemoteRunnerResult collectRun(Map<String, Object> payload) {
         return run("collect-run", payload);
+    }
+
+    public AggregateSnapshotPayload fetchAggregateSnapshot(Map<String, Object> payload, long lastMtime) {
+        try {
+            Map<String, Object> request = new java.util.LinkedHashMap<>(payload);
+            request.put("lastMtime", lastMtime);
+            List<String> args = new ArrayList<>();
+            args.addAll(pythonCommand());
+            args.add(runnerEntry.toString());
+            args.add("fetch-aggregate-snapshot");
+            args.add(objectMapper.writeValueAsString(request));
+            Path outputPath = Files.createTempFile("remote-runner-snapshot-", ".log");
+            try {
+                Process process = new ProcessBuilder(args)
+                        .redirectErrorStream(true)
+                        .redirectOutput(outputPath.toFile())
+                        .start();
+                boolean finished = process.waitFor(connectTimeout.toSeconds(), TimeUnit.SECONDS);
+                if (!finished) {
+                    process.destroyForcibly();
+                    return AggregateSnapshotPayload.noop(lastMtime);
+                }
+                String output = Files.readString(outputPath, StandardCharsets.UTF_8);
+                if (output.isBlank()) {
+                    return AggregateSnapshotPayload.noop(lastMtime);
+                }
+                var node = objectMapper.readTree(output);
+                if (!node.path("ok").asBoolean(false)) {
+                    return AggregateSnapshotPayload.noop(lastMtime);
+                }
+                String message = node.path("message").asText("");
+                long snapshotMtime = node.path("snapshotMtime").asLong(lastMtime);
+                if ("noop".equals(message) || "missing".equals(message)) {
+                    return AggregateSnapshotPayload.noop(snapshotMtime);
+                }
+                List<byte[]> snapshots = new ArrayList<>();
+                var snapshotsNode = node.path("snapshots");
+                if (snapshotsNode.isArray() && !snapshotsNode.isEmpty()) {
+                    for (var entry : snapshotsNode) {
+                        String encoded = entry.path("data").asText("");
+                        if (!encoded.isBlank()) {
+                            snapshots.add(java.util.Base64.getDecoder().decode(encoded));
+                        }
+                    }
+                } else {
+                    String encoded = node.path("snapshotData").asText("");
+                    if (!encoded.isBlank()) {
+                        snapshots.add(java.util.Base64.getDecoder().decode(encoded));
+                    }
+                }
+                if (snapshots.isEmpty()) {
+                    return AggregateSnapshotPayload.noop(snapshotMtime);
+                }
+                return AggregateSnapshotPayload.changed(snapshots, snapshotMtime);
+            } finally {
+                Files.deleteIfExists(outputPath);
+            }
+        } catch (Exception exception) {
+            return AggregateSnapshotPayload.noop(lastMtime);
+        }
+    }
+
+    public FailureSampleTailResult tailFailureSamples(Map<String, Object> payload, long offset) {
+        try {
+            Map<String, Object> request = new java.util.LinkedHashMap<>(payload);
+            request.put("offset", offset);
+            List<String> args = new ArrayList<>();
+            args.addAll(pythonCommand());
+            args.add(runnerEntry.toString());
+            args.add("tail-failure-samples");
+            args.add(objectMapper.writeValueAsString(request));
+            Path outputPath = Files.createTempFile("remote-runner-tail-", ".log");
+            try {
+                Process process = new ProcessBuilder(args)
+                        .redirectErrorStream(true)
+                        .redirectOutput(outputPath.toFile())
+                        .start();
+                boolean finished = process.waitFor(connectTimeout.toSeconds(), TimeUnit.SECONDS);
+                if (!finished) {
+                    process.destroyForcibly();
+                    return FailureSampleTailResult.empty(offset);
+                }
+                String output = Files.readString(outputPath, StandardCharsets.UTF_8);
+                if (output.isBlank()) {
+                    return FailureSampleTailResult.empty(offset);
+                }
+                var node = objectMapper.readTree(output);
+                if (!node.path("ok").asBoolean(false)) {
+                    return FailureSampleTailResult.empty(offset);
+                }
+                String encoded = node.path("tailData").asText("");
+                byte[] data = encoded.isBlank() ? new byte[0] : java.util.Base64.getDecoder().decode(encoded);
+                long newOffset = node.path("newOffset").asLong(offset);
+                boolean eof = node.path("eof").asBoolean(false);
+                return new FailureSampleTailResult(data, newOffset, eof);
+            } finally {
+                Files.deleteIfExists(outputPath);
+            }
+        } catch (Exception exception) {
+            return FailureSampleTailResult.empty(offset);
+        }
     }
 
     public RemoteRunnerResult stopRun(Map<String, Object> payload) {
@@ -76,11 +182,20 @@ public class RemoteRunnerClient {
                 }
                 String output = Files.readString(outputPath, StandardCharsets.UTF_8);
                 if (output.isBlank()) {
-                    return new RemoteRunnerResult(process.exitValue() == 0, process.exitValue(), "", "");
+                    return new RemoteRunnerResult(process.exitValue() == 0, process.exitValue(), "", "", List.of());
                 }
                 try {
                     RemoteRunnerResult result = objectMapper.readValue(output, RemoteRunnerResult.class);
-                    return new RemoteRunnerResult(result.ok(), result.exitCode(), result.message(), result.log());
+                    List<MonitorDeployStartResult> startResults = result.startResults() == null
+                            ? List.of()
+                            : result.startResults();
+                    return new RemoteRunnerResult(
+                            result.ok(),
+                            result.exitCode(),
+                            result.message(),
+                            result.log(),
+                            startResults
+                    );
                 } catch (Exception exception) {
                     return RemoteRunnerResult.failed(output.length() > 2000 ? output.substring(0, 2000) : output);
                 }

@@ -35,6 +35,18 @@ services:
     volumes:
       - grafana-dashboards:/dashboards
 
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: perftest-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+
   grafana:
     image: grafana/grafana:9.5.20
     container_name: perftest-grafana
@@ -49,14 +61,18 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/etc/grafana/jmx-dashboards
       - grafana-dashboards:/var/lib/grafana/dashboards
     depends_on:
       influxdb:
+        condition: service_started
+      prometheus:
         condition: service_started
       dashboard-import:
         condition: service_completed_successfully
 
 volumes:
   influxdb-data:
+  prometheus-data:
   grafana-data:
   grafana-dashboards:

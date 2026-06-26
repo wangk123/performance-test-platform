@@ -5,24 +5,35 @@ import com.yr.perftest.platform.execution.ExecutionFailureSummarizer;
 import com.yr.perftest.platform.execution.ExecutionConfig;
 import com.yr.perftest.platform.execution.ExecutionStatus;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
-import com.yr.perftest.platform.execution.PersistentTaskExecutionRecord;
-import com.yr.perftest.platform.execution.PersistentTaskExecutionRepository;
-import com.yr.perftest.platform.execution.PersistentTestTaskRecord;
-import com.yr.perftest.platform.execution.PersistentTestTaskRepository;
+import com.yr.perftest.platform.execution.FailureSampleSettings;
+import com.yr.perftest.platform.execution.aggregate.AggregateReportService;
+import com.yr.perftest.platform.execution.failure.FailureSampleIngestor;
+import com.yr.perftest.platform.execution.failure.FailureSamplePaths;
+import com.yr.perftest.platform.monitoring.ExecutionMonitorBindingService;
+import com.yr.perftest.platform.monitoring.TargetMetricsSnapshotService;
 import com.yr.perftest.platform.script.JmeterScriptNormalizer;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
+import com.yr.perftest.platform.task.PersistentScenarioExecutionRecord;
+import com.yr.perftest.platform.task.PersistentScenarioExecutionRepository;
+import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
+import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
+import com.yr.perftest.platform.task.PersistentTaskScenarioRecord;
+import com.yr.perftest.platform.task.PersistentTaskScenarioRepository;
+import com.yr.perftest.platform.task.ScenarioExecutionRuntime;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -31,56 +42,76 @@ import java.util.concurrent.TimeUnit;
 
 @Component
 public class DistributedJmeterExecutionRunner {
-    private final PersistentTestTaskRepository taskRepository;
-    private final PersistentTaskExecutionRepository executionRepository;
+    private final PersistentTaskPlanRepository planRepository;
+    private final PersistentTaskScenarioRepository scenarioRepository;
+    private final PersistentScenarioExecutionRepository executionRepository;
     private final PersistentScriptVersionRepository scriptVersionRepository;
     private final PersistentExecutionNodeRepository nodeRepository;
     private final RemoteRunnerClient remoteRunnerClient;
     private final JmeterBackendListenerInjector backendListenerInjector;
     private final JmeterDependencyCollector dependencyCollector;
+    private final FailureSampleIngestor failureSampleIngestor;
+    private final AggregateReportService aggregateReportService;
+    private final TargetMetricsSnapshotService targetMetricsSnapshotService;
+    private final FailureSampleSettings failureSampleSettings;
     private final JmeterScriptNormalizer scriptNormalizer;
+    private final ExecutionMonitorBindingService monitorBindingService;
+    private final ScenarioExecutionRuntime executionRuntime;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
     private final Path storageRoot;
-    private final String influxdbUrl;
-    private final String influxdbMeasurement;
     private final Duration idleTimeout;
     private final Duration pollInterval;
+    private final Duration tailInterval;
+    private final Duration fetchInterval;
     private final ExecutorService executorService;
 
     public DistributedJmeterExecutionRunner(
-            PersistentTestTaskRepository taskRepository,
-            PersistentTaskExecutionRepository executionRepository,
+            PersistentTaskPlanRepository planRepository,
+            PersistentTaskScenarioRepository scenarioRepository,
+            PersistentScenarioExecutionRepository executionRepository,
             PersistentScriptVersionRepository scriptVersionRepository,
             PersistentExecutionNodeRepository nodeRepository,
             RemoteRunnerClient remoteRunnerClient,
             JmeterBackendListenerInjector backendListenerInjector,
             JmeterDependencyCollector dependencyCollector,
+            FailureSampleIngestor failureSampleIngestor,
+            AggregateReportService aggregateReportService,
+            TargetMetricsSnapshotService targetMetricsSnapshotService,
+            FailureSampleSettings failureSampleSettings,
             JmeterScriptNormalizer scriptNormalizer,
+            ExecutionMonitorBindingService monitorBindingService,
+            ScenarioExecutionRuntime executionRuntime,
             TransactionTemplate transactionTemplate,
             ObjectMapper objectMapper,
             @Value("${platform.storage.root:./storage}") String storageRoot,
-            @Value("${platform.distributed.influxdb-url:http://127.0.0.1:8086/write?db=jmeter}") String influxdbUrl,
-            @Value("${platform.distributed.influxdb-measurement:jmeter_runtime}") String influxdbMeasurement,
             @Value("${platform.execution.max-concurrent-tasks:1}") int maxConcurrentTasks,
             @Value("${platform.distributed.runner.idle-timeout-seconds:300}") long idleTimeoutSeconds,
-            @Value("${platform.distributed.runner.poll-interval-seconds:10}") long pollIntervalSeconds
+            @Value("${platform.distributed.runner.poll-interval-seconds:10}") long pollIntervalSeconds,
+            @Value("${platform.execution.aggregate.fetch-interval-ms:3000}") long fetchIntervalMs
     ) {
-        this.taskRepository = taskRepository;
+        this.planRepository = planRepository;
+        this.scenarioRepository = scenarioRepository;
         this.executionRepository = executionRepository;
         this.scriptVersionRepository = scriptVersionRepository;
         this.nodeRepository = nodeRepository;
         this.remoteRunnerClient = remoteRunnerClient;
         this.backendListenerInjector = backendListenerInjector;
         this.dependencyCollector = dependencyCollector;
+        this.failureSampleIngestor = failureSampleIngestor;
+        this.aggregateReportService = aggregateReportService;
+        this.targetMetricsSnapshotService = targetMetricsSnapshotService;
+        this.failureSampleSettings = failureSampleSettings;
         this.scriptNormalizer = scriptNormalizer;
+        this.monitorBindingService = monitorBindingService;
+        this.executionRuntime = executionRuntime;
         this.transactionTemplate = transactionTemplate;
         this.objectMapper = objectMapper;
         this.storageRoot = Path.of(storageRoot);
-        this.influxdbUrl = influxdbUrl;
-        this.influxdbMeasurement = influxdbMeasurement;
         this.idleTimeout = Duration.ofSeconds(idleTimeoutSeconds);
         this.pollInterval = Duration.ofSeconds(pollIntervalSeconds);
+        this.tailInterval = Duration.ofMillis(failureSampleSettings.tailIntervalMs());
+        this.fetchInterval = Duration.ofMillis(fetchIntervalMs);
         this.executorService = Executors.newFixedThreadPool(Math.max(1, maxConcurrentTasks), runnable -> {
             Thread thread = new Thread(runnable, "distributed-jmeter-execution-runner");
             thread.setDaemon(true);
@@ -98,19 +129,28 @@ public class DistributedJmeterExecutionRunner {
     }
 
     private void run(long executionId) {
+        Map<String, Object> payload = null;
+        DistributedExecutionPreparation preparation = null;
         try {
-            DistributedExecutionPreparation preparation = loadPreparation(executionId);
+            if (executionRuntime.isStopRequested(executionId)) {
+                markInterrupted(executionId, null, "execution stopped before start");
+                return;
+            }
+            preparation = loadPreparation(executionId);
             if (preparation == null) {
                 return;
             }
+            if (executionRuntime.isStopRequested(executionId)) {
+                markInterrupted(executionId, null, "execution stopped before start");
+                return;
+            }
             Files.createDirectories(preparation.executionDirectory());
+            Path hdrHistogramJar = ensureHdrHistogramJar(preparation.executionDirectory());
             scriptNormalizer.copyNormalized(preparation.sourcePath(), preparation.originalTestPlanPath());
             backendListenerInjector.inject(
                     preparation.originalTestPlanPath(),
                     preparation.distributedTestPlanPath(),
-                    preparation.runId(),
-                    influxdbUrl,
-                    influxdbMeasurement
+                    Path.of("/test/aggregate-snapshot.bin")
             );
             Files.writeString(
                     preparation.logPath(),
@@ -119,14 +159,16 @@ public class DistributedJmeterExecutionRunner {
                     StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING
             );
-            markRunning(executionId, preparation.resultPath(), preparation.logPath());
-            Map<String, Object> payload = payload(preparation);
-            RemoteRunnerResult launchResult = null;
+            failureSampleIngestor.begin(executionId, preparation.executionDirectory());
+            markRunning(executionId, preparation.discardPath(), preparation.logPath());
+            payload = payload(preparation);
+            executionRuntime.storePayload(executionId, payload);
             RemoteRunnerResult finishResult = null;
             try {
-                launchResult = remoteRunnerClient.startRun(payload);
+                RemoteRunnerResult launchResult = remoteRunnerClient.startRun(payload);
                 appendLog(preparation.logPath(), launchResult.log());
                 if (!launchResult.ok()) {
+                    collectArtifactsQuietly(executionId, payload, preparation.logPath());
                     markFailed(
                             executionId,
                             launchResult.exitCode(),
@@ -134,46 +176,83 @@ public class DistributedJmeterExecutionRunner {
                     );
                     return;
                 }
-                finishResult = waitForCompletion(payload);
+                finishResult = waitForCompletion(executionId, payload, preparation.logPath());
+                if (executionRuntime.isStopRequested(executionId)) {
+                    collectArtifactsQuietly(executionId, payload, preparation.logPath());
+                    markInterrupted(executionId, finishResult != null ? finishResult.exitCode() : null, "execution stopped by user");
+                    return;
+                }
                 if (!finishResult.ok()) {
+                    collectArtifactsQuietly(executionId, payload, preparation.logPath());
                     markFailed(
                             executionId,
                             finishResult.exitCode(),
-                            ExecutionFailureSummarizer.summarize(finishResult.message(), preparation.logPath())
+                            ExecutionFailureSummarizer.summarize(failureHint(finishResult), preparation.logPath())
                     );
                     return;
                 }
                 RemoteRunnerResult collectResult = remoteRunnerClient.collectRun(payload);
                 appendLog(preparation.logPath(), collectResult.log());
+                failureSampleIngestor.ingestLocalFile(executionId);
                 if (finishResult.exitCode() == 0) {
                     markSuccess(executionId);
                 } else {
                     markFailed(
                             executionId,
                             finishResult.exitCode(),
-                            ExecutionFailureSummarizer.summarize(finishResult.message(), preparation.logPath())
+                            ExecutionFailureSummarizer.summarize(failureHint(finishResult), preparation.logPath())
                     );
                 }
             } finally {
-                RemoteRunnerResult cleanup = remoteRunnerClient.stopRun(payload);
-                appendLog(preparation.logPath(), cleanup.log());
+                if (payload != null) {
+                    boolean partial = isPartialFinish(executionId);
+                    fetchAggregateSnapshotQuietly(executionId, payload);
+                    persistAggregateReport(executionId, partial);
+                    captureTargetMetricsQuietly(executionId);
+                    RemoteRunnerResult cleanup = remoteRunnerClient.stopRun(payload);
+                    if (preparation != null) {
+                        appendLog(preparation.logPath(), cleanup.log());
+                    }
+                }
+                failureSampleIngestor.finish(executionId);
+                aggregateReportService.clearLive(executionId);
+                executionRuntime.clear(executionId);
             }
         } catch (Exception exception) {
             markFailed(executionId, null, exception.getMessage());
+            failureSampleIngestor.finish(executionId);
+            executionRuntime.clear(executionId);
         }
     }
 
-    private RemoteRunnerResult waitForCompletion(Map<String, Object> payload) throws InterruptedException {
+    private RemoteRunnerResult waitForCompletion(long executionId, Map<String, Object> payload, Path logPath) throws InterruptedException {
         Instant lastResponseAt = Instant.now();
+        Instant lastSampleTailAt = Instant.now();
+        Instant lastAggregateFetchAt = Instant.now();
         while (true) {
+            if (executionRuntime.isStopRequested(executionId)) {
+                remoteRunnerClient.stopRun(payload);
+                return RemoteRunnerResult.failed("execution stopped by user");
+            }
             RemoteRunnerResult poll = remoteRunnerClient.pollRun(payload);
             if (poll.ok()) {
                 lastResponseAt = Instant.now();
                 if ("running".equals(poll.message())) {
-                    TimeUnit.MILLISECONDS.sleep(pollInterval.toMillis());
+                    Instant now = Instant.now();
+                    if (Duration.between(lastSampleTailAt, now).compareTo(tailInterval) >= 0) {
+                        failureSampleIngestor.tailRemote(executionId, payload);
+                        lastSampleTailAt = now;
+                    }
+                    if (Duration.between(lastAggregateFetchAt, now).compareTo(fetchInterval) >= 0) {
+                        fetchAggregateSnapshot(executionId, payload);
+                        lastAggregateFetchAt = now;
+                    }
+                    TimeUnit.MILLISECONDS.sleep(Math.min(tailInterval.toMillis(), fetchInterval.toMillis()));
                     continue;
                 }
                 if ("finished".equals(poll.message())) {
+                    failureSampleIngestor.tailRemote(executionId, payload);
+                    fetchAggregateSnapshot(executionId, payload);
                     return poll;
                 }
                 return RemoteRunnerResult.failed(poll.message());
@@ -187,14 +266,16 @@ public class DistributedJmeterExecutionRunner {
 
     private DistributedExecutionPreparation loadPreparation(long executionId) {
         return transactionTemplate.execute(status -> {
-            PersistentTaskExecutionRecord execution = executionRepository.findById(executionId)
+            PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId)
                     .orElseThrow(() -> new ExecutionValidationException("execution does not exist"));
-            if (execution.getStatus() != ExecutionStatus.QUEUED) {
+            if (execution.getStatus() != ExecutionStatus.QUEUED && execution.getStatus() != ExecutionStatus.STOPPING) {
                 return null;
             }
-            PersistentTestTaskRecord task = taskRepository.findById(execution.getTaskId())
-                    .orElseThrow(() -> new ExecutionValidationException("task does not exist"));
-            PersistentScriptVersionRecord script = scriptVersionRepository.findById(task.getScriptVersionId())
+            PersistentTaskScenarioRecord scenario = scenarioRepository.findById(execution.getScenarioId())
+                    .orElseThrow(() -> new ExecutionValidationException("scenario does not exist"));
+            PersistentTaskPlanRecord plan = planRepository.findById(scenario.getPlanId())
+                    .orElseThrow(() -> new ExecutionValidationException("task plan does not exist"));
+            PersistentScriptVersionRecord script = scriptVersionRepository.findById(scenario.getScriptVersionId())
                     .orElseThrow(() -> new ExecutionValidationException("script version does not exist"));
             ExecutionConfig config = readConfig(execution.getConfigJson());
             if (config.controllerNodeId() == null || config.workerNodeIds().isEmpty()) {
@@ -210,19 +291,22 @@ public class DistributedJmeterExecutionRunner {
             workers.forEach(worker -> validateWorker(worker, controller));
             Path executionDirectory = storageRoot
                     .resolve("executions")
-                    .resolve(String.valueOf(task.getProjectId()))
-                    .resolve(String.valueOf(task.getId()))
+                    .resolve(String.valueOf(plan.getProjectId()))
+                    .resolve(String.valueOf(plan.getId()))
+                    .resolve(String.valueOf(scenario.getId()))
                     .resolve(String.valueOf(execution.getId()));
             String filename = sanitizeFilename(script.getOriginalFilename());
+            Path hdrHistogramJar = executionDirectory.resolve("HdrHistogram-2.2.2.jar");
             return new DistributedExecutionPreparation(
                     "execution-" + execution.getId(),
                     Path.of(script.getStoredPath()),
                     executionDirectory,
                     executionDirectory.resolve(filename),
                     executionDirectory.resolve("distributed-" + filename),
-                    executionDirectory.resolve("result.jtl"),
-                    executionDirectory.resolve("failure-result.jtl"),
+                    executionDirectory.resolve("discard.jtl"),
+                    FailureSamplePaths.jsonl(executionDirectory),
                     executionDirectory.resolve("jmeter.log"),
+                    hdrHistogramJar,
                     controller,
                     workers
             );
@@ -230,15 +314,26 @@ public class DistributedJmeterExecutionRunner {
     }
 
     private Map<String, Object> payload(DistributedExecutionPreparation preparation) {
+        List<Map<String, String>> dependencies = new ArrayList<>();
+        dependencyCollector.collect(preparation.distributedTestPlanPath()).forEach(file -> dependencies.add(Map.of(
+                "sourcePath", file.sourcePath(),
+                "targetPath", file.targetPath()
+        )));
+        dependencies.add(Map.of(
+                "sourcePath", preparation.hdrHistogramJar().toString(),
+                "targetPath", preparation.hdrHistogramJar().getFileName().toString()
+        ));
         return Map.of(
                 "runId", preparation.runId(),
                 "scriptPath", preparation.distributedTestPlanPath().toString(),
-                "resultPath", preparation.resultPath().toString(),
-                "failureResultPath", preparation.failureResultPath().toString(),
+                "discardPath", preparation.discardPath().toString(),
+                "failureSamplesPath", preparation.failureSamplesPath().toString(),
                 "logPath", preparation.logPath().toString(),
+                "perLabelLimit", failureSampleSettings.perLabelLimit(),
+                "globalLimit", failureSampleSettings.globalLimit(),
                 "controller", nodePayload(preparation.controller()),
                 "workers", preparation.workers().stream().map(this::nodePayload).toList(),
-                "dependencies", dependencyCollector.collect(preparation.sourcePath())
+                "dependencies", dependencies
         );
     }
 
@@ -284,33 +379,39 @@ public class DistributedJmeterExecutionRunner {
 
     private void markRunning(long executionId, Path resultPath, Path logPath) {
         transactionTemplate.executeWithoutResult(status -> {
-            PersistentTaskExecutionRecord execution = executionRepository.findById(executionId).orElseThrow();
-            PersistentTestTaskRecord task = taskRepository.findById(execution.getTaskId()).orElseThrow();
+            PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId).orElseThrow();
             execution.markRunning(resultPath.toString(), logPath.toString());
-            task.changeStatus(ExecutionStatus.RUNNING);
+            monitorBindingService.markStart(executionId, execution.getStartTime());
         });
     }
 
     private void markSuccess(long executionId) {
         transactionTemplate.executeWithoutResult(status -> {
-            PersistentTaskExecutionRecord execution = executionRepository.findById(executionId).orElseThrow();
-            PersistentTestTaskRecord task = taskRepository.findById(execution.getTaskId()).orElseThrow();
+            PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId).orElseThrow();
             execution.markSuccess(0);
-            task.changeStatus(ExecutionStatus.SUCCESS);
+            monitorBindingService.markEnd(executionId, execution.getEndTime());
         });
     }
 
     private void markFailed(long executionId, Integer exitCode, String message) {
         transactionTemplate.executeWithoutResult(status -> {
-            PersistentTaskExecutionRecord execution = executionRepository.findById(executionId).orElse(null);
+            PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId).orElse(null);
             if (execution == null) {
                 return;
             }
-            PersistentTestTaskRecord task = taskRepository.findById(execution.getTaskId()).orElse(null);
             execution.markFailed(exitCode, normalizeMessage(message));
-            if (task != null) {
-                task.changeStatus(ExecutionStatus.FAILED);
+            monitorBindingService.markEnd(executionId, execution.getEndTime());
+        });
+    }
+
+    private void markInterrupted(long executionId, Integer exitCode, String message) {
+        transactionTemplate.executeWithoutResult(status -> {
+            PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId).orElse(null);
+            if (execution == null) {
+                return;
             }
+            execution.markInterrupted(exitCode, normalizeMessage(message));
+            monitorBindingService.markEnd(executionId, execution.getEndTime());
         });
     }
 
@@ -324,11 +425,103 @@ public class DistributedJmeterExecutionRunner {
         }
     }
 
+    private void collectArtifactsQuietly(long executionId, Map<String, Object> payload, Path logPath) {
+        try {
+            RemoteRunnerResult collectResult = remoteRunnerClient.collectRun(payload);
+            appendLog(logPath, collectResult.log());
+            failureSampleIngestor.ingestLocalFile(executionId);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private String failureHint(RemoteRunnerResult result) {
+        if (result.log() != null && !result.log().isBlank()) {
+            return result.log();
+        }
+        return result.message();
+    }
+
     private String normalizeMessage(String message) {
         if (message == null || message.isBlank()) {
             return "distributed JMeter execution failed";
         }
         return message.length() > 2000 ? message.substring(0, 2000) : message;
+    }
+
+    private void fetchAggregateSnapshot(long executionId, Map<String, Object> payload) {
+        long lastMtime = aggregateReportService.lastSnapshotMtime(executionId);
+        AggregateSnapshotPayload snapshot = remoteRunnerClient.fetchAggregateSnapshot(payload, lastMtime);
+        if (snapshot.changed()) {
+            aggregateReportService.cacheLive(executionId, snapshot.snapshots(), snapshot.mtime());
+        }
+    }
+
+    private void fetchAggregateSnapshotQuietly(long executionId, Map<String, Object> payload) {
+        try {
+            fetchAggregateSnapshot(executionId, payload);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void captureTargetMetricsQuietly(long executionId) {
+        try {
+            targetMetricsSnapshotService.captureAll(executionId);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void persistAggregateReport(long executionId, boolean partial) {
+        try {
+            aggregateReportService.persistFinal(executionId, executionSeconds(executionId), partial);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private boolean isPartialFinish(long executionId) {
+        Boolean partial = transactionTemplate.execute(status -> {
+            PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId).orElse(null);
+            if (execution == null) {
+                return Boolean.TRUE;
+            }
+            ExecutionStatus current = execution.getStatus();
+            return current == ExecutionStatus.STOPPING
+                    || current == ExecutionStatus.INTERRUPTED
+                    || current == ExecutionStatus.CANCELLED
+                    || executionRuntime.isStopRequested(executionId);
+        });
+        return partial != null && partial;
+    }
+
+    private double executionSeconds(long executionId) {
+        Double seconds = transactionTemplate.execute(status -> {
+            PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId).orElse(null);
+            if (execution == null) {
+                return 1.0;
+            }
+            if (execution.getDurationMs() != null && execution.getDurationMs() > 0) {
+                return Math.max(1.0, execution.getDurationMs() / 1000.0);
+            }
+            if (execution.getStartTime() == null) {
+                return 1.0;
+            }
+            long elapsed = Duration.between(execution.getStartTime(), Instant.now()).getSeconds();
+            return Math.max(1.0, (double) elapsed);
+        });
+        return seconds == null ? 1.0 : seconds;
+    }
+
+    private Path ensureHdrHistogramJar(Path executionDirectory) throws Exception {
+        Path target = executionDirectory.resolve("HdrHistogram-2.2.2.jar");
+        if (Files.exists(target) && Files.size(target) > 0) {
+            return target;
+        }
+        try (InputStream input = getClass().getResourceAsStream("/jmeter-runtime/HdrHistogram-2.2.2.jar")) {
+            if (input == null) {
+                throw new ExecutionValidationException("HdrHistogram runtime jar is missing");
+            }
+            Files.copy(input, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        return target;
     }
 
     private String sanitizeFilename(String filename) {
@@ -341,9 +534,10 @@ public class DistributedJmeterExecutionRunner {
             Path executionDirectory,
             Path originalTestPlanPath,
             Path distributedTestPlanPath,
-            Path resultPath,
-            Path failureResultPath,
+            Path discardPath,
+            Path failureSamplesPath,
             Path logPath,
+            Path hdrHistogramJar,
             PersistentExecutionNodeRecord controller,
             List<PersistentExecutionNodeRecord> workers
     ) {

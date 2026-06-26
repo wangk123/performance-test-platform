@@ -2,6 +2,7 @@ package com.yr.perftest.platform.api;
 
 import com.yr.perftest.platform.identity.AuthenticationException;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
+import com.yr.perftest.platform.monitoring.MonitoringValidationException;
 import com.yr.perftest.platform.project.ProjectValidationException;
 import com.yr.perftest.platform.script.ScriptValidationException;
 import org.springframework.http.HttpStatus;
@@ -34,6 +35,12 @@ public class PlatformExceptionHandler {
     public ResponseEntity<ApiError> handleExecutionValidation(ExecutionValidationException exception) {
         return ResponseEntity.badRequest()
                 .body(new ApiError("EXECUTION_VALIDATION_FAILED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(MonitoringValidationException.class)
+    public ResponseEntity<ApiError> handleMonitoringValidation(MonitoringValidationException exception) {
+        return ResponseEntity.badRequest()
+                .body(new ApiError("MONITORING_VALIDATION_FAILED", exception.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

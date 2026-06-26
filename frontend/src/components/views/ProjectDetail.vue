@@ -7,20 +7,9 @@
 
   <ScriptWorkspace v-else-if="activeProjectTab === 'scripts'" />
 
-  <TaskScheduleView v-else-if="activeProjectTab === 'tasks'" />
+  <TaskPlanList v-else-if="activeProjectTab === 'task-plans'" />
 
-  <section v-else-if="activeProjectTab === 'monitoring'" class="placeholder-grid">
-    <div class="panel">
-      <h2>监控配置</h2>
-      <p class="detail-description">监控目标从脚本解析结果和项目环境中汇总，执行任务可选择绑定。</p>
-      <div class="monitor-grid">
-        <div v-for="monitor in currentProjectMonitors" :key="monitor.target">
-          <strong>{{ monitor.target }}</strong>
-          <span>{{ monitor.metrics.join(' / ') }}</span>
-        </div>
-      </div>
-    </div>
-  </section>
+  <ProjectMonitoringView v-else-if="activeProjectTab === 'monitoring'" />
 
   <section v-else-if="activeProjectTab === 'reports'" class="placeholder-grid">
     <div class="panel">
@@ -77,8 +66,9 @@ import { useNavigation } from '../../composables/useNavigation';
 import { useWorkspace } from '../../composables/useWorkspace';
 import type { Project, ProjectMember } from '../../types';
 import ProjectOverview from './ProjectOverview.vue';
+import ProjectMonitoringView from './ProjectMonitoringView.vue';
 import ScriptWorkspace from '../scripts/ScriptWorkspace.vue';
-import TaskScheduleView from '../tasks/TaskScheduleView.vue';
+import TaskPlanList from '../task-plans/TaskPlanList.vue';
 
 defineEmits<{
   (e: 'edit', project: Project): void;
@@ -88,7 +78,6 @@ defineEmits<{
 const { activeProjectTab } = useNavigation();
 const {
   currentProject,
-  currentProjectMonitors,
   reportMocks,
   membersByProject,
   loadProject,
@@ -116,7 +105,7 @@ watch(
     workspaceProjectId.value = id;
     selectedProjectId.value = id;
     void loadProject(id);
-    if (['project-overview', 'project-scripts', 'project-tasks', 'project-task-detail'].includes(String(route.name))) {
+    if (['project-overview', 'project-scripts', 'project-task-plans', 'project-task-plan-detail', 'project-scenario-detail', 'project-execution-detail'].includes(String(route.name))) {
       void loadProjectScripts(id);
     }
     if (route.name === 'project-members') {

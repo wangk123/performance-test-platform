@@ -20,10 +20,13 @@ public final class ExecutionFailureSummarizer {
                 "Error in NonGUIDriver",
                 "Problem loading XML",
                 "ExecutionValidationException",
-                "ScriptValidationException"
+                "ScriptValidationException",
+                "JMeter controller exited with code",
+                "remote runner",
+                "controller container not found"
         )) {
             String extracted = extractLineContaining(combined, line);
-            if (extracted != null) {
+            if (extracted != null && !isNoiseLine(extracted)) {
                 return trim(extracted);
             }
         }
@@ -31,7 +34,10 @@ public final class ExecutionFailureSummarizer {
         if (!lines.isEmpty()) {
             return trim(lines.get(lines.size() - 1));
         }
-        return trim(combined);
+        if (fallback != null && !fallback.isBlank() && !isNoiseLine(fallback.trim())) {
+            return trim(fallback.trim());
+        }
+        return "JMeter execution failed, see execution logs for details";
     }
 
     private static String readLog(Path logPath) {
@@ -77,9 +83,33 @@ public final class ExecutionFailureSummarizer {
             if (trimmed.startsWith("JVM_ARGS=") || trimmed.startsWith("START Running Jmeter")) {
                 continue;
             }
+            if (isNoiseLine(trimmed)) {
+                continue;
+            }
             lines.add(trimmed);
         }
         return lines;
+    }
+
+    private static boolean isNoiseLine(String line) {
+        if (line == null || line.isBlank()) {
+            return true;
+        }
+        String trimmed = line.trim();
+        String value = trimmed;
+        int colonIndex = trimmed.lastIndexOf(':');
+        if (colonIndex >= 0) {
+            value = trimmed.substring(colonIndex + 1).trim();
+        }
+        if (value.matches("^[a-f0-9]{64}$")) {
+            return true;
+        }
+        String lower = trimmed.toLowerCase();
+        return lower.equals("finished")
+                || lower.equals("launched")
+                || lower.equals("running")
+                || lower.equals("collected")
+                || lower.equals("stopped");
     }
 
     private static String trim(String value) {

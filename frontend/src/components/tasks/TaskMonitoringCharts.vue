@@ -2,7 +2,7 @@
   <section class="task-chart-grid">
     <div class="panel task-chart-card">
       <h2>TPS 视图</h2>
-      <p>按接口汇总多节点采样吞吐，单位 req/s。</p>
+      <p>按接口分别展示每秒采样吞吐，单位 req/s。</p>
       <v-chart class="echarts-panel" :option="tpsOption" autoresize />
     </div>
 
@@ -24,31 +24,38 @@ import VChart from 'vue-echarts';
 import type { ComposeOption } from 'echarts/core';
 import type { LineSeriesOption } from 'echarts/charts';
 import type { GridComponentOption, LegendComponentOption, TooltipComponentOption } from 'echarts/components';
-import type { TaskMetricPoint, TaskMonitoringResult } from '../../types';
+import type { TaskMetricSeries } from '../../types';
 
 type ChartOption = ComposeOption<GridComponentOption | LegendComponentOption | TooltipComponentOption | LineSeriesOption>;
 
 const props = defineProps<{
-  monitoring: TaskMonitoringResult;
-  fallbackMetrics: TaskMetricPoint[];
+  monitoring: TaskMetricSeries;
 }>();
 
 use([CanvasRenderer, LineChart, GridComponent, LegendComponent, TooltipComponent]);
 
 const colors = ['#1f6f5f', '#d98724', '#3d6fb6', '#c24132', '#7a5cba', '#5b7c28'];
-const timeAxis = computed(() => {
-  const values = props.monitoring.points.length
-    ? props.monitoring.points.map((point) => point.time)
-    : props.fallbackMetrics.map((point) => point.time);
-  return Array.from(new Set(values));
+
+const interfaceNames = computed<string[]>(() => {
+  const names = new Set<string>();
+  for (const tick of props.monitoring.ticks) {
+    for (const label of tick.labels) names.add(label.label);
+  }
+  return Array.from(names);
 });
 
-const interfaceNames = computed(() => props.monitoring.interfaces.length ? props.monitoring.interfaces : ['JTL 汇总']);
+const timeAxis = computed<string[]>(() =>
+  props.monitoring.ticks.map((tick) => formatTime(tick.bucketTimeMs)),
+);
 
-const tpsOption = computed<ChartOption>(() => buildOption('tps', 'TPS', 'req/s'));
-const responseOption = computed<ChartOption>(() => buildOption('avgRt', '平均响应时间', 'ms'));
+const tpsOption = computed<ChartOption>(() => buildOption('throughput', 'TPS', 'req/s'));
+const responseOption = computed<ChartOption>(() => buildOption('avgRtMs', '平均响应时间', 'ms'));
 
-function buildOption(key: 'tps' | 'avgRt', title: string, unit: string): ChartOption {
+function buildOption(
+  key: 'throughput' | 'avgRtMs',
+  title: string,
+  unit: string,
+): ChartOption {
   return {
     color: colors,
     tooltip: {
@@ -89,22 +96,29 @@ function buildOption(key: 'tps' | 'avgRt', title: string, unit: string): ChartOp
       name,
       type: 'line',
       smooth: true,
-      showSymbol: true,
-      symbolSize: 7,
+      showSymbol: false,
+      symbolSize: 6,
       data: seriesData(name, key),
       emphasis: { focus: 'series' },
       lineStyle: { width: 2 },
+      connectNulls: false,
     })),
   };
 }
 
-function seriesData(interfaceName: string, key: 'tps' | 'avgRt') {
-  if (!props.monitoring.points.length) {
-    return props.fallbackMetrics.map((point) => key === 'tps' ? point.tps : point.avgRt);
-  }
-  return timeAxis.value.map((time) => {
-    const point = props.monitoring.points.find((item) => item.time === time && item.interfaceName === interfaceName);
-    return point?.[key] ?? null;
+function seriesData(interfaceName: string, key: 'throughput' | 'avgRtMs') {
+  return props.monitoring.ticks.map((tick) => {
+    const label = tick.labels.find((item) => item.label === interfaceName);
+    return label ? label[key] : null;
   });
+}
+
+function formatTime(ms: number): string {
+  const date = new Date(ms);
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function pad(value: number): string {
+  return value < 10 ? `0${value}` : String(value);
 }
 </script>
