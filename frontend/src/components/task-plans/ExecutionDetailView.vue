@@ -107,13 +107,12 @@
           class="workspace-table result-sample-table"
           :columns="sampleColumns"
           :data-source="pagedSamples"
-          :pagination="samplePagination"
+          :pagination="false"
           :row-key="(record: TaskSample) => record.id"
           :custom-row="sampleRowEvents"
           :row-class-name="sampleRowClassName"
           size="small"
           :locale="{ emptyText: '暂无异常样本。' }"
-          @change="onSampleTableChange"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'statusCode'">
@@ -127,18 +126,70 @@
             </template>
           </template>
         </a-table>
+        <a-pagination
+          v-if="resultTotal > 0"
+          class="result-sample-pagination"
+          :current="resultPage"
+          :total="resultTotal"
+          :page-size="pageSize"
+          show-size-changer
+          show-quick-jumper
+          show-less-items
+          size="small"
+          :page-size-options="['10', '20', '50']"
+          :show-total="paginationShowTotal"
+          @change="onPaginationChange"
+        />
       </div>
       <div class="panel sample-detail-panel">
-        <div class="panel-header">
+        <div class="panel-header sample-detail-header">
           <div>
             <h2>{{ selectedSample?.label || '样本详情' }}</h2>
-            <p v-if="selectedSample">{{ selectedSample.statusCode }} · {{ selectedSample.elapsed }}ms</p>
           </div>
         </div>
         <div class="sample-inspector">
-          <a-spin :spinning="sampleDetailLoading">
-            <a-segmented v-model:value="payloadMode" :options="payloadModeOptions" />
-            <pre class="sample-payload-viewer">{{ activePayload || '暂无内容' }}</pre>
+          <a-spin :spinning="sampleDetailLoading" wrapper-class-name="sample-inspector-spin">
+            <a-tabs v-if="selectedSample" v-model:activeKey="payloadTab" class="sample-inspector-tabs">
+              <a-tab-pane key="request" tab="请求内容">
+                <div class="sample-payload">
+                  <div class="sample-section sample-section-headers">
+                    <div class="sample-section-title">Headers</div>
+                    <pre class="sample-headers">{{ requestHeadersText || '无请求头' }}</pre>
+                  </div>
+                  <div class="sample-section sample-section-body">
+                    <div class="sample-section-title">
+                      <span>Body</span>
+                      <a-tag v-if="hasRequestBody" class="sample-section-tag">{{ requestBodyLanguage.toUpperCase() }}</a-tag>
+                    </div>
+                    <pre v-if="hasRequestBody" class="sample-body">{{ requestBodyFormatted }}</pre>
+                    <div v-else class="sample-empty">无请求体</div>
+                  </div>
+                </div>
+              </a-tab-pane>
+              <a-tab-pane key="response" tab="响应内容">
+                <div class="sample-payload">
+                  <div class="sample-section sample-section-headers">
+                    <div class="sample-section-title">Headers</div>
+                    <pre class="sample-headers">{{ responseHeadersText || '无响应头' }}</pre>
+                  </div>
+                  <div class="sample-section sample-section-body">
+                    <div class="sample-section-title">
+                      <span>Body</span>
+                      <a-tag v-if="hasResponseBody" class="sample-section-tag">{{ responseBodyLanguage.toUpperCase() }}</a-tag>
+                    </div>
+                    <pre v-if="hasResponseBody" class="sample-body">{{ responseBodyFormatted }}</pre>
+                    <div v-else class="sample-empty">无响应体</div>
+                  </div>
+                </div>
+              </a-tab-pane>
+              <a-tab-pane v-if="assertionMessage" key="assertion">
+                <template #tab>
+                  <span class="sample-tab-assertion">断言结果<span class="sample-tab-dot" /></span>
+                </template>
+                <pre class="sample-assertion">{{ assertionMessage }}</pre>
+              </a-tab-pane>
+            </a-tabs>
+            <div v-else class="sample-empty sample-empty-large">请选择左侧异常样本查看详情</div>
           </a-spin>
         </div>
       </div>
@@ -147,10 +198,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref } from 'vue';
+import { computed, defineAsyncComponent, ref, watch } from 'vue';
 import type { TableColumnsType, TableProps } from 'ant-design-vue';
 import type { ExecutionDetail, TaskSample } from '../../types';
 import { useTaskPlans } from '../../composables/useTaskPlans';
+import { detectHttpBodyLanguage, formatHttpBodyAuto } from '../../utils/http-request-config';
 
 const TaskMonitoringCharts = defineAsyncComponent(() => import('../tasks/TaskMonitoringCharts.vue'));
 const TargetServerMetricsPanel = defineAsyncComponent(() => import('../tasks/TargetServerMetricsPanel.vue'));
@@ -173,11 +225,7 @@ const {
   stopActiveExecution,
 } = useTaskPlans();
 
-const payloadMode = ref<'request' | 'response'>('request');
-const payloadModeOptions = [
-  { label: '请求内容', value: 'request' },
-  { label: '响应内容', value: 'response' },
-];
+const payloadTab = ref<'request' | 'response' | 'assertion'>('request');
 
 const uiStatus = computed(() => (props.execution ? toUiStatus(props.execution.status) : 'PENDING'));
 const script = computed(() => (props.execution ? scriptById(props.execution.scriptVersionId) : null));
@@ -205,18 +253,13 @@ const sampleColumns: TableColumnsType<TaskSample> = [
   { title: '耗时', key: 'elapsed', width: 120, align: 'right' },
 ];
 
-const samplePagination = computed(() => ({
-  current: resultPage.value,
-  pageSize: pageSize.value,
-  total: resultTotal.value,
-  showSizeChanger: true,
-  pageSizeOptions: ['10', '20', '50'],
-  size: 'small' as const,
-}));
+function onPaginationChange(page: number, size: number) {
+  resultPage.value = page;
+  pageSize.value = size;
+}
 
-function onSampleTableChange(pagination: { current?: number; pageSize?: number }) {
-  if (pagination.current) resultPage.value = pagination.current;
-  if (pagination.pageSize) pageSize.value = pagination.pageSize;
+function paginationShowTotal(total: number) {
+  return `共 ${total} 条`;
 }
 
 const sampleRowEvents: TableProps<TaskSample>['customRow'] = (record) => ({
@@ -226,17 +269,36 @@ const sampleRowEvents: TableProps<TaskSample>['customRow'] = (record) => ({
 const sampleRowClassName: TableProps<TaskSample>['rowClassName'] = (record) =>
   selectedSample.value?.id === record.id ? 'selected-table-row' : '';
 
-const activePayload = computed(() => {
+const requestHeadersText = computed(() => {
   const sample = selectedSample.value;
   if (!sample) return '';
-  if (payloadMode.value === 'request') {
-    const parts = [sample.requestLine, sample.requestHeaders, sample.requestBody].filter((p) => !!p?.trim());
-    return parts.length ? parts.join('\n\n') : (sample.request ?? '');
-  }
+  const parts: string[] = [];
+  if (sample.requestLine?.trim()) parts.push(sample.requestLine.trim());
+  if (sample.requestHeaders?.trim()) parts.push(sample.requestHeaders.trim());
+  return parts.join('\n');
+});
+const responseHeadersText = computed(() => {
+  const sample = selectedSample.value;
+  if (!sample) return '';
   const parts: string[] = [];
   if (sample.statusCode) parts.push(`HTTP ${sample.statusCode}`);
-  if (sample.responseHeaders?.trim()) parts.push(sample.responseHeaders);
-  if (sample.responseBody?.trim()) parts.push(sample.responseBody);
-  return parts.length ? parts.join('\n\n') : (sample.response ?? '');
+  if (sample.responseHeaders?.trim()) parts.push(sample.responseHeaders.trim());
+  return parts.join('\n');
+});
+const requestBodyRaw = computed(() => selectedSample.value?.requestBody?.trim() ?? '');
+const responseBodyRaw = computed(() => selectedSample.value?.responseBody?.trim() ?? '');
+const hasRequestBody = computed(() => requestBodyRaw.value.length > 0);
+const hasResponseBody = computed(() => responseBodyRaw.value.length > 0);
+const requestBodyLanguage = computed(() => detectHttpBodyLanguage(requestBodyRaw.value));
+const responseBodyLanguage = computed(() => detectHttpBodyLanguage(responseBodyRaw.value));
+const requestBodyFormatted = computed(() => formatHttpBodyAuto(requestBodyRaw.value));
+const responseBodyFormatted = computed(() => formatHttpBodyAuto(responseBodyRaw.value));
+const assertionMessage = computed(() => selectedSample.value?.failureMessage?.trim() ?? '');
+
+watch(selectedSample, (sample) => {
+  if (!sample) return;
+  if (payloadTab.value === 'assertion' && !sample.failureMessage?.trim()) {
+    payloadTab.value = 'request';
+  }
 });
 </script>

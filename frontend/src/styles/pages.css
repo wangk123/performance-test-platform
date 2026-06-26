@@ -1285,7 +1285,7 @@
 
 .result-tree-panel {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100%;
   min-height: 0;
   align-self: stretch;
@@ -1296,14 +1296,28 @@
   margin-bottom: 14px;
 }
 
-.result-sample-table {
-  min-height: 0;
-  overflow: hidden;
+.result-sample-pagination {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.result-sample-table :deep(.ant-spin-nested-loading),
-.result-sample-table :deep(.ant-spin-container) {
+.result-sample-table {
+  min-height: 0;
   height: 100%;
+  overflow: auto;
+}
+
+.result-sample-table .ant-table-thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-soft);
+  box-shadow: inset 0 -1px 0 var(--border);
 }
 
 .table-main-cell-end {
@@ -1311,13 +1325,14 @@
 }
 
 .sample-inspector {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
+  height: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--surface-soft);
+  background: var(--surface);
   overflow: hidden;
 }
 
@@ -1328,47 +1343,217 @@
   min-height: 0;
 }
 
-.sample-inspector-toolbar {
+.sample-detail-header {
+  margin-bottom: 12px;
+}
+
+.sample-detail-header h2 {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.sample-inspector-spin {
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  flex-direction: column;
 }
 
-.sample-inspector-toolbar .ant-segmented {
-  width: max-content;
-  min-width: 0;
-}
-
-.sample-inspector-meta {
+.sample-inspector .ant-spin-container {
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 12px;
-  white-space: nowrap;
+  flex-direction: column;
 }
 
-.sample-inspector-meta strong {
-  color: var(--text);
+.sample-inspector-tabs {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.sample-payload-viewer {
-  min-width: 0;
+.sample-inspector-tabs .ant-tabs-nav {
   margin: 0;
+  padding: 6px 12px 0;
+  background: var(--surface-soft);
+  border-bottom: 1px solid var(--border);
+}
+
+.sample-inspector-tabs .ant-tabs-nav::before {
+  display: none;
+}
+
+.sample-inspector-tabs .ant-tabs-nav-list {
+  gap: 4px;
+}
+
+.sample-inspector-tabs .ant-tabs-tab {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--muted);
+  border-radius: 6px 6px 0 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  transition: all 0.18s ease;
+}
+
+.sample-inspector-tabs .ant-tabs-tab + .ant-tabs-tab {
+  margin-left: 2px;
+}
+
+.sample-inspector-tabs .ant-tabs-tab .ant-tabs-tab-btn {
+  font-weight: 500;
+}
+
+.sample-inspector-tabs .ant-tabs-tab:hover {
+  color: var(--primary);
+  background: rgba(22, 119, 255, 0.06);
+}
+
+.sample-inspector-tabs .ant-tabs-tab-active {
+  background: var(--surface);
+  border-color: var(--border);
+  margin-bottom: -1px;
+}
+
+.sample-inspector-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.sample-inspector-tabs .ant-tabs-ink-bar {
+  display: none;
+}
+
+.sample-inspector-tabs .ant-tabs-content-holder {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sample-inspector-tabs .ant-tabs-content {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.sample-inspector-tabs .ant-tabs-tabpane {
+  height: 100%;
+  min-height: 0;
+}
+
+.sample-tab-assertion {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sample-tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--danger, #ef4444);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
+}
+
+.sample-payload {
+  display: grid;
+  grid-template-rows: minmax(0, max-content) minmax(0, 1fr);
+  gap: 14px;
   padding: 16px;
+  height: 100%;
+  min-height: 0;
+}
+
+.sample-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.sample-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sample-section-tag {
+  margin: 0;
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+}
+
+.sample-headers {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 200px;
   overflow: auto;
   color: var(--code-text);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   font: 12px/1.7 "SFMono-Regular", Consolas, monospace;
-  tab-size: 2;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background:
-    linear-gradient(var(--code-bg), var(--code-bg)) padding-box,
-    repeating-linear-gradient(0deg, rgba(31, 111, 95, 0.04) 0, rgba(31, 111, 95, 0.04) 1px, transparent 1px, transparent 28px);
+}
+
+.sample-body {
+  flex: 1 1 0;
+  min-height: 0;
+  margin: 0;
+  padding: 12px 14px;
+  overflow: auto;
+  color: var(--code-text);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: 12px/1.7 "SFMono-Regular", Consolas, monospace;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.sample-empty {
+  padding: 16px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.sample-empty-large {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+}
+
+.sample-assertion {
+  margin: 16px;
+  padding: 14px 16px;
+  height: calc(100% - 32px);
+  overflow: auto;
+  color: var(--danger-text, #b91c1c);
+  background: var(--danger-soft, rgba(239, 68, 68, 0.08));
+  border: 1px solid var(--danger-border, rgba(239, 68, 68, 0.3));
+  border-radius: 8px;
+  font: 12px/1.7 "SFMono-Regular", Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .settings-layout {
