@@ -14,16 +14,13 @@ import java.util.Map;
 public class JmeterCommandExecutor {
     private final String jmeterExecutable;
     private final String jmeterJavaHome;
-    private final FailureSampleSettings failureSampleSettings;
 
     public JmeterCommandExecutor(
             @Value("${platform.jmeter.executable:jmeter}") String jmeterExecutable,
-            @Value("${platform.jmeter.java-home:}") String jmeterJavaHome,
-            FailureSampleSettings failureSampleSettings
+            @Value("${platform.jmeter.java-home:}") String jmeterJavaHome
     ) {
         this.jmeterExecutable = jmeterExecutable;
         this.jmeterJavaHome = jmeterJavaHome;
-        this.failureSampleSettings = failureSampleSettings;
     }
 
     public int execute(
@@ -41,8 +38,6 @@ public class JmeterCommandExecutor {
         command.add(discardPath.toString());
         command.add("-j");
         command.add(logPath.toString());
-        command.add("-JfailureDetailLimitPerLabel=" + failureSampleSettings.detailLimitPerLabel());
-
         jmeterProperties(config).forEach((key, value) -> command.add("-J" + key + "=" + value));
 
         ProcessBuilder processBuilder = new ProcessBuilder(command)

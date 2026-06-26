@@ -130,13 +130,15 @@
       <div class="panel sample-detail-panel">
         <div class="panel-header">
           <div>
-            <h2>{{ selectedSample?.label }}</h2>
-            <p>{{ selectedSample?.statusCode }} · {{ selectedSample?.elapsed }}ms</p>
+            <h2>{{ selectedSample?.label || '样本详情' }}</h2>
+            <p v-if="selectedSample">{{ selectedSample.statusCode }} · {{ selectedSample.elapsed }}ms</p>
           </div>
         </div>
         <div class="sample-inspector">
-          <a-segmented v-model:value="payloadMode" :options="payloadModeOptions" />
-          <pre class="sample-payload-viewer">{{ activePayload || '暂无内容' }}</pre>
+          <a-spin :spinning="sampleDetailLoading">
+            <a-segmented v-model:value="payloadMode" :options="payloadModeOptions" />
+            <pre class="sample-payload-viewer">{{ activePayload || '暂无内容' }}</pre>
+          </a-spin>
         </div>
       </div>
     </section>
@@ -163,6 +165,7 @@ const {
   pagedSamples,
   selectedSample,
   selectedSampleId,
+  sampleDetailLoading,
   executionStatusText,
   toUiStatus,
   scriptById,

@@ -1,6 +1,12 @@
 <template>
+  <section v-if="activeExecutionId && !executionDetail" class="task-schedule">
+    <div class="panel task-detail-loading">
+      <a-spin tip="加载执行详情..." />
+    </div>
+  </section>
+
   <ExecutionDetailView
-    v-if="activeExecutionId && executionDetail"
+    v-else-if="activeExecutionId && executionDetail"
     :execution="executionDetail"
     @back="backToScenarioDetail(executionDetail.scenarioId, executionDetail.planId)"
   />

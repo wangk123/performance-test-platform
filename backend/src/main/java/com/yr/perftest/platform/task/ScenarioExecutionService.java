@@ -6,10 +6,14 @@ import com.yr.perftest.platform.execution.ExecutionMode;
 import com.yr.perftest.platform.execution.ExecutionStatus;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
 import com.yr.perftest.platform.execution.InfluxdbMonitoringClient;
-import com.yr.perftest.platform.execution.JmeterResultParser;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.TaskMonitoringResult;
 import com.yr.perftest.platform.execution.TaskSamplePage;
+import com.yr.perftest.platform.execution.failure.FailureSampleIngestor;
+import com.yr.perftest.platform.execution.failure.FailureSamplePaths;
+import com.yr.perftest.platform.execution.failure.FailureSampleQuery;
+import com.yr.perftest.platform.execution.failure.FailureSampleSseHub;
+import com.yr.perftest.platform.execution.failure.FailureSampleStore;
 import com.yr.perftest.platform.execution.distributed.DistributedJmeterExecutionRunner;
 import com.yr.perftest.platform.monitoring.ExecutionMonitorBindingService;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +25,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
@@ -35,7 +41,9 @@ public class ScenarioExecutionService {
     private final ExecutionMonitorBindingService monitorBindingService;
     private final DistributedJmeterExecutionRunner distributedJmeterExecutionRunner;
     private final ScenarioExecutionRuntime executionRuntime;
-    private final JmeterResultParser jmeterResultParser;
+    private final FailureSampleStore failureSampleStore;
+    private final FailureSampleIngestor failureSampleIngestor;
+    private final FailureSampleSseHub failureSampleSseHub;
     private final InfluxdbMonitoringClient monitoringClient;
     private final ObjectMapper objectMapper;
     private final String grafanaPanelUrl;
@@ -49,7 +57,9 @@ public class ScenarioExecutionService {
             ExecutionMonitorBindingService monitorBindingService,
             DistributedJmeterExecutionRunner distributedJmeterExecutionRunner,
             ScenarioExecutionRuntime executionRuntime,
-            JmeterResultParser jmeterResultParser,
+            FailureSampleStore failureSampleStore,
+            FailureSampleIngestor failureSampleIngestor,
+            FailureSampleSseHub failureSampleSseHub,
             InfluxdbMonitoringClient monitoringClient,
             ObjectMapper objectMapper,
             @Value("${platform.distributed.grafana-panel-url:http://127.0.0.1:3000/d/jmeter-5496/jmeter-load-test?orgId=1&refresh=5s}") String grafanaPanelUrl,
@@ -62,7 +72,9 @@ public class ScenarioExecutionService {
         this.monitorBindingService = monitorBindingService;
         this.distributedJmeterExecutionRunner = distributedJmeterExecutionRunner;
         this.executionRuntime = executionRuntime;
-        this.jmeterResultParser = jmeterResultParser;
+        this.failureSampleStore = failureSampleStore;
+        this.failureSampleIngestor = failureSampleIngestor;
+        this.failureSampleSseHub = failureSampleSseHub;
         this.monitoringClient = monitoringClient;
         this.objectMapper = objectMapper;
         this.grafanaPanelUrl = grafanaPanelUrl;
@@ -128,6 +140,9 @@ public class ScenarioExecutionService {
             throw new ExecutionValidationException("running execution cannot be deleted");
         }
         monitorBindingService.deleteBindings(executionId);
+        FailureSamplePaths.deleteArtifacts(
+                execution.getLogFilePath() == null ? null : Path.of(execution.getLogFilePath())
+        );
         executionRepository.delete(execution);
     }
 
@@ -152,16 +167,89 @@ public class ScenarioExecutionService {
     }
 
     @Transactional(readOnly = true)
-    public TaskSamplePage getSamples(long executionId, int page, int pageSize) {
+    public TaskSamplePage getSamples(
+            long executionId,
+            int page,
+            int pageSize,
+            String label,
+            String code,
+            Boolean success
+    ) {
         PersistentScenarioExecutionRecord execution = requireExecution(executionId);
-        if (execution.getResultFilePath() == null) {
+        Path dbPath = resolveDbPath(execution);
+        if (dbPath == null) {
             return new TaskSamplePage(Math.max(1, page), Math.max(1, Math.min(100, pageSize)), 0, List.of());
         }
-        return jmeterResultParser.parseSamplePage(
-                Path.of(execution.getResultFilePath()).resolveSibling("failure-result.jtl"),
-                page,
-                pageSize
+        try {
+            return failureSampleStore.querySummaries(
+                    dbPath,
+                    new FailureSampleQuery(label, code, success),
+                    page,
+                    pageSize
+            );
+        } catch (Exception exception) {
+            return new TaskSamplePage(Math.max(1, page), Math.max(1, Math.min(100, pageSize)), 0, List.of());
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public TaskExecutionResult.Sample getSampleDetail(long executionId, long sampleId) {
+        PersistentScenarioExecutionRecord execution = requireExecution(executionId);
+        Path dbPath = resolveDbPath(execution);
+        if (dbPath == null) {
+            throw new ExecutionValidationException("sample does not exist");
+        }
+        try {
+            return failureSampleStore.findDetail(dbPath, sampleId)
+                    .orElseThrow(() -> new ExecutionValidationException("sample does not exist"));
+        } catch (ExecutionValidationException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new ExecutionValidationException("sample does not exist");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public SseEmitter streamSamples(long executionId, String lastEventId) {
+        PersistentScenarioExecutionRecord execution = requireExecution(executionId);
+        Path dbPath = resolveDbPath(execution);
+        if (dbPath == null) {
+            SseEmitter emitter = new SseEmitter(0L);
+            emitter.complete();
+            return emitter;
+        }
+        long replayFrom = parseLastEventId(lastEventId);
+        return failureSampleSseHub.connect(
+                executionId,
+                new FailureSampleSseHub.PathContext(
+                        FailureSamplePaths.jsonl(FailureSamplePaths.executionDirectory(Path.of(execution.getLogFilePath()))),
+                        dbPath
+                ),
+                replayFrom
         );
+    }
+
+    private Path resolveDbPath(PersistentScenarioExecutionRecord execution) {
+        if (execution.getLogFilePath() == null) {
+            return null;
+        }
+        Path logPath = Path.of(execution.getLogFilePath());
+        FailureSampleSseHub.PathContext active = failureSampleIngestor.pathContext(execution.getId());
+        if (active != null) {
+            return active.dbPath();
+        }
+        return failureSampleIngestor.resolveDbPath(logPath);
+    }
+
+    private long parseLastEventId(String lastEventId) {
+        if (lastEventId == null || lastEventId.isBlank()) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(lastEventId);
+        } catch (NumberFormatException exception) {
+            return 0L;
+        }
     }
 
     @Transactional(readOnly = true)

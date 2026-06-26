@@ -22,9 +22,8 @@ platform:
   execution:
     max-concurrent-tasks: 1
     failure-sample:
-      per-label-limit: 50
-      global-limit: 1000
-      detail-limit-per-label: 10
+      per-label-limit: 10
+      tail-interval-ms: 3000
   jmeter:
     executable: ${JMETER_EXECUTABLE:/Users/wangk/Documents/config/apache-jmeter-5.6.3/bin/jmeter}
     java-home: ${JMETER_JAVA_HOME:/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home}

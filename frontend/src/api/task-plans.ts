@@ -160,8 +160,24 @@ export function getExecutionTargetMonitoringApi(executionId: number) {
   return request<TargetMonitoringResult>(`/api/executions/${executionId}/target-monitoring`);
 }
 
-export function getExecutionSamplesApi(executionId: number, page: number, pageSize: number) {
-  return request<TaskSamplePage>(`/api/executions/${executionId}/samples?page=${page}&pageSize=${pageSize}`);
+export function getExecutionSamplesApi(
+  executionId: number,
+  page: number,
+  pageSize: number,
+  filters?: { label?: string; code?: string; success?: boolean },
+) {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  if (filters?.label) params.set('label', filters.label);
+  if (filters?.code) params.set('code', filters.code);
+  if (filters?.success !== undefined) params.set('success', String(filters.success));
+  return request<TaskSamplePage>(`/api/executions/${executionId}/samples?${params.toString()}`);
+}
+
+export function getExecutionSampleDetailApi(executionId: number, sampleId: number) {
+  return request<import('../types').TaskSample>(`/api/executions/${executionId}/samples/${sampleId}`);
 }
 
 export function mapExecutionDetail(

@@ -197,9 +197,28 @@ public class TaskPlanController {
     public TaskSamplePage getSamples(
             @PathVariable long executionId,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int pageSize
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(required = false) String label,
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) Boolean success
     ) {
-        return executionService.getSamples(executionId, page, pageSize);
+        return executionService.getSamples(executionId, page, pageSize, label, code, success);
+    }
+
+    @GetMapping("/executions/{executionId}/samples/{sampleId}")
+    public TaskExecutionResult.Sample getSampleDetail(
+            @PathVariable long executionId,
+            @PathVariable long sampleId
+    ) {
+        return executionService.getSampleDetail(executionId, sampleId);
+    }
+
+    @GetMapping(value = "/executions/{executionId}/samples/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamSamples(
+            @PathVariable long executionId,
+            @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId
+    ) {
+        return executionService.streamSamples(executionId, lastEventId);
     }
 
     @GetMapping("/executions/{executionId}/monitoring")

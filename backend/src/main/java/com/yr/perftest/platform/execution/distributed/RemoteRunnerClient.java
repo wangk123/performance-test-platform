@@ -57,6 +57,47 @@ public class RemoteRunnerClient {
         return run("collect-run", payload);
     }
 
+    public FailureSampleTailResult tailFailureSamples(Map<String, Object> payload, long offset) {
+        try {
+            Map<String, Object> request = new java.util.LinkedHashMap<>(payload);
+            request.put("offset", offset);
+            List<String> args = new ArrayList<>();
+            args.addAll(pythonCommand());
+            args.add(runnerEntry.toString());
+            args.add("tail-failure-samples");
+            args.add(objectMapper.writeValueAsString(request));
+            Path outputPath = Files.createTempFile("remote-runner-tail-", ".log");
+            try {
+                Process process = new ProcessBuilder(args)
+                        .redirectErrorStream(true)
+                        .redirectOutput(outputPath.toFile())
+                        .start();
+                boolean finished = process.waitFor(connectTimeout.toSeconds(), TimeUnit.SECONDS);
+                if (!finished) {
+                    process.destroyForcibly();
+                    return FailureSampleTailResult.empty(offset);
+                }
+                String output = Files.readString(outputPath, StandardCharsets.UTF_8);
+                if (output.isBlank()) {
+                    return FailureSampleTailResult.empty(offset);
+                }
+                var node = objectMapper.readTree(output);
+                if (!node.path("ok").asBoolean(false)) {
+                    return FailureSampleTailResult.empty(offset);
+                }
+                String encoded = node.path("tailData").asText("");
+                byte[] data = encoded.isBlank() ? new byte[0] : java.util.Base64.getDecoder().decode(encoded);
+                long newOffset = node.path("newOffset").asLong(offset);
+                boolean eof = node.path("eof").asBoolean(false);
+                return new FailureSampleTailResult(data, newOffset, eof);
+            } finally {
+                Files.deleteIfExists(outputPath);
+            }
+        } catch (Exception exception) {
+            return FailureSampleTailResult.empty(offset);
+        }
+    }
+
     public RemoteRunnerResult stopRun(Map<String, Object> payload) {
         return run("stop-run", payload);
     }

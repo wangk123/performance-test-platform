@@ -77,10 +77,65 @@ public class InfluxdbMonitoringClient {
             if (response.statusCode() >= 300) {
                 return TaskExecutionResult.empty();
             }
-            return parseAggregate(response.body(), durationSeconds);
+            Map<String, Double> koCounts = queryKoCounts(executionId);
+            return parseAggregate(response.body(), durationSeconds, koCounts);
         } catch (Exception exception) {
             return TaskExecutionResult.empty();
         }
+    }
+
+    private Map<String, Double> queryKoCounts(long executionId) {
+        try {
+            URI uri = UriComponentsBuilder.fromUriString(queryUrl)
+                    .queryParam("db", database)
+                    .queryParam("q", koCountSql(executionId))
+                    .build()
+                    .encode()
+                    .toUri();
+            HttpRequest request = HttpRequest.newBuilder(uri).GET().build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 300) {
+                return Map.of();
+            }
+            return parseKoCounts(response.body());
+        } catch (Exception exception) {
+            return Map.of();
+        }
+    }
+
+    private String koCountSql(long executionId) {
+        return "SELECT sum(\"count\") FROM \"" + measurement + "\" "
+                + "WHERE \"application\" = 'execution-" + executionId + "' "
+                + "AND \"statut\" = 'ko' "
+                + "AND \"transaction\" !~ /^(all|internal)$/ "
+                + "GROUP BY \"transaction\"";
+    }
+
+    private Map<String, Double> parseKoCounts(String body) throws Exception {
+        Map<String, Double> koCounts = new LinkedHashMap<>();
+        JsonNode results = objectMapper.readTree(body).path("results");
+        if (!results.isArray() || results.isEmpty()) {
+            return koCounts;
+        }
+        JsonNode series = results.get(0).path("series");
+        if (!series.isArray()) {
+            return koCounts;
+        }
+        for (JsonNode item : series) {
+            String transaction = item.path("tags").path("transaction").asText("");
+            if (transaction.isBlank()) {
+                continue;
+            }
+            JsonNode values = item.path("values");
+            if (!values.isArray() || values.isEmpty()) {
+                continue;
+            }
+            JsonNode last = values.get(values.size() - 1);
+            if (last.isArray() && last.size() > 1 && last.get(1).isNumber()) {
+                koCounts.put(transaction, last.get(1).asDouble());
+            }
+        }
+        return koCounts;
     }
 
     private String aggregateSql(long executionId) {
@@ -92,7 +147,7 @@ public class InfluxdbMonitoringClient {
                 + "GROUP BY \"transaction\"";
     }
 
-    private TaskExecutionResult parseAggregate(String body, double durationSeconds) throws Exception {
+    private TaskExecutionResult parseAggregate(String body, double durationSeconds, Map<String, Double> koCounts) throws Exception {
         JsonNode results = objectMapper.readTree(body).path("results");
         if (!results.isArray() || results.isEmpty()) {
             return TaskExecutionResult.empty();
@@ -117,6 +172,7 @@ public class InfluxdbMonitoringClient {
             if (accumulator.count <= 0) {
                 continue;
             }
+            accumulator.applyKoCount(koCounts.getOrDefault(transaction, 0.0));
             total.merge(accumulator);
             rows.add(accumulator.toRow(transaction, safeDuration));
         }
@@ -254,7 +310,10 @@ public class InfluxdbMonitoringClient {
                 return;
             }
             count += samples;
-            error += readField(value, columns, "countError");
+            double countError = readField(value, columns, "countError");
+            if (countError > 0) {
+                error += countError;
+            }
             weightedAvg += readField(value, columns, "avg") * samples;
             weightedP50 += readField(value, columns, "pct50.0") * samples;
             weightedP90 += readField(value, columns, "pct90.0") * samples;
@@ -262,6 +321,12 @@ public class InfluxdbMonitoringClient {
             weightedP99 += readField(value, columns, "pct99.0") * samples;
             min = mergeMin(min, readField(value, columns, "min"));
             max = mergeMax(max, readField(value, columns, "max"));
+        }
+
+        private void applyKoCount(double koCount) {
+            if (error <= 0) {
+                error = koCount;
+            }
         }
 
         private void merge(Accumulator other) {

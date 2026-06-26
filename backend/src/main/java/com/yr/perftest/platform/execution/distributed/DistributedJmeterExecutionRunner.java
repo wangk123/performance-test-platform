@@ -6,7 +6,8 @@ import com.yr.perftest.platform.execution.ExecutionConfig;
 import com.yr.perftest.platform.execution.ExecutionStatus;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
 import com.yr.perftest.platform.execution.FailureSampleSettings;
-import com.yr.perftest.platform.execution.JmeterResultRetainer;
+import com.yr.perftest.platform.execution.failure.FailureSampleIngestor;
+import com.yr.perftest.platform.execution.failure.FailureSamplePaths;
 import com.yr.perftest.platform.monitoring.ExecutionMonitorBindingService;
 import com.yr.perftest.platform.script.JmeterScriptNormalizer;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
@@ -45,7 +46,7 @@ public class DistributedJmeterExecutionRunner {
     private final RemoteRunnerClient remoteRunnerClient;
     private final JmeterBackendListenerInjector backendListenerInjector;
     private final JmeterDependencyCollector dependencyCollector;
-    private final JmeterResultRetainer resultRetainer;
+    private final FailureSampleIngestor failureSampleIngestor;
     private final FailureSampleSettings failureSampleSettings;
     private final JmeterScriptNormalizer scriptNormalizer;
     private final ExecutionMonitorBindingService monitorBindingService;
@@ -57,6 +58,7 @@ public class DistributedJmeterExecutionRunner {
     private final String influxdbMeasurement;
     private final Duration idleTimeout;
     private final Duration pollInterval;
+    private final Duration tailInterval;
     private final ExecutorService executorService;
 
     public DistributedJmeterExecutionRunner(
@@ -68,7 +70,7 @@ public class DistributedJmeterExecutionRunner {
             RemoteRunnerClient remoteRunnerClient,
             JmeterBackendListenerInjector backendListenerInjector,
             JmeterDependencyCollector dependencyCollector,
-            JmeterResultRetainer resultRetainer,
+            FailureSampleIngestor failureSampleIngestor,
             FailureSampleSettings failureSampleSettings,
             JmeterScriptNormalizer scriptNormalizer,
             ExecutionMonitorBindingService monitorBindingService,
@@ -90,7 +92,7 @@ public class DistributedJmeterExecutionRunner {
         this.remoteRunnerClient = remoteRunnerClient;
         this.backendListenerInjector = backendListenerInjector;
         this.dependencyCollector = dependencyCollector;
-        this.resultRetainer = resultRetainer;
+        this.failureSampleIngestor = failureSampleIngestor;
         this.failureSampleSettings = failureSampleSettings;
         this.scriptNormalizer = scriptNormalizer;
         this.monitorBindingService = monitorBindingService;
@@ -102,6 +104,7 @@ public class DistributedJmeterExecutionRunner {
         this.influxdbMeasurement = influxdbMeasurement;
         this.idleTimeout = Duration.ofSeconds(idleTimeoutSeconds);
         this.pollInterval = Duration.ofSeconds(pollIntervalSeconds);
+        this.tailInterval = Duration.ofMillis(failureSampleSettings.tailIntervalMs());
         this.executorService = Executors.newFixedThreadPool(Math.max(1, maxConcurrentTasks), runnable -> {
             Thread thread = new Thread(runnable, "distributed-jmeter-execution-runner");
             thread.setDaemon(true);
@@ -120,12 +123,13 @@ public class DistributedJmeterExecutionRunner {
 
     private void run(long executionId) {
         Map<String, Object> payload = null;
+        DistributedExecutionPreparation preparation = null;
         try {
             if (executionRuntime.isStopRequested(executionId)) {
                 markInterrupted(executionId, null, "execution stopped before start");
                 return;
             }
-            DistributedExecutionPreparation preparation = loadPreparation(executionId);
+            preparation = loadPreparation(executionId);
             if (preparation == null) {
                 return;
             }
@@ -141,7 +145,7 @@ public class DistributedJmeterExecutionRunner {
                     preparation.runId(),
                     influxdbUrl,
                     influxdbMeasurement,
-                    Path.of("/test/failure-result.jtl")
+                    Path.of("/test/failure-samples.jsonl")
             );
             Files.writeString(
                     preparation.logPath(),
@@ -150,16 +154,16 @@ public class DistributedJmeterExecutionRunner {
                     StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING
             );
+            failureSampleIngestor.begin(executionId, preparation.executionDirectory());
             markRunning(executionId, preparation.discardPath(), preparation.logPath());
             payload = payload(preparation);
             executionRuntime.storePayload(executionId, payload);
-            RemoteRunnerResult launchResult = null;
             RemoteRunnerResult finishResult = null;
             try {
-                launchResult = remoteRunnerClient.startRun(payload);
+                RemoteRunnerResult launchResult = remoteRunnerClient.startRun(payload);
                 appendLog(preparation.logPath(), launchResult.log());
                 if (!launchResult.ok()) {
-                    collectArtifactsQuietly(payload, preparation.logPath());
+                    collectArtifactsQuietly(executionId, payload, preparation.logPath());
                     markFailed(
                             executionId,
                             launchResult.exitCode(),
@@ -169,12 +173,12 @@ public class DistributedJmeterExecutionRunner {
                 }
                 finishResult = waitForCompletion(executionId, payload, preparation.logPath());
                 if (executionRuntime.isStopRequested(executionId)) {
-                    collectArtifactsQuietly(payload, preparation.logPath());
+                    collectArtifactsQuietly(executionId, payload, preparation.logPath());
                     markInterrupted(executionId, finishResult != null ? finishResult.exitCode() : null, "execution stopped by user");
                     return;
                 }
                 if (!finishResult.ok()) {
-                    collectArtifactsQuietly(payload, preparation.logPath());
+                    collectArtifactsQuietly(executionId, payload, preparation.logPath());
                     markFailed(
                             executionId,
                             finishResult.exitCode(),
@@ -184,11 +188,7 @@ public class DistributedJmeterExecutionRunner {
                 }
                 RemoteRunnerResult collectResult = remoteRunnerClient.collectRun(payload);
                 appendLog(preparation.logPath(), collectResult.log());
-                resultRetainer.retainFailureSamples(
-                        preparation.failureResultPath(),
-                        failureSampleSettings.perLabelLimit(),
-                        failureSampleSettings.globalLimit()
-                );
+                failureSampleIngestor.ingestLocalFile(executionId);
                 if (finishResult.exitCode() == 0) {
                     markSuccess(executionId);
                 } else {
@@ -201,19 +201,23 @@ public class DistributedJmeterExecutionRunner {
             } finally {
                 if (payload != null) {
                     RemoteRunnerResult cleanup = remoteRunnerClient.stopRun(payload);
-                    appendLog(preparation.logPath(), cleanup.log());
+                    if (preparation != null) {
+                        appendLog(preparation.logPath(), cleanup.log());
+                    }
                 }
+                failureSampleIngestor.finish(executionId);
                 executionRuntime.clear(executionId);
             }
         } catch (Exception exception) {
             markFailed(executionId, null, exception.getMessage());
+            failureSampleIngestor.finish(executionId);
             executionRuntime.clear(executionId);
         }
     }
 
     private RemoteRunnerResult waitForCompletion(long executionId, Map<String, Object> payload, Path logPath) throws InterruptedException {
         Instant lastResponseAt = Instant.now();
-        Instant lastSampleCollectAt = Instant.now();
+        Instant lastSampleTailAt = Instant.now();
         while (true) {
             if (executionRuntime.isStopRequested(executionId)) {
                 remoteRunnerClient.stopRun(payload);
@@ -223,14 +227,15 @@ public class DistributedJmeterExecutionRunner {
             if (poll.ok()) {
                 lastResponseAt = Instant.now();
                 if ("running".equals(poll.message())) {
-                    if (Duration.between(lastSampleCollectAt, Instant.now()).toSeconds() >= 5) {
-                        collectArtifactsQuietly(payload, logPath);
-                        lastSampleCollectAt = Instant.now();
+                    if (Duration.between(lastSampleTailAt, Instant.now()).compareTo(tailInterval) >= 0) {
+                        failureSampleIngestor.tailRemote(executionId, payload);
+                        lastSampleTailAt = Instant.now();
                     }
-                    TimeUnit.MILLISECONDS.sleep(pollInterval.toMillis());
+                    TimeUnit.MILLISECONDS.sleep(tailInterval.toMillis());
                     continue;
                 }
                 if ("finished".equals(poll.message())) {
+                    failureSampleIngestor.tailRemote(executionId, payload);
                     return poll;
                 }
                 return RemoteRunnerResult.failed(poll.message());
@@ -281,7 +286,7 @@ public class DistributedJmeterExecutionRunner {
                     executionDirectory.resolve(filename),
                     executionDirectory.resolve("distributed-" + filename),
                     executionDirectory.resolve("discard.jtl"),
-                    executionDirectory.resolve("failure-result.jtl"),
+                    FailureSamplePaths.jsonl(executionDirectory),
                     executionDirectory.resolve("jmeter.log"),
                     controller,
                     workers
@@ -294,9 +299,9 @@ public class DistributedJmeterExecutionRunner {
                 "runId", preparation.runId(),
                 "scriptPath", preparation.distributedTestPlanPath().toString(),
                 "discardPath", preparation.discardPath().toString(),
-                "failureResultPath", preparation.failureResultPath().toString(),
+                "failureSamplesPath", preparation.failureSamplesPath().toString(),
                 "logPath", preparation.logPath().toString(),
-                "detailLimitPerLabel", failureSampleSettings.detailLimitPerLabel(),
+                "perLabelLimit", failureSampleSettings.perLabelLimit(),
                 "controller", nodePayload(preparation.controller()),
                 "workers", preparation.workers().stream().map(this::nodePayload).toList(),
                 "dependencies", dependencyCollector.collect(preparation.sourcePath())
@@ -391,10 +396,11 @@ public class DistributedJmeterExecutionRunner {
         }
     }
 
-    private void collectArtifactsQuietly(Map<String, Object> payload, Path logPath) {
+    private void collectArtifactsQuietly(long executionId, Map<String, Object> payload, Path logPath) {
         try {
             RemoteRunnerResult collectResult = remoteRunnerClient.collectRun(payload);
             appendLog(logPath, collectResult.log());
+            failureSampleIngestor.ingestLocalFile(executionId);
         } catch (Exception ignored) {
         }
     }
@@ -424,7 +430,7 @@ public class DistributedJmeterExecutionRunner {
             Path originalTestPlanPath,
             Path distributedTestPlanPath,
             Path discardPath,
-            Path failureResultPath,
+            Path failureSamplesPath,
             Path logPath,
             PersistentExecutionNodeRecord controller,
             List<PersistentExecutionNodeRecord> workers

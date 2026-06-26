@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue';
+import { computed, onScopeDispose, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import type {
@@ -8,6 +8,7 @@ import type {
   TaskPlan,
   TaskScenario,
   ScenarioExecution,
+  TaskSample,
 } from '../types';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
@@ -22,6 +23,7 @@ import {
   getExecutionMonitoringApi,
   getExecutionResultApi,
   getExecutionSamplesApi,
+  getExecutionSampleDetailApi,
   getExecutionTargetMonitoringApi,
   listExecutionsApi,
   listScenariosApi,
@@ -43,7 +45,12 @@ const planKeyword = ref('');
 const resultPage = ref(1);
 const pageSize = ref(10);
 const selectedSampleId = ref<number | null>(null);
+const selectedSampleDetail = ref<TaskSample | null>(null);
+const sampleDetailLoading = ref(false);
 let refreshTimer: number | null = null;
+let sampleStream: EventSource | null = null;
+let sampleStreamExecutionId: number | null = null;
+let sampleStreamRetryTimer: number | null = null;
 
 function executionStatusText(status: ExecutionUiStatus) {
   const map: Record<ExecutionUiStatus, string> = {
@@ -104,18 +111,67 @@ export function useTaskPlans() {
     }
   }
 
+  function disconnectSampleStream() {
+    if (sampleStreamRetryTimer !== null) {
+      window.clearTimeout(sampleStreamRetryTimer);
+      sampleStreamRetryTimer = null;
+    }
+    sampleStream?.close();
+    sampleStream = null;
+    sampleStreamExecutionId = null;
+  }
+
+  function connectSampleStream(executionId: number) {
+    if (sampleStream && sampleStreamExecutionId === executionId) return;
+    disconnectSampleStream();
+    sampleStreamExecutionId = executionId;
+    sampleStream = new EventSource(`/api/executions/${executionId}/samples/stream`);
+    sampleStream.addEventListener('sample', (event) => {
+      if (!executionDetail.value || executionDetail.value.id !== executionId) return;
+      try {
+        const sample = JSON.parse(event.data) as TaskSample;
+        if (executionDetail.value.samples.some((item) => item.id === sample.id)) return;
+        executionDetail.value.samples = [sample, ...executionDetail.value.samples].slice(0, pageSize.value);
+        executionDetail.value.sampleTotal += 1;
+      } catch {
+      }
+    });
+    sampleStream.onerror = () => {
+      disconnectSampleStream();
+      sampleStreamRetryTimer = window.setTimeout(() => {
+        if (!executionDetail.value || executionDetail.value.id !== executionId) return;
+        const status = toUiStatus(executionDetail.value.status);
+        if (status === 'RUNNING' || status === 'PENDING' || status === 'STOPPING') {
+          connectSampleStream(executionId);
+        }
+      }, 2000);
+    };
+  }
+
+  async function loadSelectedSampleDetail(executionId: number, sampleId: number | null) {
+    if (!sampleId) {
+      selectedSampleDetail.value = null;
+      return;
+    }
+    sampleDetailLoading.value = true;
+    try {
+      selectedSampleDetail.value = await getExecutionSampleDetailApi(executionId, sampleId);
+    } catch {
+      selectedSampleDetail.value = null;
+    } finally {
+      sampleDetailLoading.value = false;
+    }
+  }
+
   async function refreshExecution(executionId: number) {
     try {
-      const [execution, result, monitoring, targetMonitoring, samplePage] = await Promise.all([
+      const [execution, result, monitoring, targetMonitoring] = await Promise.all([
         getExecutionApi(executionId),
         getExecutionResultApi(executionId),
         getExecutionMonitoringApi(executionId),
         getExecutionTargetMonitoringApi(executionId),
-        getExecutionSamplesApi(executionId, resultPage.value, pageSize.value),
       ]);
       const detail = mapExecutionDetail(execution, result, monitoring, targetMonitoring);
-      detail.samples = samplePage.samples;
-      detail.sampleTotal = samplePage.total;
       if (toUiStatus(execution.status) === 'FAILED' || toUiStatus(execution.status) === 'INTERRUPTED') {
         try {
           detail.executionLogs = await getExecutionLogsApi(executionId);
@@ -123,12 +179,13 @@ export function useTaskPlans() {
         }
       }
       executionDetail.value = detail;
-      selectedSampleId.value = detail.samples.some((s) => s.id === selectedSampleId.value)
-        ? selectedSampleId.value
-        : detail.samples[0]?.id ?? null;
+      void loadExecutionSamples(executionId);
       const uiStatus = toUiStatus(detail.status);
       if (uiStatus === 'RUNNING' || uiStatus === 'PENDING' || uiStatus === 'STOPPING') {
+        connectSampleStream(executionId);
         scheduleRefresh(executionId);
+      } else {
+        disconnectSampleStream();
       }
     } catch {
     }
@@ -168,6 +225,7 @@ export function useTaskPlans() {
         void refreshExecution(id);
       } else {
         executionDetail.value = null;
+        disconnectSampleStream();
       }
     },
     { immediate: true },
@@ -175,6 +233,16 @@ export function useTaskPlans() {
 
   watch([resultPage, pageSize], () => {
     if (activeExecutionId.value) void loadExecutionSamples(activeExecutionId.value);
+  });
+
+  watch([activeExecutionId, selectedSampleId], ([executionId, sampleId]) => {
+    if (executionId) void loadSelectedSampleDetail(executionId, sampleId);
+    else selectedSampleDetail.value = null;
+  });
+
+  onScopeDispose(() => {
+    disconnectSampleStream();
+    if (refreshTimer !== null) window.clearTimeout(refreshTimer);
   });
 
   function scriptById(scriptId: number) {
@@ -319,9 +387,12 @@ export function useTaskPlans() {
     if (!executionDetail.value || executionDetail.value.id !== executionId) return;
     try {
       const samplePage = await getExecutionSamplesApi(executionId, resultPage.value, pageSize.value);
+      if (!executionDetail.value || executionDetail.value.id !== executionId) return;
       executionDetail.value.samples = samplePage.samples;
       executionDetail.value.sampleTotal = samplePage.total;
-      selectedSampleId.value = executionDetail.value.samples[0]?.id ?? null;
+      selectedSampleId.value = executionDetail.value.samples.some((s) => s.id === selectedSampleId.value)
+        ? selectedSampleId.value
+        : executionDetail.value.samples[0]?.id ?? null;
     } catch {
     }
   }
@@ -358,9 +429,7 @@ export function useTaskPlans() {
   const resultSamples = computed(() => executionDetail.value?.samples ?? []);
   const resultTotal = computed(() => executionDetail.value?.sampleTotal ?? 0);
   const pagedSamples = computed(() => resultSamples.value);
-  const selectedSample = computed(
-    () => executionDetail.value?.samples.find((s) => s.id === selectedSampleId.value) ?? pagedSamples.value[0] ?? null,
-  );
+  const selectedSample = computed(() => selectedSampleDetail.value);
 
   return {
     plans,
@@ -382,6 +451,7 @@ export function useTaskPlans() {
     pagedSamples,
     selectedSample,
     selectedSampleId,
+    sampleDetailLoading,
     executionStatusText,
     toUiStatus,
     scriptById,

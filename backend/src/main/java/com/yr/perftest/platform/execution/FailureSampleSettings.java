@@ -6,28 +6,21 @@ import org.springframework.stereotype.Component;
 @Component
 public class FailureSampleSettings {
     private final int perLabelLimit;
-    private final int globalLimit;
-    private final int detailLimitPerLabel;
+    private final long tailIntervalMs;
 
     public FailureSampleSettings(
-            @Value("${platform.execution.failure-sample.per-label-limit:50}") int perLabelLimit,
-            @Value("${platform.execution.failure-sample.global-limit:1000}") int globalLimit,
-            @Value("${platform.execution.failure-sample.detail-limit-per-label:10}") int detailLimitPerLabel
+            @Value("${platform.execution.failure-sample.per-label-limit:10}") int perLabelLimit,
+            @Value("${platform.execution.failure-sample.tail-interval-ms:5000}") long tailIntervalMs
     ) {
         this.perLabelLimit = perLabelLimit;
-        this.globalLimit = globalLimit;
-        this.detailLimitPerLabel = detailLimitPerLabel;
+        this.tailIntervalMs = tailIntervalMs;
     }
 
     public int perLabelLimit() {
         return perLabelLimit;
     }
 
-    public int globalLimit() {
-        return globalLimit;
-    }
-
-    public int detailLimitPerLabel() {
-        return detailLimitPerLabel;
+    public long tailIntervalMs() {
+        return tailIntervalMs;
     }
 }

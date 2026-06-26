@@ -768,6 +768,13 @@
   gap: 18px;
 }
 
+.task-detail-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+}
+
 .task-list-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;

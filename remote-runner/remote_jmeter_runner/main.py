@@ -1,4 +1,5 @@
 import argparse
+import base64
 import json
 import sys
 import time
@@ -10,7 +11,7 @@ import paramiko
 JMETER_IMAGE = "justb4/jmeter:latest"
 
 
-def respond(ok, message="", log="", exit_code=0, start_results=None):
+def respond(ok, message="", log="", exit_code=0, start_results=None, tail_data=None, new_offset=None, eof=None):
     body = {
         "ok": ok,
         "exitCode": exit_code,
@@ -19,6 +20,12 @@ def respond(ok, message="", log="", exit_code=0, start_results=None):
     }
     if start_results is not None:
         body["startResults"] = start_results
+    if tail_data is not None:
+        body["tailData"] = tail_data
+    if new_offset is not None:
+        body["newOffset"] = new_offset
+    if eof is not None:
+        body["eof"] = eof
     print(json.dumps(body, ensure_ascii=False))
     return 0 if ok else 1
 
@@ -57,10 +64,17 @@ def sftp_put(client, local_path, remote_path):
         sftp.put(str(local_path), remote_file)
 
 
-def sftp_get(client, remote_path, local_path):
+def sftp_get(client, remote_path, local_path, append=False):
     Path(local_path).parent.mkdir(parents=True, exist_ok=True)
     with client.open_sftp() as sftp:
-        sftp.get(str(remote_path), str(local_path))
+        if append:
+            with sftp.open(str(remote_path), "rb") as remote_file:
+                data = remote_file.read()
+            if data:
+                with open(local_path, "ab") as local_file:
+                    local_file.write(data)
+        else:
+            sftp.get(str(remote_path), str(local_path))
 
 
 def shell_quote(value):
@@ -247,10 +261,11 @@ def start_worker(node, run_id):
     remote_dir = Path(node.get("remoteWorkDir", "/tmp/perftest-platform")) / run_id
     container_name = f"jmeter-worker-{run_id}"
     command = " ".join([
-        "docker rm -f", shell_quote(container_name), ">/dev/null 2>&1 || true;",
+        "docker ps -a --filter name=jmeter-worker- -q | xargs -r docker rm -f >/dev/null 2>&1 || true;",
         "mkdir -p", shell_quote(str(remote_dir)) + ";",
         "docker run -d --name", shell_quote(container_name),
         "--network host",
+        "-v", shell_quote(f"{remote_dir}:/test"),
         JMETER_IMAGE,
         shell_quote(f"-Djava.rmi.server.hostname={node['host']}"),
         "-s",
@@ -275,7 +290,7 @@ def launch_controller(controller, payload):
         target = remote_dir / dependency["targetPath"]
         sftp_put(client, source, target)
     worker_hosts = ",".join([node["host"] for node in payload["workers"]])
-    detail_limit = payload.get("detailLimitPerLabel", 10)
+    per_label_limit = payload.get("perLabelLimit", 10)
     command = " ".join([
         "docker rm -f", shell_quote(container_name), ">/dev/null 2>&1 || true;",
         "docker run -d --name", shell_quote(container_name),
@@ -293,7 +308,10 @@ def launch_controller(controller, payload):
         "-Jmode=Standard",
         "-Jbackend_influxdb.send_interval=1",
         "-Gbackend_influxdb.send_interval=1",
-        f"-JfailureDetailLimitPerLabel={detail_limit}",
+        "-GfailureSamplesPath=/test/failure-samples.jsonl",
+        f"-GfailureSamplePerLabelLimit={per_label_limit}",
+        "-JfailureSamplesPath=/test/failure-samples.jsonl",
+        f"-JfailureSamplePerLabelLimit={per_label_limit}",
     ])
     code, output = run(client, command)
     client.close()
@@ -303,21 +321,62 @@ def launch_controller(controller, payload):
 def collect_artifacts(controller, payload):
     client = connect(controller)
     run_id = payload["runId"]
-    remote_dir = Path(controller.get("remoteWorkDir", "/tmp/perftest-platform")) / run_id
-    remote_failure = remote_dir / "failure-result.jtl"
-    remote_log = remote_dir / "jmeter.log"
+    remote_log = Path(controller.get("remoteWorkDir", "/tmp/perftest-platform")) / run_id / "jmeter.log"
     logs = []
-    try:
-        sftp_get(client, remote_failure, payload["failureResultPath"])
-    except Exception as exc:
-        logs.append(str(exc))
     try:
         sftp_get(client, remote_log, payload["logPath"])
     except Exception as exc:
         logs.append(str(exc))
+    local_samples = Path(payload["failureSamplesPath"])
+    local_samples.parent.mkdir(parents=True, exist_ok=True)
+    local_samples.write_bytes(b"")
+    sources = [controller] + [node_ref(node) for node in payload.get("workers", [])]
+    for source in sources:
+        remote_samples = Path(source.get("remoteWorkDir", "/tmp/perftest-platform")) / run_id / "failure-samples.jsonl"
+        source_client = connect(source)
+        try:
+            sftp_get(source_client, remote_samples, local_samples, append=True)
+        except FileNotFoundError:
+            pass
+        except Exception as exc:
+            logs.append(f"{source['host']} failure-samples: {exc}")
+        finally:
+            source_client.close()
+    if logs and not Path(payload["logPath"]).exists():
         Path(payload["logPath"]).write_text("\n".join(logs), encoding="utf-8")
     client.close()
     return "\n".join(logs)
+
+
+def tail_failure_samples(payload):
+    client = None
+    try:
+        node = node_ref(payload.get("tailNode", payload["controller"]))
+        client = connect(node)
+        run_id = payload["runId"]
+        remote_dir = Path(node.get("remoteWorkDir", "/tmp/perftest-platform")) / run_id
+        remote_path = remote_dir / "failure-samples.jsonl"
+        offset = int(payload.get("offset", 0))
+        chunk_size = int(payload.get("chunkSize", 65536))
+        with client.open_sftp() as sftp:
+            try:
+                file_size = sftp.stat(str(remote_path)).st_size
+            except FileNotFoundError:
+                return respond(True, "missing", "", 0, tail_data="", new_offset=offset, eof=True)
+            if offset >= file_size:
+                return respond(True, "noop", "", 0, tail_data="", new_offset=offset, eof=False)
+            with sftp.open(str(remote_path), "rb") as remote_file:
+                remote_file.seek(offset)
+                data = remote_file.read(chunk_size)
+                new_offset = offset + len(data)
+                eof = new_offset >= file_size
+                encoded = base64.b64encode(data).decode("ascii") if data else ""
+                return respond(True, "tailed", "", 0, tail_data=encoded, new_offset=new_offset, eof=eof)
+    except Exception as exc:
+        return respond(False, str(exc))
+    finally:
+        if client:
+            client.close()
 
 
 def start_run(payload):
@@ -391,7 +450,19 @@ def stop_run(payload):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["check-node", "install-key", "deploy-monitoring", "start-run", "poll-run", "collect-run", "stop-run"])
+    parser.add_argument(
+        "command",
+        choices=[
+            "check-node",
+            "install-key",
+            "deploy-monitoring",
+            "start-run",
+            "poll-run",
+            "collect-run",
+            "tail-failure-samples",
+            "stop-run",
+        ],
+    )
     parser.add_argument("payload")
     args = parser.parse_args()
     payload = json.loads(args.payload)
@@ -407,6 +478,8 @@ def main():
         return poll_run(payload)
     if args.command == "collect-run":
         return collect_run(payload)
+    if args.command == "tail-failure-samples":
+        return tail_failure_samples(payload)
     return stop_run(payload)
 
 
