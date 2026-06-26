@@ -176,6 +176,7 @@ public class ScenarioExecutionService {
         double durationSeconds = executionSeconds(execution);
         if (isFinished(execution.getStatus())) {
             return aggregateReportService.loadPersisted(executionId)
+                    .or(() -> aggregateReportService.loadLive(executionId, durationSeconds))
                     .orElse(TaskExecutionResult.empty());
         }
         return aggregateReportService.loadLive(executionId, durationSeconds)
