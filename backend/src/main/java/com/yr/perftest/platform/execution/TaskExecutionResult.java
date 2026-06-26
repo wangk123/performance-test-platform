@@ -61,8 +61,6 @@ public record TaskExecutionResult(
             long elapsed,
             String message,
             String threadName,
-            String request,
-            String response,
             String requestLine,
             String requestHeaders,
             String requestBody,

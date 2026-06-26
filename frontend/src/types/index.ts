@@ -428,8 +428,6 @@ export type TaskSample = {
   elapsed: number;
   message: string;
   threadName: string;
-  request: string;
-  response: string;
   requestLine?: string;
   requestHeaders?: string;
   requestBody?: string;

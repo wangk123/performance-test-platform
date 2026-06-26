@@ -239,20 +239,13 @@ public class FailureSampleStore {
                 "",
                 "",
                 "",
-                "",
-                "",
                 ""
         );
     }
 
     private TaskExecutionResult.Sample toDetail(ResultSet resultSet) throws SQLException {
-        String requestHeaders = safe(resultSet.getString("request_headers"));
-        String requestBody = safe(resultSet.getString("request_body"));
-        String responseHeaders = safe(resultSet.getString("response_headers"));
-        String responseBody = safe(resultSet.getString("response_body"));
-        String failureMessage = safe(resultSet.getString("failure_message"));
-        String url = safe(resultSet.getString("url"));
-        String requestLine = requestBody.isBlank() ? url : requestBody.lines().findFirst().orElse(url);
+        String rawRequestBody = safe(resultSet.getString("request_body"));
+        String requestLine = FailureSampleNormalizer.extractRequestLine(rawRequestBody, safe(resultSet.getString("url")));
         return new TaskExecutionResult.Sample(
                 (int) resultSet.getLong("id"),
                 TIME_FORMATTER.format(Instant.ofEpochMilli(resultSet.getLong("ts"))),
@@ -262,56 +255,13 @@ public class FailureSampleStore {
                 resultSet.getLong("elapsed"),
                 safe(resultSet.getString("message")),
                 safe(resultSet.getString("thread_name")),
-                formatRequest(requestLine, requestHeaders, requestBody),
-                formatResponse(resultSet.getString("code"), resultSet.getString("message"), responseHeaders, responseBody, failureMessage),
                 requestLine,
-                requestHeaders,
-                requestBody,
-                responseHeaders,
-                responseBody,
-                failureMessage
+                safe(resultSet.getString("request_headers")),
+                FailureSampleNormalizer.cleanRequestBody(rawRequestBody),
+                FailureSampleNormalizer.cleanResponseHeaders(safe(resultSet.getString("response_headers"))),
+                safe(resultSet.getString("response_body")),
+                safe(resultSet.getString("failure_message"))
         );
-    }
-
-    private String formatRequest(String requestLine, String requestHeaders, String requestBody) {
-        List<String> sections = new ArrayList<>();
-        if (!requestLine.isBlank()) {
-            sections.add(requestLine);
-        }
-        if (!requestHeaders.isBlank()) {
-            sections.add(requestHeaders);
-        }
-        if (!requestBody.isBlank()) {
-            sections.add(requestBody);
-        }
-        return String.join("\n\n", sections);
-    }
-
-    private String formatResponse(
-            String statusCode,
-            String message,
-            String responseHeaders,
-            String responseBody,
-            String failureMessage
-    ) {
-        List<String> sections = new ArrayList<>();
-        if (statusCode != null && !statusCode.isBlank()) {
-            String statusLine = "HTTP " + statusCode;
-            if (message != null && !message.isBlank()) {
-                statusLine += " " + message;
-            }
-            sections.add(statusLine);
-        }
-        if (!responseHeaders.isBlank()) {
-            sections.add(responseHeaders);
-        }
-        if (!responseBody.isBlank()) {
-            sections.add(responseBody);
-        }
-        if (!failureMessage.isBlank()) {
-            sections.add("--- Failure Message ---\n" + failureMessage);
-        }
-        return String.join("\n\n", sections);
     }
 
     private FilterSql buildFilter(FailureSampleQuery query) {
