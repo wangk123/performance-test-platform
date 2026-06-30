@@ -3,44 +3,91 @@
     <div class="panel task-detail-hero">
       <div>
         <div class="task-detail-nav">
-          <a-button class="task-back-button" @click="$emit('back')">返回场景详情</a-button>
-          <span class="eyebrow">Scenario</span>
-          <a-dropdown :trigger="['click']" placement="bottomLeft">
-            <button class="execution-nav-trigger">
-              <span class="execution-nav-label">{{ currentExecutionLabel }}</span>
+          <div class="task-detail-nav-start">
+            <a-button class="task-back-button" @click="$emit('back')">返回场景详情</a-button>
+            <span class="eyebrow">Scenario</span>
+          </div>
+          <a-dropdown
+            v-model:open="historyDropdownOpen"
+            :trigger="['click']"
+            placement="bottomRight"
+            overlay-class-name="execution-history-dropdown"
+            @openChange="onHistoryDropdownOpenChange"
+          >
+            <button
+              type="button"
+              class="execution-nav-trigger"
+              :class="{ 'is-open': historyDropdownOpen }"
+            >
+              <HistoryOutlined class="execution-nav-icon" />
+              <span class="execution-nav-label">查看历史记录</span>
               <DownOutlined class="execution-nav-arrow" />
             </button>
             <template #overlay>
-              <div class="execution-history-panel">
+              <div class="execution-history-panel" @mousedown.stop @click.stop>
+                <div class="execution-history-header">
+                  <div>
+                    <span class="execution-history-eyebrow">History</span>
+                    <strong class="execution-history-title">执行记录</strong>
+                  </div>
+                  <span class="execution-history-count-badge">{{ historyExecutions.length }}</span>
+                </div>
                 <div class="execution-history-toolbar">
-                  <span class="execution-history-count">{{ historyExecutions.length }} 条记录</span>
-                  <a-button
-                    size="small"
-                    danger
-                    :disabled="selectedExecutionIds.length === 0"
-                    @click="batchDeleteExecutions"
-                  >删除所选 ({{ selectedExecutionIds.length }})</a-button>
+                  <span class="execution-history-hint">
+                    {{ historyEditMode ? `已选 ${selectedExecutionIds.length} 条` : '点击记录切换查看' }}
+                  </span>
+                  <div class="execution-history-actions">
+                    <template v-if="historyEditMode">
+                      <button type="button" class="execution-history-action" @click.stop.prevent="selectAllExecutions">全选</button>
+                      <button type="button" class="execution-history-action" @click.stop.prevent="deselectAllExecutions">取消全选</button>
+                      <button
+                        type="button"
+                        class="execution-history-action is-danger"
+                        :disabled="selectedExecutionIds.length === 0"
+                        @click.stop.prevent="batchDeleteExecutions"
+                      >删除{{ selectedExecutionIds.length ? ` (${selectedExecutionIds.length})` : '' }}</button>
+                    </template>
+                    <button
+                      v-else
+                      type="button"
+                      class="execution-history-icon-btn"
+                      :disabled="!historyExecutions.length"
+                      title="编辑"
+                      @click.stop.prevent="enterHistoryEditMode"
+                    >
+                      <EditOutlined />
+                    </button>
+                  </div>
                 </div>
                 <div class="execution-history-list">
                   <div
                     v-for="item in historyExecutions"
                     :key="item.id"
                     class="execution-history-item"
-                    :class="{ active: item.id === execution.id }"
+                    :class="{
+                      active: item.id === execution.id,
+                      selected: selectedExecutionIds.includes(item.id),
+                      'is-selecting': historyEditMode,
+                    }"
                   >
                     <a-checkbox
+                      v-if="historyEditMode"
+                      class="execution-history-checkbox"
                       :checked="selectedExecutionIds.includes(item.id)"
                       @click.stop
                       @change="(e: any) => toggleExecutionSelect(item.id, e.target.checked)"
                     />
-                    <span
+                    <button
+                      type="button"
                       class="execution-history-item-body"
-                      @click="switchToExecution(item.id)"
+                      @click="onHistoryItemClick(item.id)"
                     >
                       <strong>{{ item.executionName || formatDate(item.startedAt || item.createdAt) }}</strong>
                       <small>{{ formatDate(item.startedAt || item.createdAt) }} · {{ formatDuration(item.durationMs) }}</small>
+                    </button>
+                    <span class="execution-history-status" :class="historyStatusClass(item.status)">
+                      {{ historyStatusText(item.status) }}
                     </span>
-                    <span class="status" :class="historyStatusClass(item.status)">{{ historyStatusText(item.status) }}</span>
                   </div>
                   <div v-if="!historyExecutions.length" class="execution-history-empty">暂无历史记录</div>
                 </div>
@@ -243,7 +290,7 @@
 import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue';
 import type { TableColumnsType, TableProps } from 'ant-design-vue';
 import { message } from 'ant-design-vue';
-import { DownOutlined } from '@ant-design/icons-vue';
+import { DownOutlined, EditOutlined, HistoryOutlined } from '@ant-design/icons-vue';
 import type { ExecutionDetail, ScenarioExecution, TaskSample } from '../../types';
 import { useTaskPlans } from '../../composables/useTaskPlans';
 import { listExecutionsApi, deleteExecutionsApi, toUiStatus } from '../../api/task-plans';
@@ -274,6 +321,8 @@ const {
 const payloadTab = ref<'request' | 'response' | 'assertion'>('request');
 const historyExecutions = ref<ScenarioExecution[]>([]);
 const selectedExecutionIds = ref<number[]>([]);
+const historyEditMode = ref(false);
+const historyDropdownOpen = ref(false);
 
 onMounted(() => {
   if (props.execution) loadHistoryExecutions();
@@ -281,6 +330,7 @@ onMounted(() => {
 
 watch(() => props.execution?.id, () => {
   selectedExecutionIds.value = [];
+  historyEditMode.value = false;
 });
 
 function loadHistoryExecutions() {
@@ -295,11 +345,6 @@ function loadHistoryExecutions() {
 const uiStatus = computed(() => (props.execution ? toUiStatus(props.execution.status) : 'PENDING'));
 const script = computed(() => (props.execution ? scriptById(props.execution.scriptVersionId) : null));
 const aggregateRows = computed(() => props.execution?.aggregateRows ?? []);
-
-const currentExecutionLabel = computed(() => {
-  if (!props.execution) return '';
-  return props.execution.executionName || formatDate(props.execution.startedAt || props.execution.createdAt);
-});
 
 const accuracyLabel = computed(() => {
   const accuracy = props.execution?.summary.accuracy;
@@ -330,12 +375,45 @@ function formatDuration(ms: number | null) {
   return `${Math.round(ms / 1000)}s`;
 }
 
+function onHistoryDropdownOpenChange(open: boolean) {
+  if (!open) {
+    historyEditMode.value = false;
+    selectedExecutionIds.value = [];
+  }
+}
+
+function enterHistoryEditMode() {
+  historyEditMode.value = true;
+  historyDropdownOpen.value = true;
+}
+
+function selectAllExecutions() {
+  selectedExecutionIds.value = historyExecutions.value.map(item => item.id);
+  historyDropdownOpen.value = true;
+}
+
+function deselectAllExecutions() {
+  selectedExecutionIds.value = [];
+  historyDropdownOpen.value = true;
+}
+
 function toggleExecutionSelect(id: number, checked: boolean) {
   if (checked) {
-    selectedExecutionIds.value.push(id);
+    if (!selectedExecutionIds.value.includes(id)) {
+      selectedExecutionIds.value.push(id);
+    }
   } else {
     selectedExecutionIds.value = selectedExecutionIds.value.filter(i => i !== id);
   }
+}
+
+function onHistoryItemClick(executionId: number) {
+  if (historyEditMode.value) {
+    const checked = !selectedExecutionIds.value.includes(executionId);
+    toggleExecutionSelect(executionId, checked);
+    return;
+  }
+  switchToExecution(executionId);
 }
 
 function switchToExecution(executionId: number) {
@@ -367,6 +445,7 @@ async function batchDeleteExecutions() {
     await deleteExecutionsApi(ids);
     message.success(`已删除 ${ids.length} 条记录`);
     selectedExecutionIds.value = [];
+    historyEditMode.value = false;
     loadHistoryExecutions();
     if (ids.includes(props.execution!.id)) {
       const remaining = historyExecutions.value.filter(e => !ids.includes(e.id));
