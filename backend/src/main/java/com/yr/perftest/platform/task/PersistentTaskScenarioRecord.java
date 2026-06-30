@@ -139,10 +139,6 @@ public class PersistentTaskScenarioRecord {
     public void updateProfile(
             String name,
             Long scriptVersionId,
-            int threads,
-            int rampUp,
-            int duration,
-            int loops,
             String jmeterPropertiesJson,
             Long controllerNodeId,
             String workerNodeIdsJson,
@@ -154,10 +150,6 @@ public class PersistentTaskScenarioRecord {
         if (scriptVersionId != null) {
             this.scriptVersionId = scriptVersionId;
         }
-        this.threads = threads;
-        this.rampUp = rampUp;
-        this.duration = duration;
-        this.loops = loops;
         this.jmeterPropertiesJson = jmeterPropertiesJson;
         this.controllerNodeId = controllerNodeId;
         this.workerNodeIdsJson = workerNodeIdsJson;

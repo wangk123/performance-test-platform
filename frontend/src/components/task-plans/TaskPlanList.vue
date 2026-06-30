@@ -8,14 +8,7 @@
   <ExecutionDetailView
     v-else-if="activeExecutionId && executionDetail"
     :execution="executionDetail"
-    @back="backToScenarioDetail(executionDetail.scenarioId, executionDetail.planId)"
-  />
-
-  <ScenarioDetail
-    v-else-if="activeScenarioId && activeScenario"
-    :scenario="activeScenario"
-    :executions="executions"
-    @back="backToPlanDetail(activeScenario.planId)"
+    @back="backToPlanDetail(executionDetail.planId)"
   />
 
   <TaskPlanDetail
@@ -77,7 +70,6 @@ import { formatDate } from '../../utils/format';
 import { useTaskPlans } from '../../composables/useTaskPlans';
 import TaskPlanDialog from './TaskPlanDialog.vue';
 import TaskPlanDetail from './TaskPlanDetail.vue';
-import ScenarioDetail from './ScenarioDetail.vue';
 import ExecutionDetailView from './ExecutionDetailView.vue';
 
 const planDialogVisible = ref(false);
@@ -91,14 +83,11 @@ const {
   executions,
   executionDetail,
   activePlan,
-  activeScenario,
   activePlanId,
-  activeScenarioId,
   activeExecutionId,
   openPlan,
   backToPlanList,
   backToPlanDetail,
-  backToScenarioDetail,
   removePlan,
 } = useTaskPlans();
 

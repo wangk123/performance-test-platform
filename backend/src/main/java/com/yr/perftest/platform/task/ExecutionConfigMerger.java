@@ -20,10 +20,10 @@ public class ExecutionConfigMerger {
                 ? taskJson.readLongList(scenario.getMonitorTargetIdsJson())
                 : taskJson.readLongList(plan.getDefaultMonitorTargetIdsJson());
         return new ExecutionConfig(
-                scenario.getThreads(),
-                scenario.getRampUp(),
-                scenario.getDuration(),
-                scenario.getLoops(),
+                0,
+                0,
+                0,
+                0,
                 taskJson.readStringMap(scenario.getJmeterPropertiesJson()),
                 ExecutionMode.DISTRIBUTED,
                 controllerNodeId,

@@ -281,8 +281,7 @@ export function useTaskPlans() {
   }
 
   function openScenario(scenario: TaskScenario) {
-    if (!currentProject.value) return;
-    void router.push(`/projects/${currentProject.value.id}/scenarios/${scenario.id}`);
+    void backToPlanDetail(scenario.planId);
   }
 
   function openExecution(execution: ScenarioExecution) {
@@ -298,8 +297,8 @@ export function useTaskPlans() {
   }
 
   function backToScenarioDetail(scenarioId: number, planId: number) {
-    if (currentProject.value) void router.push(`/projects/${currentProject.value.id}/scenarios/${scenarioId}`);
-    void planId;
+    void scenarioId;
+    void backToPlanDetail(planId);
   }
 
   async function savePlan(payload: {
@@ -369,9 +368,9 @@ export function useTaskPlans() {
     }
   }
 
-  async function runScenario(scenario: TaskScenario) {
+  async function runScenario(scenario: TaskScenario, executionName?: string) {
     try {
-      const execution = await triggerExecutionApi(scenario.id);
+      const execution = await triggerExecutionApi(scenario.id, executionName);
       executions.value = [execution, ...executions.value];
       openExecution(execution);
       message.success('场景已提交执行');
@@ -401,8 +400,8 @@ export function useTaskPlans() {
       await confirmAction({ title: '删除记录', content: '确认删除该执行记录？', okText: '删除', okType: 'danger' });
       await deleteExecutionApi(execution.id);
       executions.value = executions.value.filter((item) => item.id !== execution.id);
-      if (activeExecutionId.value === execution.id && activeScenarioId.value) {
-        void router.push(`/projects/${execution.projectId}/scenarios/${execution.scenarioId}`);
+      if (activeExecutionId.value === execution.id) {
+        backToPlanDetail(execution.planId);
       }
       message.success('记录已删除');
     } catch (error) {

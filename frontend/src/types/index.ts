@@ -373,6 +373,7 @@ export type ScenarioExecution = {
   resultFilePath: string | null;
   logFilePath: string | null;
   errorMessage: string | null;
+  executionName: string | null;
 };
 
 export type ExecutionDetail = ScenarioExecution & {

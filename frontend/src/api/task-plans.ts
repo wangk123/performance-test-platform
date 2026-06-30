@@ -77,10 +77,6 @@ export function createScenarioApi(
   payload: {
     scriptVersionId: number;
     name: string;
-    threads?: number;
-    rampUp?: number;
-    duration?: number;
-    loops?: number;
     jmeterProperties?: Record<string, string>;
     overridePlanDefaults?: boolean;
     controllerNodeId?: number | null;
@@ -100,10 +96,6 @@ export function updateScenarioApi(
   payload: {
     name: string;
     scriptVersionId?: number;
-    threads?: number;
-    rampUp?: number;
-    duration?: number;
-    loops?: number;
     jmeterProperties?: Record<string, string>;
     overridePlanDefaults?: boolean;
     controllerNodeId?: number | null;
@@ -126,8 +118,20 @@ export function listExecutionsApi(scenarioId: number) {
   return request<ScenarioExecution[]>(`/api/scenarios/${scenarioId}/executions`);
 }
 
-export function triggerExecutionApi(scenarioId: number) {
-  return request<ScenarioExecution>(`/api/scenarios/${scenarioId}/executions`, { method: 'POST' });
+export function triggerExecutionApi(scenarioId: number, executionName?: string) {
+  return request<ScenarioExecution>(`/api/scenarios/${scenarioId}/executions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(executionName ? { executionName } : {}),
+  });
+}
+
+export function deleteExecutionsApi(executionIds: number[]) {
+  return request<void>('/api/executions/batch', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(executionIds),
+  });
 }
 
 export function getExecutionApi(executionId: number) {

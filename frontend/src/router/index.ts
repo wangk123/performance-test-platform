@@ -26,7 +26,7 @@ export const router = createRouter({
         { path: 'projects/:projectId/scripts', name: 'project-scripts', component: ProjectDetail },
         { path: 'projects/:projectId/task-plans', name: 'project-task-plans', component: ProjectDetail },
         { path: 'projects/:projectId/task-plans/:planId', name: 'project-task-plan-detail', component: ProjectDetail },
-        { path: 'projects/:projectId/scenarios/:scenarioId', name: 'project-scenario-detail', component: ProjectDetail },
+        { path: 'projects/:projectId/scenarios/:scenarioId', redirect: (to) => `/projects/${to.params.projectId}/task-plans` },
         { path: 'projects/:projectId/executions/:executionId', name: 'project-execution-detail', component: ProjectDetail },
         { path: 'projects/:projectId/monitoring', name: 'project-monitoring', component: ProjectDetail },
         { path: 'projects/:projectId/reports', name: 'project-reports', component: ProjectDetail },

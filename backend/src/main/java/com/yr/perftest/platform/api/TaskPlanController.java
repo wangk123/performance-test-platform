@@ -110,10 +110,6 @@ public class TaskPlanController {
                 planId,
                 request.scriptVersionId(),
                 request.name(),
-                request.threads() == null ? 1 : request.threads(),
-                request.rampUp() == null ? 0 : request.rampUp(),
-                request.duration() == null ? 0 : request.duration(),
-                request.loops() == null ? 1 : request.loops(),
                 request.jmeterProperties(),
                 request.overridePlanDefaults() ? request.controllerNodeId() : null,
                 request.overridePlanDefaults() ? request.workerNodeIds() : null,
@@ -137,10 +133,6 @@ public class TaskPlanController {
                 scenarioId,
                 request.name(),
                 request.scriptVersionId(),
-                request.threads() == null ? 1 : request.threads(),
-                request.rampUp() == null ? 0 : request.rampUp(),
-                request.duration() == null ? 0 : request.duration(),
-                request.loops() == null ? 1 : request.loops(),
                 request.jmeterProperties(),
                 request.controllerNodeId(),
                 request.workerNodeIds(),
@@ -157,8 +149,9 @@ public class TaskPlanController {
 
     @PostMapping("/scenarios/{scenarioId}/executions")
     @ResponseStatus(HttpStatus.CREATED)
-    public ScenarioExecution triggerExecution(@PathVariable long scenarioId) {
-        return executionService.triggerExecution(scenarioId);
+    public ScenarioExecution triggerExecution(@PathVariable long scenarioId, @RequestBody(required = false) TriggerExecutionRequest request) {
+        String executionName = request != null ? request.executionName() : null;
+        return executionService.triggerExecution(scenarioId, executionName);
     }
 
     @GetMapping("/scenarios/{scenarioId}/executions")
@@ -181,6 +174,12 @@ public class TaskPlanController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteExecution(@PathVariable long executionId) {
         executionService.deleteExecution(executionId);
+    }
+
+    @DeleteMapping("/executions/batch")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteExecutions(@RequestBody List<Long> executionIds) {
+        executionService.deleteExecutions(executionIds);
     }
 
     @GetMapping(value = "/executions/{executionId}/logs", produces = MediaType.TEXT_PLAIN_VALUE)
@@ -268,10 +267,6 @@ public class TaskPlanController {
     public record CreateScenarioRequest(
             @NotNull Long scriptVersionId,
             @NotBlank String name,
-            Integer threads,
-            Integer rampUp,
-            Integer duration,
-            Integer loops,
             Map<String, String> jmeterProperties,
             boolean overridePlanDefaults,
             Long controllerNodeId,
@@ -283,15 +278,16 @@ public class TaskPlanController {
     public record UpdateScenarioRequest(
             @NotBlank String name,
             Long scriptVersionId,
-            Integer threads,
-            Integer rampUp,
-            Integer duration,
-            Integer loops,
             Map<String, String> jmeterProperties,
             boolean overridePlanDefaults,
             Long controllerNodeId,
             List<Long> workerNodeIds,
             List<Long> monitorTargetIds
+    ) {
+    }
+
+    public record TriggerExecutionRequest(
+            String executionName
     ) {
     }
 }

@@ -50,6 +50,9 @@ public class PersistentScenarioExecutionRecord {
     @Column(length = 2000)
     private String errorMessage;
 
+    @Column(length = 400)
+    private String executionName;
+
     private Integer exitCode;
 
     protected PersistentScenarioExecutionRecord() {
@@ -104,6 +107,14 @@ public class PersistentScenarioExecutionRecord {
 
     public String getErrorMessage() {
         return errorMessage;
+    }
+
+    public String getExecutionName() {
+        return executionName;
+    }
+
+    public void setExecutionName(String executionName) {
+        this.executionName = executionName;
     }
 
     public Integer getExitCode() {

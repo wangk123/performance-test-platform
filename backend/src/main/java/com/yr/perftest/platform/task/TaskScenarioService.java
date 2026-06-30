@@ -35,10 +35,6 @@ public class TaskScenarioService {
             long planId,
             long scriptVersionId,
             String name,
-            int threads,
-            int rampUp,
-            int duration,
-            int loops,
             Map<String, String> jmeterProperties,
             Long controllerNodeId,
             List<Long> workerNodeIds,
@@ -54,7 +50,7 @@ public class TaskScenarioService {
                 name.trim(),
                 sortOrder
         ));
-        applyScenarioProfile(scenario, name, scriptVersionId, threads, rampUp, duration, loops, jmeterProperties,
+        applyScenarioProfile(scenario, name, scriptVersionId, jmeterProperties,
                 controllerNodeId, workerNodeIds, monitorTargetIds);
         return toScenario(scenario);
     }
@@ -64,10 +60,6 @@ public class TaskScenarioService {
             long scenarioId,
             String name,
             Long scriptVersionId,
-            int threads,
-            int rampUp,
-            int duration,
-            int loops,
             Map<String, String> jmeterProperties,
             Long controllerNodeId,
             List<Long> workerNodeIds,
@@ -87,10 +79,6 @@ public class TaskScenarioService {
         scenario.updateProfile(
                 name,
                 scriptVersionId,
-                threads,
-                rampUp,
-                duration,
-                loops,
                 taskJson.writeStringMap(jmeterProperties),
                 resolvedController,
                 resolvedWorkers,
@@ -135,10 +123,6 @@ public class TaskScenarioService {
             PersistentTaskScenarioRecord scenario,
             String name,
             Long scriptVersionId,
-            int threads,
-            int rampUp,
-            int duration,
-            int loops,
             Map<String, String> jmeterProperties,
             Long controllerNodeId,
             List<Long> workerNodeIds,
@@ -147,10 +131,6 @@ public class TaskScenarioService {
         scenario.updateProfile(
                 name,
                 scriptVersionId,
-                threads,
-                rampUp,
-                duration,
-                loops,
                 taskJson.writeStringMap(jmeterProperties),
                 controllerNodeId,
                 workerNodeIds != null ? taskJson.writeLongList(workerNodeIds) : null,

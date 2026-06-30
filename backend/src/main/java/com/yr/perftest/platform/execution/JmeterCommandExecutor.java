@@ -53,10 +53,18 @@ public class JmeterCommandExecutor {
 
     private Map<String, String> jmeterProperties(ExecutionConfig config) {
         Map<String, String> properties = new LinkedHashMap<>();
-        properties.put("threads", String.valueOf(config.threads()));
-        properties.put("loops", String.valueOf(config.loops()));
-        properties.put("duration", String.valueOf(config.duration()));
-        properties.put("rampUp", String.valueOf(config.rampUp()));
+        if (config.threads() > 0) {
+            properties.put("threads", String.valueOf(config.threads()));
+        }
+        if (config.loops() > 0) {
+            properties.put("loops", String.valueOf(config.loops()));
+        }
+        if (config.duration() > 0) {
+            properties.put("duration", String.valueOf(config.duration()));
+        }
+        if (config.rampUp() > 0) {
+            properties.put("rampUp", String.valueOf(config.rampUp()));
+        }
         properties.putAll(config.jmeterProperties());
         return properties;
     }

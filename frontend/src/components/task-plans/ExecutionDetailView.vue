@@ -4,7 +4,49 @@
       <div>
         <div class="task-detail-nav">
           <a-button class="task-back-button" @click="$emit('back')">返回场景详情</a-button>
-          <span class="eyebrow">Execution #{{ execution.id }}</span>
+          <span class="eyebrow">Scenario</span>
+          <a-dropdown :trigger="['click']" placement="bottomLeft">
+            <button class="execution-nav-trigger">
+              <span class="execution-nav-label">{{ currentExecutionLabel }}</span>
+              <DownOutlined class="execution-nav-arrow" />
+            </button>
+            <template #overlay>
+              <div class="execution-history-panel">
+                <div class="execution-history-toolbar">
+                  <span class="execution-history-count">{{ historyExecutions.length }} 条记录</span>
+                  <a-button
+                    size="small"
+                    danger
+                    :disabled="selectedExecutionIds.length === 0"
+                    @click="batchDeleteExecutions"
+                  >删除所选 ({{ selectedExecutionIds.length }})</a-button>
+                </div>
+                <div class="execution-history-list">
+                  <div
+                    v-for="item in historyExecutions"
+                    :key="item.id"
+                    class="execution-history-item"
+                    :class="{ active: item.id === execution.id }"
+                  >
+                    <a-checkbox
+                      :checked="selectedExecutionIds.includes(item.id)"
+                      @click.stop
+                      @change="(e: any) => toggleExecutionSelect(item.id, e.target.checked)"
+                    />
+                    <span
+                      class="execution-history-item-body"
+                      @click="switchToExecution(item.id)"
+                    >
+                      <strong>{{ item.executionName || formatDate(item.startedAt || item.createdAt) }}</strong>
+                      <small>{{ formatDate(item.startedAt || item.createdAt) }} · {{ formatDuration(item.durationMs) }}</small>
+                    </span>
+                    <span class="status" :class="historyStatusClass(item.status)">{{ historyStatusText(item.status) }}</span>
+                  </div>
+                  <div v-if="!historyExecutions.length" class="execution-history-empty">暂无历史记录</div>
+                </div>
+              </div>
+            </template>
+          </a-dropdown>
         </div>
         <h2>{{ execution.scenarioName }}</h2>
         <p>{{ script?.name }} · {{ executionStatusText(uiStatus) }}</p>
@@ -198,10 +240,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue';
 import type { TableColumnsType, TableProps } from 'ant-design-vue';
-import type { ExecutionDetail, TaskSample } from '../../types';
+import { message } from 'ant-design-vue';
+import { DownOutlined } from '@ant-design/icons-vue';
+import type { ExecutionDetail, ScenarioExecution, TaskSample } from '../../types';
 import { useTaskPlans } from '../../composables/useTaskPlans';
+import { listExecutionsApi, deleteExecutionsApi, toUiStatus } from '../../api/task-plans';
+import { formatDate } from '../../utils/format';
 import { detectHttpBodyLanguage, formatHttpBodyAuto } from '../../utils/http-request-config';
 
 const TaskMonitoringCharts = defineAsyncComponent(() => import('../tasks/TaskMonitoringCharts.vue'));
@@ -209,7 +255,7 @@ const TargetServerMetricsPanel = defineAsyncComponent(() => import('../tasks/Tar
 const TargetJvmMetricsPanel = defineAsyncComponent(() => import('../tasks/TargetJvmMetricsPanel.vue'));
 
 const props = defineProps<{ execution: ExecutionDetail | null }>();
-defineEmits<{ (e: 'back'): void }>();
+const emit = defineEmits<{ (e: 'back'): void }>();
 
 const {
   resultPage,
@@ -220,16 +266,41 @@ const {
   selectedSampleId,
   sampleDetailLoading,
   executionStatusText,
-  toUiStatus,
   scriptById,
   stopActiveExecution,
+  openExecution,
 } = useTaskPlans();
 
 const payloadTab = ref<'request' | 'response' | 'assertion'>('request');
+const historyExecutions = ref<ScenarioExecution[]>([]);
+const selectedExecutionIds = ref<number[]>([]);
+
+onMounted(() => {
+  if (props.execution) loadHistoryExecutions();
+});
+
+watch(() => props.execution?.id, () => {
+  selectedExecutionIds.value = [];
+});
+
+function loadHistoryExecutions() {
+  if (!props.execution) return;
+  listExecutionsApi(props.execution.scenarioId).then(list => {
+    historyExecutions.value = list;
+  }).catch(() => {
+    historyExecutions.value = [];
+  });
+}
 
 const uiStatus = computed(() => (props.execution ? toUiStatus(props.execution.status) : 'PENDING'));
 const script = computed(() => (props.execution ? scriptById(props.execution.scriptVersionId) : null));
 const aggregateRows = computed(() => props.execution?.aggregateRows ?? []);
+
+const currentExecutionLabel = computed(() => {
+  if (!props.execution) return '';
+  return props.execution.executionName || formatDate(props.execution.startedAt || props.execution.createdAt);
+});
+
 const accuracyLabel = computed(() => {
   const accuracy = props.execution?.summary.accuracy;
   if (accuracy === 'final') return '最终精确报告';
@@ -252,6 +323,63 @@ const sampleColumns: TableColumnsType<TaskSample> = [
   { title: '样本', key: 'label', ellipsis: true },
   { title: '耗时', key: 'elapsed', width: 120, align: 'right' },
 ];
+
+function formatDuration(ms: number | null) {
+  if (ms == null) return '-';
+  if (ms < 1000) return `${ms}ms`;
+  return `${Math.round(ms / 1000)}s`;
+}
+
+function toggleExecutionSelect(id: number, checked: boolean) {
+  if (checked) {
+    selectedExecutionIds.value.push(id);
+  } else {
+    selectedExecutionIds.value = selectedExecutionIds.value.filter(i => i !== id);
+  }
+}
+
+function switchToExecution(executionId: number) {
+  if (executionId === props.execution?.id) return;
+  openExecution({ id: executionId, projectId: props.execution!.projectId } as ScenarioExecution);
+}
+
+function historyStatusText(status: ScenarioExecution['status']) {
+  const ui = toUiStatus(status);
+  const map: Record<string, string> = {
+    PENDING: '排队中', RUNNING: '运行中', STOPPING: '停止中',
+    SUCCESS: '成功', FAILED: '失败', INTERRUPTED: '已停止',
+  };
+  return map[ui] || status;
+}
+
+function historyStatusClass(status: ScenarioExecution['status']) {
+  const ui = toUiStatus(status);
+  return {
+    pending: ui === 'PENDING', running: ui === 'RUNNING' || ui === 'STOPPING',
+    success: ui === 'SUCCESS', error: ui === 'FAILED' || ui === 'INTERRUPTED',
+  };
+}
+
+async function batchDeleteExecutions() {
+  const ids = selectedExecutionIds.value;
+  if (!ids.length) return;
+  try {
+    await deleteExecutionsApi(ids);
+    message.success(`已删除 ${ids.length} 条记录`);
+    selectedExecutionIds.value = [];
+    loadHistoryExecutions();
+    if (ids.includes(props.execution!.id)) {
+      const remaining = historyExecutions.value.filter(e => !ids.includes(e.id));
+      if (remaining.length > 0) {
+        switchToExecution(remaining[0].id);
+      } else {
+        emit('back');
+      }
+    }
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '删除失败');
+  }
+}
 
 function onPaginationChange(page: number, size: number) {
   resultPage.value = page;

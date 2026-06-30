@@ -1,27 +1,36 @@
 <template>
-  <a-modal v-model:open="visible" :title="editingScenario ? '编辑场景' : '添加场景'" width="720px" destroy-on-close>
+  <a-modal v-model:open="visible" :title="isEditing ? '编辑场景' : '添加场景'" width="720px" destroy-on-close>
     <a-form layout="vertical">
-      <a-form-item label="场景名称"><a-input v-model:value="form.name" /></a-form-item>
+      <a-form-item :label="isEditing ? '场景名称' : '场景名称前缀'">
+        <a-input v-model:value="form.name" :placeholder="isEditing ? '' : '留空则使用脚本名称'" />
+      </a-form-item>
       <a-form-item label="选择脚本">
-        <div class="script-choice-list">
-          <button
+        <div class="script-card-list">
+          <div
             v-for="script in currentProjectScripts"
             :key="script.id"
-            class="script-choice"
-            :class="{ selected: form.scriptVersionId === script.id }"
-            type="button"
-            @click="form.scriptVersionId = script.id"
+            class="script-card"
+            :class="{ selected: isScriptSelected(script.id) }"
+            @click="toggleScript(script.id)"
           >
-            <span><strong>{{ script.name }}</strong><small>{{ script.sourceFile }}</small></span>
-          </button>
+            <a-checkbox
+              :checked="isScriptSelected(script.id)"
+              @click.stop="toggleScript(script.id)"
+            />
+            <span class="script-card-body">
+              <strong>{{ script.name }}</strong>
+              <small>{{ script.sourceFile }}</small>
+            </span>
+            <EditOutlined
+              class="script-card-edit"
+              @click.stop="openScriptEditor(script.id)"
+            />
+          </div>
+        </div>
+        <div v-if="selectedCount > 0 && !isEditing" class="script-card-hint">
+          已选 {{ selectedCount }} 个脚本，将创建 {{ selectedCount }} 个场景
         </div>
       </a-form-item>
-      <div class="task-form-grid">
-        <a-form-item label="线程数"><a-input-number v-model:value="form.threads" :min="1" /></a-form-item>
-        <a-form-item label="Ramp-Up(s)"><a-input-number v-model:value="form.rampUp" :min="0" /></a-form-item>
-        <a-form-item label="持续时间(s)"><a-input-number v-model:value="form.duration" :min="0" /></a-form-item>
-        <a-form-item label="循环次数"><a-input-number v-model:value="form.loops" :min="0" /></a-form-item>
-      </div>
       <a-form-item>
         <a-checkbox v-model:checked="form.overridePlanDefaults">覆盖计划默认节点与监控配置</a-checkbox>
       </a-form-item>
@@ -45,13 +54,15 @@
     </a-form>
     <template #footer>
       <a-button @click="visible = false">取消</a-button>
-      <a-button type="primary" :disabled="!canSave" @click="onSave">保存</a-button>
+      <a-button type="primary" :disabled="!canSave" :loading="saving" @click="onSave">保存</a-button>
     </template>
   </a-modal>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import { EditOutlined } from '@ant-design/icons-vue';
 import type { TaskPlan, TaskScenario } from '../../types';
 import { useWorkspace } from '../../composables/useWorkspace';
 import { useTaskPlans } from '../../composables/useTaskPlans';
@@ -61,6 +72,7 @@ import { useMonitoring } from '../../composables/useMonitoring';
 const props = defineProps<{ modelValue: boolean; plan: TaskPlan; editingScenario: TaskScenario | null }>();
 const emit = defineEmits<{ (e: 'update:modelValue', value: boolean): void }>();
 
+const router = useRouter();
 const { currentProjectScripts } = useWorkspace();
 const { saveScenario } = useTaskPlans();
 const { controllerNodes, workerNodes, loading, loadNodes } = useExecutionNodes();
@@ -71,14 +83,13 @@ const visible = computed({
   set: (value) => emit('update:modelValue', value),
 });
 
+const isEditing = computed(() => props.editingScenario != null);
+const saving = ref(false);
+
 const form = reactive({
   id: undefined as number | undefined,
   name: '',
-  scriptVersionId: null as number | null,
-  threads: 1,
-  rampUp: 0,
-  duration: 0,
-  loops: 1,
+  selectedScriptIds: [] as number[],
   overridePlanDefaults: false,
   controllerNodeId: null as number | null,
   workerNodeIds: [] as number[],
@@ -86,46 +97,81 @@ const form = reactive({
 });
 
 const selectableMonitorTargets = computed(() => monitorTargets.value.filter((t) => t.enabled));
-const canSave = computed(() => form.name.trim() && form.scriptVersionId !== null);
+const selectedCount = computed(() => form.selectedScriptIds.length);
+const canSave = computed(() => form.selectedScriptIds.length > 0);
+
+function isScriptSelected(scriptId: number) {
+  return form.selectedScriptIds.includes(scriptId);
+}
+
+function toggleScript(scriptId: number) {
+  if (isEditing.value) {
+    form.selectedScriptIds = [scriptId];
+  } else {
+    const idx = form.selectedScriptIds.indexOf(scriptId);
+    if (idx >= 0) {
+      form.selectedScriptIds.splice(idx, 1);
+    } else {
+      form.selectedScriptIds.push(scriptId);
+    }
+  }
+}
 
 watch(() => [props.modelValue, props.editingScenario, props.plan] as const, async () => {
   if (!props.modelValue) return;
   void loadNodes();
   await loadMonitorTargets(props.plan.projectId);
-  const script = props.editingScenario
-    ? currentProjectScripts.value.find((s) => s.id === props.editingScenario?.scriptVersionId)
-    : currentProjectScripts.value[0];
-  form.id = props.editingScenario?.id;
-  form.name = props.editingScenario?.name ?? (script ? `${script.name} 场景` : '');
-  form.scriptVersionId = props.editingScenario?.scriptVersionId ?? script?.id ?? null;
-  form.threads = props.editingScenario?.threads ?? 1;
-  form.rampUp = props.editingScenario?.rampUp ?? 0;
-  form.duration = props.editingScenario?.duration ?? 0;
-  form.loops = props.editingScenario?.loops ?? 1;
-  form.overridePlanDefaults = props.editingScenario?.controllerNodeId != null
-    || (props.editingScenario?.workerNodeIds?.length ?? 0) > 0
-    || (props.editingScenario?.monitorTargetIds?.length ?? 0) > 0;
-  form.controllerNodeId = props.editingScenario?.controllerNodeId ?? props.plan.defaultControllerNodeId;
-  form.workerNodeIds = [...(props.editingScenario?.workerNodeIds ?? props.plan.defaultWorkerNodeIds)];
-  form.monitorTargetIds = [...(props.editingScenario?.monitorTargetIds ?? props.plan.defaultMonitorTargetIds)];
+
+  if (props.editingScenario) {
+    const script = currentProjectScripts.value.find((s) => s.id === props.editingScenario?.scriptVersionId);
+    form.id = props.editingScenario.id;
+    form.name = props.editingScenario.name;
+    form.selectedScriptIds = props.editingScenario.scriptVersionId ? [props.editingScenario.scriptVersionId] : [];
+    form.overridePlanDefaults = props.editingScenario.controllerNodeId != null
+      || (props.editingScenario.workerNodeIds?.length ?? 0) > 0
+      || (props.editingScenario.monitorTargetIds?.length ?? 0) > 0;
+    form.controllerNodeId = props.editingScenario.controllerNodeId ?? props.plan.defaultControllerNodeId;
+    form.workerNodeIds = [...(props.editingScenario.workerNodeIds ?? props.plan.defaultWorkerNodeIds)];
+    form.monitorTargetIds = [...(props.editingScenario.monitorTargetIds ?? props.plan.defaultMonitorTargetIds)];
+  } else {
+    form.id = undefined;
+    form.name = '';
+    form.selectedScriptIds = [];
+    form.overridePlanDefaults = false;
+    form.controllerNodeId = props.plan.defaultControllerNodeId;
+    form.workerNodeIds = [...props.plan.defaultWorkerNodeIds];
+    form.monitorTargetIds = [...props.plan.defaultMonitorTargetIds];
+  }
 }, { immediate: true });
 
+function openScriptEditor(scriptId: number) {
+  const route = router.resolve(`/projects/${props.plan.projectId}/scripts/${scriptId}/edit`);
+  window.open(route.href, '_blank');
+}
+
 async function onSave() {
-  if (!form.scriptVersionId) return;
-  if (await saveScenario(props.plan.id, {
-    id: form.id,
-    name: form.name,
-    scriptVersionId: form.scriptVersionId,
-    threads: form.threads,
-    rampUp: form.rampUp,
-    duration: form.duration,
-    loops: form.loops,
-    overridePlanDefaults: form.overridePlanDefaults,
-    controllerNodeId: form.overridePlanDefaults ? form.controllerNodeId : undefined,
-    workerNodeIds: form.overridePlanDefaults ? form.workerNodeIds : undefined,
-    monitorTargetIds: form.overridePlanDefaults ? form.monitorTargetIds : undefined,
-  })) {
+  if (form.selectedScriptIds.length === 0) return;
+  saving.value = true;
+  try {
+    for (const scriptId of form.selectedScriptIds) {
+      const script = currentProjectScripts.value.find((s) => s.id === scriptId);
+      const scenarioName = isEditing.value
+        ? form.name
+        : (form.name.trim() ? `${form.name.trim()} ${script?.name ?? ''}` : `${script?.name ?? ''} 场景`);
+      const success = await saveScenario(props.plan.id, {
+        id: isEditing.value ? form.id : undefined,
+        name: scenarioName,
+        scriptVersionId: scriptId,
+        overridePlanDefaults: form.overridePlanDefaults,
+        controllerNodeId: form.overridePlanDefaults ? form.controllerNodeId : undefined,
+        workerNodeIds: form.overridePlanDefaults ? form.workerNodeIds : undefined,
+        monitorTargetIds: form.overridePlanDefaults ? form.monitorTargetIds : undefined,
+      });
+      if (!success) break;
+    }
     visible.value = false;
+  } finally {
+    saving.value = false;
   }
 }
 </script>

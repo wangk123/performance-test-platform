@@ -91,25 +91,29 @@ public class ScenarioExecutionService {
     }
 
     @Transactional
-    public ScenarioExecution triggerExecution(long scenarioId) {
+    public ScenarioExecution triggerExecution(long scenarioId, String executionName) {
         PersistentTaskScenarioRecord scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new ExecutionValidationException("scenario does not exist"));
         PersistentTaskPlanRecord plan = planRepository.findById(scenario.getPlanId())
                 .orElseThrow(() -> new ExecutionValidationException("task plan does not exist"));
         ExecutionConfig config = normalizeConfig(configMerger.merge(plan, scenario));
-        PersistentScenarioExecutionRecord execution = executionRepository.save(new PersistentScenarioExecutionRecord(
+        PersistentScenarioExecutionRecord execution = new PersistentScenarioExecutionRecord(
                 scenario.getId(),
                 writeConfig(config)
-        ));
-        monitorBindingService.bindTargets(plan.getProjectId(), execution.getId(), config.monitorTargetIds());
-        executionRuntime.register(execution.getId());
+        );
+        if (executionName != null && !executionName.isBlank()) {
+            execution.setExecutionName(executionName.trim());
+        }
+        final PersistentScenarioExecutionRecord saved = executionRepository.save(execution);
+        monitorBindingService.bindTargets(plan.getProjectId(), saved.getId(), config.monitorTargetIds());
+        executionRuntime.register(saved.getId());
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                distributedJmeterExecutionRunner.submit(execution.getId());
+                distributedJmeterExecutionRunner.submit(saved.getId());
             }
         });
-        return toExecution(plan, scenario, execution);
+        return toExecution(plan, scenario, saved);
     }
 
     @Transactional(readOnly = true)
@@ -154,6 +158,13 @@ public class ScenarioExecutionService {
                 execution.getLogFilePath() == null ? null : Path.of(execution.getLogFilePath())
         );
         executionRepository.delete(execution);
+    }
+
+    @Transactional
+    public void deleteExecutions(List<Long> executionIds) {
+        for (Long executionId : executionIds) {
+            deleteExecution(executionId);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -367,18 +378,16 @@ public class ScenarioExecutionService {
                 execution.getDurationMs(),
                 execution.getResultFilePath(),
                 execution.getLogFilePath(),
-                execution.getErrorMessage()
+                execution.getErrorMessage(),
+                execution.getExecutionName()
         );
     }
 
     private ExecutionConfig normalizeConfig(ExecutionConfig config) {
         ExecutionConfig source = config == null
-                ? new ExecutionConfig(1, 0, 0, 1, Map.of(), ExecutionMode.DISTRIBUTED, null, List.of(), List.of())
+                ? new ExecutionConfig(0, 0, 0, 0, Map.of(), ExecutionMode.DISTRIBUTED, null, List.of(), List.of())
                 : config;
-        if (source.threads() <= 0) {
-            throw new ExecutionValidationException("threads must be greater than 0");
-        }
-        if (source.rampUp() < 0 || source.duration() < 0 || source.loops() < 0) {
+        if (source.threads() < 0 || source.rampUp() < 0 || source.duration() < 0 || source.loops() < 0) {
             throw new ExecutionValidationException("execution config cannot be negative");
         }
         source.jmeterProperties().keySet().forEach(key -> {
