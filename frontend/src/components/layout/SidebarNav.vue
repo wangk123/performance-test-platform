@@ -50,7 +50,6 @@
     </template>
 
     <div v-else-if="currentUser && currentProject" class="side-section project-detail-nav">
-      <button class="side-back" type="button" @click="backToProjects">返回项目列表</button>
       <div class="side-title module-title">项目详情导航</div>
       <button
         v-for="option in projectTabOptions"
@@ -80,7 +79,7 @@ import { useNavigation } from '../../composables/useNavigation';
 import { useWorkspace } from '../../composables/useWorkspace';
 
 const { currentUser } = useAuth();
-const { activeMainNav, activeProjectTab, selectMainNav, backToProjects, enterProjectTab } =
+const { activeMainNav, activeProjectTab, selectMainNav, enterProjectTab } =
   useNavigation();
 const { currentProject } = useWorkspace();
 </script>

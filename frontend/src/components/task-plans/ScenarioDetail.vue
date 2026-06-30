@@ -2,12 +2,8 @@
   <section class="task-detail">
     <div class="panel task-detail-hero">
       <div>
-        <div class="task-detail-nav">
-          <a-button class="task-back-button" @click="$emit('back')">返回计划详情</a-button>
-          <span class="eyebrow">Scenario</span>
-        </div>
         <h2>{{ scenario.name }}</h2>
-        <p>{{ script?.name }} · {{ scenario.threads }} 线程</p>
+        <p>{{ script?.name }}</p>
       </div>
       <a-button type="primary" @click="runScenario(scenario)">执行场景</a-button>
     </div>

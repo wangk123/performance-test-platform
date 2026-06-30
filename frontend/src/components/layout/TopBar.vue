@@ -1,9 +1,16 @@
 <template>
   <a-layout-header class="topbar">
-    <div>
-      <div class="eyebrow">Phase 2 Prototype</div>
-      <div class="page-title">{{ pageTitle }}</div>
-    </div>
+    <nav class="topbar-breadcrumb">
+      <template v-for="(segment, index) in breadcrumbs" :key="index">
+        <span v-if="index > 0" class="crumb-sep">&gt;</span>
+        <a
+          v-if="segment.to"
+          class="crumb-seg"
+          @click="navigateTo(segment.to)"
+        >{{ segment.label }}</a>
+        <span v-else class="crumb-seg crumb-current">{{ segment.label }}</span>
+      </template>
+    </nav>
     <div class="topbar-actions">
       <a-tag color="success">Backend API</a-tag>
       <a-tag v-if="currentProject" color="success">{{ currentProject.code }}</a-tag>
@@ -39,14 +46,24 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useAuth } from '../../composables/useAuth';
-import { useNavigation } from '../../composables/useNavigation';
+import { useRouter } from 'vue-router';
+import { useBreadcrumb } from '../../composables/useBreadcrumb';
 import { useTheme } from '../../composables/useTheme';
 import { useWorkspace } from '../../composables/useWorkspace';
 
 const { currentUser } = useAuth();
-const { currentProject, fullLogout } = useWorkspace();
-const { pageTitle } = useNavigation();
+const { currentProject, exitProjectWorkspace, fullLogout } = useWorkspace();
+const { breadcrumbs } = useBreadcrumb();
 const { themeMode, themeModeOptions } = useTheme();
+const router = useRouter();
+
+function navigateTo(to: string) {
+  // 导航到非项目页面时，退出项目工作区以正确显示侧边栏
+  if (!/^\/projects\/\d+/.test(to)) {
+    exitProjectWorkspace();
+  }
+  void router.push(to);
+}
 
 const userInitial = computed(() => currentUser.value?.displayName?.slice(0, 1).toUpperCase() ?? 'U');
 </script>

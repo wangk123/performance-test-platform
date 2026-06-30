@@ -2,10 +2,6 @@
   <section class="task-detail">
     <div class="panel task-detail-hero">
       <div>
-        <div class="task-detail-nav">
-          <a-button class="task-back-button" @click="$emit('back')">返回计划列表</a-button>
-          <span class="eyebrow">Task Plan</span>
-        </div>
         <h2>{{ plan.name }}</h2>
         <p>{{ plan.scenarioCount }} 个场景 · {{ plan.remark || '无备注' }}</p>
       </div>

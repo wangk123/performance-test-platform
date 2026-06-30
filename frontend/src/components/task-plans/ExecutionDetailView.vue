@@ -2,99 +2,6 @@
   <section v-if="execution" class="task-detail">
     <div class="panel task-detail-hero">
       <div>
-        <div class="task-detail-nav">
-          <div class="task-detail-nav-start">
-            <a-button class="task-back-button" @click="$emit('back')">返回场景详情</a-button>
-            <span class="eyebrow">Scenario</span>
-          </div>
-          <a-dropdown
-            v-model:open="historyDropdownOpen"
-            :trigger="['click']"
-            placement="bottomRight"
-            overlay-class-name="execution-history-dropdown"
-            @openChange="onHistoryDropdownOpenChange"
-          >
-            <button
-              type="button"
-              class="execution-nav-trigger"
-              :class="{ 'is-open': historyDropdownOpen }"
-            >
-              <HistoryOutlined class="execution-nav-icon" />
-              <span class="execution-nav-label">查看历史记录</span>
-              <DownOutlined class="execution-nav-arrow" />
-            </button>
-            <template #overlay>
-              <div class="execution-history-panel" @mousedown.stop @click.stop>
-                <div class="execution-history-header">
-                  <div>
-                    <span class="execution-history-eyebrow">History</span>
-                    <strong class="execution-history-title">执行记录</strong>
-                  </div>
-                  <span class="execution-history-count-badge">{{ historyExecutions.length }}</span>
-                </div>
-                <div class="execution-history-toolbar">
-                  <span class="execution-history-hint">
-                    {{ historyEditMode ? `已选 ${selectedExecutionIds.length} 条` : '点击记录切换查看' }}
-                  </span>
-                  <div class="execution-history-actions">
-                    <template v-if="historyEditMode">
-                      <button type="button" class="execution-history-action" @click.stop.prevent="selectAllExecutions">全选</button>
-                      <button type="button" class="execution-history-action" @click.stop.prevent="deselectAllExecutions">取消全选</button>
-                      <button
-                        type="button"
-                        class="execution-history-action is-danger"
-                        :disabled="selectedExecutionIds.length === 0"
-                        @click.stop.prevent="batchDeleteExecutions"
-                      >删除{{ selectedExecutionIds.length ? ` (${selectedExecutionIds.length})` : '' }}</button>
-                    </template>
-                    <button
-                      v-else
-                      type="button"
-                      class="execution-history-icon-btn"
-                      :disabled="!historyExecutions.length"
-                      title="编辑"
-                      @click.stop.prevent="enterHistoryEditMode"
-                    >
-                      <EditOutlined />
-                    </button>
-                  </div>
-                </div>
-                <div class="execution-history-list">
-                  <div
-                    v-for="item in historyExecutions"
-                    :key="item.id"
-                    class="execution-history-item"
-                    :class="{
-                      active: item.id === execution.id,
-                      selected: selectedExecutionIds.includes(item.id),
-                      'is-selecting': historyEditMode,
-                    }"
-                  >
-                    <a-checkbox
-                      v-if="historyEditMode"
-                      class="execution-history-checkbox"
-                      :checked="selectedExecutionIds.includes(item.id)"
-                      @click.stop
-                      @change="(e: any) => toggleExecutionSelect(item.id, e.target.checked)"
-                    />
-                    <button
-                      type="button"
-                      class="execution-history-item-body"
-                      @click="onHistoryItemClick(item.id)"
-                    >
-                      <strong>{{ item.executionName || formatDate(item.startedAt || item.createdAt) }}</strong>
-                      <small>{{ formatDate(item.startedAt || item.createdAt) }} · {{ formatDuration(item.durationMs) }}</small>
-                    </button>
-                    <span class="execution-history-status" :class="historyStatusClass(item.status)">
-                      {{ historyStatusText(item.status) }}
-                    </span>
-                  </div>
-                  <div v-if="!historyExecutions.length" class="execution-history-empty">暂无历史记录</div>
-                </div>
-              </div>
-            </template>
-          </a-dropdown>
-        </div>
         <h2>{{ execution.scenarioName }}</h2>
         <p>{{ script?.name }} · {{ executionStatusText(uiStatus) }}</p>
       </div>
@@ -120,9 +27,95 @@
       <div class="panel-header">
         <div>
           <span class="eyebrow">Aggregate Report</span>
-          <h2>聚合报告</h2>
-          <span v-if="accuracyLabel" class="aggregate-accuracy-badge" :class="accuracyClass">{{ accuracyLabel }}</span>
+          <h2>聚合报告<span v-if="accuracyLabel" class="aggregate-accuracy-badge inline-badge" :class="accuracyClass">{{ accuracyLabel }}</span></h2>
         </div>
+        <a-dropdown
+          v-model:open="historyDropdownOpen"
+          :trigger="['click']"
+          placement="bottomRight"
+          overlay-class-name="execution-history-dropdown"
+          @openChange="onHistoryDropdownOpenChange"
+        >
+          <button
+            type="button"
+            class="execution-nav-trigger"
+            :class="{ 'is-open': historyDropdownOpen }"
+          >
+            <HistoryOutlined class="execution-nav-icon" />
+            <span class="execution-nav-label">查看历史记录</span>
+            <DownOutlined class="execution-nav-arrow" />
+          </button>
+          <template #overlay>
+            <div class="execution-history-panel" @mousedown.stop @click.stop>
+              <div class="execution-history-header">
+                <div>
+                  <span class="execution-history-eyebrow">History</span>
+                  <strong class="execution-history-title">执行记录</strong>
+                </div>
+                <span class="execution-history-count-badge">{{ historyExecutions.length }}</span>
+              </div>
+              <div class="execution-history-toolbar">
+                <span class="execution-history-hint">
+                  {{ historyEditMode ? `已选 ${selectedExecutionIds.length} 条` : '点击记录切换查看' }}
+                </span>
+                <div class="execution-history-actions">
+                  <template v-if="historyEditMode">
+                    <button type="button" class="execution-history-action" @click.stop.prevent="selectAllExecutions">全选</button>
+                    <button type="button" class="execution-history-action" @click.stop.prevent="deselectAllExecutions">取消全选</button>
+                    <button
+                      type="button"
+                      class="execution-history-action is-danger"
+                      :disabled="selectedExecutionIds.length === 0"
+                      @click.stop.prevent="batchDeleteExecutions"
+                    >删除{{ selectedExecutionIds.length ? ` (${selectedExecutionIds.length})` : '' }}</button>
+                  </template>
+                  <button
+                    v-else
+                    type="button"
+                    class="execution-history-icon-btn"
+                    :disabled="!historyExecutions.length"
+                    title="编辑"
+                    @click.stop.prevent="enterHistoryEditMode"
+                  >
+                    <EditOutlined />
+                  </button>
+                </div>
+              </div>
+              <div class="execution-history-list">
+                <div
+                  v-for="item in historyExecutions"
+                  :key="item.id"
+                  class="execution-history-item"
+                  :class="{
+                    active: item.id === execution.id,
+                    selected: selectedExecutionIds.includes(item.id),
+                    'is-selecting': historyEditMode,
+                  }"
+                >
+                  <a-checkbox
+                    v-if="historyEditMode"
+                    class="execution-history-checkbox"
+                    :checked="selectedExecutionIds.includes(item.id)"
+                    @click.stop
+                    @change="(e: any) => toggleExecutionSelect(item.id, e.target.checked)"
+                  />
+                  <button
+                    type="button"
+                    class="execution-history-item-body"
+                    @click="onHistoryItemClick(item.id)"
+                  >
+                    <strong>{{ item.executionName || formatDate(item.startedAt || item.createdAt) }}</strong>
+                    <small>{{ formatDate(item.startedAt || item.createdAt) }} · {{ formatDuration(item.durationMs) }}</small>
+                  </button>
+                  <span class="execution-history-status" :class="historyStatusClass(item.status)">
+                    {{ historyStatusText(item.status) }}
+                  </span>
+                </div>
+                <div v-if="!historyExecutions.length" class="execution-history-empty">暂无历史记录</div>
+              </div>
+            </div>
+          </template>
+        </a-dropdown>
       </div>
       <div class="summary-strip task-summary-strip">
         <div class="summary-cell"><span>Samples</span><strong>{{ execution.summary.samples.toLocaleString() }}</strong></div>

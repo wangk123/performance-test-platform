@@ -1483,13 +1483,6 @@
   min-width: 0;
 }
 
-.task-back-button {
-  width: 104px;
-  min-width: 104px;
-  height: 32px;
-  padding: 0 !important;
-}
-
 .task-detail-hero h2 {
   margin-top: 7px;
   font-size: 24px;
@@ -1525,6 +1518,12 @@
   color: #b45309;
   background: #fef3c7;
   border: 1px solid #fcd34d;
+}
+
+.aggregate-accuracy-badge.inline-badge {
+  margin-top: 0;
+  vertical-align: middle;
+  margin-left: 6px;
 }
 
 .aggregate-accuracy-badge.is-live {
