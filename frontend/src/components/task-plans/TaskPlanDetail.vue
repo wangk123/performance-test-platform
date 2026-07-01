@@ -5,7 +5,7 @@
         <h2>{{ plan.name }}</h2>
         <p>{{ plan.scenarioCount }} 个场景 · {{ plan.remark || '无备注' }}</p>
       </div>
-      <a-button type="primary" @click="openAddScenario">添加场景</a-button>
+      <a-button @click="openAddScenario">添加场景</a-button>
     </div>
 
     <div class="panel">
@@ -79,7 +79,7 @@ import TaskPlanDialog from './TaskPlanDialog.vue';
 import ScenarioDialog from './ScenarioDialog.vue';
 import ExecuteConfirmDialog from './ExecuteConfirmDialog.vue';
 
-defineProps<{ plan: TaskPlan; scenarios: TaskScenario[] }>();
+const props = defineProps<{ plan: TaskPlan; scenarios: TaskScenario[] }>();
 defineEmits<{ (e: 'back'): void }>();
 
 const planDialogVisible = ref(false);

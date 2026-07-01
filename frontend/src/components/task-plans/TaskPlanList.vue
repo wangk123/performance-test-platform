@@ -19,10 +19,6 @@
   />
 
   <section v-else class="task-schedule">
-    <div class="metrics-grid compact">
-      <div class="metric"><span>计划总数</span><strong>{{ projectPlans.length }}</strong></div>
-      <div class="metric"><span>场景总数</span><strong>{{ totalScenarios }}</strong></div>
-    </div>
     <div class="panel">
       <div class="panel-header">
         <div>
@@ -51,6 +47,7 @@
           <template v-else-if="column.key === 'scenarios'">{{ record.scenarioCount }} 个场景</template>
           <template v-else-if="column.key === 'updatedAt'">{{ formatDate(record.updatedAt) }}</template>
           <template v-else-if="column.key === 'actions'">
+            <a-button type="link" @click.stop="openReport(record)">报告</a-button>
             <a-button type="link" @click.stop="openPlan(record)">详情</a-button>
             <a-button type="link" @click.stop="openEditPlan(record)">编辑</a-button>
             <a-button type="link" danger @click.stop="removePlan(record)">删除</a-button>
@@ -63,7 +60,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 import type { TableColumnsType } from 'ant-design-vue';
 import type { TaskPlan } from '../../types';
 import { formatDate } from '../../utils/format';
@@ -91,8 +89,6 @@ const {
   removePlan,
 } = useTaskPlans();
 
-const totalScenarios = computed(() => projectPlans.value.reduce((sum, plan) => sum + plan.scenarioCount, 0));
-
 const columns: TableColumnsType<TaskPlan> = [
   { title: '计划名称', key: 'name', minWidth: 220 },
   { title: '场景数', key: 'scenarios', width: 100 },
@@ -103,6 +99,12 @@ const columns: TableColumnsType<TaskPlan> = [
 function openCreatePlan() {
   editingPlan.value = null;
   planDialogVisible.value = true;
+}
+
+const router = useRouter();
+
+function openReport(plan: TaskPlan) {
+  router.push(`/projects/${plan.projectId}/reports/plans/${plan.id}`);
 }
 
 function openEditPlan(plan: TaskPlan) {

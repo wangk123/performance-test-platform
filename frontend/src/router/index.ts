@@ -8,6 +8,7 @@ import ProjectDetail from '../components/views/ProjectDetail.vue';
 import SettingsView from '../components/views/SettingsView.vue';
 import ExecutionNodeView from '../components/views/ExecutionNodeView.vue';
 import ScriptEditorPage from '../views/ScriptEditorPage.vue';
+import ReportPreviewPage from '../views/ReportPreviewPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -39,6 +40,11 @@ export const router = createRouter({
       path: '/projects/:projectId/scripts/:scriptId/edit',
       name: 'script-editor',
       component: ScriptEditorPage,
+    },
+    {
+      path: '/projects/:projectId/reports/plans/:planId',
+      name: 'report-preview',
+      component: ReportPreviewPage,
     },
   ],
 });
