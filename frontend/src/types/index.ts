@@ -311,6 +311,24 @@ export type TargetMonitoringResult = {
   targets: MonitorTarget[];
 };
 
+export type ThreadGroupConfigSummary = {
+  samples: number;
+  throughput: number;
+  avgRt: number;
+  errorRate: number;
+};
+
+export type ScenarioThreadGroupConfig = {
+  id: number;
+  stepId: string;
+  stepName: string;
+  threads: number;
+  rampUp: number;
+  duration: number;
+  sortOrder: number;
+  latestSummary?: ThreadGroupConfigSummary | null;
+};
+
 export type ExecutionConfig = {
   threads: number;
   rampUp: number;
@@ -321,6 +339,9 @@ export type ExecutionConfig = {
   workerNodeIds?: number[];
   monitorTargetIds?: number[];
   jmeterProperties?: Record<string, string>;
+  threadGroupConfigId?: number | null;
+  stepId?: string | null;
+  stepName?: string | null;
 };
 
 export type TaskPlan = {
@@ -351,6 +372,7 @@ export type TaskScenario = {
   controllerNodeId: number | null;
   workerNodeIds: number[] | null;
   monitorTargetIds: number[] | null;
+  threadGroupConfigs: ScenarioThreadGroupConfig[];
   latestExecutionStatus: ExecutionStatus | null;
   latestExecutionAt: string | null;
   createdAt: string;

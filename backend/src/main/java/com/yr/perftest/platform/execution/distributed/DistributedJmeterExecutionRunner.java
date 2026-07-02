@@ -12,7 +12,11 @@ import com.yr.perftest.platform.execution.failure.FailureSamplePaths;
 import com.yr.perftest.platform.monitoring.ExecutionMonitorBindingService;
 import com.yr.perftest.platform.monitoring.TargetMetricsSnapshotService;
 import com.yr.perftest.platform.script.JmeterScriptNormalizer;
+import com.yr.perftest.platform.script.JmeterScriptParser;
+import com.yr.perftest.platform.script.JmeterScriptPatcher;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
+import com.yr.perftest.platform.script.ScriptStepDefinition;
+import com.yr.perftest.platform.script.ThreadGroupStepPatcher;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
 import com.yr.perftest.platform.task.PersistentScenarioExecutionRecord;
 import com.yr.perftest.platform.task.PersistentScenarioExecutionRepository;
@@ -55,6 +59,9 @@ public class DistributedJmeterExecutionRunner {
     private final TargetMetricsSnapshotService targetMetricsSnapshotService;
     private final FailureSampleSettings failureSampleSettings;
     private final JmeterScriptNormalizer scriptNormalizer;
+    private final JmeterScriptParser scriptParser;
+    private final JmeterScriptPatcher scriptPatcher;
+    private final ThreadGroupStepPatcher threadGroupStepPatcher;
     private final ExecutionMonitorBindingService monitorBindingService;
     private final ScenarioExecutionRuntime executionRuntime;
     private final TransactionTemplate transactionTemplate;
@@ -80,6 +87,9 @@ public class DistributedJmeterExecutionRunner {
             TargetMetricsSnapshotService targetMetricsSnapshotService,
             FailureSampleSettings failureSampleSettings,
             JmeterScriptNormalizer scriptNormalizer,
+            JmeterScriptParser scriptParser,
+            JmeterScriptPatcher scriptPatcher,
+            ThreadGroupStepPatcher threadGroupStepPatcher,
             ExecutionMonitorBindingService monitorBindingService,
             ScenarioExecutionRuntime executionRuntime,
             TransactionTemplate transactionTemplate,
@@ -103,6 +113,9 @@ public class DistributedJmeterExecutionRunner {
         this.targetMetricsSnapshotService = targetMetricsSnapshotService;
         this.failureSampleSettings = failureSampleSettings;
         this.scriptNormalizer = scriptNormalizer;
+        this.scriptParser = scriptParser;
+        this.scriptPatcher = scriptPatcher;
+        this.threadGroupStepPatcher = threadGroupStepPatcher;
         this.monitorBindingService = monitorBindingService;
         this.executionRuntime = executionRuntime;
         this.transactionTemplate = transactionTemplate;
@@ -147,6 +160,7 @@ public class DistributedJmeterExecutionRunner {
             Files.createDirectories(preparation.executionDirectory());
             Path hdrHistogramJar = ensureHdrHistogramJar(preparation.executionDirectory());
             scriptNormalizer.copyNormalized(preparation.sourcePath(), preparation.originalTestPlanPath());
+            applyThreadGroupOverride(executionId, preparation.originalTestPlanPath());
             backendListenerInjector.inject(
                     preparation.originalTestPlanPath(),
                     preparation.distributedTestPlanPath(),
@@ -311,6 +325,33 @@ public class DistributedJmeterExecutionRunner {
                     workers
             );
         });
+    }
+
+    private void applyThreadGroupOverride(long executionId, Path testPlanPath) {
+        ExecutionConfig config = transactionTemplate.execute(status -> {
+            PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId)
+                    .orElseThrow(() -> new ExecutionValidationException("execution does not exist"));
+            return readConfig(execution.getConfigJson());
+        });
+        if (config == null || config.stepId() == null || config.stepId().isBlank() || config.threads() <= 0) {
+            return;
+        }
+        try {
+            String content = Files.readString(testPlanPath, StandardCharsets.UTF_8);
+            List<ScriptStepDefinition> steps = scriptParser.parseSteps(content);
+            List<ScriptStepDefinition> patched = threadGroupStepPatcher.patchStep(
+                    steps,
+                    config.stepId(),
+                    config.threads(),
+                    config.rampUp(),
+                    config.duration()
+            );
+            Files.writeString(testPlanPath, scriptPatcher.patch(content, patched), StandardCharsets.UTF_8);
+        } catch (ExecutionValidationException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new ExecutionValidationException("failed to apply thread group override");
+        }
     }
 
     private Map<String, Object> payload(DistributedExecutionPreparation preparation) {

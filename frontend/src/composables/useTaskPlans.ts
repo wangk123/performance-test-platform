@@ -368,9 +368,12 @@ export function useTaskPlans() {
     }
   }
 
-  async function runScenario(scenario: TaskScenario, executionName?: string) {
+  async function runScenario(
+    scenario: TaskScenario,
+    options?: { executionName?: string; threadGroupConfigId?: number | null },
+  ) {
     try {
-      const execution = await triggerExecutionApi(scenario.id, executionName);
+      const execution = await triggerExecutionApi(scenario.id, options);
       executions.value = [execution, ...executions.value];
       openExecution(execution);
       message.success('场景已提交执行');

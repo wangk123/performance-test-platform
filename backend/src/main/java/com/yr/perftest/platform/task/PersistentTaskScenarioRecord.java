@@ -53,6 +53,10 @@ public class PersistentTaskScenarioRecord {
     @Lob
     private String monitorTargetIdsJson;
 
+    @Lob
+    @Column(nullable = true)
+    private String threadGroupConfigsJson;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -72,6 +76,7 @@ public class PersistentTaskScenarioRecord {
         this.duration = 0;
         this.loops = 1;
         this.jmeterPropertiesJson = "{}";
+        this.threadGroupConfigsJson = "[]";
         this.createdAt = Instant.now();
         this.updatedAt = createdAt;
     }
@@ -128,6 +133,10 @@ public class PersistentTaskScenarioRecord {
         return monitorTargetIdsJson;
     }
 
+    public String getThreadGroupConfigsJson() {
+        return threadGroupConfigsJson;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
@@ -142,7 +151,8 @@ public class PersistentTaskScenarioRecord {
             String jmeterPropertiesJson,
             Long controllerNodeId,
             String workerNodeIdsJson,
-            String monitorTargetIdsJson
+            String monitorTargetIdsJson,
+            String threadGroupConfigsJson
     ) {
         if (name != null && !name.trim().isEmpty()) {
             this.name = name.trim();
@@ -154,6 +164,9 @@ public class PersistentTaskScenarioRecord {
         this.controllerNodeId = controllerNodeId;
         this.workerNodeIdsJson = workerNodeIdsJson;
         this.monitorTargetIdsJson = monitorTargetIdsJson;
+        if (threadGroupConfigsJson != null) {
+            this.threadGroupConfigsJson = threadGroupConfigsJson;
+        }
         this.updatedAt = Instant.now();
     }
 }

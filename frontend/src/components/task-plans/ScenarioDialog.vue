@@ -31,6 +31,13 @@
           已选 {{ selectedCount }} 个脚本，将创建 {{ selectedCount }} 个场景
         </div>
       </a-form-item>
+      <a-form-item v-if="activeScriptVersionId" label="线程组配置">
+        <ScenarioThreadGroupConfigEditor
+          :project-id="plan.projectId"
+          :script-version-id="activeScriptVersionId"
+          v-model="form.threadGroupConfigs"
+        />
+      </a-form-item>
       <a-form-item>
         <a-checkbox v-model:checked="form.overridePlanDefaults">覆盖计划默认节点与监控配置</a-checkbox>
       </a-form-item>
@@ -63,11 +70,12 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { EditOutlined } from '@ant-design/icons-vue';
-import type { TaskPlan, TaskScenario } from '../../types';
+import type { TaskPlan, TaskScenario, ScenarioThreadGroupConfig } from '../../types';
 import { useWorkspace } from '../../composables/useWorkspace';
 import { useTaskPlans } from '../../composables/useTaskPlans';
 import { useExecutionNodes } from '../../composables/useExecutionNodes';
 import { useMonitoring } from '../../composables/useMonitoring';
+import ScenarioThreadGroupConfigEditor from './ScenarioThreadGroupConfigEditor.vue';
 
 const props = defineProps<{ modelValue: boolean; plan: TaskPlan; editingScenario: TaskScenario | null }>();
 const emit = defineEmits<{ (e: 'update:modelValue', value: boolean): void }>();
@@ -94,7 +102,12 @@ const form = reactive({
   controllerNodeId: null as number | null,
   workerNodeIds: [] as number[],
   monitorTargetIds: [] as number[],
+  threadGroupConfigs: [] as ScenarioThreadGroupConfig[],
 });
+
+const activeScriptVersionId = computed(() => (
+  isEditing.value ? form.selectedScriptIds[0] ?? null : form.selectedScriptIds[0] ?? null
+));
 
 const selectableMonitorTargets = computed(() => monitorTargets.value.filter((t) => t.enabled));
 const selectedCount = computed(() => form.selectedScriptIds.length);
@@ -133,6 +146,7 @@ watch(() => [props.modelValue, props.editingScenario, props.plan] as const, asyn
     form.controllerNodeId = props.editingScenario.controllerNodeId ?? props.plan.defaultControllerNodeId;
     form.workerNodeIds = [...(props.editingScenario.workerNodeIds ?? props.plan.defaultWorkerNodeIds)];
     form.monitorTargetIds = [...(props.editingScenario.monitorTargetIds ?? props.plan.defaultMonitorTargetIds)];
+    form.threadGroupConfigs = [...(props.editingScenario.threadGroupConfigs ?? [])];
   } else {
     form.id = undefined;
     form.name = '';
@@ -141,6 +155,7 @@ watch(() => [props.modelValue, props.editingScenario, props.plan] as const, asyn
     form.controllerNodeId = props.plan.defaultControllerNodeId;
     form.workerNodeIds = [...props.plan.defaultWorkerNodeIds];
     form.monitorTargetIds = [...props.plan.defaultMonitorTargetIds];
+    form.threadGroupConfigs = [];
   }
 }, { immediate: true });
 
@@ -162,6 +177,9 @@ async function onSave() {
         id: isEditing.value ? form.id : undefined,
         name: scenarioName,
         scriptVersionId: scriptId,
+        threadGroupConfigs: isEditing.value || scriptId === form.selectedScriptIds[0]
+          ? form.threadGroupConfigs.map((item, sortOrder) => ({ ...item, sortOrder }))
+          : [],
         overridePlanDefaults: form.overridePlanDefaults,
         controllerNodeId: form.overridePlanDefaults ? form.controllerNodeId : undefined,
         workerNodeIds: form.overridePlanDefaults ? form.workerNodeIds : undefined,

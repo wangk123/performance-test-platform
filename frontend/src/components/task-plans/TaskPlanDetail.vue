@@ -13,52 +13,50 @@
         <div>
           <span class="eyebrow">Scenarios</span>
           <h2>测试场景</h2>
-          <p>每个场景绑定一份脚本，可单独执行并查看多次执行记录。</p>
+          <p>展开查看线程组配置与最近一次执行聚合结果。</p>
         </div>
         <a-button @click="planDialogVisible = true">编辑计划默认配置</a-button>
       </div>
-      <a-table
-        class="workspace-table"
-        :columns="columns"
-        :data-source="scenarios"
-        :pagination="false"
-        :row-key="(record: TaskScenario) => record.id"
-        :locale="{ emptyText: '暂无场景，请添加。' }"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'script'">
-            <strong>{{ scriptById(record.scriptVersionId)?.name ?? '未知脚本' }}</strong>
-          </template>
-          <template v-else-if="column.key === 'status'">
-            <span v-if="record.latestExecutionStatus" class="status" :class="statusClass(record.latestExecutionStatus)">
-              {{ executionStatusText(toUiStatus(record.latestExecutionStatus)) }}
+
+      <div v-if="scenarios.length === 0" class="scenario-list-empty">暂无场景，请添加。</div>
+      <div v-else class="scenario-list">
+        <div v-for="scenario in scenarios" :key="scenario.id" class="scenario-list-item">
+          <button
+            type="button"
+            class="task-table-row scenario-list-toggle"
+            :class="{ active: expandedIds.has(scenario.id) }"
+            @click="toggleExpanded(scenario.id)"
+          >
+            <span class="scenario-expand-icon">{{ expandedIds.has(scenario.id) ? '▾' : '▸' }}</span>
+            <span>
+              <strong>{{ scenario.name }}</strong>
+              <small>{{ scriptById(scenario.scriptVersionId)?.name ?? '未知脚本' }}</small>
             </span>
-            <span v-else class="status-na">未执行</span>
-          </template>
-          <template v-else-if="column.key === 'actions'">
-            <div class="scenario-actions">
+            <span>
+              <span v-if="scenario.latestExecutionStatus" class="status" :class="statusClass(scenario.latestExecutionStatus)">
+                {{ executionStatusText(toUiStatus(scenario.latestExecutionStatus)) }}
+              </span>
+              <span v-else class="status-na">未执行</span>
+            </span>
+            <span class="task-row-actions" @click.stop>
               <a-tooltip title="执行">
-                <a-button
-                  type="primary"
-                  shape="circle"
-                  size="small"
-                  @click="openExecuteConfirm(record)"
-                >
+                <a-button type="primary" shape="circle" size="small" @click="openExecuteConfirm(scenario)">
                   <template #icon><CaretRightOutlined /></template>
                 </a-button>
               </a-tooltip>
-              <a-button type="link" @click="openEditScenario(record)">编辑</a-button>
-              <a-button type="link" danger @click="removeScenario(record)">删除</a-button>
+              <a-button type="link" @click="openEditScenario(scenario)">编辑</a-button>
+              <a-button type="link" danger @click="removeScenario(scenario)">删除</a-button>
               <a-button
                 type="link"
-                :disabled="!record.latestExecutionStatus"
-                :loading="loadingExecutionId === record.id"
-                @click="openLatestExecution(record)"
+                :disabled="!scenario.latestExecutionStatus"
+                :loading="loadingExecutionId === scenario.id"
+                @click="openLatestExecution(scenario)"
               >执行记录</a-button>
-            </div>
-          </template>
-        </template>
-      </a-table>
+            </span>
+          </button>
+          <ScenarioRowPanel v-if="expandedIds.has(scenario.id)" :configs="scenario.threadGroupConfigs ?? []" />
+        </div>
+      </div>
     </div>
 
     <TaskPlanDialog v-model="planDialogVisible" :editing-plan="plan" />
@@ -69,7 +67,6 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { TableColumnsType } from 'ant-design-vue';
 import { message } from 'ant-design-vue';
 import { CaretRightOutlined } from '@ant-design/icons-vue';
 import type { TaskPlan, TaskScenario } from '../../types';
@@ -78,6 +75,7 @@ import { listExecutionsApi } from '../../api/task-plans';
 import TaskPlanDialog from './TaskPlanDialog.vue';
 import ScenarioDialog from './ScenarioDialog.vue';
 import ExecuteConfirmDialog from './ExecuteConfirmDialog.vue';
+import ScenarioRowPanel from './ScenarioRowPanel.vue';
 
 const props = defineProps<{ plan: TaskPlan; scenarios: TaskScenario[] }>();
 defineEmits<{ (e: 'back'): void }>();
@@ -88,26 +86,30 @@ const editingScenario = ref<TaskScenario | null>(null);
 const loadingExecutionId = ref<number | null>(null);
 const executeDialogVisible = ref(false);
 const pendingScenario = ref<TaskScenario | null>(null);
+const expandedIds = ref<Set<number>>(new Set());
 
 const { scriptById, runScenario, removeScenario, executionStatusText, toUiStatus, openExecution } = useTaskPlans();
+
+function toggleExpanded(scenarioId: number) {
+  const next = new Set(expandedIds.value);
+  if (next.has(scenarioId)) {
+    next.delete(scenarioId);
+  } else {
+    next.add(scenarioId);
+  }
+  expandedIds.value = next;
+}
 
 function openExecuteConfirm(scenario: TaskScenario) {
   pendingScenario.value = scenario;
   executeDialogVisible.value = true;
 }
 
-function handleExecuteConfirm(executionName: string) {
+function handleExecuteConfirm(payload: { executionName?: string; threadGroupConfigId?: number | null }) {
   if (pendingScenario.value) {
-    void runScenario(pendingScenario.value, executionName || undefined);
+    void runScenario(pendingScenario.value, payload);
   }
 }
-
-const columns: TableColumnsType<TaskScenario> = [
-  { title: '场景名称', dataIndex: 'name', key: 'name' },
-  { title: '脚本', key: 'script' },
-  { title: '最近执行', key: 'status', width: 100 },
-  { title: '操作', key: 'actions', width: 250 },
-];
 
 function openAddScenario() {
   editingScenario.value = null;
@@ -140,3 +142,29 @@ function statusClass(status: TaskScenario['latestExecutionStatus']) {
   return { pending: ui === 'PENDING', running: ui === 'RUNNING' || ui === 'STOPPING', success: ui === 'SUCCESS', error: ui === 'FAILED' || ui === 'INTERRUPTED' };
 }
 </script>
+
+<style scoped>
+.scenario-list {
+  border-top: 1px solid var(--border);
+}
+
+.scenario-list-item + .scenario-list-item {
+  border-top: 1px solid var(--border);
+}
+
+.scenario-list-toggle {
+  width: 100%;
+  grid-template-columns: 28px minmax(180px, 1.2fr) 100px 250px;
+}
+
+.scenario-expand-icon {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.scenario-list-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+}
+</style>

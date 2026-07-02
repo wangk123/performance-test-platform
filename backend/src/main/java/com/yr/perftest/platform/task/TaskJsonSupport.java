@@ -55,4 +55,8 @@ public class TaskJsonSupport {
             throw new ExecutionValidationException("map json is invalid");
         }
     }
+
+    public ObjectMapper objectMapper() {
+        return objectMapper;
+    }
 }

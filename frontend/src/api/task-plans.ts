@@ -1,6 +1,7 @@
 import type {
   ExecutionDetail,
   ScenarioExecution,
+  ScenarioThreadGroupConfig,
   TaskPlan,
   TaskScenario,
   TaskAggregateRow,
@@ -78,6 +79,7 @@ export function createScenarioApi(
     scriptVersionId: number;
     name: string;
     jmeterProperties?: Record<string, string>;
+    threadGroupConfigs?: ScenarioThreadGroupConfig[];
     overridePlanDefaults?: boolean;
     controllerNodeId?: number | null;
     workerNodeIds?: number[];
@@ -97,6 +99,7 @@ export function updateScenarioApi(
     name: string;
     scriptVersionId?: number;
     jmeterProperties?: Record<string, string>;
+    threadGroupConfigs?: ScenarioThreadGroupConfig[];
     overridePlanDefaults?: boolean;
     controllerNodeId?: number | null;
     workerNodeIds?: number[];
@@ -118,11 +121,14 @@ export function listExecutionsApi(scenarioId: number) {
   return request<ScenarioExecution[]>(`/api/scenarios/${scenarioId}/executions`);
 }
 
-export function triggerExecutionApi(scenarioId: number, executionName?: string) {
+export function triggerExecutionApi(scenarioId: number, options?: { executionName?: string; threadGroupConfigId?: number | null }) {
+  const body: { executionName?: string; threadGroupConfigId?: number } = {};
+  if (options?.executionName) body.executionName = options.executionName;
+  if (options?.threadGroupConfigId != null) body.threadGroupConfigId = options.threadGroupConfigId;
   return request<ScenarioExecution>(`/api/scenarios/${scenarioId}/executions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(executionName ? { executionName } : {}),
+    body: JSON.stringify(body),
   });
 }
 

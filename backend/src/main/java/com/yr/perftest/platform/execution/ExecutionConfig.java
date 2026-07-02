@@ -15,8 +15,25 @@ public record ExecutionConfig(
         ExecutionMode mode,
         Long controllerNodeId,
         List<Long> workerNodeIds,
-        List<Long> monitorTargetIds
+        List<Long> monitorTargetIds,
+        Long threadGroupConfigId,
+        String stepId,
+        String stepName
 ) {
+    public ExecutionConfig(
+            int threads,
+            int rampUp,
+            int duration,
+            int loops,
+            Map<String, String> jmeterProperties,
+            ExecutionMode mode,
+            Long controllerNodeId,
+            List<Long> workerNodeIds,
+            List<Long> monitorTargetIds
+    ) {
+        this(threads, rampUp, duration, loops, jmeterProperties, mode, controllerNodeId, workerNodeIds, monitorTargetIds, null, null, null);
+    }
+
     public ExecutionConfig {
         jmeterProperties = jmeterProperties == null ? Map.of() : Map.copyOf(jmeterProperties);
         mode = mode == null ? ExecutionMode.LOCAL : mode;

@@ -4,6 +4,7 @@ import com.yr.perftest.platform.task.ScenarioExecution;
 import com.yr.perftest.platform.task.ScenarioExecutionService;
 import com.yr.perftest.platform.task.TaskPlan;
 import com.yr.perftest.platform.task.TaskPlanService;
+import com.yr.perftest.platform.task.ScenarioThreadGroupConfig;
 import com.yr.perftest.platform.task.TaskScenario;
 import com.yr.perftest.platform.task.TaskScenarioService;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
@@ -111,6 +112,7 @@ public class TaskPlanController {
                 request.scriptVersionId(),
                 request.name(),
                 request.jmeterProperties(),
+                request.threadGroupConfigs(),
                 request.overridePlanDefaults() ? request.controllerNodeId() : null,
                 request.overridePlanDefaults() ? request.workerNodeIds() : null,
                 request.overridePlanDefaults() ? request.monitorTargetIds() : null
@@ -134,6 +136,7 @@ public class TaskPlanController {
                 request.name(),
                 request.scriptVersionId(),
                 request.jmeterProperties(),
+                request.threadGroupConfigs(),
                 request.controllerNodeId(),
                 request.workerNodeIds(),
                 request.monitorTargetIds(),
@@ -151,7 +154,8 @@ public class TaskPlanController {
     @ResponseStatus(HttpStatus.CREATED)
     public ScenarioExecution triggerExecution(@PathVariable long scenarioId, @RequestBody(required = false) TriggerExecutionRequest request) {
         String executionName = request != null ? request.executionName() : null;
-        return executionService.triggerExecution(scenarioId, executionName);
+        Long threadGroupConfigId = request != null ? request.threadGroupConfigId() : null;
+        return executionService.triggerExecution(scenarioId, executionName, threadGroupConfigId);
     }
 
     @GetMapping("/scenarios/{scenarioId}/executions")
@@ -268,6 +272,7 @@ public class TaskPlanController {
             @NotNull Long scriptVersionId,
             @NotBlank String name,
             Map<String, String> jmeterProperties,
+            List<ScenarioThreadGroupConfig> threadGroupConfigs,
             boolean overridePlanDefaults,
             Long controllerNodeId,
             List<Long> workerNodeIds,
@@ -279,6 +284,7 @@ public class TaskPlanController {
             @NotBlank String name,
             Long scriptVersionId,
             Map<String, String> jmeterProperties,
+            List<ScenarioThreadGroupConfig> threadGroupConfigs,
             boolean overridePlanDefaults,
             Long controllerNodeId,
             List<Long> workerNodeIds,
@@ -287,7 +293,8 @@ public class TaskPlanController {
     }
 
     public record TriggerExecutionRequest(
-            String executionName
+            String executionName,
+            Long threadGroupConfigId
     ) {
     }
 }

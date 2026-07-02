@@ -96,8 +96,11 @@ public class ReportDataService {
         TaskExecutionResult result = executionService.getResult(executionId);
         TaskMetricSeries monitoring = executionService.getMonitoring(executionId);
 
-        // 从 config JSON 或 scenario 获取配置
+        // 从 config JSON 获取配置
         int threads = 0, rampUp = 0, duration = 0, loops = 0;
+        Long threadGroupConfigId = null;
+        String stepId = null;
+        String stepName = null;
         try {
             ScenarioExecution se = executionService.getExecution(executionId);
             if (se.config() != null) {
@@ -105,6 +108,9 @@ public class ReportDataService {
                 rampUp = se.config().rampUp();
                 duration = se.config().duration();
                 loops = se.config().loops();
+                threadGroupConfigId = se.config().threadGroupConfigId();
+                stepId = se.config().stepId();
+                stepName = se.config().stepName();
             }
         } catch (Exception ignored) {}
 
@@ -120,6 +126,9 @@ public class ReportDataService {
                 formatInstant(exec.getStartTime()),
                 formatInstant(exec.getEndTime()),
                 exec.getDurationMs(),
+                threadGroupConfigId,
+                stepId,
+                stepName,
                 threads, rampUp, duration, loops,
                 summary, rows, series, failures
         );

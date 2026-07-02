@@ -20,6 +20,7 @@ public record TaskScenario(
         Long controllerNodeId,
         List<Long> workerNodeIds,
         List<Long> monitorTargetIds,
+        List<ScenarioThreadGroupConfig> threadGroupConfigs,
         ExecutionStatus latestExecutionStatus,
         Instant latestExecutionAt,
         Instant createdAt,

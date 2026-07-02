@@ -17,6 +17,18 @@ The system SHALL model performance testing as TaskPlan → TaskScenario → Scen
 - **WHEN** a user triggers execution on the same scenario three times
 - **THEN** three ScenarioExecution records SHALL exist and all SHALL remain queryable
 
+### Requirement: Scenario thread group configs
+The system SHALL allow each TaskScenario to store multiple thread group configuration presets without user-defined names.
+
+#### Scenario: Scenario stores thread group presets
+- **WHEN** a scenario is created or updated with threadGroupConfigs
+- **THEN** each preset SHALL include stepId, stepName, threads, rampUp, duration, and sortOrder
+- **AND** presets SHALL NOT include a user-defined name field
+
+#### Scenario: Preset binds to script thread group step
+- **WHEN** a preset references stepId
+- **THEN** the stepId SHALL exist in the associated script version as a THREAD_GROUP step
+
 ### Requirement: Configuration inheritance
 The system SHALL merge plan-level defaults with scenario-level overrides when creating an execution snapshot.
 
@@ -27,6 +39,16 @@ The system SHALL merge plan-level defaults with scenario-level overrides when cr
 #### Scenario: Scenario overrides plan monitors
 - **WHEN** a plan defines monitorTargetIds=[1,2] and a scenario defines monitorTargetIds=[3]
 - **THEN** the execution snapshot SHALL use monitorTargetIds=[3]
+
+#### Scenario: Execution uses script default when no preset selected
+- **WHEN** an execution is triggered without threadGroupConfigId
+- **THEN** the execution SHALL use the thread group configuration defined in the script's JMX
+- **AND** threads, rampUp, duration, loops in ExecutionConfig SHALL be 0
+
+#### Scenario: Execution applies selected preset
+- **WHEN** an execution is triggered with threadGroupConfigId
+- **THEN** the execution snapshot SHALL record the preset id, stepId, stepName, threads, rampUp, and duration
+- **AND** only the target Thread Group step SHALL be patched in the JMX before execution
 
 ### Requirement: No plan-wide execution
 The system SHALL NOT provide an API to execute an entire plan at once.

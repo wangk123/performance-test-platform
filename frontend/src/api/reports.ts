@@ -27,6 +27,9 @@ export interface RoundReport {
   startedAt: string | null;
   endedAt: string | null;
   durationMs: number | null;
+  threadGroupConfigId: number | null;
+  stepId: string | null;
+  stepName: string | null;
   threads: number;
   rampUp: number;
   duration: number;

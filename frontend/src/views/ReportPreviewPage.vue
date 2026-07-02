@@ -121,10 +121,10 @@
             <h4 class="sub-heading">梯度对比总览</h4>
             <div class="cmp-table-wrap">
               <table class="cmp-table">
-                <thead><tr><th>梯度</th><th>并发</th><th>采样数</th><th>TPS</th><th>Avg RT</th><th>P95 RT</th><th>错误率</th></tr></thead>
+                <thead><tr><th>梯度</th><th>线程数</th><th>采样数</th><th>TPS</th><th>Avg RT</th><th>P95 RT</th><th>错误率</th></tr></thead>
                 <tbody>
                   <tr v-for="r in currentScenario.rounds" :key="r.executionId">
-                    <td><strong>{{ r.threads }} 并发</strong></td>
+                    <td><strong>{{ roundReportLabel(r) }}</strong></td>
                     <td>{{ r.threads }}</td>
                     <td>{{ fmtNum(r.summary.samples) }}</td>
                     <td>{{ fmt1(r.summary.throughput) }}/s</td>
@@ -142,14 +142,16 @@
               <button :class="['round-toggle', { expanded: expandedRounds.has(r.executionId) }]"
                 @click="toggleRound(r.executionId)">
                 <span class="arrow">▶</span>
-                <span class="round-badge">{{ r.threads }} 并发</span>
-                线程: {{ r.threads }} · 持续: {{ r.duration }}s · 吞吐: {{ fmt1(r.summary.throughput) }}/s · P95: {{ r.summary.p95 }}ms
+                <span class="round-badge">{{ roundReportLabel(r) }}</span>
+                线程: {{ r.threads }} · Ramp: {{ r.rampUp }}s · 持续: {{ r.duration }}s · 吞吐: {{ fmt1(r.summary.throughput) }}/s · P95: {{ r.summary.p95 }}ms
                 <span class="round-sub">{{ expandedRounds.has(r.executionId) ? '已展开' : '点击展开' }}</span>
               </button>
               <div v-if="expandedRounds.has(r.executionId)" class="round-body">
                 <!-- Config cards -->
                 <div class="rd-cfg-row">
-                  <div class="rd-cfg-item"><span class="rd-label">并发</span><span class="rd-value">{{ r.threads }}</span></div>
+                  <div v-if="r.stepName" class="rd-cfg-item"><span class="rd-label">Thread Group</span><span class="rd-value">{{ r.stepName }}</span></div>
+                  <div class="rd-cfg-item"><span class="rd-label">线程数</span><span class="rd-value">{{ r.threads }}</span></div>
+                  <div class="rd-cfg-item"><span class="rd-label">Ramp-Up</span><span class="rd-value">{{ r.rampUp }}s</span></div>
                   <div class="rd-cfg-item"><span class="rd-label">时长</span><span class="rd-value">{{ r.duration }}s</span></div>
                   <div class="rd-cfg-item"><span class="rd-label">采样数</span><span class="rd-value">{{ fmtNum(r.summary.samples) }}</span></div>
                   <div class="rd-cfg-item"><span class="rd-label">TPS</span><span class="rd-value">{{ fmt1(r.summary.throughput) }}/s</span></div>
@@ -234,6 +236,7 @@ import { CanvasRenderer } from 'echarts/renderers';
 import { LineChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
 import { fetchPlanReport, exportWordReport, type PlanReportResponse, type RoundReport } from '../api/reports';
+import { roundReportLabel } from '../utils/scenario-thread-group';
 
 echarts.use([CanvasRenderer, LineChart, GridComponent, LegendComponent, TooltipComponent]);
 
@@ -255,9 +258,9 @@ const currentScenario = computed(() => data.value?.scenarios[activeScenario.valu
 // Compute total rounds and concurrency levels for 测试目标 section
 const totalRounds = computed(() => data.value?.scenarios.reduce((s, sc) => s + sc.rounds.length, 0) || 0);
 const concurrencyLevels = computed(() => {
-  const levels = new Set<number>();
-  data.value?.scenarios.forEach(sc => sc.rounds.forEach(r => levels.add(r.threads)));
-  return [...levels].sort((a, b) => a - b).join(' / ') + ' 并发';
+  const labels = new Set<string>();
+  data.value?.scenarios.forEach((sc) => sc.rounds.forEach((r) => labels.add(roundReportLabel(r))));
+  return [...labels].join(' / ');
 });
 
 onMounted(() => loadReport());
