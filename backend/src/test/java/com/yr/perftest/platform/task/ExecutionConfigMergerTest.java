@@ -68,8 +68,63 @@ class ExecutionConfigMergerTest {
         assertEquals(30, config.rampUp());
         assertEquals(300, config.duration());
         assertEquals(7L, config.threadGroupConfigId());
+        assertEquals(0, config.threadGroupPresetSortOrder());
         assertEquals("thread-0", config.stepId());
         assertEquals("Login", config.stepName());
+    }
+
+    @Test
+    void appliesPresetWithMultipleThreadGroups() {
+        PersistentTaskPlanRecord plan = new PersistentTaskPlanRecord(1L, "plan", "", "admin");
+        plan.updateProfile("plan", "", 10L, "[11]", "[1]");
+
+        PersistentTaskScenarioRecord scenario = new PersistentTaskScenarioRecord(1L, 100L, "scene", 0);
+        scenario.updateProfile(
+                "scene",
+                100L,
+                "{}",
+                null,
+                null,
+                null,
+                "["
+                        + "{\"id\":7,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":10,\"rampUp\":0,\"duration\":10,\"sortOrder\":0},"
+                        + "{\"id\":8,\"stepId\":\"thread-1\",\"stepName\":\"TG2\",\"threads\":10,\"rampUp\":0,\"duration\":10,\"sortOrder\":0},"
+                        + "{\"id\":9,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":5,\"rampUp\":0,\"duration\":30,\"sortOrder\":1}"
+                        + "]"
+        );
+
+        ExecutionConfig config = merger.merge(plan, scenario, 7L, 0);
+        assertEquals(20, config.threads());
+        assertEquals(7L, config.threadGroupConfigId());
+        assertEquals(0, config.threadGroupPresetSortOrder());
+        assertNull(config.stepId());
+        assertNull(config.stepName());
+    }
+
+    @Test
+    void appliesPresetBySortOrder() {
+        PersistentTaskPlanRecord plan = new PersistentTaskPlanRecord(1L, "plan", "", "admin");
+        plan.updateProfile("plan", "", 10L, "[11]", "[1]");
+
+        PersistentTaskScenarioRecord scenario = new PersistentTaskScenarioRecord(1L, 100L, "scene", 0);
+        scenario.updateProfile(
+                "scene",
+                100L,
+                "{}",
+                null,
+                null,
+                null,
+                "["
+                        + "{\"id\":7,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":10,\"rampUp\":0,\"duration\":10,\"sortOrder\":0},"
+                        + "{\"id\":8,\"stepId\":\"thread-1\",\"stepName\":\"TG2\",\"threads\":10,\"rampUp\":0,\"duration\":10,\"sortOrder\":0},"
+                        + "{\"id\":9,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":5,\"rampUp\":0,\"duration\":30,\"sortOrder\":1}"
+                        + "]"
+        );
+
+        ExecutionConfig config = merger.merge(plan, scenario, null, 1);
+        assertEquals(5, config.threads());
+        assertEquals(9L, config.threadGroupConfigId());
+        assertEquals(1, config.threadGroupPresetSortOrder());
     }
 
     @Test

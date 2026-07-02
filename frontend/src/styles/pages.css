@@ -1359,53 +1359,66 @@
   gap: 12px;
 }
 
-.script-card-list {
+.script-list {
   max-height: 280px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-right: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.script-list-head,
+.script-list-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1.4fr) minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.script-list-head {
+  min-height: 36px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+
+.script-list-body {
+  display: block;
+  max-height: 236px;
   overflow-y: auto;
 }
 
-.script-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-left: 3px solid transparent;
-  border-radius: var(--radius);
-  background: var(--surface-soft);
+.script-list-row {
+  min-height: 44px;
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: background 0.15s;
 }
 
-.script-card:hover {
-  border-color: var(--border-strong);
+.script-list-row:last-child {
+  border-bottom: 0;
 }
 
-.script-card.selected {
-  border-color: rgba(31, 111, 95, 0.35);
-  border-left-color: rgba(31, 111, 95, 0.65);
-  background: rgba(31, 111, 95, 0.06);
+.script-list-row:hover {
+  background: rgba(31, 111, 95, 0.04);
 }
 
-.script-card-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
+.script-list-row.selected {
+  background: rgba(31, 111, 95, 0.08);
 }
 
-.script-card-body strong {
+.script-list-col-name strong {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 500;
 }
 
-.script-card-body small {
-  margin-top: 3px;
+.script-list-col-file {
   color: var(--muted);
   font-size: 12px;
   overflow: hidden;
@@ -1413,8 +1426,13 @@
   white-space: nowrap;
 }
 
-.script-card-edit {
-  flex-shrink: 0;
+.script-list-col-select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.script-list-edit {
   color: var(--muted);
   font-size: 15px;
   padding: 4px;
@@ -1422,12 +1440,12 @@
   transition: color 0.15s, background 0.15s;
 }
 
-.script-card-edit:hover {
+.script-list-edit:hover {
   color: var(--primary);
   background: rgba(31, 111, 95, 0.08);
 }
 
-.script-card-hint {
+.script-list-hint {
   margin-top: 8px;
   font-size: 13px;
   color: var(--muted);

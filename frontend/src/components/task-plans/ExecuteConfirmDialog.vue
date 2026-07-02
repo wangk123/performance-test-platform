@@ -2,7 +2,7 @@
   <a-modal
     v-model:open="visible"
     title="确认执行"
-    width="480px"
+    width="560px"
     :destroy-on-close="true"
   >
     <div class="execute-confirm-body">
@@ -19,14 +19,21 @@
         />
       </a-form-item>
       <a-form-item label="线程组配置（选填）">
-        <a-radio-group v-model:value="selectedConfigId" class="execute-config-group">
-          <a-radio :value="null">使用脚本默认配置</a-radio>
+        <a-radio-group v-model:value="selectedPresetSortOrder" class="execute-config-group">
+          <a-radio :value="null" class="execute-preset-option">
+            <span class="execute-preset-title">使用脚本默认配置</span>
+          </a-radio>
           <a-radio
-            v-for="config in scenario?.threadGroupConfigs ?? []"
-            :key="config.id"
-            :value="config.id"
+            v-for="(group, index) in presetGroups"
+            :key="group.sortOrder"
+            :value="group.sortOrder"
+            class="execute-preset-option"
           >
-            {{ threadGroupConfigLabel(config) }}
+            <span class="execute-preset-content">
+              <span class="execute-preset-title">配置 {{ index + 1 }}</span>
+              <span class="execute-preset-detail">{{ executePresetDetail(group) }}</span>
+              <span class="execute-preset-total">共 {{ sumPresetThreads(group.rows) }} 线程</span>
+            </span>
           </a-radio>
         </a-radio-group>
       </a-form-item>
@@ -41,12 +48,21 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import type { TaskScenario } from '../../types';
-import { threadGroupConfigLabel } from '../../utils/scenario-thread-group';
+import {
+  executePresetDetail,
+  groupStoredThreadGroupConfigs,
+  presetRepresentativeConfigId,
+  sumPresetThreads,
+} from '../../utils/scenario-thread-group';
 
 const props = defineProps<{ modelValue: boolean; scenario: TaskScenario | null }>();
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void;
-  (e: 'confirm', payload: { executionName?: string; threadGroupConfigId?: number | null }): void;
+  (e: 'confirm', payload: {
+    executionName?: string;
+    threadGroupConfigId?: number | null;
+    threadGroupPresetSortOrder?: number | null;
+  }): void;
 }>();
 
 const visible = computed({
@@ -55,19 +71,23 @@ const visible = computed({
 });
 
 const executionName = ref('');
-const selectedConfigId = ref<number | null>(null);
+const selectedPresetSortOrder = ref<number | null>(null);
+
+const presetGroups = computed(() => groupStoredThreadGroupConfigs(props.scenario?.threadGroupConfigs ?? []));
 
 watch(() => props.modelValue, (val) => {
   if (val) {
     executionName.value = '';
-    selectedConfigId.value = null;
+    selectedPresetSortOrder.value = null;
   }
 });
 
 function onConfirm() {
+  const selectedGroup = presetGroups.value.find((group) => group.sortOrder === selectedPresetSortOrder.value);
   emit('confirm', {
     executionName: executionName.value.trim() || undefined,
-    threadGroupConfigId: selectedConfigId.value,
+    threadGroupPresetSortOrder: selectedPresetSortOrder.value,
+    threadGroupConfigId: selectedGroup ? presetRepresentativeConfigId(selectedGroup) : null,
   });
   visible.value = false;
 }
@@ -77,5 +97,46 @@ function onConfirm() {
 .execute-config-group {
   display: grid;
   gap: 8px;
+  width: 100%;
+}
+
+.execute-config-group :deep(.execute-preset-option) {
+  display: flex;
+  align-items: flex-start;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.execute-config-group :deep(.execute-preset-option.ant-radio-wrapper-checked) {
+  border-color: var(--primary);
+  background: var(--active-bg);
+}
+
+.execute-preset-content {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.execute-preset-title {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.execute-preset-detail {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.execute-preset-total {
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 500;
 }
 </style>

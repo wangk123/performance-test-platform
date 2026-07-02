@@ -1,33 +1,68 @@
 <template>
-  <a-modal v-model:open="visible" :title="isEditing ? '编辑场景' : '添加场景'" width="720px" destroy-on-close>
+  <a-modal v-model:open="visible" :title="isEditing ? '编辑场景' : '添加场景'" width="800px" destroy-on-close>
     <a-form layout="vertical">
       <a-form-item :label="isEditing ? '场景名称' : '场景名称前缀'">
         <a-input v-model:value="form.name" :placeholder="isEditing ? '' : '留空则使用脚本名称'" />
       </a-form-item>
       <a-form-item label="选择脚本">
-        <div class="script-card-list">
-          <div
-            v-for="script in currentProjectScripts"
-            :key="script.id"
-            class="script-card"
-            :class="{ selected: isScriptSelected(script.id) }"
-            @click="toggleScript(script.id)"
-          >
-            <a-checkbox
-              :checked="isScriptSelected(script.id)"
-              @click.stop="toggleScript(script.id)"
-            />
-            <span class="script-card-body">
-              <strong>{{ script.name }}</strong>
-              <small>{{ script.sourceFile }}</small>
-            </span>
-            <EditOutlined
-              class="script-card-edit"
-              @click.stop="openScriptEditor(script.id)"
-            />
+        <div class="script-list">
+          <div class="script-list-head">
+            <span class="script-list-col-select" />
+            <span class="script-list-col-name">脚本名称</span>
+            <span class="script-list-col-file">文件</span>
+            <span class="script-list-col-action" />
+          </div>
+          <div v-if="isEditing" class="script-list-body">
+            <div
+              v-for="script in currentProjectScripts"
+              :key="script.id"
+              class="script-list-row"
+              :class="{ selected: isScriptSelected(script.id) }"
+              @click="selectSingleScript(script.id)"
+            >
+              <span class="script-list-col-select">
+                <a-radio :checked="isScriptSelected(script.id)" @click.stop="selectSingleScript(script.id)" />
+              </span>
+              <span class="script-list-col-name">
+                <strong>{{ script.name }}</strong>
+              </span>
+              <span class="script-list-col-file">{{ script.sourceFile }}</span>
+              <span class="script-list-col-action">
+                <EditOutlined
+                  class="script-list-edit"
+                  @click.stop="openScriptEditor(script.id)"
+                />
+              </span>
+            </div>
+          </div>
+          <div v-else class="script-list-body">
+            <div
+              v-for="script in currentProjectScripts"
+              :key="script.id"
+              class="script-list-row"
+              :class="{ selected: isScriptSelected(script.id) }"
+              @click="toggleScript(script.id)"
+            >
+              <span class="script-list-col-select">
+                <a-checkbox
+                  :checked="isScriptSelected(script.id)"
+                  @click.stop="toggleScript(script.id)"
+                />
+              </span>
+              <span class="script-list-col-name">
+                <strong>{{ script.name }}</strong>
+              </span>
+              <span class="script-list-col-file">{{ script.sourceFile }}</span>
+              <span class="script-list-col-action">
+                <EditOutlined
+                  class="script-list-edit"
+                  @click.stop="openScriptEditor(script.id)"
+                />
+              </span>
+            </div>
           </div>
         </div>
-        <div v-if="selectedCount > 0 && !isEditing" class="script-card-hint">
+        <div v-if="selectedCount > 0 && !isEditing" class="script-list-hint">
           已选 {{ selectedCount }} 个脚本，将创建 {{ selectedCount }} 个场景
         </div>
       </a-form-item>
@@ -117,16 +152,16 @@ function isScriptSelected(scriptId: number) {
   return form.selectedScriptIds.includes(scriptId);
 }
 
+function selectSingleScript(scriptId: number) {
+  form.selectedScriptIds = [scriptId];
+}
+
 function toggleScript(scriptId: number) {
-  if (isEditing.value) {
-    form.selectedScriptIds = [scriptId];
+  const idx = form.selectedScriptIds.indexOf(scriptId);
+  if (idx >= 0) {
+    form.selectedScriptIds.splice(idx, 1);
   } else {
-    const idx = form.selectedScriptIds.indexOf(scriptId);
-    if (idx >= 0) {
-      form.selectedScriptIds.splice(idx, 1);
-    } else {
-      form.selectedScriptIds.push(scriptId);
-    }
+    form.selectedScriptIds.push(scriptId);
   }
 }
 
@@ -178,7 +213,7 @@ async function onSave() {
         name: scenarioName,
         scriptVersionId: scriptId,
         threadGroupConfigs: isEditing.value || scriptId === form.selectedScriptIds[0]
-          ? form.threadGroupConfigs.map((item, sortOrder) => ({ ...item, sortOrder }))
+          ? form.threadGroupConfigs
           : [],
         overridePlanDefaults: form.overridePlanDefaults,
         controllerNodeId: form.overridePlanDefaults ? form.controllerNodeId : undefined,

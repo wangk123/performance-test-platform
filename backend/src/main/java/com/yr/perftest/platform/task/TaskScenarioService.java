@@ -6,6 +6,7 @@ import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.aggregate.AggregateReportService;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
+import com.yr.perftest.platform.script.ScriptStepDefinition;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -180,7 +181,7 @@ public class TaskScenarioService {
     private TaskScenario toScenario(PersistentTaskScenarioRecord scenario) {
         var latest = executionRepository.findFirstByScenarioIdOrderByIdDesc(scenario.getId()).orElse(null);
         List<ScenarioThreadGroupConfig> configs = withLatestSummaries(
-                scenario.getId(),
+                scenario,
                 configSupport.readStored(scenario.getThreadGroupConfigsJson())
         );
         return new TaskScenario(
@@ -205,9 +206,21 @@ public class TaskScenarioService {
         );
     }
 
-    private List<ScenarioThreadGroupConfig> withLatestSummaries(long scenarioId, List<ScenarioThreadGroupConfig> configs) {
+    private List<ScenarioThreadGroupConfig> withLatestSummaries(
+            PersistentTaskScenarioRecord scenario,
+            List<ScenarioThreadGroupConfig> configs
+    ) {
         if (configs.isEmpty()) {
             return List.of();
+        }
+        List<ScriptStepDefinition> scriptSteps = List.of();
+        try {
+            PersistentScriptVersionRecord script = scriptVersionRepository.findById(scenario.getScriptVersionId()).orElse(null);
+            if (script != null) {
+                scriptSteps = configSupport.loadScriptSteps(Path.of(script.getStoredPath()));
+            }
+        } catch (ExecutionValidationException exception) {
+            scriptSteps = List.of();
         }
         List<ScenarioThreadGroupConfig> enriched = new ArrayList<>(configs.size());
         for (ScenarioThreadGroupConfig config : configs) {
@@ -219,25 +232,33 @@ public class TaskScenarioService {
                     config.rampUp(),
                     config.duration(),
                     config.sortOrder(),
-                    loadLatestSummary(scenarioId, config.id())
+                    loadLatestSummary(scenario.getId(), scriptSteps, configs, config)
             ));
         }
         return enriched;
     }
 
-    private ThreadGroupConfigSummary loadLatestSummary(long scenarioId, long configId) {
+    private ThreadGroupConfigSummary loadLatestSummary(
+            long scenarioId,
+            List<ScriptStepDefinition> scriptSteps,
+            List<ScenarioThreadGroupConfig> allConfigs,
+            ScenarioThreadGroupConfig config
+    ) {
+        long presetSize = allConfigs.stream().filter(item -> item.sortOrder() == config.sortOrder()).count();
         for (PersistentScenarioExecutionRecord execution : executionRepository.findAllByScenarioIdOrderByIdDesc(scenarioId)) {
             if (!isFinished(execution.getStatus())) {
                 continue;
             }
-            Long linkedConfigId = readThreadGroupConfigId(execution.getConfigJson());
-            if (linkedConfigId == null || linkedConfigId != configId) {
+            if (!matchesThreadGroupConfig(execution.getConfigJson(), config)) {
                 continue;
             }
             TaskExecutionResult result = aggregateReportService.loadPersisted(execution.getId())
                     .orElse(TaskExecutionResult.empty());
             if (result.summary() == null || result.summary().samples() <= 0) {
                 continue;
+            }
+            if (presetSize > 1 && !scriptSteps.isEmpty()) {
+                return configSupport.summarizeThreadGroupResult(scriptSteps, config, result);
             }
             TaskExecutionResult.Summary summary = result.summary();
             return new ThreadGroupConfigSummary(
@@ -250,15 +271,20 @@ public class TaskScenarioService {
         return null;
     }
 
-    private Long readThreadGroupConfigId(String configJson) {
+    private boolean matchesThreadGroupConfig(String configJson, ScenarioThreadGroupConfig config) {
         try {
-            var node = taskJson.objectMapper().readTree(configJson).get("threadGroupConfigId");
-            if (node == null || node.isNull()) {
-                return null;
+            var root = taskJson.objectMapper().readTree(configJson);
+            var presetNode = root.get("threadGroupPresetSortOrder");
+            if (presetNode != null && !presetNode.isNull()) {
+                return presetNode.asInt() == config.sortOrder();
             }
-            return node.asLong();
+            var configIdNode = root.get("threadGroupConfigId");
+            if (configIdNode != null && !configIdNode.isNull()) {
+                return configIdNode.asLong() == config.id();
+            }
+            return false;
         } catch (Exception exception) {
-            return null;
+            return false;
         }
     }
 

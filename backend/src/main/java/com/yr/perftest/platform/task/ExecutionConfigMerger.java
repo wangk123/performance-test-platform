@@ -2,6 +2,7 @@ package com.yr.perftest.platform.task;
 
 import com.yr.perftest.platform.execution.ExecutionConfig;
 import com.yr.perftest.platform.execution.ExecutionMode;
+import com.yr.perftest.platform.execution.ExecutionValidationException;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -17,6 +18,15 @@ public class ExecutionConfigMerger {
             PersistentTaskPlanRecord plan,
             PersistentTaskScenarioRecord scenario,
             Long threadGroupConfigId
+    ) {
+        return merge(plan, scenario, threadGroupConfigId, null);
+    }
+
+    public ExecutionConfig merge(
+            PersistentTaskPlanRecord plan,
+            PersistentTaskScenarioRecord scenario,
+            Long threadGroupConfigId,
+            Integer threadGroupPresetSortOrder
     ) {
         Long controllerNodeId = scenario.getControllerNodeId() != null
                 ? scenario.getControllerNodeId()
@@ -34,16 +44,37 @@ public class ExecutionConfigMerger {
         Long selectedConfigId = null;
         String stepId = null;
         String stepName = null;
-        if (threadGroupConfigId != null) {
+        if (threadGroupPresetSortOrder != null || threadGroupConfigId != null) {
             List<ScenarioThreadGroupConfig> configs = configSupport.readStored(scenario.getThreadGroupConfigsJson());
-            ScenarioThreadGroupConfig selected = configSupport.requireConfig(configs, threadGroupConfigId);
-            threads = selected.threads();
-            rampUp = selected.rampUp();
-            duration = selected.duration();
+            List<ScenarioThreadGroupConfig> preset = threadGroupPresetSortOrder != null
+                    ? configSupport.presetConfigsBySortOrder(configs, threadGroupPresetSortOrder)
+                    : configSupport.presetConfigs(configs, threadGroupConfigId);
+            if (preset.isEmpty()) {
+                throw new ExecutionValidationException("thread group config does not exist");
+            }
+            ScenarioThreadGroupConfig selected = preset.get(0);
+            threads = preset.stream().mapToInt(ScenarioThreadGroupConfig::threads).sum();
+            rampUp = preset.stream().mapToInt(ScenarioThreadGroupConfig::rampUp).max().orElse(0);
+            duration = preset.stream().mapToInt(ScenarioThreadGroupConfig::duration).max().orElse(0);
             loops = 1;
             selectedConfigId = selected.id();
-            stepId = selected.stepId();
-            stepName = selected.stepName();
+            stepId = preset.size() == 1 ? selected.stepId() : null;
+            stepName = preset.size() == 1 ? selected.stepName() : null;
+            return new ExecutionConfig(
+                    threads,
+                    rampUp,
+                    duration,
+                    loops,
+                    taskJson.readStringMap(scenario.getJmeterPropertiesJson()),
+                    ExecutionMode.DISTRIBUTED,
+                    controllerNodeId,
+                    workerNodeIds,
+                    monitorTargetIds,
+                    selectedConfigId,
+                    selected.sortOrder(),
+                    stepId,
+                    stepName
+            );
         }
         return new ExecutionConfig(
                 threads,
@@ -56,6 +87,7 @@ public class ExecutionConfigMerger {
                 workerNodeIds,
                 monitorTargetIds,
                 selectedConfigId,
+                null,
                 stepId,
                 stepName
         );

@@ -370,7 +370,11 @@ export function useTaskPlans() {
 
   async function runScenario(
     scenario: TaskScenario,
-    options?: { executionName?: string; threadGroupConfigId?: number | null },
+    options?: {
+      executionName?: string;
+      threadGroupConfigId?: number | null;
+      threadGroupPresetSortOrder?: number | null;
+    },
   ) {
     try {
       const execution = await triggerExecutionApi(scenario.id, options);

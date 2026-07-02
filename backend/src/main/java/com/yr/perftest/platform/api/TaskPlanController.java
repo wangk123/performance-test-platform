@@ -155,7 +155,8 @@ public class TaskPlanController {
     public ScenarioExecution triggerExecution(@PathVariable long scenarioId, @RequestBody(required = false) TriggerExecutionRequest request) {
         String executionName = request != null ? request.executionName() : null;
         Long threadGroupConfigId = request != null ? request.threadGroupConfigId() : null;
-        return executionService.triggerExecution(scenarioId, executionName, threadGroupConfigId);
+        Integer threadGroupPresetSortOrder = request != null ? request.threadGroupPresetSortOrder() : null;
+        return executionService.triggerExecution(scenarioId, executionName, threadGroupConfigId, threadGroupPresetSortOrder);
     }
 
     @GetMapping("/scenarios/{scenarioId}/executions")
@@ -294,7 +295,8 @@ public class TaskPlanController {
 
     public record TriggerExecutionRequest(
             String executionName,
-            Long threadGroupConfigId
+            Long threadGroupConfigId,
+            Integer threadGroupPresetSortOrder
     ) {
     }
 }

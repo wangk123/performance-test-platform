@@ -25,6 +25,8 @@ import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRecord;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRepository;
 import com.yr.perftest.platform.task.ScenarioExecutionRuntime;
+import com.yr.perftest.platform.task.ScenarioThreadGroupConfig;
+import com.yr.perftest.platform.task.ScenarioThreadGroupConfigSupport;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -62,6 +64,7 @@ public class DistributedJmeterExecutionRunner {
     private final JmeterScriptParser scriptParser;
     private final JmeterScriptPatcher scriptPatcher;
     private final ThreadGroupStepPatcher threadGroupStepPatcher;
+    private final ScenarioThreadGroupConfigSupport threadGroupConfigSupport;
     private final ExecutionMonitorBindingService monitorBindingService;
     private final ScenarioExecutionRuntime executionRuntime;
     private final TransactionTemplate transactionTemplate;
@@ -90,6 +93,7 @@ public class DistributedJmeterExecutionRunner {
             JmeterScriptParser scriptParser,
             JmeterScriptPatcher scriptPatcher,
             ThreadGroupStepPatcher threadGroupStepPatcher,
+            ScenarioThreadGroupConfigSupport threadGroupConfigSupport,
             ExecutionMonitorBindingService monitorBindingService,
             ScenarioExecutionRuntime executionRuntime,
             TransactionTemplate transactionTemplate,
@@ -116,6 +120,7 @@ public class DistributedJmeterExecutionRunner {
         this.scriptParser = scriptParser;
         this.scriptPatcher = scriptPatcher;
         this.threadGroupStepPatcher = threadGroupStepPatcher;
+        this.threadGroupConfigSupport = threadGroupConfigSupport;
         this.monitorBindingService = monitorBindingService;
         this.executionRuntime = executionRuntime;
         this.transactionTemplate = transactionTemplate;
@@ -328,24 +333,45 @@ public class DistributedJmeterExecutionRunner {
     }
 
     private void applyThreadGroupOverride(long executionId, Path testPlanPath) {
-        ExecutionConfig config = transactionTemplate.execute(status -> {
-            PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId)
-                    .orElseThrow(() -> new ExecutionValidationException("execution does not exist"));
-            return readConfig(execution.getConfigJson());
-        });
-        if (config == null || config.stepId() == null || config.stepId().isBlank() || config.threads() <= 0) {
+        PersistentScenarioExecutionRecord execution = transactionTemplate.execute(status ->
+                executionRepository.findById(executionId)
+                        .orElseThrow(() -> new ExecutionValidationException("execution does not exist")));
+        ExecutionConfig config = readConfig(execution.getConfigJson());
+        if (config == null) {
+            return;
+        }
+        PersistentTaskScenarioRecord scenario = transactionTemplate.execute(status ->
+                scenarioRepository.findById(execution.getScenarioId())
+                        .orElseThrow(() -> new ExecutionValidationException("scenario does not exist")));
+        List<ScenarioThreadGroupConfig> stored = threadGroupConfigSupport.readStored(scenario.getThreadGroupConfigsJson());
+        List<ScenarioThreadGroupConfig> presetRows = List.of();
+        if (config.threadGroupPresetSortOrder() != null) {
+            presetRows = threadGroupConfigSupport.presetConfigsBySortOrder(stored, config.threadGroupPresetSortOrder());
+        } else if (config.threadGroupConfigId() != null) {
+            presetRows = threadGroupConfigSupport.presetConfigs(stored, config.threadGroupConfigId());
+        } else if (config.stepId() != null && !config.stepId().isBlank() && config.threads() > 0) {
+            presetRows = List.of(new ScenarioThreadGroupConfig(
+                    config.threadGroupConfigId() != null ? config.threadGroupConfigId() : 0L,
+                    config.stepId(),
+                    config.stepName() != null ? config.stepName() : "",
+                    config.threads(),
+                    config.rampUp(),
+                    config.duration(),
+                    0,
+                    null
+            ));
+        }
+        if (presetRows.isEmpty()) {
             return;
         }
         try {
             String content = Files.readString(testPlanPath, StandardCharsets.UTF_8);
             List<ScriptStepDefinition> steps = scriptParser.parseSteps(content);
-            List<ScriptStepDefinition> patched = threadGroupStepPatcher.patchStep(
-                    steps,
-                    config.stepId(),
-                    config.threads(),
-                    config.rampUp(),
-                    config.duration()
-            );
+            List<ThreadGroupStepPatcher.ThreadGroupPatch> patches = threadGroupConfigSupport.buildPatches(steps, presetRows);
+            if (patches.isEmpty()) {
+                return;
+            }
+            List<ScriptStepDefinition> patched = threadGroupStepPatcher.patchAll(steps, patches);
             Files.writeString(testPlanPath, scriptPatcher.patch(content, patched), StandardCharsets.UTF_8);
         } catch (ExecutionValidationException exception) {
             throw exception;

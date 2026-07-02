@@ -19,6 +19,20 @@ public class ThreadGroupStepPatcher {
                 .toList();
     }
 
+    public List<ScriptStepDefinition> patchAll(
+            List<ScriptStepDefinition> steps,
+            List<ThreadGroupPatch> patches
+    ) {
+        List<ScriptStepDefinition> patched = steps;
+        for (ThreadGroupPatch patch : patches) {
+            patched = patchStep(patched, patch.stepId(), patch.threads(), patch.rampUp(), patch.duration());
+        }
+        return patched;
+    }
+
+    public record ThreadGroupPatch(String stepId, int threads, int rampUp, int duration) {
+    }
+
     private ScriptStepDefinition patchNode(
             ScriptStepDefinition step,
             String stepId,

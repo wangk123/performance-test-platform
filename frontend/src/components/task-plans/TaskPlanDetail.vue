@@ -105,7 +105,11 @@ function openExecuteConfirm(scenario: TaskScenario) {
   executeDialogVisible.value = true;
 }
 
-function handleExecuteConfirm(payload: { executionName?: string; threadGroupConfigId?: number | null }) {
+function handleExecuteConfirm(payload: {
+  executionName?: string;
+  threadGroupConfigId?: number | null;
+  threadGroupPresetSortOrder?: number | null;
+}) {
   if (pendingScenario.value) {
     void runScenario(pendingScenario.value, payload);
   }

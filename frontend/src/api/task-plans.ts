@@ -121,10 +121,22 @@ export function listExecutionsApi(scenarioId: number) {
   return request<ScenarioExecution[]>(`/api/scenarios/${scenarioId}/executions`);
 }
 
-export function triggerExecutionApi(scenarioId: number, options?: { executionName?: string; threadGroupConfigId?: number | null }) {
-  const body: { executionName?: string; threadGroupConfigId?: number } = {};
+export function triggerExecutionApi(
+  scenarioId: number,
+  options?: {
+    executionName?: string;
+    threadGroupConfigId?: number | null;
+    threadGroupPresetSortOrder?: number | null;
+  },
+) {
+  const body: {
+    executionName?: string;
+    threadGroupConfigId?: number;
+    threadGroupPresetSortOrder?: number;
+  } = {};
   if (options?.executionName) body.executionName = options.executionName;
   if (options?.threadGroupConfigId != null) body.threadGroupConfigId = options.threadGroupConfigId;
+  if (options?.threadGroupPresetSortOrder != null) body.threadGroupPresetSortOrder = options.threadGroupPresetSortOrder;
   return request<ScenarioExecution>(`/api/scenarios/${scenarioId}/executions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

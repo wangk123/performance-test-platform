@@ -91,12 +91,17 @@ public class ScenarioExecutionService {
     }
 
     @Transactional
-    public ScenarioExecution triggerExecution(long scenarioId, String executionName, Long threadGroupConfigId) {
+    public ScenarioExecution triggerExecution(
+            long scenarioId,
+            String executionName,
+            Long threadGroupConfigId,
+            Integer threadGroupPresetSortOrder
+    ) {
         PersistentTaskScenarioRecord scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new ExecutionValidationException("scenario does not exist"));
         PersistentTaskPlanRecord plan = planRepository.findById(scenario.getPlanId())
                 .orElseThrow(() -> new ExecutionValidationException("task plan does not exist"));
-        ExecutionConfig config = normalizeConfig(configMerger.merge(plan, scenario, threadGroupConfigId));
+        ExecutionConfig config = normalizeConfig(configMerger.merge(plan, scenario, threadGroupConfigId, threadGroupPresetSortOrder));
         PersistentScenarioExecutionRecord execution = new PersistentScenarioExecutionRecord(
                 scenario.getId(),
                 writeConfig(config)
@@ -385,7 +390,7 @@ public class ScenarioExecutionService {
 
     private ExecutionConfig normalizeConfig(ExecutionConfig config) {
         ExecutionConfig source = config == null
-                ? new ExecutionConfig(0, 0, 0, 0, Map.of(), ExecutionMode.DISTRIBUTED, null, List.of(), List.of(), null, null, null)
+                ? new ExecutionConfig(0, 0, 0, 0, Map.of(), ExecutionMode.DISTRIBUTED, null, List.of(), List.of(), null, null, null, null)
                 : config;
         if (source.threads() < 0 || source.rampUp() < 0 || source.duration() < 0 || source.loops() < 0) {
             throw new ExecutionValidationException("execution config cannot be negative");
@@ -412,6 +417,7 @@ public class ScenarioExecutionService {
                 workerNodeIds,
                 source.monitorTargetIds(),
                 source.threadGroupConfigId(),
+                source.threadGroupPresetSortOrder(),
                 source.stepId(),
                 source.stepName()
         );
