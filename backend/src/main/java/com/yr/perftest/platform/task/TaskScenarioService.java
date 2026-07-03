@@ -246,10 +246,10 @@ public class TaskScenarioService {
     ) {
         long presetSize = allConfigs.stream().filter(item -> item.sortOrder() == config.sortOrder()).count();
         for (PersistentScenarioExecutionRecord execution : executionRepository.findAllByScenarioIdOrderByIdDesc(scenarioId)) {
-            if (!isFinished(execution.getStatus())) {
+            if (!configSupport.isFinished(execution.getStatus())) {
                 continue;
             }
-            if (!matchesThreadGroupConfig(execution.getConfigJson(), config)) {
+            if (!configSupport.matchesThreadGroupConfig(execution.getConfigJson(), config)) {
                 continue;
             }
             TaskExecutionResult result = aggregateReportService.loadPersisted(execution.getId())
@@ -269,30 +269,6 @@ public class TaskScenarioService {
             );
         }
         return null;
-    }
-
-    private boolean matchesThreadGroupConfig(String configJson, ScenarioThreadGroupConfig config) {
-        try {
-            var root = taskJson.objectMapper().readTree(configJson);
-            var presetNode = root.get("threadGroupPresetSortOrder");
-            if (presetNode != null && !presetNode.isNull()) {
-                return presetNode.asInt() == config.sortOrder();
-            }
-            var configIdNode = root.get("threadGroupConfigId");
-            if (configIdNode != null && !configIdNode.isNull()) {
-                return configIdNode.asLong() == config.id();
-            }
-            return false;
-        } catch (Exception exception) {
-            return false;
-        }
-    }
-
-    private boolean isFinished(ExecutionStatus status) {
-        return status == ExecutionStatus.SUCCESS
-                || status == ExecutionStatus.FAILED
-                || status == ExecutionStatus.CANCELLED
-                || status == ExecutionStatus.INTERRUPTED;
     }
 
     private PersistentTaskPlanRecord requirePlan(long planId) {

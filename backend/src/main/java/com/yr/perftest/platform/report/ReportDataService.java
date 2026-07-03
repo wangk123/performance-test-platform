@@ -1,50 +1,58 @@
 package com.yr.perftest.platform.report;
 
-import com.yr.perftest.platform.execution.ExecutionStatus;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.TaskMetricSeries;
 import com.yr.perftest.platform.execution.TaskSamplePage;
-import com.yr.perftest.platform.execution.aggregate.PersistentExecutionMetricSeriesRecord;
+import com.yr.perftest.platform.execution.aggregate.MetricTick;
+import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
+import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
 import com.yr.perftest.platform.script.ScriptDefinition;
 import com.yr.perftest.platform.script.ScriptService;
+import com.yr.perftest.platform.script.ScriptStepDefinition;
 import com.yr.perftest.platform.task.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
-/**
- * 任务计划维度的报告数据聚合服务。
- */
 @Service
 public class ReportDataService {
 
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_INSTANT;
     private static final int MAX_FAILURE_SAMPLES = 100;
+    private static final PlanReportResponse.AggregateSummary EMPTY_SUMMARY =
+            new PlanReportResponse.AggregateSummary(0, 0, 0, 0, 0, "none");
 
     private final TaskPlanService planService;
     private final ScenarioExecutionService executionService;
     private final ScriptService scriptService;
     private final PersistentTaskScenarioRepository scenarioRepository;
     private final PersistentScenarioExecutionRepository executionRepository;
+    private final PersistentScriptVersionRepository scriptVersionRepository;
+    private final ScenarioThreadGroupConfigSupport configSupport;
 
     public ReportDataService(
             TaskPlanService planService,
             ScenarioExecutionService executionService,
             ScriptService scriptService,
             PersistentTaskScenarioRepository scenarioRepository,
-            PersistentScenarioExecutionRepository executionRepository
+            PersistentScenarioExecutionRepository executionRepository,
+            PersistentScriptVersionRepository scriptVersionRepository,
+            ScenarioThreadGroupConfigSupport configSupport
     ) {
         this.planService = planService;
         this.executionService = executionService;
         this.scriptService = scriptService;
         this.scenarioRepository = scenarioRepository;
         this.executionRepository = executionRepository;
+        this.scriptVersionRepository = scriptVersionRepository;
+        this.configSupport = configSupport;
     }
 
     @Transactional(readOnly = true)
@@ -54,7 +62,8 @@ public class ReportDataService {
             throw new com.yr.perftest.platform.execution.ExecutionValidationException("task plan does not exist");
         }
 
-        List<PersistentTaskScenarioRecord> scenarios = scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(planId);
+        List<PersistentTaskScenarioRecord> scenarios =
+                scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(planId);
 
         List<PlanReportResponse.ScenarioReport> scenarioReports = new ArrayList<>();
         for (PersistentTaskScenarioRecord scenario : scenarios) {
@@ -73,128 +82,258 @@ public class ReportDataService {
         String scriptName = "";
         try {
             ScriptDefinition def = scriptService.getScriptDefinition(projectId, scenario.getScriptVersionId());
-            if (def != null) scriptName = def.name();
-        } catch (Exception ignored) {}
+            if (def != null) {
+                scriptName = def.name();
+            }
+        } catch (Exception ignored) {
+        }
 
+        List<ScenarioThreadGroupConfig> storedConfigs =
+                configSupport.readStored(scenario.getThreadGroupConfigsJson());
+        if (storedConfigs.isEmpty()) {
+            return new PlanReportResponse.ScenarioReport(
+                    scenario.getId(),
+                    scenario.getScriptVersionId(),
+                    scenario.getName(),
+                    scriptName,
+                    List.of()
+            );
+        }
+
+        List<ScriptStepDefinition> scriptSteps = loadScriptSteps(scenario.getScriptVersionId());
         List<PersistentScenarioExecutionRecord> executions =
                 executionRepository.findAllByScenarioIdOrderByIdDesc(scenario.getId());
 
-        List<PlanReportResponse.RoundReport> rounds = new ArrayList<>();
-        for (PersistentScenarioExecutionRecord exec : executions) {
-            if (!isFinished(exec.getStatus())) continue;
-            rounds.add(buildRoundReport(exec));
+        List<PlanReportResponse.PresetReport> presets = new ArrayList<>();
+        int presetIndex = 1;
+        for (List<ScenarioThreadGroupConfig> presetRows : configSupport.groupPresetsBySortOrder(storedConfigs)) {
+            presets.add(buildPresetReport(
+                    presetIndex++,
+                    presetRows,
+                    scriptSteps,
+                    executions
+            ));
         }
 
         return new PlanReportResponse.ScenarioReport(
-                scenario.getId(), scenario.getScriptVersionId(),
-                scenario.getName(), scriptName, rounds
+                scenario.getId(),
+                scenario.getScriptVersionId(),
+                scenario.getName(),
+                scriptName,
+                presets
         );
     }
 
-    private PlanReportResponse.RoundReport buildRoundReport(PersistentScenarioExecutionRecord exec) {
-        long executionId = exec.getId();
-        TaskExecutionResult result = executionService.getResult(executionId);
-        TaskMetricSeries monitoring = executionService.getMonitoring(executionId);
+    private PlanReportResponse.PresetReport buildPresetReport(
+            int presetIndex,
+            List<ScenarioThreadGroupConfig> presetRows,
+            List<ScriptStepDefinition> scriptSteps,
+            List<PersistentScenarioExecutionRecord> executions
+    ) {
+        int sortOrder = presetRows.get(0).sortOrder();
+        Optional<PersistentScenarioExecutionRecord> latestExecution =
+                configSupport.findLatestMatchingExecution(executions, presetRows);
 
-        // 从 config JSON 获取配置
-        int threads = 0, rampUp = 0, duration = 0, loops = 0;
-        Long threadGroupConfigId = null;
-        String stepId = null;
-        String stepName = null;
-        try {
-            ScenarioExecution se = executionService.getExecution(executionId);
-            if (se.config() != null) {
-                threads = se.config().threads();
-                rampUp = se.config().rampUp();
-                duration = se.config().duration();
-                loops = se.config().loops();
-                threadGroupConfigId = se.config().threadGroupConfigId();
-                stepId = se.config().stepId();
-                stepName = se.config().stepName();
+        TaskExecutionResult result = TaskExecutionResult.empty();
+        TaskMetricSeries monitoring = TaskMetricSeries.empty();
+        if (latestExecution.isPresent()) {
+            long executionId = latestExecution.get().getId();
+            result = executionService.getResult(executionId);
+            monitoring = executionService.getMonitoring(executionId);
+        }
+
+        boolean multiThreadGroup = presetRows.size() > 1;
+        List<PlanReportResponse.ThreadGroupRowReport> rows = new ArrayList<>();
+        List<ThreadGroupConfigSummary> rowSummaries = new ArrayList<>();
+        for (ScenarioThreadGroupConfig config : presetRows) {
+            PlanReportResponse.AggregateSummary rowSummary = buildRowSummary(
+                    scriptSteps,
+                    config,
+                    presetRows.size(),
+                    result
+            );
+            rows.add(new PlanReportResponse.ThreadGroupRowReport(
+                    config.id(),
+                    config.stepId(),
+                    config.stepName(),
+                    config.threads(),
+                    config.rampUp(),
+                    config.duration(),
+                    rowSummary
+            ));
+            if (rowSummary != null && rowSummary.samples() > 0) {
+                rowSummaries.add(new ThreadGroupConfigSummary(
+                        rowSummary.samples(),
+                        rowSummary.throughput(),
+                        rowSummary.avgRt(),
+                        rowSummary.errorRate()
+                ));
             }
-        } catch (Exception ignored) {}
+        }
 
-        PlanReportResponse.AggregateSummary summary = buildSummary(result);
-        List<PlanReportResponse.AggregateRow> rows = buildAggregateRows(result);
-        PlanReportResponse.MetricSeriesData series = buildMetricSeries(monitoring);
-        PlanReportResponse.FailureSummary failures = buildFailures(executionId);
+        PlanReportResponse.AggregateSummary presetSummary = null;
+        if (multiThreadGroup) {
+            ThreadGroupConfigSummary aggregated = configSupport.buildPresetSummary(rowSummaries);
+            if (aggregated != null) {
+                presetSummary = toAggregateSummary(aggregated, result.summary() != null ? result.summary().accuracy() : "none");
+            }
+        }
 
-        return new PlanReportResponse.RoundReport(
-                executionId,
-                exec.getExecutionName(),
-                exec.getStatus().name(),
-                formatInstant(exec.getStartTime()),
-                formatInstant(exec.getEndTime()),
-                exec.getDurationMs(),
-                threadGroupConfigId,
-                stepId,
-                stepName,
-                threads, rampUp, duration, loops,
-                summary, rows, series, failures
+        Set<String> presetLabels = configSupport.collectPresetSamplerLabels(scriptSteps, presetRows);
+        List<TaskExecutionResult.AggregateRow> scopedRows =
+                configSupport.filterAggregateRows(result.aggregateRows(), presetLabels);
+        PlanReportResponse.MetricSeriesData metricSeries = buildMetricSeries(monitoring, presetLabels);
+
+        PlanReportResponse.FailureSummary failures = latestExecution
+                .map(execution -> buildFailures(execution.getId(), presetLabels))
+                .orElse(new PlanReportResponse.FailureSummary(0, false, List.of()));
+
+        PersistentScenarioExecutionRecord execution = latestExecution.orElse(null);
+        return new PlanReportResponse.PresetReport(
+                sortOrder,
+                "配置 " + presetIndex,
+                presetRows.size(),
+                execution != null ? execution.getId() : null,
+                execution != null ? execution.getExecutionName() : null,
+                execution != null ? execution.getStatus().name() : null,
+                execution != null ? formatInstant(execution.getStartTime()) : null,
+                execution != null ? formatInstant(execution.getEndTime()) : null,
+                execution != null ? execution.getDurationMs() : null,
+                rows,
+                presetSummary,
+                buildAggregateRows(scopedRows),
+                metricSeries,
+                failures
         );
     }
 
-    // ---- aggregate ----
+    private PlanReportResponse.AggregateSummary buildRowSummary(
+            List<ScriptStepDefinition> scriptSteps,
+            ScenarioThreadGroupConfig config,
+            int presetSize,
+            TaskExecutionResult result
+    ) {
+        if (result == null || result.summary() == null || result.summary().samples() <= 0) {
+            return null;
+        }
+        String accuracy = result.summary().accuracy();
+        if (presetSize > 1 && !scriptSteps.isEmpty()) {
+            ThreadGroupConfigSummary scoped = configSupport.summarizeThreadGroupResult(scriptSteps, config, result);
+            if (scoped != null) {
+                return toAggregateSummary(scoped, accuracy);
+            }
+        }
+        return buildSummary(result);
+    }
 
     private PlanReportResponse.AggregateSummary buildSummary(TaskExecutionResult result) {
         if (result == null || result.summary() == null) {
-            return new PlanReportResponse.AggregateSummary(0, 0, 0, 0, 0, "none");
+            return EMPTY_SUMMARY;
         }
-        var s = result.summary();
+        var summary = result.summary();
         return new PlanReportResponse.AggregateSummary(
-                s.samples(), s.throughput(), s.avgRt(), s.p95(), s.errorRate(), s.accuracy());
+                summary.samples(),
+                summary.throughput(),
+                summary.avgRt(),
+                summary.p95(),
+                summary.errorRate(),
+                summary.accuracy()
+        );
     }
 
-    private List<PlanReportResponse.AggregateRow> buildAggregateRows(TaskExecutionResult result) {
-        if (result == null || result.aggregateRows() == null) return List.of();
-        return result.aggregateRows().stream()
-                .map(r -> new PlanReportResponse.AggregateRow(
-                        r.label(), r.threadName(), r.samples(),
-                        r.average(), r.median(), r.p90(), r.p95(), r.p99(),
-                        r.min(), r.max(), r.errorRate(), r.throughput()))
+    private PlanReportResponse.AggregateSummary toAggregateSummary(
+            ThreadGroupConfigSummary summary,
+            String accuracy
+    ) {
+        return new PlanReportResponse.AggregateSummary(
+                summary.samples(),
+                summary.throughput(),
+                summary.avgRt(),
+                0,
+                summary.errorRate(),
+                accuracy != null ? accuracy : "none"
+        );
+    }
+
+    private List<PlanReportResponse.AggregateRow> buildAggregateRows(List<TaskExecutionResult.AggregateRow> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        return rows.stream()
+                .map(row -> new PlanReportResponse.AggregateRow(
+                        row.label(),
+                        row.threadName(),
+                        row.samples(),
+                        row.average(),
+                        row.median(),
+                        row.p90(),
+                        row.p95(),
+                        row.p99(),
+                        row.min(),
+                        row.max(),
+                        row.errorRate(),
+                        row.throughput()))
                 .toList();
     }
 
-    // ---- metric series ----
-
-    private PlanReportResponse.MetricSeriesData buildMetricSeries(TaskMetricSeries monitoring) {
-        if (monitoring == null || monitoring.ticks() == null || monitoring.ticks().isEmpty()) {
+    private PlanReportResponse.MetricSeriesData buildMetricSeries(
+            TaskMetricSeries monitoring,
+            Set<String> labels
+    ) {
+        if (monitoring == null || monitoring.ticks() == null || monitoring.ticks().isEmpty() || labels.isEmpty()) {
             return new PlanReportResponse.MetricSeriesData(List.of());
         }
-        List<PlanReportResponse.MetricTick> ticks = monitoring.ticks().stream()
-                .filter(t -> t.overall() != null)
-                .map(t -> new PlanReportResponse.MetricTick(
-                        t.bucketTimeMs(),
-                        new PlanReportResponse.LabelMetric(
-                                t.overall().label(), t.overall().samples(),
-                                t.overall().errorSamples(), t.overall().throughput(),
-                                t.overall().avgRtMs(), t.overall().p95RtMs())))
+        List<MetricTick> scopedTicks = configSupport.filterMetricTicks(monitoring.ticks(), labels);
+        List<PlanReportResponse.MetricTick> ticks = scopedTicks.stream()
+                .map(tick -> new PlanReportResponse.MetricTick(
+                        tick.bucketTimeMs(),
+                        tick.labels().stream()
+                                .map(label -> new PlanReportResponse.LabelMetric(
+                                        label.label(),
+                                        label.samples(),
+                                        label.errorSamples(),
+                                        label.throughput(),
+                                        label.avgRtMs(),
+                                        label.p95RtMs()))
+                                .toList()))
                 .toList();
         return new PlanReportResponse.MetricSeriesData(ticks);
     }
 
-    // ---- failures ----
-
-    private PlanReportResponse.FailureSummary buildFailures(long executionId) {
+    private PlanReportResponse.FailureSummary buildFailures(long executionId, Set<String> labels) {
         TaskSamplePage page = executionService.getSamples(executionId, 1, MAX_FAILURE_SAMPLES, null, null, false);
         if (page == null || page.samples() == null || page.samples().isEmpty()) {
             return new PlanReportResponse.FailureSummary(0, false, List.of());
         }
         List<PlanReportResponse.FailureSample> samples = page.samples().stream()
-                .map(s -> new PlanReportResponse.FailureSample(
-                        s.id(), s.time(), s.statusCode(), s.success(),
-                        s.label(), s.elapsed(), s.message(), s.threadName()))
+                .filter(sample -> labels.isEmpty() || labels.contains(sample.label()))
+                .map(sample -> new PlanReportResponse.FailureSample(
+                        sample.id(),
+                        sample.time(),
+                        sample.statusCode(),
+                        sample.success(),
+                        sample.label(),
+                        sample.elapsed(),
+                        sample.message(),
+                        sample.threadName()))
                 .toList();
-        return new PlanReportResponse.FailureSummary(page.total(), page.total() > MAX_FAILURE_SAMPLES, samples);
+        return new PlanReportResponse.FailureSummary(
+                samples.size(),
+                page.total() > MAX_FAILURE_SAMPLES,
+                samples
+        );
     }
 
-    // ---- helpers ----
-
-    private boolean isFinished(ExecutionStatus status) {
-        return status == ExecutionStatus.SUCCESS
-                || status == ExecutionStatus.FAILED
-                || status == ExecutionStatus.CANCELLED
-                || status == ExecutionStatus.INTERRUPTED;
+    private List<ScriptStepDefinition> loadScriptSteps(long scriptVersionId) {
+        try {
+            PersistentScriptVersionRecord script = scriptVersionRepository.findById(scriptVersionId).orElse(null);
+            if (script == null) {
+                return List.of();
+            }
+            return configSupport.loadScriptSteps(Path.of(script.getStoredPath()));
+        } catch (Exception exception) {
+            return List.of();
+        }
     }
 
     private static String formatInstant(Instant instant) {

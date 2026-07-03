@@ -3,7 +3,7 @@ package com.yr.perftest.platform.report;
 import java.util.List;
 
 /**
- * 任务计划维度报告数据，包含所有场景及其多轮执行结果。
+ * 任务计划维度报告数据，包含所有场景及其线程组 preset 执行结果。
  */
 public record PlanReportResponse(
         PlanInfo plan,
@@ -23,28 +23,36 @@ public record PlanReportResponse(
             long scriptVersionId,
             String scenarioName,
             String scriptName,
-            List<RoundReport> rounds
+            List<PresetReport> presets
     ) {
     }
 
-    public record RoundReport(
-            long executionId,
+    public record PresetReport(
+            int sortOrder,
+            String label,
+            int threadGroupCount,
+            Long executionId,
             String executionName,
             String status,
             String startedAt,
             String endedAt,
             Long durationMs,
-            Long threadGroupConfigId,
+            List<ThreadGroupRowReport> rows,
+            AggregateSummary summary,
+            List<AggregateRow> aggregateRows,
+            MetricSeriesData metricSeries,
+            FailureSummary failures
+    ) {
+    }
+
+    public record ThreadGroupRowReport(
+            long configId,
             String stepId,
             String stepName,
             int threads,
             int rampUp,
             int duration,
-            int loops,
-            AggregateSummary summary,
-            List<AggregateRow> aggregateRows,
-            MetricSeriesData metricSeries,
-            FailureSummary failures
+            AggregateSummary summary
     ) {
     }
 
@@ -81,7 +89,7 @@ public record PlanReportResponse(
 
     public record MetricTick(
             long bucketTimeMs,
-            LabelMetric overall
+            List<LabelMetric> labels
     ) {
     }
 

@@ -119,53 +119,85 @@
           <div class="section-bd" v-if="currentScenario">
             <!-- Gradient comparison table -->
             <h4 class="sub-heading">梯度对比总览</h4>
-            <div class="cmp-table-wrap">
-              <table class="cmp-table">
-                <thead><tr><th>梯度</th><th>线程数</th><th>采样数</th><th>TPS</th><th>Avg RT</th><th>P95 RT</th><th>错误率</th></tr></thead>
-                <tbody>
-                  <tr v-for="r in currentScenario.rounds" :key="r.executionId">
-                    <td><strong>{{ roundReportLabel(r) }}</strong></td>
-                    <td>{{ r.threads }}</td>
-                    <td>{{ fmtNum(r.summary.samples) }}</td>
-                    <td>{{ fmt1(r.summary.throughput) }}/s</td>
-                    <td>{{ r.summary.avgRt }}ms</td>
-                    <td>{{ r.summary.p95 }}ms</td>
-                    <td :style="{ color: r.summary.errorRate > 2 ? '#dc2626' : r.summary.errorRate > 1 ? '#ea580c' : '#16a34a' }">{{ fmt1(r.summary.errorRate) }}%</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <template v-if="currentScenario.presets.length > 0">
+              <section
+                v-for="preset in currentScenario.presets"
+                :key="preset.sortOrder"
+                class="preset-block"
+              >
+                <header class="preset-head">
+                  <span class="preset-badge">{{ preset.label }}</span>
+                  <span class="preset-meta">{{ preset.threadGroupCount }} 个 Thread Group</span>
+                </header>
+                <div class="cmp-table-wrap">
+                  <table class="cmp-table preset-table">
+                    <thead>
+                      <tr>
+                        <th>Thread Group</th>
+                        <th>线程数</th>
+                        <th>Ramp-Up</th>
+                        <th>执行时间</th>
+                        <th>采样数</th>
+                        <th>TPS</th>
+                        <th>平均响应时间</th>
+                        <th>错误率</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="row in preset.rows" :key="row.configId || row.stepId">
+                        <td><strong>{{ row.stepName }}</strong></td>
+                        <td>{{ row.threads }}</td>
+                        <td>{{ row.rampUp }}</td>
+                        <td>{{ row.duration }}</td>
+                        <td>{{ formatSamples(row.summary?.samples) }}</td>
+                        <td>{{ formatThroughput(row.summary?.throughput) }}</td>
+                        <td>{{ row.summary ? `${row.summary.avgRt}ms` : '—' }}</td>
+                        <td :style="errorStyle(row.summary?.errorRate)">{{ formatErrorRate(row.summary?.errorRate) }}</td>
+                      </tr>
+                      <tr v-if="showSummaryRow(preset)" class="preset-summary-row">
+                        <td><strong>汇总</strong></td>
+                        <td>{{ sumRowThreads(preset.rows) }}</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>{{ formatSamples(preset.summary?.samples) }}</td>
+                        <td>{{ formatThroughput(preset.summary?.throughput) }}</td>
+                        <td>{{ preset.summary ? `${preset.summary.avgRt}ms` : '—' }}</td>
+                        <td :style="errorStyle(preset.summary?.errorRate)">{{ formatErrorRate(preset.summary?.errorRate) }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </template>
+            <a-empty v-else description="暂无线程组配置" />
 
-            <!-- Collapsible rounds -->
             <h4 class="sub-heading mt-4">各梯度详细结果</h4>
-            <div v-for="r in currentScenario.rounds" :key="r.executionId" class="round-section">
-              <button :class="['round-toggle', { expanded: expandedRounds.has(r.executionId) }]"
-                @click="toggleRound(r.executionId)">
+            <div v-for="preset in currentScenario.presets" :key="`detail-${preset.sortOrder}`" class="round-section">
+              <button
+                :class="['round-toggle', { expanded: expandedPresets.has(preset.sortOrder) }]"
+                @click="togglePreset(preset)"
+              >
                 <span class="arrow">▶</span>
-                <span class="round-badge">{{ roundReportLabel(r) }}</span>
-                线程: {{ r.threads }} · Ramp: {{ r.rampUp }}s · 持续: {{ r.duration }}s · 吞吐: {{ fmt1(r.summary.throughput) }}/s · P95: {{ r.summary.p95 }}ms
-                <span class="round-sub">{{ expandedRounds.has(r.executionId) ? '已展开' : '点击展开' }}</span>
+                <span class="round-badge">{{ preset.label }}</span>
+                {{ presetDetailLabel(preset) }}
+                <span class="round-sub">{{ expandedPresets.has(preset.sortOrder) ? '已展开' : '点击展开' }}</span>
               </button>
-              <div v-if="expandedRounds.has(r.executionId)" class="round-body">
-                <!-- Config cards -->
+              <div v-if="expandedPresets.has(preset.sortOrder)" class="round-body">
                 <div class="rd-cfg-row">
-                  <div v-if="r.stepName" class="rd-cfg-item"><span class="rd-label">Thread Group</span><span class="rd-value">{{ r.stepName }}</span></div>
-                  <div class="rd-cfg-item"><span class="rd-label">线程数</span><span class="rd-value">{{ r.threads }}</span></div>
-                  <div class="rd-cfg-item"><span class="rd-label">Ramp-Up</span><span class="rd-value">{{ r.rampUp }}s</span></div>
-                  <div class="rd-cfg-item"><span class="rd-label">时长</span><span class="rd-value">{{ r.duration }}s</span></div>
-                  <div class="rd-cfg-item"><span class="rd-label">采样数</span><span class="rd-value">{{ fmtNum(r.summary.samples) }}</span></div>
-                  <div class="rd-cfg-item"><span class="rd-label">TPS</span><span class="rd-value">{{ fmt1(r.summary.throughput) }}/s</span></div>
-                  <div class="rd-cfg-item"><span class="rd-label">Avg RT</span><span class="rd-value">{{ r.summary.avgRt }}ms</span></div>
-                  <div class="rd-cfg-item"><span class="rd-label">错误率</span><span class="rd-value" :style="{ color: r.summary.errorRate > 2 ? '#dc2626' : '#16a34a' }">{{ fmt1(r.summary.errorRate) }}%</span></div>
+                  <div class="rd-cfg-item"><span class="rd-label">Thread Group 数</span><span class="rd-value">{{ preset.threadGroupCount }}</span></div>
+                  <div class="rd-cfg-item"><span class="rd-label">执行状态</span><span class="rd-value">{{ preset.status || '—' }}</span></div>
+                  <div class="rd-cfg-item"><span class="rd-label">采样数</span><span class="rd-value">{{ formatSamples(presetDetailSamples(preset)) }}</span></div>
+                  <div class="rd-cfg-item"><span class="rd-label">TPS</span><span class="rd-value">{{ formatThroughput(presetDetailThroughput(preset)) }}</span></div>
+                  <div class="rd-cfg-item"><span class="rd-label">Avg RT</span><span class="rd-value">{{ presetDetailAvgRt(preset) }}</span></div>
+                  <div class="rd-cfg-item"><span class="rd-label">错误率</span><span class="rd-value" :style="errorStyle(presetDetailErrorRate(preset))">{{ formatErrorRate(presetDetailErrorRate(preset)) }}</span></div>
                 </div>
 
-                <!-- Aggregate table -->
                 <h4 class="sub-heading">接口聚合统计</h4>
                 <div class="agg-table-wrap">
                   <table class="agg-table">
                     <thead><tr><th>Label</th><th>Avg</th><th>Median</th><th>P95</th><th>P99</th><th>Error%</th><th>TPS</th></tr></thead>
                     <tbody>
-                      <tr v-for="row in r.aggregateRows" :key="row.label">
+                      <tr v-for="row in preset.aggregateRows" :key="row.label">
                         <td>{{ row.label }}</td>
                         <td>{{ row.average }}ms</td>
                         <td>{{ row.median }}ms</td>
@@ -174,26 +206,25 @@
                         <td :class="{ 'err-high': row.errorRate > 2 }">{{ fmt1(row.errorRate) }}%</td>
                         <td>{{ fmt1(row.throughput) }}/s</td>
                       </tr>
+                      <tr v-if="!preset.aggregateRows.length"><td colspan="7" class="aggregate-empty">暂无聚合数据</td></tr>
                     </tbody>
                   </table>
                 </div>
 
-                <!-- Charts -->
                 <div class="charts-row">
                   <div class="chart-box">
-                    <h4>响应时间 & TPS</h4>
-                    <div :ref="el => setChartRef(r.executionId, 'rtTps', el)" class="report-chart"></div>
+                    <h4>响应时间</h4>
+                    <div :ref="el => setChartRef(preset.sortOrder, 'rt', el)" class="report-chart"></div>
                   </div>
                   <div class="chart-box">
-                    <h4>错误率</h4>
-                    <div :ref="el => setChartRef(r.executionId, 'error', el)" class="report-chart"></div>
+                    <h4>TPS</h4>
+                    <div :ref="el => setChartRef(preset.sortOrder, 'tps', el)" class="report-chart"></div>
                   </div>
                 </div>
 
-                <!-- Errors -->
-                <h4 class="sub-heading">错误样本 ({{ r.failures.errorCount }})</h4>
-                <div v-if="r.failures.samples.length" class="err-list">
-                  <div v-for="s in r.failures.samples" :key="s.id" class="err-item">
+                <h4 class="sub-heading">错误样本 ({{ preset.failures.errorCount }})</h4>
+                <div v-if="preset.failures.samples.length" class="err-list">
+                  <div v-for="s in preset.failures.samples" :key="s.id" class="err-item">
                     <span class="err-dot"></span>
                     <span class="err-label">{{ s.label }}</span>
                     <span class="err-code">{{ s.statusCode }}</span>
@@ -204,7 +235,7 @@
                 <a-empty v-else description="无错误" />
               </div>
             </div>
-            <a-empty v-if="!currentScenario.rounds.length" description="暂无执行记录" />
+            <a-empty v-if="!currentScenario.presets.length" description="暂无配置数据" />
           </div>
           <div class="section-bd" v-else><a-empty description="暂无场景数据" /></div>
         </section>
@@ -235,8 +266,12 @@ import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { LineChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
-import { fetchPlanReport, exportWordReport, type PlanReportResponse, type RoundReport } from '../api/reports';
-import { roundReportLabel } from '../utils/scenario-thread-group';
+import { fetchPlanReport, exportWordReport, type PlanReportResponse, type PresetReport } from '../api/reports';
+import {
+  formatErrorRate,
+  formatSamples,
+  formatThroughput,
+} from '../utils/scenario-thread-group';
 
 echarts.use([CanvasRenderer, LineChart, GridComponent, LegendComponent, TooltipComponent]);
 
@@ -248,18 +283,19 @@ const data = ref<PlanReportResponse | null>(null);
 const editorRef = ref<HTMLElement | null>(null);
 const editorContent = ref('');
 const activeScenario = ref(0);
-const expandedRounds = reactive(new Set<number>());
+const expandedPresets = reactive(new Set<number>());
 const chartRefs: Record<string, any> = reactive({});
 const chartInstances: Record<string, any> = {};
 
 const planId = computed(() => Number(route.params.planId));
 const currentScenario = computed(() => data.value?.scenarios[activeScenario.value] || null);
 
-// Compute total rounds and concurrency levels for 测试目标 section
-const totalRounds = computed(() => data.value?.scenarios.reduce((s, sc) => s + sc.rounds.length, 0) || 0);
+const totalRounds = computed(() =>
+  data.value?.scenarios.reduce((total, scenario) => total + scenario.presets.filter((preset) => preset.executionId != null).length, 0) || 0,
+);
 const concurrencyLevels = computed(() => {
   const labels = new Set<string>();
-  data.value?.scenarios.forEach((sc) => sc.rounds.forEach((r) => labels.add(roundReportLabel(r))));
+  data.value?.scenarios.forEach((scenario) => scenario.presets.forEach((preset) => labels.add(preset.label)));
   return [...labels].join(' / ');
 });
 
@@ -270,81 +306,137 @@ async function loadReport() {
   try {
     data.value = await fetchPlanReport(planId.value);
     if (data.value.scenarios.length > 0) {
-      const first = data.value.scenarios[0].rounds;
+      const first = data.value.scenarios[0].presets;
       if (first.length > 0) {
-        expandedRounds.add(first[0].executionId);
+        expandedPresets.add(first[0].sortOrder);
         await nextTick();
-        renderChartsForRound(first[0]);
+        renderChartsForPreset(first[0]);
       }
     }
   } catch (e: any) { error.value = e.message || '加载报告失败'; }
   finally { loading.value = false; }
 }
 
-function toggleRound(executionId: number) {
-  if (expandedRounds.has(executionId)) {
-    expandedRounds.delete(executionId);
-    disposeCharts(executionId);
+function togglePreset(preset: PresetReport) {
+  if (expandedPresets.has(preset.sortOrder)) {
+    expandedPresets.delete(preset.sortOrder);
+    disposeCharts(preset.sortOrder);
   } else {
-    expandedRounds.add(executionId);
-    const round = data.value?.scenarios.flatMap(s => s.rounds).find(r => r.executionId === executionId);
-    if (round) nextTick(() => renderChartsForRound(round));
+    expandedPresets.add(preset.sortOrder);
+    nextTick(() => renderChartsForPreset(preset));
   }
 }
 
-function setChartRef(eid: number, key: string, el: any) { if (el) chartRefs[`${eid}-${key}`] = el; }
+function setChartRef(sortOrder: number, key: string, el: any) { if (el) chartRefs[`${sortOrder}-${key}`] = el; }
 
-function disposeCharts(eid: number) {
-  ['rtTps', 'error'].forEach(k => {
-    const key = `${eid}-${k}`;
-    if (chartInstances[key]) { chartInstances[key].dispose(); delete chartInstances[key]; }
+function disposeCharts(sortOrder: number) {
+  ['rt', 'tps'].forEach((key) => {
+    const chartKey = `${sortOrder}-${key}`;
+    if (chartInstances[chartKey]) { chartInstances[chartKey].dispose(); delete chartInstances[chartKey]; }
   });
 }
 
-// ---- Charts ----
+function showSummaryRow(preset: PresetReport) {
+  return preset.rows.length > 1;
+}
 
-function renderChartsForRound(r: RoundReport) {
-  const ticks = r.metricSeries?.ticks || [];
-  if (!ticks.length) return;
-  const xData = ticks.map(t => formatSecond(t.bucketTimeMs / 1000));
-  const C = { blue: '#3b6df0', orange: '#ea580c', teal: '#0d9488', red: '#dc2626' };
+function sumRowThreads(rows: PresetReport['rows']) {
+  return rows.reduce((total, row) => total + row.threads, 0);
+}
 
-  const rtEl = chartRefs[`${r.executionId}-rtTps`];
-  if (rtEl) {
-    if (chartInstances[`${r.executionId}-rtTps`]) chartInstances[`${r.executionId}-rtTps`].dispose();
-    const c = echarts.init(rtEl);
-    c.setOption({
-      tooltip: { trigger: 'axis' },
-      legend: { data: ['Avg RT', 'P95 RT', 'TPS'], bottom: 0, textStyle: { fontSize: 10 } },
-      grid: { left: 50, right: 50, top: 16, bottom: 36 },
-      xAxis: { type: 'category', data: xData, boundaryGap: false, axisLabel: { fontSize: 9 } },
-      yAxis: [{ type: 'value', name: 'ms' }, { type: 'value', name: 'req/s' }],
-      series: [
-        { name: 'Avg RT', type: 'line', data: ticks.map(t => t.overall?.avgRtMs || 0), smooth: true, symbol: 'none', lineStyle: { color: C.blue, width: 2 } },
-        { name: 'P95 RT', type: 'line', data: ticks.map(t => t.overall?.p95RtMs || 0), smooth: true, symbol: 'none', lineStyle: { color: C.orange, width: 2 } },
-        { name: 'TPS', type: 'line', yAxisIndex: 1, data: ticks.map(t => t.overall?.throughput || 0), smooth: true, symbol: 'none', lineStyle: { color: C.teal, width: 2 } },
-      ],
-    });
-    chartInstances[`${r.executionId}-rtTps`] = c;
+function presetDetailLabel(preset: PresetReport) {
+  const threads = sumRowThreads(preset.rows);
+  const throughput = presetDetailThroughput(preset);
+  const throughputText = throughput == null ? '—' : `${formatThroughput(throughput)}/s`;
+  return `线程: ${threads} · 吞吐: ${throughputText}`;
+}
+
+function presetDetailSamples(preset: PresetReport) {
+  if (preset.summary) return preset.summary.samples;
+  return preset.rows[0]?.summary?.samples ?? null;
+}
+
+function presetDetailThroughput(preset: PresetReport) {
+  if (preset.summary) return preset.summary.throughput;
+  return preset.rows[0]?.summary?.throughput ?? null;
+}
+
+function presetDetailAvgRt(preset: PresetReport) {
+  const avgRt = preset.summary?.avgRt ?? preset.rows[0]?.summary?.avgRt;
+  return avgRt != null ? `${avgRt}ms` : '—';
+}
+
+function presetDetailErrorRate(preset: PresetReport) {
+  if (preset.summary) return preset.summary.errorRate;
+  return preset.rows[0]?.summary?.errorRate ?? null;
+}
+
+function errorStyle(errorRate?: number | null) {
+  if (errorRate == null) return undefined;
+  if (errorRate > 2) return { color: '#dc2626' };
+  if (errorRate > 1) return { color: '#ea580c' };
+  return { color: '#16a34a' };
+}
+
+function interfaceNames(preset: PresetReport) {
+  const names = new Set<string>();
+  for (const tick of preset.metricSeries?.ticks || []) {
+    for (const label of tick.labels) names.add(label.label);
   }
+  return [...names];
+}
 
-  const errEl = chartRefs[`${r.executionId}-error`];
-  if (errEl) {
-    if (chartInstances[`${r.executionId}-error`]) chartInstances[`${r.executionId}-error`].dispose();
-    const c = echarts.init(errEl);
-    c.setOption({
-      tooltip: { trigger: 'axis', valueFormatter: (v: any) => v + '%' },
-      legend: { data: ['错误率'], bottom: 0, textStyle: { fontSize: 10 } },
+function renderChartsForPreset(preset: PresetReport) {
+  const ticks = preset.metricSeries?.ticks || [];
+  if (!ticks.length) return;
+  const xData = ticks.map((tick) => formatSecond(tick.bucketTimeMs / 1000));
+  const names = interfaceNames(preset);
+  const colors = ['#1f6f5f', '#d98724', '#3d6fb6', '#c24132', '#7a5cba', '#5b7c28'];
+
+  const rtEl = chartRefs[`${preset.sortOrder}-rt`];
+  if (rtEl) {
+    const chartKey = `${preset.sortOrder}-rt`;
+    if (chartInstances[chartKey]) chartInstances[chartKey].dispose();
+    const chart = echarts.init(rtEl);
+    chart.setOption({
+      color: colors,
+      tooltip: { trigger: 'axis', valueFormatter: (value: number) => `${value}ms` },
+      legend: { bottom: 0, type: 'scroll', textStyle: { fontSize: 10 } },
       grid: { left: 50, right: 20, top: 16, bottom: 36 },
       xAxis: { type: 'category', data: xData, boundaryGap: false, axisLabel: { fontSize: 9 } },
-      yAxis: { type: 'value', name: '%' },
-      series: [{
-        name: '错误率', type: 'line',
-        data: ticks.map(t => { const o = t.overall; return o && o.samples > 0 ? +((o.errorSamples / o.samples) * 100).toFixed(2) : 0; }),
-        smooth: true, symbol: 'none', lineStyle: { color: C.red, width: 2 }, areaStyle: { color: 'rgba(220,38,38,0.10)' },
-      }],
+      yAxis: { type: 'value', name: 'ms' },
+      series: names.map((name) => ({
+        name,
+        type: 'line',
+        smooth: true,
+        symbol: 'none',
+        data: ticks.map((tick) => tick.labels.find((item) => item.label === name)?.avgRtMs ?? null),
+      })),
     });
-    chartInstances[`${r.executionId}-error`] = c;
+    chartInstances[chartKey] = chart;
+  }
+
+  const tpsEl = chartRefs[`${preset.sortOrder}-tps`];
+  if (tpsEl) {
+    const chartKey = `${preset.sortOrder}-tps`;
+    if (chartInstances[chartKey]) chartInstances[chartKey].dispose();
+    const chart = echarts.init(tpsEl);
+    chart.setOption({
+      color: colors,
+      tooltip: { trigger: 'axis', valueFormatter: (value: number) => `${value} req/s` },
+      legend: { bottom: 0, type: 'scroll', textStyle: { fontSize: 10 } },
+      grid: { left: 50, right: 20, top: 16, bottom: 36 },
+      xAxis: { type: 'category', data: xData, boundaryGap: false, axisLabel: { fontSize: 9 } },
+      yAxis: { type: 'value', name: 'req/s' },
+      series: names.map((name) => ({
+        name,
+        type: 'line',
+        smooth: true,
+        symbol: 'none',
+        data: ticks.map((tick) => tick.labels.find((item) => item.label === name)?.throughput ?? null),
+      })),
+    });
+    chartInstances[chartKey] = chart;
   }
 }
 
@@ -376,21 +468,20 @@ function onEditorInput() { editorContent.value = editorRef.value?.innerHTML || '
 // ---- Watch scenario change ----
 
 watch(activeScenario, async () => {
-  for (const [k, inst] of Object.entries(chartInstances)) { try { inst.dispose(); } catch (_) {} delete chartInstances[k]; }
-  expandedRounds.clear();
+  for (const [key, inst] of Object.entries(chartInstances)) { try { inst.dispose(); } catch (_) {} delete chartInstances[key]; }
+  expandedPresets.clear();
   await nextTick();
-  const sc = currentScenario.value;
-  if (sc && sc.rounds.length > 0) {
-    expandedRounds.add(sc.rounds[0].executionId);
+  const scenario = currentScenario.value;
+  if (scenario && scenario.presets.length > 0) {
+    expandedPresets.add(scenario.presets[0].sortOrder);
     await nextTick();
-    renderChartsForRound(sc.rounds[0]);
+    renderChartsForPreset(scenario.presets[0]);
   }
 });
 
 // ---- Helpers ----
 
 function formatSecond(s: number) { const m = Math.floor(s / 60); return m + ':' + (Math.floor(s % 60) < 10 ? '0' : '') + Math.floor(s % 60); }
-function fmtNum(n: number) { return n?.toLocaleString?.() || '0'; }
 function fmt1(n: number) { return n != null ? Number(n.toFixed(1)) : 0; }
 </script>
 
@@ -440,6 +531,17 @@ function fmt1(n: number) { return n != null ? Number(n.toFixed(1)) : 0; }
 .sc-tab { padding: 8px 14px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: none; color: #6b7280; border-bottom: 2px solid transparent; }
 .sc-tab:hover { color: #1a1a2e; }
 .sc-tab.active { color: #3b6df0; border-bottom-color: #3b6df0; }
+
+.preset-block { border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 14px; overflow: hidden; }
+.preset-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #f8fafc; border-bottom: 1px solid #e5e7eb; }
+.preset-badge { font-size: 12px; font-weight: 600; color: #3730a3; background: #e0e7ff; border-radius: 999px; padding: 2px 10px; }
+.preset-meta { font-size: 12px; color: #6b7280; }
+.preset-table thead th { text-align: right; }
+.preset-table thead th:first-child,
+.preset-table tbody td:first-child { text-align: left; }
+.preset-table tbody td { text-align: right; }
+.preset-summary-row { background: #f8fafc; font-weight: 600; }
+.aggregate-empty { text-align: center; color: #6b7280; }
 
 /* Comparison Table */
 .cmp-table-wrap { overflow-x: auto; }

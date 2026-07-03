@@ -17,27 +17,34 @@ export interface ScenarioReport {
   scriptVersionId: number;
   scenarioName: string;
   scriptName: string;
-  rounds: RoundReport[];
+  presets: PresetReport[];
 }
 
-export interface RoundReport {
-  executionId: number;
+export interface PresetReport {
+  sortOrder: number;
+  label: string;
+  threadGroupCount: number;
+  executionId: number | null;
   executionName: string | null;
-  status: string;
+  status: string | null;
   startedAt: string | null;
   endedAt: string | null;
   durationMs: number | null;
-  threadGroupConfigId: number | null;
-  stepId: string | null;
-  stepName: string | null;
-  threads: number;
-  rampUp: number;
-  duration: number;
-  loops: number;
-  summary: AggregateSummary;
+  rows: ThreadGroupRowReport[];
+  summary: AggregateSummary | null;
   aggregateRows: AggregateRow[];
   metricSeries: MetricSeriesData;
   failures: FailureSummary;
+}
+
+export interface ThreadGroupRowReport {
+  configId: number;
+  stepId: string;
+  stepName: string;
+  threads: number;
+  rampUp: number;
+  duration: number;
+  summary: AggregateSummary | null;
 }
 
 export interface AggregateSummary {
@@ -70,7 +77,7 @@ export interface MetricSeriesData {
 
 export interface MetricTick {
   bucketTimeMs: number;
-  overall: LabelMetric;
+  labels: LabelMetric[];
 }
 
 export interface LabelMetric {

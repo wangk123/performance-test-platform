@@ -2,8 +2,10 @@ package com.yr.perftest.platform.task;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yr.perftest.platform.execution.ExecutionStatus;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
+import com.yr.perftest.platform.execution.aggregate.MetricTick;
 import com.yr.perftest.platform.script.JmeterScriptParser;
 import com.yr.perftest.platform.script.ScriptStepDefinition;
 import com.yr.perftest.platform.script.ScriptStepType;
@@ -18,7 +20,9 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 
 @Component
 public class ScenarioThreadGroupConfigSupport {
@@ -102,6 +106,165 @@ public class ScenarioThreadGroupConfigSupport {
         return configs.stream()
                 .filter(config -> config.sortOrder() == sortOrder)
                 .toList();
+    }
+
+    public List<List<ScenarioThreadGroupConfig>> groupPresetsBySortOrder(List<ScenarioThreadGroupConfig> configs) {
+        if (configs == null || configs.isEmpty()) {
+            return List.of();
+        }
+        Map<Integer, List<ScenarioThreadGroupConfig>> grouped = new TreeMap<>();
+        for (ScenarioThreadGroupConfig config : configs) {
+            grouped.computeIfAbsent(config.sortOrder(), ignored -> new ArrayList<>()).add(config);
+        }
+        return List.copyOf(grouped.values());
+    }
+
+    public boolean matchesThreadGroupConfig(String configJson, ScenarioThreadGroupConfig config) {
+        try {
+            var root = objectMapper.readTree(configJson);
+            var presetNode = root.get("threadGroupPresetSortOrder");
+            if (presetNode != null && !presetNode.isNull()) {
+                return presetNode.asInt() == config.sortOrder();
+            }
+            var configIdNode = root.get("threadGroupConfigId");
+            if (configIdNode != null && !configIdNode.isNull()) {
+                return configIdNode.asLong() == config.id();
+            }
+            return false;
+        } catch (Exception exception) {
+            return false;
+        }
+    }
+
+    public boolean matchesPresetSortOrder(String configJson, int sortOrder) {
+        try {
+            var root = objectMapper.readTree(configJson);
+            var presetNode = root.get("threadGroupPresetSortOrder");
+            if (presetNode != null && !presetNode.isNull()) {
+                return presetNode.asInt() == sortOrder;
+            }
+            return false;
+        } catch (Exception exception) {
+            return false;
+        }
+    }
+
+    public boolean matchesPreset(List<ScenarioThreadGroupConfig> presetRows, String configJson) {
+        if (presetRows.isEmpty()) {
+            return false;
+        }
+        if (matchesPresetSortOrder(configJson, presetRows.get(0).sortOrder())) {
+            return true;
+        }
+        try {
+            var root = objectMapper.readTree(configJson);
+            var configIdNode = root.get("threadGroupConfigId");
+            if (configIdNode != null && !configIdNode.isNull()) {
+                long configId = configIdNode.asLong();
+                return presetRows.stream().anyMatch(config -> config.id() == configId);
+            }
+        } catch (Exception exception) {
+            return false;
+        }
+        return false;
+    }
+
+    public Optional<PersistentScenarioExecutionRecord> findLatestMatchingExecution(
+            List<PersistentScenarioExecutionRecord> executions,
+            List<ScenarioThreadGroupConfig> presetRows
+    ) {
+        return executions.stream()
+                .filter(execution -> isFinished(execution.getStatus()))
+                .filter(execution -> matchesPreset(presetRows, execution.getConfigJson()))
+                .findFirst();
+    }
+
+    public Set<String> collectPresetSamplerLabels(
+            List<ScriptStepDefinition> steps,
+            List<ScenarioThreadGroupConfig> presetRows
+    ) {
+        Set<String> labels = new LinkedHashSet<>();
+        for (ScenarioThreadGroupConfig config : presetRows) {
+            labels.addAll(collectSamplerLabels(steps, config.stepId(), config.stepName()));
+        }
+        return labels;
+    }
+
+    public List<TaskExecutionResult.AggregateRow> filterAggregateRows(
+            List<TaskExecutionResult.AggregateRow> rows,
+            Set<String> labels
+    ) {
+        if (rows == null || rows.isEmpty() || labels.isEmpty()) {
+            return List.of();
+        }
+        return rows.stream()
+                .filter(row -> labels.contains(row.label()))
+                .toList();
+    }
+
+    public List<MetricTick> filterMetricTicks(List<MetricTick> ticks, Set<String> labels) {
+        if (ticks == null || ticks.isEmpty() || labels.isEmpty()) {
+            return List.of();
+        }
+        List<MetricTick> filtered = new ArrayList<>();
+        for (MetricTick tick : ticks) {
+            if (tick.labels() == null || tick.labels().isEmpty()) {
+                continue;
+            }
+            List<MetricTick.LabelMetric> scoped = tick.labels().stream()
+                    .filter(label -> labels.contains(label.label()))
+                    .toList();
+            if (!scoped.isEmpty()) {
+                filtered.add(new MetricTick(tick.bucketTimeMs(), scoped, tick.overall()));
+            }
+        }
+        return filtered;
+    }
+
+    public ThreadGroupConfigSummary buildPresetSummary(List<ThreadGroupConfigSummary> summaries) {
+        List<ThreadGroupConfigSummary> valid = summaries.stream()
+                .filter(summary -> summary != null && summary.samples() > 0)
+                .toList();
+        if (valid.isEmpty()) {
+            return null;
+        }
+        List<ThreadGroupConfigSummary> deduped = new ArrayList<>();
+        for (ThreadGroupConfigSummary summary : valid) {
+            boolean exists = deduped.stream().anyMatch(item ->
+                    item.samples() == summary.samples()
+                            && item.throughput() == summary.throughput()
+                            && item.avgRt() == summary.avgRt()
+                            && item.errorRate() == summary.errorRate());
+            if (!exists) {
+                deduped.add(summary);
+            }
+        }
+        if (deduped.size() == 1) {
+            return deduped.get(0);
+        }
+        int totalSamples = 0;
+        double totalThroughput = 0;
+        long weightedRt = 0;
+        double weightedError = 0;
+        for (ThreadGroupConfigSummary summary : deduped) {
+            totalSamples += summary.samples();
+            totalThroughput += summary.throughput();
+            weightedRt += summary.avgRt() * summary.samples();
+            weightedError += summary.errorRate() * summary.samples();
+        }
+        return new ThreadGroupConfigSummary(
+                totalSamples,
+                totalThroughput,
+                Math.round((double) weightedRt / totalSamples),
+                weightedError / totalSamples
+        );
+    }
+
+    public boolean isFinished(ExecutionStatus status) {
+        return status == ExecutionStatus.SUCCESS
+                || status == ExecutionStatus.FAILED
+                || status == ExecutionStatus.CANCELLED
+                || status == ExecutionStatus.INTERRUPTED;
     }
 
     public List<ThreadGroupStepPatcher.ThreadGroupPatch> buildPatches(

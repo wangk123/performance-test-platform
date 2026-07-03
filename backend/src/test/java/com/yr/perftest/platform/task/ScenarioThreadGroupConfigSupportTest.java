@@ -2,6 +2,7 @@ package com.yr.perftest.platform.task;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
+import com.yr.perftest.platform.execution.aggregate.MetricTick;
 import com.yr.perftest.platform.script.JmeterScriptParser;
 import com.yr.perftest.platform.script.JmeterScriptRenderer;
 import com.yr.perftest.platform.script.ScriptStepDefinition;
@@ -11,8 +12,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ScenarioThreadGroupConfigSupportTest {
   private final JmeterScriptRenderer renderer = new JmeterScriptRenderer();
@@ -81,5 +85,70 @@ class ScenarioThreadGroupConfigSupportTest {
     assertEquals(10.0, first.throughput());
     assertEquals(200, second.samples());
     assertEquals(20.0, second.throughput());
+  }
+
+  @Test
+  void matchesPresetBySortOrderAndConfigId() {
+    List<ScenarioThreadGroupConfig> preset = List.of(
+        new ScenarioThreadGroupConfig(7, "thread-0", "TG1", 10, 0, 10, 0, null),
+        new ScenarioThreadGroupConfig(8, "thread-1", "TG2", 10, 0, 10, 0, null)
+    );
+
+    assertTrue(support.matchesPreset(preset, "{\"threadGroupPresetSortOrder\":0}"));
+    assertTrue(support.matchesPreset(preset, "{\"threadGroupConfigId\":8}"));
+    assertFalse(support.matchesPreset(preset, "{\"threadGroupPresetSortOrder\":1}"));
+    assertFalse(support.matchesPreset(preset, "{\"threadGroupConfigId\":99}"));
+  }
+
+  @Test
+  void findLatestMatchingExecutionSkipsUnfinishedAndStalePresets() {
+    List<ScenarioThreadGroupConfig> preset = List.of(
+        new ScenarioThreadGroupConfig(7, "thread-0", "TG1", 10, 0, 10, 0, null)
+    );
+    PersistentScenarioExecutionRecord stale = new PersistentScenarioExecutionRecord(1L, "{\"threadGroupPresetSortOrder\":1}");
+    stale.markSuccess(0);
+    PersistentScenarioExecutionRecord running = new PersistentScenarioExecutionRecord(1L, "{\"threadGroupPresetSortOrder\":0}");
+    running.markRunning("result.jtl", "jmeter.log");
+    PersistentScenarioExecutionRecord latest = new PersistentScenarioExecutionRecord(1L, "{\"threadGroupPresetSortOrder\":0}");
+    latest.markSuccess(0);
+
+    Optional<PersistentScenarioExecutionRecord> found = support.findLatestMatchingExecution(
+        List.of(latest, running, stale),
+        preset
+    );
+
+    assertTrue(found.isPresent());
+    assertEquals(latest, found.get());
+  }
+
+  @Test
+  void buildPresetSummaryAggregatesDistinctThreadGroupSummaries() {
+    ThreadGroupConfigSummary summary = support.buildPresetSummary(List.of(
+        new ThreadGroupConfigSummary(100, 10, 20, 0),
+        new ThreadGroupConfigSummary(200, 20, 30, 1)
+    ));
+
+    assertEquals(300, summary.samples());
+    assertEquals(30.0, summary.throughput());
+    assertEquals(27, summary.avgRt());
+    assertEquals(2.0 / 3.0, summary.errorRate(), 0.001);
+  }
+
+  @Test
+  void filterMetricTicksKeepsOnlyPresetLabels() {
+    List<MetricTick> ticks = List.of(new MetricTick(
+        1000L,
+        List.of(
+            new MetricTick.LabelMetric("请求A", 10, 0, 5, 20, 30),
+            new MetricTick.LabelMetric("请求B", 8, 0, 4, 25, 35)
+        ),
+        null
+    ));
+
+    List<MetricTick> filtered = support.filterMetricTicks(ticks, java.util.Set.of("请求A"));
+
+    assertEquals(1, filtered.size());
+    assertEquals(1, filtered.get(0).labels().size());
+    assertEquals("请求A", filtered.get(0).labels().get(0).label());
   }
 }

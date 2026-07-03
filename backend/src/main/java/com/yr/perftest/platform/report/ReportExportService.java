@@ -89,39 +89,53 @@ public class ReportExportService {
             Map<String, Object> scMap = new HashMap<>();
             scMap.put("scenarioName", nvl(sc.scenarioName()));
             scMap.put("scriptName", nvl(sc.scriptName()));
-            scMap.put("roundCount", sc.rounds().size());
+            scMap.put("presetCount", sc.presets().size());
 
-            List<Map<String, Object>> roundList = new java.util.ArrayList<>();
-            for (var r : sc.rounds()) {
-                Map<String, Object> rm = new HashMap<>();
-                rm.put("executionName", nvl(r.executionName()));
-                rm.put("threads", r.threads());
-                rm.put("duration", r.duration());
-                rm.put("status", nvl(r.status()));
+            List<Map<String, Object>> presetList = new java.util.ArrayList<>();
+            for (var preset : sc.presets()) {
+                Map<String, Object> presetMap = new HashMap<>();
+                presetMap.put("label", nvl(preset.label()));
+                presetMap.put("threadGroupCount", preset.threadGroupCount());
 
-                if (r.summary() != null) {
-                    rm.put("totalSamples", r.summary().samples());
-                    rm.put("throughput", fm2(r.summary().throughput()));
-                    rm.put("avgRt", r.summary().avgRt());
-                    rm.put("p95", r.summary().p95());
-                    rm.put("errorRate", fm2(r.summary().errorRate()));
+                List<Map<String, Object>> rowList = new java.util.ArrayList<>();
+                for (var row : preset.rows()) {
+                    Map<String, Object> rowMap = new HashMap<>();
+                    rowMap.put("stepName", nvl(row.stepName()));
+                    rowMap.put("threads", row.threads());
+                    rowMap.put("rampUp", row.rampUp());
+                    rowMap.put("duration", row.duration());
+                    if (row.summary() != null) {
+                        rowMap.put("totalSamples", row.summary().samples());
+                        rowMap.put("throughput", fm2(row.summary().throughput()));
+                        rowMap.put("avgRt", row.summary().avgRt());
+                        rowMap.put("errorRate", fm2(row.summary().errorRate()));
+                    }
+                    rowList.add(rowMap);
+                }
+                presetMap.put("rows", rowList);
+
+                if (preset.summary() != null) {
+                    presetMap.put("totalSamples", preset.summary().samples());
+                    presetMap.put("throughput", fm2(preset.summary().throughput()));
+                    presetMap.put("avgRt", preset.summary().avgRt());
+                    presetMap.put("errorRate", fm2(preset.summary().errorRate()));
                 }
 
-                if (r.aggregateRows() != null) {
-                    rm.put("aggregateRows", r.aggregateRows().stream().map(ar -> {
-                        Map<String, Object> rm2 = new HashMap<>();
-                        rm2.put("label", ar.label());
-                        rm2.put("samples", ar.samples());
-                        rm2.put("average", ar.average());
-                        rm2.put("p95", ar.p95());
-                        rm2.put("errorRate", fm2(ar.errorRate()));
-                        rm2.put("throughput", fm2(ar.throughput()));
-                        return rm2;
+                if (preset.aggregateRows() != null) {
+                    presetMap.put("aggregateRows", preset.aggregateRows().stream().map(ar -> {
+                        Map<String, Object> aggregateMap = new HashMap<>();
+                        aggregateMap.put("label", ar.label());
+                        aggregateMap.put("samples", ar.samples());
+                        aggregateMap.put("average", ar.average());
+                        aggregateMap.put("p95", ar.p95());
+                        aggregateMap.put("errorRate", fm2(ar.errorRate()));
+                        aggregateMap.put("throughput", fm2(ar.throughput()));
+                        return aggregateMap;
                     }).collect(Collectors.toList()));
                 }
-                roundList.add(rm);
+                presetList.add(presetMap);
             }
-            scMap.put("rounds", roundList);
+            scMap.put("presets", presetList);
             scenarioList.add(scMap);
         }
         ctx.put("scenarios", scenarioList);
