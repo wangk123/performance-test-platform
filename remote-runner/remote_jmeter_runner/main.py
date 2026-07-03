@@ -262,7 +262,7 @@ def controller_status(client, run_id):
     return "finished", exit_code
 
 
-def start_worker(node, run_id, hdr_source=None):
+def start_worker(node, run_id, jar_sources=None):
     client = connect(node)
     remote_dir = Path(node.get("remoteWorkDir", "/tmp/perftest-platform")) / run_id
     container_name = f"jmeter-worker-{run_id}"
@@ -271,8 +271,8 @@ def start_worker(node, run_id, hdr_source=None):
     if code != 0:
         client.close()
         return code, output
-    if hdr_source:
-        sftp_put(client, Path(hdr_source), remote_dir / Path(hdr_source).name)
+    for jar_source in jar_sources or []:
+        sftp_put(client, Path(jar_source), remote_dir / Path(jar_source).name)
     jmeter_args = " ".join([
         shell_quote(f"-Djava.rmi.server.hostname={node['host']}"),
         "-s",
@@ -283,7 +283,7 @@ def start_worker(node, run_id, hdr_source=None):
     ])
     shell_cmd = " ".join([
         "JMETER_HOME=${JMETER_HOME:-$(find /opt -maxdepth 1 -name 'apache-jmeter-*' -type d 2>/dev/null | head -1)}",
-        "&& (ls /test/HdrHistogram*.jar >/dev/null 2>&1 && cp /test/HdrHistogram*.jar \"$JMETER_HOME/lib/ext/\" || true)",
+        "&& (ls /test/*.jar >/dev/null 2>&1 && cp /test/*.jar \"$JMETER_HOME/lib/ext/\" || true)",
         f"&& exec /entrypoint.sh {jmeter_args}",
     ])
     command = " ".join([
@@ -337,7 +337,7 @@ def launch_controller(controller, payload):
     ])
     shell_cmd = " ".join([
         "JMETER_HOME=${JMETER_HOME:-$(find /opt -maxdepth 1 -name 'apache-jmeter-*' -type d 2>/dev/null | head -1)}",
-        "&& cp /test/HdrHistogram*.jar \"$JMETER_HOME/lib/ext/\"",
+        "&& (ls /test/*.jar >/dev/null 2>&1 && cp /test/*.jar \"$JMETER_HOME/lib/ext/\" || true)",
         f"&& exec /entrypoint.sh {jmeter_args}",
     ])
     command = " ".join([
@@ -455,19 +455,23 @@ def fetch_aggregate_snapshot(payload):
     return respond(True, "changed", "", 0, snapshots=snapshots, snapshot_mtime=overall_mtime)
 
 
+def runtime_jar_sources(payload):
+    jars = []
+    for dependency in payload.get("dependencies", []):
+        target = str(dependency.get("targetPath", ""))
+        if target.endswith(".jar"):
+            jars.append(dependency.get("sourcePath"))
+    return jars
+
+
 def start_run(payload):
     logs = []
     workers = [node_ref(node) for node in payload["workers"]]
     controller = node_ref(payload["controller"])
-    hdr_jar = None
-    for dependency in payload.get("dependencies", []):
-        target = str(dependency.get("targetPath", ""))
-        if target.startswith("HdrHistogram") and target.endswith(".jar"):
-            hdr_jar = dependency.get("sourcePath")
-            break
+    jar_sources = runtime_jar_sources(payload)
     try:
         for worker in workers:
-            code, output = start_worker(worker, payload["runId"], hdr_source=hdr_jar)
+            code, output = start_worker(worker, payload["runId"], jar_sources=jar_sources)
             logs.append(f"worker {worker['host']}: {output.strip()}")
             if code != 0:
                 return respond(False, output.strip() or f"worker {worker['host']} failed to start", "\n".join(logs), code)

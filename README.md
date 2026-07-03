@@ -15,7 +15,7 @@
 | 📈 监控采集 | Prometheus 集成、CPU/内存/JVM 指标、代理一键部署 | ✅ |
 | 📄 报告生成 | Markdown/HTML 报告生成与下载 | 📋 |
 | 🏭 造数工厂 | 数据模板、生成规则、预览导出 | 📋 |
-| 📚 函数库 | Groovy 函数管理、在线调试、版本管理 | 📋 |
+| 📚 函数库 | Java JMeter Function 只读展示、函数包下载、编辑器插入 | ✅ |
 
 > 📋 = 远期规划 &nbsp;|&nbsp; 完整需求清单见 [需求规格说明书](docs/requirements-spec.md)
 

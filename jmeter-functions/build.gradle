@@ -1,0 +1,39 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.yr.perftest'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+dependencies {
+    compileOnly 'org.apache.jmeter:ApacheJMeter_core:5.6.3'
+
+    testImplementation 'org.apache.jmeter:ApacheJMeter_core:5.6.3'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+tasks.register('copyToBackendRuntime', Copy) {
+    dependsOn jar, copyFunctionsJson
+    from jar.archiveFile
+    into "$rootDir/backend/src/main/resources/jmeter-runtime"
+    rename { 'perftest-jmeter-functions.jar' }
+}
+
+tasks.register('copyFunctionsJson', Copy) {
+    from 'src/main/resources/functions.json'
+    into "$rootDir/backend/src/main/resources/jmeter-functions"
+}
+
+tasks.named('build') {
+    finalizedBy 'copyToBackendRuntime'
+}

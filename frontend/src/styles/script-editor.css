@@ -1429,6 +1429,13 @@
   font-size: 13px;
 }
 
+.variable-panel-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .full-select {
   width: 100%;
 }

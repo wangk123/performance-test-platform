@@ -13,4 +13,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = 'performance-test-platform'
-include 'backend'
+include 'backend', 'jmeter-functions'

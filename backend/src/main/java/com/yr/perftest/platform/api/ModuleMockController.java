@@ -101,22 +101,4 @@ public class ModuleMockController {
     public Map<String, Object> generateData(@PathVariable long templateId) {
         return Map.of("jobId", 1, "templateId", templateId, "status", "QUEUED");
     }
-
-    @GetMapping("/projects/{projectId}/functions")
-    public List<Map<String, Object>> listFunctions(@PathVariable long projectId) {
-        return List.of(
-                Map.of("id", 1, "projectId", projectId, "name", "signRequest", "category", "HTTP"),
-                Map.of("id", 2, "projectId", projectId, "name", "randomMobile", "category", "DATA")
-        );
-    }
-
-    @PostMapping("/projects/{projectId}/functions")
-    public Map<String, Object> createFunction(@PathVariable long projectId) {
-        return Map.of("id", 1001, "projectId", projectId, "status", "MOCK_CREATED");
-    }
-
-    @PostMapping("/function-versions/{versionId}/debug")
-    public Map<String, Object> debugFunction(@PathVariable long versionId) {
-        return Map.of("versionId", versionId, "output", "mock output", "durationMs", 12);
-    }
 }

@@ -29,6 +29,8 @@ import com.yr.perftest.platform.task.ScenarioThreadGroupConfig;
 import com.yr.perftest.platform.task.ScenarioThreadGroupConfigSupport;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -36,6 +38,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.Instant;
@@ -69,6 +72,7 @@ public class DistributedJmeterExecutionRunner {
     private final ScenarioExecutionRuntime executionRuntime;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
+    private final ResourcePatternResolver resourcePatternResolver;
     private final Path storageRoot;
     private final Duration idleTimeout;
     private final Duration pollInterval;
@@ -98,6 +102,7 @@ public class DistributedJmeterExecutionRunner {
             ScenarioExecutionRuntime executionRuntime,
             TransactionTemplate transactionTemplate,
             ObjectMapper objectMapper,
+            ResourcePatternResolver resourcePatternResolver,
             @Value("${platform.storage.root:./storage}") String storageRoot,
             @Value("${platform.execution.max-concurrent-tasks:1}") int maxConcurrentTasks,
             @Value("${platform.distributed.runner.idle-timeout-seconds:300}") long idleTimeoutSeconds,
@@ -125,6 +130,7 @@ public class DistributedJmeterExecutionRunner {
         this.executionRuntime = executionRuntime;
         this.transactionTemplate = transactionTemplate;
         this.objectMapper = objectMapper;
+        this.resourcePatternResolver = resourcePatternResolver;
         this.storageRoot = Path.of(storageRoot);
         this.idleTimeout = Duration.ofSeconds(idleTimeoutSeconds);
         this.pollInterval = Duration.ofSeconds(pollIntervalSeconds);
@@ -163,7 +169,7 @@ public class DistributedJmeterExecutionRunner {
                 return;
             }
             Files.createDirectories(preparation.executionDirectory());
-            Path hdrHistogramJar = ensureHdrHistogramJar(preparation.executionDirectory());
+            ensureRuntimeJars(preparation.executionDirectory());
             scriptNormalizer.copyNormalized(preparation.sourcePath(), preparation.originalTestPlanPath());
             applyThreadGroupOverride(executionId, preparation.originalTestPlanPath());
             backendListenerInjector.inject(
@@ -315,7 +321,6 @@ public class DistributedJmeterExecutionRunner {
                     .resolve(String.valueOf(scenario.getId()))
                     .resolve(String.valueOf(execution.getId()));
             String filename = sanitizeFilename(script.getOriginalFilename());
-            Path hdrHistogramJar = executionDirectory.resolve("HdrHistogram-2.2.2.jar");
             return new DistributedExecutionPreparation(
                     "execution-" + execution.getId(),
                     Path.of(script.getStoredPath()),
@@ -325,7 +330,6 @@ public class DistributedJmeterExecutionRunner {
                     executionDirectory.resolve("discard.jtl"),
                     FailureSamplePaths.jsonl(executionDirectory),
                     executionDirectory.resolve("jmeter.log"),
-                    hdrHistogramJar,
                     controller,
                     workers
             );
@@ -386,10 +390,14 @@ public class DistributedJmeterExecutionRunner {
                 "sourcePath", file.sourcePath(),
                 "targetPath", file.targetPath()
         )));
-        dependencies.add(Map.of(
-                "sourcePath", preparation.hdrHistogramJar().toString(),
-                "targetPath", preparation.hdrHistogramJar().getFileName().toString()
-        ));
+        try {
+            ensureRuntimeJars(preparation.executionDirectory()).forEach(jar -> dependencies.add(Map.of(
+                    "sourcePath", jar.toString(),
+                    "targetPath", jar.getFileName().toString()
+            )));
+        } catch (Exception exception) {
+            throw new ExecutionValidationException("failed to prepare jmeter runtime jars");
+        }
         return Map.of(
                 "runId", preparation.runId(),
                 "scriptPath", preparation.distributedTestPlanPath().toString(),
@@ -577,18 +585,26 @@ public class DistributedJmeterExecutionRunner {
         return seconds == null ? 1.0 : seconds;
     }
 
-    private Path ensureHdrHistogramJar(Path executionDirectory) throws Exception {
-        Path target = executionDirectory.resolve("HdrHistogram-2.2.2.jar");
-        if (Files.exists(target) && Files.size(target) > 0) {
-            return target;
+    private List<Path> ensureRuntimeJars(Path executionDirectory) throws Exception {
+        Resource[] resources = resourcePatternResolver.getResources("classpath:jmeter-runtime/*.jar");
+        if (resources.length == 0) {
+            throw new ExecutionValidationException("jmeter runtime jars are missing");
         }
-        try (InputStream input = getClass().getResourceAsStream("/jmeter-runtime/HdrHistogram-2.2.2.jar")) {
-            if (input == null) {
-                throw new ExecutionValidationException("HdrHistogram runtime jar is missing");
+        List<Path> jars = new ArrayList<>();
+        for (Resource resource : resources) {
+            String filename = resource.getFilename();
+            if (filename == null || filename.isBlank()) {
+                continue;
             }
-            Files.copy(input, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            Path target = executionDirectory.resolve(filename);
+            if (!Files.exists(target) || Files.size(target) == 0) {
+                try (InputStream input = resource.getInputStream()) {
+                    Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
+            jars.add(target);
         }
-        return target;
+        return jars;
     }
 
     private String sanitizeFilename(String filename) {
@@ -604,7 +620,6 @@ public class DistributedJmeterExecutionRunner {
             Path discardPath,
             Path failureSamplesPath,
             Path logPath,
-            Path hdrHistogramJar,
             PersistentExecutionNodeRecord controller,
             List<PersistentExecutionNodeRecord> workers
     ) {

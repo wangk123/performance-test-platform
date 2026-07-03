@@ -1,0 +1,24 @@
+[
+  {
+    "key": "randomMobile",
+    "displayName": "随机手机号",
+    "category": "DATA",
+    "description": "生成中国大陆 11 位手机号",
+    "parameters": [],
+    "example": "${__randomMobile()}"
+  },
+  {
+    "key": "randomString",
+    "displayName": "随机字符串",
+    "category": "DATA",
+    "description": "生成指定长度的随机字母数字字符串",
+    "parameters": [
+      {
+        "name": "length",
+        "description": "字符串长度",
+        "required": true
+      }
+    ],
+    "example": "${__randomString(8)}"
+  }
+]

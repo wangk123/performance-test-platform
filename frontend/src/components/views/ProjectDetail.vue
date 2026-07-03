@@ -31,12 +31,7 @@
     </div>
   </section>
 
-  <section v-else-if="activeProjectTab === 'functions'" class="placeholder-grid">
-    <div class="panel">
-      <h2>函数库</h2>
-      <p class="detail-description">函数列表、版本和调试接口已预留 Mock，后续按模块补完整实现。</p>
-    </div>
-  </section>
+  <FunctionLibraryView v-else-if="activeProjectTab === 'functions'" />
 
   <section v-else class="placeholder-grid">
     <div class="panel">
@@ -69,6 +64,7 @@ import ProjectOverview from './ProjectOverview.vue';
 import ProjectMonitoringView from './ProjectMonitoringView.vue';
 import ScriptWorkspace from '../scripts/ScriptWorkspace.vue';
 import TaskPlanList from '../task-plans/TaskPlanList.vue';
+import FunctionLibraryView from './FunctionLibraryView.vue';
 
 defineEmits<{
   (e: 'edit', project: Project): void;

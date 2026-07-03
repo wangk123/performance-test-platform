@@ -251,7 +251,28 @@ function syncContentType(bodyType: HttpBodyType, rawBodyType: HttpRawBodyType) {
 }
 
 function insertVariable(key: string) {
+  if (key.startsWith('${') && key.endsWith('}')) {
+    insertRaw(key);
+    return;
+  }
   chooseSuggestion(key);
+}
+
+function insertRaw(value: string) {
+  if (!activeField.value) {
+    return;
+  }
+  const { element, triggerStart } = activeField.value;
+  const end = element.selectionStart ?? element.value.length;
+  const nextValue = `${element.value.slice(0, triggerStart)}${value}${element.value.slice(end)}`;
+  element.value = nextValue;
+  element.dispatchEvent(new Event('input', { bubbles: true }));
+  nextTick(() => {
+    const caret = triggerStart + value.length;
+    element.focus();
+    element.setSelectionRange(caret, caret);
+    updateActiveField(activeField.value?.id ?? '', element);
+  });
 }
 
 function chooseSuggestion(key = suggestionVariables.value[activeIndex.value]?.key) {
