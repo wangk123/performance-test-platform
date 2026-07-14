@@ -15,11 +15,26 @@
         class="module-link"
         :class="{ active: activeConfigTab === option.value }"
         type="button"
-        @click="activeConfigTab = option.value"
+        @click="selectConfigTab(option.value)"
       >
         <span>{{ configIndex(option.value) }}</span>
         <strong>{{ option.label }}</strong>
       </button>
+
+      <div class="settings-nav-group">
+        <div class="settings-nav-group-title">模型配置管理</div>
+        <button
+          v-for="option in llmConfigTabOptions"
+          :key="option.value"
+          class="module-link settings-nav-child"
+          :class="{ active: activeConfigTab === option.value }"
+          type="button"
+          @click="selectConfigTab(option.value)"
+        >
+          <span>{{ option.index }}</span>
+          <strong>{{ option.label }}</strong>
+        </button>
+      </div>
     </aside>
 
     <div class="panel settings-panel">
@@ -78,7 +93,7 @@
         </div>
       </template>
 
-      <template v-else>
+      <template v-else-if="activeConfigTab === 'nodes'">
         <div class="panel-header">
           <div>
             <h2>执行节点</h2>
@@ -139,20 +154,37 @@
           </template>
         </a-table>
       </template>
+
+      <LlmProvidersPanel v-else-if="activeConfigTab === 'llm-providers'" />
+      <LlmModelsPanel v-else-if="activeConfigTab === 'llm-models'" />
+      <LlmCallRecordsPanel v-else-if="activeConfigTab === 'llm-call-records'" />
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue';
 import type { TableColumnsType } from 'ant-design-vue';
+import { useRoute, useRouter } from 'vue-router';
 import { configTabOptions, systemPermissions, systemRoles, systemUsers } from '../../constants';
 import { configIndex } from '../../utils/format';
 import { useNavigation } from '../../composables/useNavigation';
 import { useExecutionNodes } from '../../composables/useExecutionNodes';
-import type { ExecutionNode, ExecutionNodeRole, ExecutionNodeStatus } from '../../types';
+import type { ConfigTab, ExecutionNode, ExecutionNodeRole, ExecutionNodeStatus } from '../../types';
+import LlmProvidersPanel from '../settings/LlmProvidersPanel.vue';
+import LlmModelsPanel from '../settings/LlmModelsPanel.vue';
+import LlmCallRecordsPanel from '../settings/LlmCallRecordsPanel.vue';
 
+const route = useRoute();
+const router = useRouter();
 const { activeConfigTab } = useNavigation();
 const { nodes, loading, form, loadNodes, registerNode, checkNode } = useExecutionNodes();
+
+const llmConfigTabOptions: Array<{ label: string; value: ConfigTab; index: string }> = [
+  { label: '提供商', value: 'llm-providers', index: 'L1' },
+  { label: '模型', value: 'llm-models', index: 'L2' },
+  { label: '调用记录', value: 'llm-call-records', index: 'L3' },
+];
 
 type SystemUser = (typeof systemUsers)[number];
 
@@ -173,6 +205,38 @@ const nodeColumns: TableColumnsType<ExecutionNode> = [
   { title: '操作', key: 'actions', width: 100 },
 ];
 
+function selectConfigTab(tab: ConfigTab) {
+  activeConfigTab.value = tab;
+  if (tab === 'llm-providers') {
+    void router.push('/settings/llm/providers');
+  } else if (tab === 'llm-models') {
+    void router.push('/settings/llm/models');
+  } else if (tab === 'llm-call-records') {
+    void router.push('/settings/llm/call-records');
+  } else {
+    void router.push('/settings');
+  }
+}
+
+function syncTabFromRoute() {
+  if (route.path.endsWith('/llm/providers')) {
+    activeConfigTab.value = 'llm-providers';
+  } else if (route.path.endsWith('/llm/models')) {
+    activeConfigTab.value = 'llm-models';
+  } else if (route.path.endsWith('/llm/call-records')) {
+    activeConfigTab.value = 'llm-call-records';
+  } else if (route.path.startsWith('/settings') && !route.path.includes('/llm/')) {
+    if (
+      activeConfigTab.value === 'llm-providers' ||
+      activeConfigTab.value === 'llm-models' ||
+      activeConfigTab.value === 'llm-call-records'
+    ) {
+      activeConfigTab.value = 'users';
+    }
+  }
+}
+
+watch(() => route.path, syncTabFromRoute, { immediate: true });
 void loadNodes();
 
 function nodeStatusText(status: ExecutionNodeStatus) {

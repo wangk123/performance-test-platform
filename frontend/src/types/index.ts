@@ -10,7 +10,84 @@ export type ParseStatus = 'PARSED' | 'PARSE_FAILED';
 export type StatusFilter = 'ALL' | ProjectStatus;
 export type ProjectTab = 'overview' | 'scripts' | 'task-plans' | 'monitoring' | 'reports' | 'data' | 'functions' | 'members';
 export type MainNav = 'home' | 'projects' | 'executionNodes' | 'settings';
-export type ConfigTab = 'users' | 'roles' | 'permissions' | 'nodes';
+export type ConfigTab =
+  | 'users'
+  | 'roles'
+  | 'permissions'
+  | 'nodes'
+  | 'llm-providers'
+  | 'llm-models'
+  | 'llm-call-records';
+
+export type LlmApiType = 'OPENAI' | 'ANTHROPIC';
+export type LlmCallScene = 'TEST_CONNECTION';
+export type LlmCallStatus = 'SUCCESS' | 'FAILED';
+
+export type LlmProvider = {
+  id: number;
+  name: string;
+  baseUrl: string;
+  baseUrlAnthropic: string | null;
+  apiKeyConfigured: boolean;
+  enabled: boolean;
+  storeBodyDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LlmModel = {
+  id: number;
+  providerId: number;
+  modelName: string;
+  displayName: string | null;
+  apiTypes: LlmApiType[];
+  apiType: LlmApiType;
+  enabled: boolean;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LlmAvailableProviderGroup = {
+  providerId: number;
+  providerName: string;
+  models: Array<{
+    modelId: number;
+    modelName: string;
+    displayName: string | null;
+    apiTypes: LlmApiType[];
+    apiType: LlmApiType;
+    isDefault: boolean;
+  }>;
+};
+
+export type LlmCallRecord = {
+  id: number;
+  providerId: number | null;
+  modelId: number | null;
+  providerNameSnapshot: string | null;
+  modelNameSnapshot: string | null;
+  apiType: LlmApiType;
+  scene: LlmCallScene;
+  status: LlmCallStatus;
+  latencyMs: number | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+  errorMessage: string | null;
+  requestBody: string | null;
+  responseBody: string | null;
+  triggeredBy: string | null;
+  createdAt: string;
+};
+
+export type LlmCallRecordPage = {
+  content: LlmCallRecord[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};
 export type ScriptStepType =
   | 'THREAD_GROUP'
   | 'HTTP_REQUEST'

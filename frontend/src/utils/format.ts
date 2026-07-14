@@ -66,6 +66,9 @@ export function tabLabel(tab: ProjectTab) {
 }
 
 export function configLabel(tab: ConfigTab) {
+  if (tab === 'llm-providers') return '模型配置 · 提供商';
+  if (tab === 'llm-models') return '模型配置 · 模型';
+  if (tab === 'llm-call-records') return '模型配置 · 调用记录';
   return configTabOptions.find((item) => item.value === tab)?.label ?? '用户管理';
 }
 

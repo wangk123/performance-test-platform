@@ -2,6 +2,8 @@ package com.yr.perftest.platform.api;
 
 import com.yr.perftest.platform.identity.AuthenticationException;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
+import com.yr.perftest.platform.llm.LlmConflictException;
+import com.yr.perftest.platform.llm.LlmValidationException;
 import com.yr.perftest.platform.monitoring.MonitoringValidationException;
 import com.yr.perftest.platform.project.ProjectValidationException;
 import com.yr.perftest.platform.script.ScriptValidationException;
@@ -41,6 +43,18 @@ public class PlatformExceptionHandler {
     public ResponseEntity<ApiError> handleMonitoringValidation(MonitoringValidationException exception) {
         return ResponseEntity.badRequest()
                 .body(new ApiError("MONITORING_VALIDATION_FAILED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(LlmValidationException.class)
+    public ResponseEntity<ApiError> handleLlmValidation(LlmValidationException exception) {
+        return ResponseEntity.badRequest()
+                .body(new ApiError("LLM_VALIDATION_FAILED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(LlmConflictException.class)
+    public ResponseEntity<ApiError> handleLlmConflict(LlmConflictException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError("LLM_CONFLICT", exception.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

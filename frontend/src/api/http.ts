@@ -13,7 +13,11 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   const promise = fetch(path, options).then(async (response) => {
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: '请求失败' }));
-      throw new Error(error.message ?? error.code ?? `请求失败 (${response.status})`);
+      const message = error.message ?? error.code ?? `请求失败 (${response.status})`;
+      const err = new Error(message) as Error & { status?: number; code?: string };
+      err.status = response.status;
+      err.code = error.code;
+      throw err;
     }
     if (response.status === 204) {
       return undefined as T;
