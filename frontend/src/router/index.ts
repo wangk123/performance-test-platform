@@ -6,6 +6,7 @@ import HomeView from '../components/views/HomeView.vue';
 import ProjectListView from '../components/views/ProjectListView.vue';
 import ProjectDetail from '../components/views/ProjectDetail.vue';
 import SettingsView from '../components/views/SettingsView.vue';
+import LlmConfigView from '../components/views/LlmConfigView.vue';
 import ExecutionNodeView from '../components/views/ExecutionNodeView.vue';
 import ScriptEditorPage from '../views/ScriptEditorPage.vue';
 import ReportPreviewPage from '../views/ReportPreviewPage.vue';
@@ -22,9 +23,13 @@ export const router = createRouter({
         { path: 'projects', name: 'projects', component: ProjectListView },
         { path: 'execution-nodes', name: 'execution-nodes', component: ExecutionNodeView },
         { path: 'settings', name: 'settings', component: SettingsView },
-        { path: 'settings/llm/providers', name: 'settings-llm-providers', component: SettingsView },
-        { path: 'settings/llm/models', name: 'settings-llm-models', component: SettingsView },
-        { path: 'settings/llm/call-records', name: 'settings-llm-call-records', component: SettingsView },
+        { path: 'llm-config', redirect: '/llm-config/providers' },
+        { path: 'llm-config/providers', name: 'llm-config-providers', component: LlmConfigView },
+        { path: 'llm-config/models', name: 'llm-config-models', component: LlmConfigView },
+        { path: 'llm-config/call-records', name: 'llm-config-call-records', component: LlmConfigView },
+        { path: 'settings/llm/providers', redirect: '/llm-config/providers' },
+        { path: 'settings/llm/models', redirect: '/llm-config/models' },
+        { path: 'settings/llm/call-records', redirect: '/llm-config/call-records' },
         { path: 'projects/:projectId', redirect: (to) => `/projects/${to.params.projectId}/overview` },
         { path: 'projects/:projectId/overview', name: 'project-overview', component: ProjectDetail },
         { path: 'projects/:projectId/scripts', name: 'project-scripts', component: ProjectDetail },

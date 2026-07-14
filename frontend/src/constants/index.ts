@@ -1,4 +1,4 @@
-import type { ConfigTab, ProjectTab, ScriptStepType } from '../types';
+import type { ConfigTab, LlmConfigTab, ProjectTab, ScriptStepType } from '../types';
 
 export const STORAGE_KEY = 'perftest.frontend.prototype.v3';
 export const CURRENT_USER_KEY = 'perftest.currentUser';
@@ -24,7 +24,12 @@ export const configTabOptions: Array<{ label: string; value: ConfigTab }> = [
   { label: '用户管理', value: 'users' },
   { label: '角色管理', value: 'roles' },
   { label: '权限配置', value: 'permissions' },
-  { label: '执行节点', value: 'nodes' },
+];
+
+export const llmConfigTabOptions: Array<{ label: string; value: LlmConfigTab }> = [
+  { label: '提供商', value: 'llm-providers' },
+  { label: '模型', value: 'llm-models' },
+  { label: '调用记录', value: 'llm-call-records' },
 ];
 
 export const MAX_SCRIPT_STEP_LEVEL = 2;

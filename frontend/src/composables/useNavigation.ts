@@ -1,10 +1,11 @@
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import type { ConfigTab, MainNav, Project, ProjectTab, ScriptAsset } from '../types';
-import { configLabel, tabLabel } from '../utils/format';
+import type { ConfigTab, LlmConfigTab, MainNav, Project, ProjectTab, ScriptAsset } from '../types';
+import { configLabel, llmConfigLabel, tabLabel } from '../utils/format';
 import { useWorkspace } from './useWorkspace';
 
 const activeConfigTab = ref<ConfigTab>('users');
+const activeLlmConfigTab = ref<LlmConfigTab>('llm-providers');
 
 function routeTab(name: string | symbol | null | undefined): ProjectTab {
   if (name === 'project-scripts' || name === 'script-editor') {
@@ -31,12 +32,23 @@ function routeTab(name: string | symbol | null | undefined): ProjectTab {
   return 'overview';
 }
 
+const mainNavPaths: Record<MainNav, string> = {
+  home: '/',
+  projects: '/projects',
+  executionNodes: '/execution-nodes',
+  settings: '/settings',
+  llmConfig: '/llm-config/providers',
+};
+
 export function useNavigation() {
   const route = useRoute();
   const router = useRouter();
   const workspace = useWorkspace();
 
   const activeMainNav = computed<MainNav>(() => {
+    if (route.path.startsWith('/llm-config') || route.path.startsWith('/settings/llm')) {
+      return 'llmConfig';
+    }
     if (route.path.startsWith('/settings')) {
       return 'settings';
     }
@@ -52,7 +64,7 @@ export function useNavigation() {
 
   function selectMainNav(nav: MainNav) {
     workspace.exitProjectWorkspace();
-    void router.push(nav === 'home' ? '/' : nav === 'executionNodes' ? '/execution-nodes' : `/${nav}`);
+    void router.push(mainNavPaths[nav]);
   }
 
   function backToProjects() {
@@ -87,6 +99,9 @@ export function useNavigation() {
     if (activeMainNav.value === 'settings') {
       return `系统配置 · ${configLabel(activeConfigTab.value)}`;
     }
+    if (activeMainNav.value === 'llmConfig') {
+      return `模型配置管理 · ${llmConfigLabel(activeLlmConfigTab.value)}`;
+    }
     if (activeMainNav.value === 'executionNodes') {
       return '执行器配置';
     }
@@ -97,6 +112,7 @@ export function useNavigation() {
     activeMainNav,
     activeProjectTab,
     activeConfigTab,
+    activeLlmConfigTab,
     selectMainNav,
     backToProjects,
     enterProject,

@@ -31,21 +31,21 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 18px;
-  padding: 24px;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding: 16px;
   background:
     linear-gradient(115deg, rgba(43, 191, 159, 0.13), transparent 48%),
     var(--surface);
 }
 
 .home-hero {
-  min-height: 244px;
+  min-height: 220px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 330px;
-  gap: 16px;
+  gap: 12px;
   align-items: stretch;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .home-hero-main,
@@ -60,7 +60,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 30px;
+  padding: 24px;
   background:
     linear-gradient(115deg, rgba(43, 191, 159, 0.16), transparent 42%),
     var(--panel-strong-bg);
@@ -152,7 +152,7 @@
 }
 
 .metrics-grid.compact {
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 .metrics-grid .metric {
@@ -179,12 +179,12 @@
 .project-home-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
+  gap: 12px;
   align-items: start;
 }
 
 .project-tabs {
-  margin-bottom: 18px;
+  margin-bottom: 12px;
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -197,7 +197,7 @@
 
 .panel {
   min-width: 0;
-  padding: 20px;
+  padding: 16px;
 }
 
 .panel.ant-card .ant-card-body {
@@ -212,16 +212,16 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .panel-header h2 {
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .panel-header p {
-  margin: 7px 0 0;
+  margin: 4px 0 0;
   font-size: 13px;
 }
 
@@ -308,13 +308,13 @@
 .dashboard-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(420px, 0.8fr);
-  gap: 18px;
+  gap: 12px;
 }
 
 .home-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 330px;
-  gap: 16px;
+  gap: 12px;
 }
 
 .home-wide-panel {
@@ -465,7 +465,7 @@
 .script-workspace {
   display: grid;
   grid-template-columns: minmax(520px, 1fr) 420px;
-  gap: 18px;
+  gap: 12px;
   align-items: start;
 }
 
@@ -765,7 +765,7 @@
 .task-schedule,
 .task-detail {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
 .task-detail-loading {
@@ -778,7 +778,7 @@
 .task-list-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 18px;
+  gap: 12px;
   align-items: start;
 }
 
@@ -1619,7 +1619,7 @@
 .task-chart-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 12px;
 }
 
 .task-chart-card h2 {
@@ -1698,7 +1698,7 @@
 .target-metric-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 12px;
 }
 
 .target-metric-card .echarts-panel {
@@ -2005,16 +2005,80 @@
   overflow-wrap: anywhere;
 }
 
+.settings-shell.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.settings-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 7px 14px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.settings-tab:hover {
+  color: var(--text);
+  background: var(--active-bg);
+}
+
+.settings-tab.active {
+  color: var(--text);
+  background: var(--active-bg);
+}
+
+.settings-body {
+  padding: 14px 16px 16px;
+}
+
+.settings-body .panel-header {
+  margin-bottom: 12px;
+}
+
+.settings-body .panel-header h2 {
+  font-size: 18px;
+}
+
+.settings-body .panel-header p {
+  margin-top: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-tab {
+    transition: none;
+  }
+}
+
 .settings-layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
-  gap: 18px;
+  gap: 12px;
   align-items: start;
 }
 
 .settings-nav {
   position: sticky;
-  top: 96px;
+  top: calc(var(--header-height) + 16px);
   padding: 14px 0;
 }
 
@@ -2037,7 +2101,7 @@
 }
 
 .settings-panel {
-  min-height: 480px;
+  min-height: 0;
 }
 
 .role-grid,

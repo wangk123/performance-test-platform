@@ -1,5 +1,5 @@
-import type { ConfigTab, ParseStatus, ProjectRole, ProjectStatus, ProjectTab, ScriptStepType } from '../types';
-import { configTabOptions, projectTabOptions, stepTypeMeta } from '../constants';
+import type { ConfigTab, LlmConfigTab, ParseStatus, ProjectRole, ProjectStatus, ProjectTab, ScriptStepType } from '../types';
+import { configTabOptions, llmConfigTabOptions, projectTabOptions, stepTypeMeta } from '../constants';
 
 export function delay(ms: number) {
   return new Promise((resolve) => {
@@ -66,10 +66,11 @@ export function tabLabel(tab: ProjectTab) {
 }
 
 export function configLabel(tab: ConfigTab) {
-  if (tab === 'llm-providers') return '模型配置 · 提供商';
-  if (tab === 'llm-models') return '模型配置 · 模型';
-  if (tab === 'llm-call-records') return '模型配置 · 调用记录';
   return configTabOptions.find((item) => item.value === tab)?.label ?? '用户管理';
+}
+
+export function llmConfigLabel(tab: LlmConfigTab) {
+  return llmConfigTabOptions.find((item) => item.value === tab)?.label ?? '提供商';
 }
 
 export function moduleIndex(tab: ProjectTab) {
@@ -78,6 +79,10 @@ export function moduleIndex(tab: ProjectTab) {
 
 export function configIndex(tab: ConfigTab) {
   return String(configTabOptions.findIndex((item) => item.value === tab) + 1).padStart(2, '0');
+}
+
+export function llmConfigIndex(tab: LlmConfigTab) {
+  return String(llmConfigTabOptions.findIndex((item) => item.value === tab) + 1).padStart(2, '0');
 }
 
 export function projectStatusText(status: ProjectStatus) {

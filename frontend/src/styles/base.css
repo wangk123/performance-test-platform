@@ -31,6 +31,7 @@
   --code-selection: rgba(22, 119, 255, 0.2);
   --radius: 8px;
   --shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  --header-height: 64px;
 }
 
 :root[data-theme='dark'] {
@@ -64,6 +65,7 @@
   --code-active-line: rgba(22, 119, 255, 0.1);
   --code-selection: rgba(22, 119, 255, 0.25);
   --shadow: 0 6px 16px rgba(0, 0, 0, 0.36);
+  --header-height: 64px;
 }
 
 * {

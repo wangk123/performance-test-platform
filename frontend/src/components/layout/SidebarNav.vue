@@ -46,6 +46,15 @@
           <span class="nav-index">04</span>
           <span>系统配置</span>
         </button>
+        <button
+          class="side-entry"
+          :class="{ active: activeMainNav === 'llmConfig' }"
+          type="button"
+          @click="selectMainNav('llmConfig')"
+        >
+          <span class="nav-index">05</span>
+          <span>模型配置管理</span>
+        </button>
       </div>
     </template>
 

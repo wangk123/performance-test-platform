@@ -9,15 +9,9 @@ export type ProjectRole = 'OWNER' | 'MEMBER';
 export type ParseStatus = 'PARSED' | 'PARSE_FAILED';
 export type StatusFilter = 'ALL' | ProjectStatus;
 export type ProjectTab = 'overview' | 'scripts' | 'task-plans' | 'monitoring' | 'reports' | 'data' | 'functions' | 'members';
-export type MainNav = 'home' | 'projects' | 'executionNodes' | 'settings';
-export type ConfigTab =
-  | 'users'
-  | 'roles'
-  | 'permissions'
-  | 'nodes'
-  | 'llm-providers'
-  | 'llm-models'
-  | 'llm-call-records';
+export type MainNav = 'home' | 'projects' | 'executionNodes' | 'settings' | 'llmConfig';
+export type ConfigTab = 'users' | 'roles' | 'permissions';
+export type LlmConfigTab = 'llm-providers' | 'llm-models' | 'llm-call-records';
 
 export type LlmApiType = 'OPENAI' | 'ANTHROPIC';
 export type LlmCallScene = 'TEST_CONNECTION';

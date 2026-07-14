@@ -52,14 +52,12 @@
   }
 
   .home-hero,
-  .home-grid,
-  .settings-layout {
+  .home-grid {
     grid-template-columns: 1fr;
   }
 
   .detail-panel,
-  .task-side-panel,
-  .settings-nav {
+  .task-side-panel {
     position: static;
   }
 

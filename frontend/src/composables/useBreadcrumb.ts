@@ -48,6 +48,12 @@ export function useBreadcrumb() {
     // 首页图标段始终可点击
     segments.push({ label: '🏠 首页', to: '/' });
 
+    // 模型配置管理
+    if (route.path.startsWith('/llm-config') || route.path.startsWith('/settings/llm')) {
+      segments.push({ label: '模型配置管理' });
+      return segments;
+    }
+
     // 系统配置
     if (route.path.startsWith('/settings')) {
       segments.push({ label: '系统配置' });
