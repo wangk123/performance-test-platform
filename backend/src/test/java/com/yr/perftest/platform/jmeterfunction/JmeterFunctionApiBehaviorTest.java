@@ -30,8 +30,9 @@ class JmeterFunctionApiBehaviorTest {
     void listsFunctions() throws Exception {
         mockMvc.perform(get("/api/jmeter-functions"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$", hasSize(11)))
                 .andExpect(jsonPath("$[*].key", hasItem("randomMobile")))
+                .andExpect(jsonPath("$[*].key", hasItem("md5")))
                 .andExpect(jsonPath("$[0].example").exists());
     }
 

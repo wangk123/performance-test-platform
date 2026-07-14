@@ -43,3 +43,20 @@
 2. 注册 `META-INF/services/org.apache.jmeter.functions.Function`。
 3. 同步更新 `functions.json`。
 4. 发版后 JAR 随 `jmeter-runtime/` 注入分布式执行环境。
+
+## 7. 内置函数（首批）
+
+| key | 分类 | 说明 |
+|-----|------|------|
+| `randomMobile` | DATA | 随机中国大陆手机号 |
+| `randomString` | DATA | 随机字母数字串 |
+| `randomIdCard` | DATA | 随机身份证号（全国区划+有效日期+校验码，测试造数） |
+| `randomBankCard` | DATA | 随机银行卡号（Luhn，测试造数） |
+| `randomName` | DATA | 随机中文姓名 |
+| `randomEmail` | DATA | 随机邮箱 |
+| `md5` | CODEC | MD5 小写 hex |
+| `sha256` | CODEC | SHA-256 小写 hex |
+| `base64Encode` / `base64Decode` | CODEC | Base64 编解码（UTF-8 文本） |
+| `urlEncode` | CODEC | URL 编码 |
+
+调用语法：`${__key(...)}`。JMeter 原生函数（如 `__UUID`、`__time`）不在本 JAR 内。

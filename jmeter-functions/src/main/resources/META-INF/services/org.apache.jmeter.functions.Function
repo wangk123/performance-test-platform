@@ -1,2 +1,11 @@
 com.yr.perftest.jmeter.functions.RandomMobile
 com.yr.perftest.jmeter.functions.RandomString
+com.yr.perftest.jmeter.functions.RandomIdCard
+com.yr.perftest.jmeter.functions.RandomBankCard
+com.yr.perftest.jmeter.functions.RandomName
+com.yr.perftest.jmeter.functions.RandomEmail
+com.yr.perftest.jmeter.functions.Md5
+com.yr.perftest.jmeter.functions.Sha256
+com.yr.perftest.jmeter.functions.Base64Encode
+com.yr.perftest.jmeter.functions.Base64Decode
+com.yr.perftest.jmeter.functions.UrlEncode

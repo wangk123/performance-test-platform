@@ -20,5 +20,107 @@
       }
     ],
     "example": "${__randomString(8)}"
+  },
+  {
+    "key": "randomIdCard",
+    "displayName": "随机身份证号",
+    "category": "DATA",
+    "description": "生成 18 位中国身份证号（合法区划代码、有效出生日期、校验码；覆盖全国县级区划，仅供测试造数）",
+    "parameters": [],
+    "example": "${__randomIdCard()}"
+  },
+  {
+    "key": "randomBankCard",
+    "displayName": "随机银行卡号",
+    "category": "DATA",
+    "description": "生成通过 Luhn 校验的银行卡号样例（仅供测试造数）",
+    "parameters": [],
+    "example": "${__randomBankCard()}"
+  },
+  {
+    "key": "randomName",
+    "displayName": "随机中文姓名",
+    "category": "DATA",
+    "description": "从常见姓氏与名字池生成中文姓名",
+    "parameters": [],
+    "example": "${__randomName()}"
+  },
+  {
+    "key": "randomEmail",
+    "displayName": "随机邮箱",
+    "category": "DATA",
+    "description": "生成随机邮箱地址",
+    "parameters": [],
+    "example": "${__randomEmail()}"
+  },
+  {
+    "key": "md5",
+    "displayName": "MD5",
+    "category": "CODEC",
+    "description": "对 UTF-8 文本计算 MD5，返回小写十六进制",
+    "parameters": [
+      {
+        "name": "text",
+        "description": "明文",
+        "required": true
+      }
+    ],
+    "example": "${__md5(hello)}"
+  },
+  {
+    "key": "sha256",
+    "displayName": "SHA-256",
+    "category": "CODEC",
+    "description": "对 UTF-8 文本计算 SHA-256，返回小写十六进制",
+    "parameters": [
+      {
+        "name": "text",
+        "description": "明文",
+        "required": true
+      }
+    ],
+    "example": "${__sha256(hello)}"
+  },
+  {
+    "key": "base64Encode",
+    "displayName": "Base64 编码",
+    "category": "CODEC",
+    "description": "对 UTF-8 文本做 Base64 编码",
+    "parameters": [
+      {
+        "name": "text",
+        "description": "明文",
+        "required": true
+      }
+    ],
+    "example": "${__base64Encode(hello)}"
+  },
+  {
+    "key": "base64Decode",
+    "displayName": "Base64 解码",
+    "category": "CODEC",
+    "description": "将 Base64 解码为 UTF-8 文本",
+    "parameters": [
+      {
+        "name": "text",
+        "description": "Base64 字符串",
+        "required": true
+      }
+    ],
+    "example": "${__base64Decode(aGVsbG8=)}"
+  },
+  {
+    "key": "urlEncode",
+    "displayName": "URL 编码",
+    "category": "CODEC",
+    "description": "对 UTF-8 文本做 URL 编码（URLEncoder）",
+    "parameters": [
+      {
+        "name": "text",
+        "description": "明文",
+        "required": true
+      }
+    ],
+    "example": "${__urlEncode(a b)}"
   }
 ]

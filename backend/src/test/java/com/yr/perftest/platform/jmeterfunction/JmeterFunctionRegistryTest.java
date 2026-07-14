@@ -11,8 +11,10 @@ class JmeterFunctionRegistryTest {
     @Test
     void loadsBundledFunctionMetadata() {
         JmeterFunctionRegistry registry = new JmeterFunctionRegistry(new ObjectMapper());
-        assertTrue(registry.list().size() >= 2);
+        assertTrue(registry.list().size() >= 11);
         assertTrue(registry.list().stream().anyMatch(item -> "randomMobile".equals(item.key())));
+        assertTrue(registry.list().stream().anyMatch(item -> "md5".equals(item.key())));
+        assertTrue(registry.list().stream().anyMatch(item -> "CODEC".equals(item.category())));
         assertEquals("${__randomMobile()}", registry.list().stream()
                 .filter(item -> "randomMobile".equals(item.key()))
                 .findFirst()
