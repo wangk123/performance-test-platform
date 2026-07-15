@@ -7,6 +7,7 @@ import com.yr.perftest.platform.llm.LlmValidationException;
 import com.yr.perftest.platform.monitoring.MonitoringValidationException;
 import com.yr.perftest.platform.project.ProjectValidationException;
 import com.yr.perftest.platform.script.ScriptValidationException;
+import com.yr.perftest.platform.seed.SeedValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -55,6 +56,12 @@ public class PlatformExceptionHandler {
     public ResponseEntity<ApiError> handleLlmConflict(LlmConflictException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ApiError("LLM_CONFLICT", exception.getMessage()));
+    }
+
+    @ExceptionHandler(SeedValidationException.class)
+    public ResponseEntity<ApiError> handleSeedValidation(SeedValidationException exception) {
+        return ResponseEntity.badRequest()
+                .body(new ApiError("SEED_VALIDATION_FAILED", exception.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

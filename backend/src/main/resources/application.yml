@@ -48,3 +48,6 @@ platform:
       base-url: ${PROMETHEUS_BASE_URL:http://192.168.17.216:9090}
       connect-timeout-ms: ${PROMETHEUS_CONNECT_TIMEOUT_MS:3000}
       request-timeout-ms: ${PROMETHEUS_REQUEST_TIMEOUT_MS:10000}
+  seed:
+    credential-secret: ${SEED_CREDENTIAL_SECRET:perftest-seed-default-key!}
+    max-clone-count: ${SEED_MAX_CLONE_COUNT:10000}

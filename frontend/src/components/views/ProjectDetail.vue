@@ -24,11 +24,8 @@
     </div>
   </section>
 
-  <section v-else-if="activeProjectTab === 'data'" class="placeholder-grid">
-    <div class="panel">
-      <h2>造数工厂</h2>
-      <p class="detail-description">数据模板、预览和生成接口已预留 Mock，后续按模块补完整实现。</p>
-    </div>
+  <section v-else-if="activeProjectTab === 'data'">
+    <SeedFactoryView />
   </section>
 
   <FunctionLibraryView v-else-if="activeProjectTab === 'functions'" />
@@ -65,6 +62,7 @@ import ProjectMonitoringView from './ProjectMonitoringView.vue';
 import ScriptWorkspace from '../scripts/ScriptWorkspace.vue';
 import TaskPlanList from '../task-plans/TaskPlanList.vue';
 import FunctionLibraryView from './FunctionLibraryView.vue';
+import SeedFactoryView from './SeedFactoryView.vue';
 
 defineEmits<{
   (e: 'edit', project: Project): void;

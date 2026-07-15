@@ -78,27 +78,4 @@ public class ModuleMockController {
     public Map<String, Object> compareReports() {
         return Map.of("id", 1, "status", "MOCK_CREATED");
     }
-
-    @GetMapping("/projects/{projectId}/data-templates")
-    public List<Map<String, Object>> listDataTemplates(@PathVariable long projectId) {
-        return List.of(
-                Map.of("id", 1, "projectId", projectId, "name", "客户授信 CSV", "scope", "PROJECT"),
-                Map.of("id", 2, "projectId", projectId, "name", "合同签署 JSON", "scope", "PROJECT")
-        );
-    }
-
-    @PostMapping("/projects/{projectId}/data-templates")
-    public Map<String, Object> createDataTemplate(@PathVariable long projectId) {
-        return Map.of("id", 1001, "projectId", projectId, "status", "MOCK_CREATED");
-    }
-
-    @PostMapping("/data-templates/{templateId}/preview")
-    public List<Map<String, Object>> previewData(@PathVariable long templateId) {
-        return List.of(Map.of("templateId", templateId, "customerId", "C102938", "amount", 50000));
-    }
-
-    @PostMapping("/data-templates/{templateId}/generate")
-    public Map<String, Object> generateData(@PathVariable long templateId) {
-        return Map.of("jobId", 1, "templateId", templateId, "status", "QUEUED");
-    }
 }

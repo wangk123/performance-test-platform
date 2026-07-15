@@ -256,6 +256,80 @@ CREATE TABLE `execution_target_metrics_snapshot` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='目标指标快照表';
 
 -- ============================================================
+-- 造数工厂
+-- ============================================================
+DROP TABLE IF EXISTS `seed_clone_job`;
+DROP TABLE IF EXISTS `seed_template`;
+DROP TABLE IF EXISTS `seed_capture_session`;
+DROP TABLE IF EXISTS `seed_datasource`;
+
+CREATE TABLE `seed_datasource` (
+    `id`             BIGINT        NOT NULL AUTO_INCREMENT,
+    `project_id`     BIGINT        NOT NULL,
+    `name`           VARCHAR(120)  NOT NULL,
+    `host`           VARCHAR(255)  NOT NULL,
+    `port`           INT           NOT NULL,
+    `database_name`  VARCHAR(120)  NOT NULL,
+    `username`       VARCHAR(120)  NOT NULL,
+    `password_enc`   VARCHAR(1000) NOT NULL,
+    `created_at`     DATETIME(3)   NOT NULL,
+    `updated_at`     DATETIME(3)   NOT NULL,
+    PRIMARY KEY (`id`),
+    KEY `idx_seed_datasource_project` (`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='造数数据源';
+
+CREATE TABLE `seed_capture_session` (
+    `id`             BIGINT       NOT NULL AUTO_INCREMENT,
+    `project_id`     BIGINT       NOT NULL,
+    `datasource_id`  BIGINT       NOT NULL,
+    `provider`       VARCHAR(32)  NOT NULL,
+    `status`         VARCHAR(32)  NOT NULL,
+    `include_json`   LONGTEXT     NOT NULL,
+    `exclude_json`   LONGTEXT     NOT NULL,
+    `table_set_json` LONGTEXT,
+    `baseline_json`  LONGTEXT,
+    `samples_json`   LONGTEXT,
+    `created_at`     DATETIME(3)  NOT NULL,
+    `updated_at`     DATETIME(3)  NOT NULL,
+    PRIMARY KEY (`id`),
+    KEY `idx_seed_capture_project` (`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='造数录制会话';
+
+CREATE TABLE `seed_template` (
+    `id`                  BIGINT       NOT NULL AUTO_INCREMENT,
+    `project_id`          BIGINT       NOT NULL,
+    `capture_session_id`  BIGINT       NOT NULL,
+    `status`              VARCHAR(32)  NOT NULL,
+    `version_no`          INT          NOT NULL,
+    `body_json`           LONGTEXT     NOT NULL,
+    `seed_rows_json`      LONGTEXT,
+    `confirmed_by`        VARCHAR(120),
+    `confirmed_at`        DATETIME(3),
+    `created_at`          DATETIME(3)  NOT NULL,
+    `updated_at`          DATETIME(3)  NOT NULL,
+    PRIMARY KEY (`id`),
+    KEY `idx_seed_template_project` (`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='造数模板';
+
+CREATE TABLE `seed_clone_job` (
+    `id`               BIGINT       NOT NULL AUTO_INCREMENT,
+    `project_id`       BIGINT       NOT NULL,
+    `template_id`      BIGINT       NOT NULL,
+    `datasource_id`    BIGINT       NOT NULL,
+    `clone_count`      INT          NOT NULL,
+    `failure_policy`   VARCHAR(32)  NOT NULL,
+    `status`           VARCHAR(32)  NOT NULL,
+    `success_batches`  INT          NOT NULL,
+    `failed_batches`   INT          NOT NULL,
+    `error_json`       LONGTEXT,
+    `created_by`       VARCHAR(120) NOT NULL,
+    `created_at`       DATETIME(3)  NOT NULL,
+    `finished_at`      DATETIME(3),
+    PRIMARY KEY (`id`),
+    KEY `idx_seed_clone_project` (`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='造数克隆任务';
+
+-- ============================================================
 -- 种子数据（与 PlatformServiceConfiguration#demoUserSeeder 保持一致）
 -- 说明: 开发环境默认账户，生产环境请删除或修改密码
 -- ============================================================

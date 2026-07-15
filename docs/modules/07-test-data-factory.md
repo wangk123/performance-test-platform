@@ -2,48 +2,50 @@
 
 ## 1. 模块定位
 
-造数工厂用于沉淀性能测试数据准备能力，帮助用户按模板生成 CSV、JSON、SQL 等格式测试数据。该模块属于远期扩展，不进入 MVP。
+造数工厂用于测试环境前置批量造数：用户配置测环境数据源与库表过滤，录制业务操作引起的库变更，经人工确认模板后，直连写库批量克隆。V1 产出仅为写库，不导出参数文件，不编排业务 API 灌数。
 
 ## 2. 职责边界
 
 | 负责 | 不负责 |
 |------|--------|
-| 数据模板管理 | 压测执行调度 |
-| 字段规则配置 | JMX 文件解析 |
-| 数据预览和导出 | 生产数据库直连写入 |
-| 生成记录追溯 | AI 数据生成 |
+| 测环境数据源与过滤策略 | 压测执行调度 |
+| 快照录制与多样本 Diff | 生产库写入 |
+| 字段角色推断与模板确认 | 参数文件导出（后期） |
+| 批量 INSERT/UPDATE 克隆 | 业务 API 灌数编排（后期） |
+| | DELETE 克隆、binlog 采集（后期） |
+| | 细粒度权限（后期统一） |
 
-## 3. 功能范围
+## 3. 主流程
 
-1. 数据模板、字段定义、生成规则管理。
-2. 支持内置规则：随机字符串、手机号、邮箱、身份证样例、日期范围、枚举值、自增序列。
-3. 支持 CSV、JSON、SQL 格式导出。
-4. 支持模板归属项目或系统公共库。
-5. 记录生成批次、生成参数、生成文件和操作人。
+```
+数据源 → 过滤(include/exclude) → 快照录制×N → 推断 →【确认】→ 克隆写库
+```
 
 ## 4. 关键实体
 
-| 实体 | 关键字段 | 说明 |
-|------|----------|------|
-| `data_template` | `id`, `project_id`, `name`, `scope`, `description`, `created_by` | 数据模板 |
-| `data_field_rule` | `id`, `template_id`, `field_name`, `rule_type`, `rule_config`, `sort_order` | 字段规则 |
-| `data_generation_job` | `id`, `template_id`, `row_count`, `format`, `status`, `file_path`, `created_by` | 生成任务 |
+| 实体 | 说明 |
+|------|------|
+| `seed_datasource` | 项目测环境 MySQL 连接（密码加密存储） |
+| `seed_capture_session` | 录制会话、过滤、样本 Diff |
+| `seed_template` | 草稿/已确认模板版本 |
+| `seed_clone_job` | 克隆任务与结果审计 |
 
-## 5. 接口草案
+## 5. 主要接口
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| `GET` | `/api/projects/{projectId}/data-templates` | 模板列表 |
-| `POST` | `/api/projects/{projectId}/data-templates` | 创建模板 |
-| `PUT` | `/api/data-templates/{templateId}/fields` | 保存字段规则 |
-| `POST` | `/api/data-templates/{templateId}/preview` | 数据预览 |
-| `POST` | `/api/data-templates/{templateId}/generate` | 生成数据文件 |
-| `GET` | `/api/data-generation-jobs/{jobId}/download` | 下载生成文件 |
+| `GET/POST` | `/api/projects/{id}/seed/datasources` | 数据源列表/创建 |
+| `POST` | `/api/projects/{id}/seed/datasources/{dsId}/test` | 测连 |
+| `POST` | `/api/projects/{id}/seed/captures` | 开始录制 |
+| `POST` | `/api/projects/{id}/seed/captures/{sid}/samples` | 结束本样本 |
+| `POST` | `/api/projects/{id}/seed/captures/{sid}/finish` | 结束并推断模板 |
+| `GET/PUT` | `/api/projects/{id}/seed/templates/{tid}` | 模板详情/保存草稿 |
+| `POST` | `/api/projects/{id}/seed/templates/{tid}/confirm` | 确认生效 |
+| `POST` | `/api/projects/{id}/seed/clone-jobs` | 创建并执行克隆 |
 
-## 6. 详细设计调整点
+## 6. 设计要点
 
-1. 造数结果默认生成文件下载，不直接写入被测数据库，降低误操作风险。
-2. 规则配置使用 JSON 存储，字段规则引擎通过接口扩展。
-3. 大批量生成必须异步执行，并限制单次最大行数和文件大小。
-4. 模板可以项目私有或系统公共，权限仍复用项目成员和管理员模型。
-5. 后续可把生成数据文件作为测试任务附件，但不应耦合到执行模块的核心流程。
+1. 采集实现可插拔；V1 仅 SNAPSHOT，BINLOG 返回不支持。
+2. 过滤必须至少一条 include；exclude 优先；支持精确名与表达式（通配 / `regex:`）。
+3. 确认是硬门禁；LOW 置信须采纳；UNIQUE_REGEN/FORMATTED_RAND 须绑定生成器。
+4. 克隆按批事务；失败策略 CONTINUE（默认）或 STOP；有最大 N 限制。
