@@ -260,7 +260,14 @@ CREATE TABLE `execution_target_metrics_snapshot` (
 -- ============================================================
 DROP TABLE IF EXISTS `seed_clone_job`;
 DROP TABLE IF EXISTS `seed_template`;
-DROP TABLE IF EXISTS `seed_capture_session`;
+DROP TABLE IF EXISTS `seed_capture_analysis_result`;
+DROP TABLE IF EXISTS `seed_capture_analysis_input_lock`;
+DROP TABLE IF EXISTS `seed_capture_analysis`;
+DROP TABLE IF EXISTS `seed_capture_chunk`;
+DROP TABLE IF EXISTS `seed_capture_table`;
+DROP TABLE IF EXISTS `seed_capture_datasource_lease`;
+DROP TABLE IF EXISTS `seed_capture_sample`;
+DROP TABLE IF EXISTS `seed_capture_strategy`;
 DROP TABLE IF EXISTS `seed_datasource`;
 
 CREATE TABLE `seed_datasource` (
@@ -278,27 +285,165 @@ CREATE TABLE `seed_datasource` (
     KEY `idx_seed_datasource_project` (`project_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='造数数据源';
 
-CREATE TABLE `seed_capture_session` (
-    `id`             BIGINT       NOT NULL AUTO_INCREMENT,
-    `project_id`     BIGINT       NOT NULL,
-    `datasource_id`  BIGINT       NOT NULL,
-    `provider`       VARCHAR(32)  NOT NULL,
-    `status`         VARCHAR(32)  NOT NULL,
-    `include_json`   LONGTEXT     NOT NULL,
-    `exclude_json`   LONGTEXT     NOT NULL,
-    `table_set_json` LONGTEXT,
-    `baseline_json`  LONGTEXT,
-    `samples_json`   LONGTEXT,
-    `created_at`     DATETIME(3)  NOT NULL,
-    `updated_at`     DATETIME(3)  NOT NULL,
+-- 旧 seed_capture_session 已退休，不再创建；历史数据由
+-- LegacyCaptureSessionCleanup 在应用启动时幂等清理，不做格式迁移。
+
+CREATE TABLE `seed_capture_strategy` (
+    `id`              BIGINT        NOT NULL AUTO_INCREMENT,
+    `project_id`      BIGINT        NOT NULL,
+    `name`            VARCHAR(160)  NOT NULL,
+    `datasource_id`   BIGINT        NOT NULL,
+    `include_json`    LONGTEXT      NOT NULL,
+    `exclude_json`    LONGTEXT      NOT NULL,
+    `thread_count`    INT           NOT NULL,
+    `batch_rows`      INT           NOT NULL,
+    `config_version`  INT           NOT NULL,
+    `created_at`      DATETIME(3)   NOT NULL,
+    `updated_at`      DATETIME(3)   NOT NULL,
     PRIMARY KEY (`id`),
-    KEY `idx_seed_capture_project` (`project_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='造数录制会话';
+    KEY `idx_seed_capture_strategy_project_updated` (`project_id`, `updated_at`),
+    KEY `idx_seed_capture_strategy_datasource` (`project_id`, `datasource_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='造数采集策略';
+
+CREATE TABLE `seed_capture_datasource_lease` (
+    `id`             BIGINT        NOT NULL AUTO_INCREMENT,
+    `datasource_id`  BIGINT        NOT NULL,
+    `sample_id`      BIGINT        NOT NULL,
+    `acquired_at`    DATETIME(3)   NOT NULL,
+    `heartbeat_at`   DATETIME(3)   NOT NULL,
+    `updated_at`     DATETIME(3)   NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_seed_capture_datasource_lease_datasource` (`datasource_id`),
+    KEY `idx_seed_capture_datasource_lease_heartbeat` (`heartbeat_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='数据源采集租约';
+
+CREATE TABLE `seed_capture_sample` (
+    `id`                    BIGINT        NOT NULL AUTO_INCREMENT,
+    `project_id`            BIGINT        NOT NULL,
+    `strategy_id`           BIGINT        NOT NULL,
+    `datasource_id`         BIGINT        NOT NULL,
+    `sample_seq`            INT           NOT NULL,
+    `status`                VARCHAR(32)   NOT NULL COMMENT 'QUEUED/PREPARING/CAPTURING/CANCEL_REQUESTED/SUCCEEDED/FAILED/CANCELED/INTERRUPTED/DELETING',
+    `capture_started_at`    DATETIME(3)   NOT NULL,
+    `capture_finished_at`   DATETIME(3),
+    `config_snapshot_json`  LONGTEXT      NOT NULL,
+    `config_version`        INT           NOT NULL,
+    `phase`                 VARCHAR(32)   NOT NULL,
+    `completed_tables`      INT           NOT NULL,
+    `total_tables`          INT           NOT NULL,
+    `current_tables_json`   LONGTEXT      NOT NULL,
+    `captured_rows`         BIGINT        NOT NULL,
+    `written_bytes`         BIGINT        NOT NULL,
+    `active_workers`        INT           NOT NULL,
+    `heartbeat_at`          DATETIME(3),
+    `error_message`         VARCHAR(2000),
+    `incomplete`            TINYINT(1)    NOT NULL,
+    `created_at`            DATETIME(3)   NOT NULL,
+    `updated_at`            DATETIME(3)   NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_seed_capture_sample_strategy_seq` (`strategy_id`, `sample_seq`),
+    KEY `idx_seed_capture_sample_strategy_time` (`strategy_id`, `capture_started_at`, `sample_seq`),
+    KEY `idx_seed_capture_sample_datasource_status` (`datasource_id`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='造数采集样本';
+
+CREATE TABLE `seed_capture_table` (
+    `id`             BIGINT        NOT NULL AUTO_INCREMENT,
+    `sample_id`      BIGINT        NOT NULL,
+    `table_name`     VARCHAR(255)  NOT NULL,
+    `schema_json`    LONGTEXT      NOT NULL,
+    `schema_hash`    VARCHAR(128),
+    `row_count`      BIGINT        NOT NULL,
+    `content_hash`   VARCHAR(128),
+    `risky_no_pk`    TINYINT(1)    NOT NULL,
+    `status`         VARCHAR(32)   NOT NULL,
+    `incomplete`     TINYINT(1)    NOT NULL,
+    `error_message`  VARCHAR(2000),
+    `created_at`     DATETIME(3)   NOT NULL,
+    `updated_at`     DATETIME(3)   NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_seed_capture_table_sample_name` (`sample_id`, `table_name`),
+    KEY `idx_seed_capture_table_sample_status` (`sample_id`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='造数样本表清单';
+
+CREATE TABLE `seed_capture_chunk` (
+    `id`               BIGINT        NOT NULL AUTO_INCREMENT,
+    `sample_id`        BIGINT        NOT NULL,
+    `table_name`       VARCHAR(255)  NOT NULL,
+    `chunk_seq`        INT           NOT NULL,
+    `pk_range_start`   VARCHAR(1000),
+    `pk_range_end`     VARCHAR(1000),
+    `row_count`        BIGINT        NOT NULL,
+    `content_hash`     VARCHAR(128),
+    `relative_path`    VARCHAR(1000),
+    `file_checksum`    VARCHAR(128),
+    `status`           VARCHAR(32)   NOT NULL,
+    `byte_size`        BIGINT        NOT NULL,
+    `created_at`       DATETIME(3)   NOT NULL,
+    `updated_at`       DATETIME(3)   NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_seed_capture_chunk_sample_table_seq` (`sample_id`, `table_name`, `chunk_seq`),
+    KEY `idx_seed_capture_chunk_sample_table_status` (`sample_id`, `table_name`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='造数样本分片清单';
+
+CREATE TABLE `seed_capture_analysis` (
+    `id`                       BIGINT        NOT NULL AUTO_INCREMENT,
+    `project_id`               BIGINT        NOT NULL,
+    `strategy_id`              BIGINT        NOT NULL,
+    `status`                   VARCHAR(32)   NOT NULL COMMENT 'QUEUED/VALIDATING/DIFFING/INFERRING/PERSISTING/CANCEL_REQUESTED/SUCCEEDED/FAILED/CANCELED/INTERRUPTED/DELETING',
+    `phase`                    VARCHAR(32)   NOT NULL,
+    `completed_tables`         INT           NOT NULL,
+    `total_tables`             INT           NOT NULL,
+    `current_tables_json`      LONGTEXT      NOT NULL,
+    `compared_rows`            BIGINT        NOT NULL,
+    `skipped_tables`           INT           NOT NULL,
+    `fine_screened_chunks`     INT           NOT NULL,
+    `candidate_operation_count` INT           NOT NULL,
+    `input_sample_ids_json`    LONGTEXT      NOT NULL,
+    `input_manifest_json`      LONGTEXT      NOT NULL,
+    `summary_json`             LONGTEXT      NOT NULL,
+    `template_id`              BIGINT,
+    `heartbeat_at`             DATETIME(3),
+    `error_message`            VARCHAR(2000),
+    `created_at`               DATETIME(3)   NOT NULL,
+    `updated_at`               DATETIME(3)   NOT NULL,
+    `finished_at`              DATETIME(3),
+    PRIMARY KEY (`id`),
+    KEY `idx_seed_capture_analysis_project_status` (`project_id`, `status`),
+    KEY `idx_seed_capture_analysis_strategy_status` (`strategy_id`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='造数多样本分析';
+
+CREATE TABLE `seed_capture_analysis_input_lock` (
+    `id`           BIGINT       NOT NULL AUTO_INCREMENT,
+    `analysis_id`  BIGINT       NOT NULL,
+    `sample_id`    BIGINT       NOT NULL,
+    `created_at`   DATETIME(3)  NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_seed_capture_analysis_lock_sample` (`sample_id`),
+    KEY `idx_seed_capture_analysis_lock_analysis` (`analysis_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='分析输入样本删除锁';
+
+CREATE TABLE `seed_capture_analysis_result` (
+    `id`             BIGINT        NOT NULL AUTO_INCREMENT,
+    `analysis_id`    BIGINT        NOT NULL,
+    `table_name`     VARCHAR(255),
+    `chunk_seq`      INT,
+    `result_type`    VARCHAR(64)   NOT NULL,
+    `summary_json`   LONGTEXT,
+    `relative_path`  VARCHAR(1000),
+    `file_checksum`  VARCHAR(128),
+    `row_count`      BIGINT        NOT NULL,
+    `created_at`     DATETIME(3)   NOT NULL,
+    `updated_at`     DATETIME(3)   NOT NULL,
+    PRIMARY KEY (`id`),
+    KEY `idx_seed_capture_analysis_result_analysis` (`analysis_id`),
+    KEY `idx_seed_capture_analysis_result_table_chunk` (`analysis_id`, `table_name`, `chunk_seq`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='造数分析结果清单';
 
 CREATE TABLE `seed_template` (
     `id`                  BIGINT       NOT NULL AUTO_INCREMENT,
     `project_id`          BIGINT       NOT NULL,
-    `capture_session_id`  BIGINT       NOT NULL,
+    -- 物理列保持兼容；应用层语义为分析 ID，旧 session 不再产生模板。
+    `capture_session_id`  BIGINT       NOT NULL COMMENT '兼容列：新语义为 capture_analysis_id',
     `status`              VARCHAR(32)  NOT NULL,
     `version_no`          INT          NOT NULL,
     `body_json`           LONGTEXT     NOT NULL,

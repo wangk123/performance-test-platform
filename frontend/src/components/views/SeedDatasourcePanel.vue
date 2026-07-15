@@ -50,10 +50,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import type { TableColumnsType } from 'ant-design-vue';
 import { Modal, message } from 'ant-design-vue';
-import { useWorkspace } from '../../composables/useWorkspace';
 import {
   createSeedDatasource,
   deleteSeedDatasource,
@@ -65,7 +65,8 @@ import {
 
 const emit = defineEmits<{ changed: [items: SeedDatasource[]] }>();
 
-const { currentProject } = useWorkspace();
+const route = useRoute();
+const projectId = computed(() => Number(route.params.projectId) || 0);
 const loading = ref(false);
 const saving = ref(false);
 const datasources = ref<SeedDatasource[]>([]);
@@ -87,16 +88,16 @@ const columns: TableColumnsType<SeedDatasource> = [
   { title: '操作', key: 'actions', width: 220 },
 ];
 
-onMounted(() => {
-  void load();
-});
+watch(projectId, (id) => {
+  if (id) void load();
+}, { immediate: true });
 
 async function load() {
-  const projectId = currentProject.value?.id;
-  if (!projectId) return;
+  const id = projectId.value;
+  if (!id) return;
   loading.value = true;
   try {
-    datasources.value = await listSeedDatasources(projectId);
+    datasources.value = await listSeedDatasources(id);
     emit('changed', datasources.value);
   } catch (e) {
     message.error(e instanceof Error ? e.message : '加载失败');
@@ -130,8 +131,8 @@ function requireText(value: string | undefined, label: string): string {
 }
 
 async function save() {
-  const projectId = currentProject.value?.id;
-  if (!projectId) return Promise.reject();
+  const id = projectId.value;
+  if (!id) return Promise.reject();
   try {
     const name = requireText(form.name, '名称');
     const host = requireText(form.host, 'Host');
@@ -148,8 +149,8 @@ async function save() {
       username,
       password: form.password?.trim() || null,
     };
-    if (editingId.value) await updateSeedDatasource(projectId, editingId.value, body);
-    else await createSeedDatasource(projectId, body);
+    if (editingId.value) await updateSeedDatasource(id, editingId.value, body);
+    else await createSeedDatasource(id, body);
     message.success('已保存');
     modalOpen.value = false;
     await load();
@@ -162,15 +163,15 @@ async function save() {
 }
 
 function remove(record: SeedDatasource) {
-  const projectId = currentProject.value?.id;
-  if (!projectId) return;
+  const id = projectId.value;
+  if (!id) return;
   Modal.confirm({
     title: `删除数据源「${record.name}」？`,
     content: '删除后不可恢复。',
     okType: 'danger',
     async onOk() {
       try {
-        await deleteSeedDatasource(projectId, record.id);
+        await deleteSeedDatasource(id, record.id);
         message.success('已删除');
         await load();
       } catch (e) {
@@ -182,10 +183,10 @@ function remove(record: SeedDatasource) {
 }
 
 async function testDs(id: number) {
-  const projectId = currentProject.value?.id;
-  if (!projectId) return;
+  const pid = projectId.value;
+  if (!pid) return;
   try {
-    const result = await testSeedDatasource(projectId, id);
+    const result = await testSeedDatasource(pid, id);
     if (result.ok) message.success('连接成功');
     else message.error(result.message);
   } catch (e) {

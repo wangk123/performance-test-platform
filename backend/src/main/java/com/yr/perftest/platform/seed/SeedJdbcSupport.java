@@ -20,7 +20,7 @@ public final class SeedJdbcSupport {
 
     public static Connection open(PersistentSeedDatasourceRecord ds, SeedCredentialCipher cipher) throws SQLException {
         String url = "jdbc:mysql://" + ds.getHost() + ":" + ds.getPort() + "/" + ds.getDatabaseName()
-                + "?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8";
+                + "?useSSL=false&allowPublicKeyRetrieval=true&useCursorFetch=true&characterEncoding=utf8";
         return DriverManager.getConnection(url, ds.getUsername(), cipher.decrypt(ds.getPasswordEnc()));
     }
 
@@ -73,6 +73,20 @@ public final class SeedJdbcSupport {
                 }
             }
         }
+        Map<String, String> primaryKeyTypes = new LinkedHashMap<>();
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME=?"
+        )) {
+            ps.setString(1, schema);
+            ps.setString(2, table);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    if (pk.contains(rs.getString(1))) {
+                        primaryKeyTypes.put(rs.getString(1), rs.getString(2));
+                    }
+                }
+            }
+        }
         Set<String> unique = new LinkedHashSet<>(pk);
         try (PreparedStatement ps = connection.prepareStatement(
                 """
@@ -111,7 +125,7 @@ public final class SeedJdbcSupport {
                 }
             }
         }
-        return new TableMetadata(qualifiedTable, pk, unique, fks);
+        return new TableMetadata(qualifiedTable, pk, unique, fks, primaryKeyTypes);
     }
 
     public static Map<String, Map<String, String>> snapshotTable(Connection connection, String qualifiedTable, List<String> pkColumns) throws SQLException {

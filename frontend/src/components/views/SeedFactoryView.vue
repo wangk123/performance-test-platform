@@ -14,17 +14,7 @@
         </a-tab-pane>
 
         <a-tab-pane key="capture" tab="录制">
-          <div class="tab-toolbar">
-            <a-space>
-              <a-button type="primary" :disabled="!!capture.sessionId" @click="openCaptureModal">开始录制</a-button>
-              <a-button :disabled="!capture.sessionId" @click="endSample">结束本样本</a-button>
-              <a-button :disabled="!capture.sessionId" @click="finishCapture">结束并推断</a-button>
-              <span v-if="capture.sessionId">会话 #{{ capture.sessionId }} · 样本 {{ capture.sampleCount }}</span>
-            </a-space>
-          </div>
-          <p v-if="!capture.sessionId" class="detail-description">
-            点击「开始录制」配置数据源与库表过滤；录制开始后在业务侧操作，再点「结束本样本」。
-          </p>
+          <SeedCapturePanel :datasources="datasources" @open-template="openTemplateFromCapture" />
         </a-tab-pane>
 
         <a-tab-pane key="template" tab="确认模板">
@@ -86,24 +76,6 @@
       </a-tabs>
     </div>
 
-    <a-modal v-model:open="captureModalOpen" title="开始录制" :confirm-loading="capturing" destroy-on-close @ok="startCapture">
-      <a-form layout="vertical">
-        <a-form-item label="数据源" required>
-          <a-select v-model:value="captureForm.datasourceId" placeholder="选择数据源" :options="dsOptions" />
-        </a-form-item>
-        <a-form-item label="Include（每行一条）" required>
-          <a-textarea
-            v-model:value="captureForm.includesText"
-            :rows="3"
-            placeholder="db.table 或 db.order* 或 regex:..."
-          />
-        </a-form-item>
-        <a-form-item label="Exclude（可选，每行一条）">
-          <a-textarea v-model:value="captureForm.excludesText" :rows="2" placeholder="db.order_audit" />
-        </a-form-item>
-      </a-form>
-    </a-modal>
-
     <a-modal v-model:open="cloneModalOpen" title="开始克隆" :confirm-loading="cloning" destroy-on-close @ok="startClone">
       <a-form layout="vertical">
         <a-form-item label="已确认模板" required>
@@ -130,20 +102,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import type { TableColumnsType } from 'ant-design-vue';
 import { message } from 'ant-design-vue';
-import { useWorkspace } from '../../composables/useWorkspace';
 import SeedDatasourcePanel from './SeedDatasourcePanel.vue';
+import SeedCapturePanel from './SeedCapturePanel.vue';
 import {
   confirmSeedTemplate,
   createSeedCloneJob,
-  endSeedSample,
-  finishSeedCapture,
   getSeedTemplate,
   listSeedCloneJobs,
   listSeedTemplates,
-  startSeedCapture,
   updateSeedTemplate,
   type SeedCloneJob,
   type SeedDatasource,
@@ -152,9 +122,9 @@ import {
   type SeedTemplateOperation,
 } from '../../api/seed';
 
-const { currentProject } = useWorkspace();
+const route = useRoute();
+const projectId = computed(() => Number(route.params.projectId) || 0);
 const tab = ref('datasource');
-const capturing = ref(false);
 const confirming = ref(false);
 const cloning = ref(false);
 const datasources = ref<SeedDatasource[]>([]);
@@ -163,18 +133,8 @@ const jobs = ref<SeedCloneJob[]>([]);
 const selectedTemplateId = ref<number>();
 const templateDetail = ref<SeedTemplateDetail | null>(null);
 const draftOps = ref<SeedTemplateOperation[]>([]);
-const captureModalOpen = ref(false);
 const cloneModalOpen = ref(false);
 
-const capture = reactive({
-  sessionId: undefined as number | undefined,
-  sampleCount: 0,
-});
-const captureForm = reactive({
-  datasourceId: undefined as number | undefined,
-  includesText: '',
-  excludesText: '',
-});
 const cloneForm = reactive({
   templateId: undefined as number | undefined,
   datasourceId: undefined as number | undefined,
@@ -209,28 +169,30 @@ const confirmedTemplateOptions = computed(() =>
   templates.value.filter((t) => t.status === 'CONFIRMED').map((t) => ({ value: t.id as number, label: `#${t.id}` })),
 );
 
-onMounted(() => {
-  void refreshMeta();
-});
+watch(projectId, (id) => {
+  if (id) void refreshMeta();
+}, { immediate: true });
 
 function onDatasourcesChanged(items: SeedDatasource[]) {
   datasources.value = items;
 }
 
+async function openTemplateFromCapture(templateId: number) {
+  await refreshMeta();
+  selectedTemplateId.value = templateId;
+  tab.value = 'template';
+  await loadTemplate();
+}
+
 async function refreshMeta() {
-  const projectId = currentProject.value?.id;
-  if (!projectId) return;
+  const id = projectId.value;
+  if (!id) return;
   try {
-    templates.value = await listSeedTemplates(projectId);
-    jobs.value = await listSeedCloneJobs(projectId);
+    templates.value = await listSeedTemplates(id);
+    jobs.value = await listSeedCloneJobs(id);
   } catch (e) {
     message.error(e instanceof Error ? e.message : '加载失败');
   }
-}
-
-function openCaptureModal() {
-  Object.assign(captureForm, { datasourceId: undefined, includesText: '', excludesText: '' });
-  captureModalOpen.value = true;
 }
 
 function openCloneModal() {
@@ -238,75 +200,11 @@ function openCloneModal() {
   cloneModalOpen.value = true;
 }
 
-function lines(text: string) {
-  return text.split('\n').map((s) => s.trim()).filter(Boolean);
-}
-
-async function startCapture() {
-  const projectId = currentProject.value?.id;
-  if (!projectId) return Promise.reject();
-  if (captureForm.datasourceId == null) {
-    message.warning('请选择数据源');
-    return Promise.reject();
-  }
-  const includes = lines(captureForm.includesText);
-  if (!includes.length) {
-    message.warning('Include 不能为空');
-    return Promise.reject();
-  }
-  capturing.value = true;
-  try {
-    const result = await startSeedCapture(projectId, {
-      datasourceId: captureForm.datasourceId,
-      provider: 'SNAPSHOT',
-      includes,
-      excludes: lines(captureForm.excludesText),
-    });
-    capture.sessionId = result.id as number;
-    capture.sampleCount = 0;
-    captureModalOpen.value = false;
-    message.success('录制已开始，请在业务侧操作后点「结束本样本」');
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '开始录制失败');
-    return Promise.reject();
-  } finally {
-    capturing.value = false;
-  }
-}
-
-async function endSample() {
-  const projectId = currentProject.value?.id;
-  if (!projectId || !capture.sessionId) return;
-  try {
-    const result = await endSeedSample(projectId, capture.sessionId);
-    capture.sampleCount = result.sampleCount as number;
-    message.success(`已记录样本 ${capture.sampleCount}`);
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '样本失败');
-  }
-}
-
-async function finishCapture() {
-  const projectId = currentProject.value?.id;
-  if (!projectId || !capture.sessionId) return;
-  try {
-    const result = await finishSeedCapture(projectId, capture.sessionId);
-    message.success(`已生成模板 #${result.templateId}`);
-    capture.sessionId = undefined;
-    await refreshMeta();
-    selectedTemplateId.value = result.templateId;
-    tab.value = 'template';
-    await loadTemplate();
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '结束录制失败');
-  }
-}
-
 async function loadTemplate() {
-  const projectId = currentProject.value?.id;
-  if (!projectId || !selectedTemplateId.value) return;
+  const id = projectId.value;
+  if (!id || !selectedTemplateId.value) return;
   try {
-    templateDetail.value = await getSeedTemplate(projectId, selectedTemplateId.value);
+    templateDetail.value = await getSeedTemplate(id, selectedTemplateId.value);
     draftOps.value = templateDetail.value.body.operations.map((op) => ({
       ...op,
       columns: op.columns.map((c) => ({ ...c })),
@@ -317,10 +215,10 @@ async function loadTemplate() {
 }
 
 async function saveDraft() {
-  const projectId = currentProject.value?.id;
-  if (!projectId || !selectedTemplateId.value) return;
+  const id = projectId.value;
+  if (!id || !selectedTemplateId.value) return;
   try {
-    templateDetail.value = await updateSeedTemplate(projectId, selectedTemplateId.value, { operations: draftOps.value });
+    templateDetail.value = await updateSeedTemplate(id, selectedTemplateId.value, { operations: draftOps.value });
     message.success('草稿已保存');
   } catch (e) {
     message.error(e instanceof Error ? e.message : '保存失败');
@@ -328,12 +226,12 @@ async function saveDraft() {
 }
 
 async function confirmTemplate() {
-  const projectId = currentProject.value?.id;
-  if (!projectId || !selectedTemplateId.value) return;
+  const id = projectId.value;
+  if (!id || !selectedTemplateId.value) return;
   confirming.value = true;
   try {
-    await updateSeedTemplate(projectId, selectedTemplateId.value, { operations: draftOps.value });
-    templateDetail.value = await confirmSeedTemplate(projectId, selectedTemplateId.value);
+    await updateSeedTemplate(id, selectedTemplateId.value, { operations: draftOps.value });
+    templateDetail.value = await confirmSeedTemplate(id, selectedTemplateId.value);
     message.success('模板已确认');
     await refreshMeta();
   } catch (e) {
@@ -344,8 +242,8 @@ async function confirmTemplate() {
 }
 
 async function startClone() {
-  const projectId = currentProject.value?.id;
-  if (!projectId) return Promise.reject();
+  const id = projectId.value;
+  if (!id) return Promise.reject();
   if (cloneForm.templateId == null) {
     message.warning('请选择已确认模板');
     return Promise.reject();
@@ -360,7 +258,7 @@ async function startClone() {
   }
   cloning.value = true;
   try {
-    await createSeedCloneJob(projectId, { ...cloneForm, operator: 'web' });
+    await createSeedCloneJob(id, { ...cloneForm, operator: 'web' });
     message.success('克隆完成');
     cloneModalOpen.value = false;
     await refreshMeta();

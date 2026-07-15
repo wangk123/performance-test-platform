@@ -10,12 +10,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 @Service
 public class SeedFactoryService {
     private final PersistentSeedDatasourceRepository datasourceRepository;
-    private final PersistentSeedCaptureSessionRepository captureRepository;
+    private final SeedCaptureStrategyService captureStrategyService;
     private final PersistentSeedTemplateRepository templateRepository;
     private final PersistentSeedCloneJobRepository cloneJobRepository;
     private final SeedCredentialCipher cipher;
@@ -23,14 +22,14 @@ public class SeedFactoryService {
 
     public SeedFactoryService(
             PersistentSeedDatasourceRepository datasourceRepository,
-            PersistentSeedCaptureSessionRepository captureRepository,
+            SeedCaptureStrategyService captureStrategyService,
             PersistentSeedTemplateRepository templateRepository,
             PersistentSeedCloneJobRepository cloneJobRepository,
             SeedCredentialCipher cipher,
             @Value("${platform.seed.max-clone-count:10000}") int maxCloneCount
     ) {
         this.datasourceRepository = datasourceRepository;
-        this.captureRepository = captureRepository;
+        this.captureStrategyService = captureStrategyService;
         this.templateRepository = templateRepository;
         this.cloneJobRepository = cloneJobRepository;
         this.cipher = cipher;
@@ -92,125 +91,43 @@ public class SeedFactoryService {
         return Map.of("ok", ok, "message", message);
     }
 
-    @Transactional
-    public Map<String, Object> startCapture(long projectId, StartCaptureRequest request) {
-        if ("BINLOG".equalsIgnoreCase(request.provider())) {
-            throw new SeedValidationException("BINLOG capture provider is not supported in V1");
-        }
-        PersistentSeedDatasourceRecord ds = requireDatasource(projectId, request.datasourceId());
-        List<String> includes = request.includes() == null ? List.of() : request.includes();
-        List<String> excludes = request.excludes() == null ? List.of() : request.excludes();
-        try (Connection connection = SeedJdbcSupport.open(ds, cipher)) {
-            List<String> visible = SeedJdbcSupport.listTables(connection, ds.getDatabaseName());
-            Set<String> tableSet = CaptureFilterEvaluator.evaluate(visible, includes, excludes);
-            Map<String, Object> baseline = new LinkedHashMap<>();
-            for (String table : tableSet) {
-                TableMetadata meta = SeedJdbcSupport.readMetadata(connection, table);
-                Map<String, Map<String, String>> rows = meta.primaryKeyColumns().isEmpty()
-                        ? Map.of()
-                        : SeedJdbcSupport.snapshotTable(connection, table, meta.primaryKeyColumns());
-                baseline.put(table, Map.of(
-                        "metadata", meta,
-                        "rows", rows,
-                        "riskyNoPk", meta.primaryKeyColumns().isEmpty()
-                ));
-            }
-            PersistentSeedCaptureSessionRecord session = new PersistentSeedCaptureSessionRecord(
-                    projectId,
-                    ds.getId(),
-                    "SNAPSHOT",
-                    SeedJson.write(includes),
-                    SeedJson.write(excludes),
-                    SeedJson.write(tableSet),
-                    SeedJson.write(baseline)
-            );
-            session = captureRepository.save(session);
-            return Map.of(
-                    "id", session.getId(),
-                    "status", session.getStatus(),
-                    "provider", session.getProvider(),
-                    "tableSet", tableSet
-            );
-        } catch (SeedValidationException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            throw new SeedValidationException("failed to start capture: " + ex.getMessage());
-        }
+    public List<SeedCaptureStrategyView> listCaptureStrategies(long projectId) {
+        return captureStrategyService.list(projectId);
     }
 
-    @Transactional
-    public Map<String, Object> endSample(long projectId, long sessionId) {
-        PersistentSeedCaptureSessionRecord session = requireSession(projectId, sessionId);
-        if (!"RECORDING".equals(session.getStatus())) {
-            throw new SeedValidationException("capture session is not recording");
-        }
-        PersistentSeedDatasourceRecord ds = requireDatasource(projectId, session.getDatasourceId());
-        Map<String, Object> baseline = SeedJson.read(session.getBaselineJson(), new TypeReference<>() {
-        });
-        List<Map<String, Object>> samples = SeedJson.read(session.getSamplesJson(), new TypeReference<>() {
-        });
-        try (Connection connection = SeedJdbcSupport.open(ds, cipher)) {
-            Map<String, Object> sample = new LinkedHashMap<>();
-            sample.put("index", samples.size() + 1);
-            Map<String, Object> tableDiffs = new LinkedHashMap<>();
-            for (String table : SeedJson.stringList(session.getTableSetJson())) {
-                Map<String, Object> baseTable = SeedTemplateInference.castMap(baseline.get(table));
-                TableMetadata meta = SeedJson.read(SeedJson.write(baseTable.get("metadata")), new TypeReference<>() {
-                });
-                boolean risky = Boolean.TRUE.equals(baseTable.get("riskyNoPk")) || meta.primaryKeyColumns().isEmpty();
-                if (risky) {
-                    tableDiffs.put(table, Map.of("riskyNoPk", true, "diffs", List.of()));
-                    continue;
-                }
-                Map<String, Map<String, String>> before = castRows(baseTable.get("rows"));
-                Map<String, Map<String, String>> after = SeedJdbcSupport.snapshotTable(connection, table, meta.primaryKeyColumns());
-                Map<String, SnapshotDiffEngine.RowDiff> diffs = SnapshotDiffEngine.diff(before, after);
-                tableDiffs.put(table, Map.of(
-                        "riskyNoPk", false,
-                        "metadata", meta,
-                        "diffs", diffs.values()
-                ));
-                baseTable.put("rows", after);
-                baseline.put(table, baseTable);
-            }
-            sample.put("tables", tableDiffs);
-            samples.add(sample);
-            session.appendSample(SeedJson.write(samples));
-            session.updateBaseline(SeedJson.write(baseline));
-            captureRepository.save(session);
-            return Map.of("sessionId", sessionId, "sampleCount", samples.size(), "sample", sample);
-        } catch (SeedValidationException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            throw new SeedValidationException("failed to end sample: " + ex.getMessage());
-        }
+    public SeedCaptureStrategyView createCaptureStrategy(
+            long projectId,
+            CreateSeedCaptureStrategyRequest request
+    ) {
+        return captureStrategyService.create(projectId, request);
     }
 
-    @Transactional
-    public Map<String, Object> finishCapture(long projectId, long sessionId) {
-        PersistentSeedCaptureSessionRecord session = requireSession(projectId, sessionId);
-        List<Map<String, Object>> samples = SeedJson.read(session.getSamplesJson(), new TypeReference<>() {
-        });
-        if (samples.isEmpty()) {
-            throw new SeedValidationException("at least one sample is required");
-        }
-        session.finish("FINISHED");
-        captureRepository.save(session);
-        SeedTemplateDraft draft = SeedTemplateInference.infer(session, samples);
-        Map<String, Map<String, String>> seedRows = SeedTemplateInference.extractSeedRows(samples);
-        PersistentSeedTemplateRecord template = new PersistentSeedTemplateRecord(
-                projectId,
-                sessionId,
-                SeedJson.write(draft),
-                SeedJson.write(seedRows)
-        );
-        template = templateRepository.save(template);
-        return Map.of(
-                "sessionId", sessionId,
-                "templateId", template.getId(),
-                "status", template.getStatus(),
-                "draft", draft
-        );
+    public SeedCaptureStrategyView getCaptureStrategy(long projectId, long strategyId) {
+        return captureStrategyService.get(projectId, strategyId);
+    }
+
+    public SeedCaptureStrategyView updateCaptureStrategy(
+            long projectId,
+            long strategyId,
+            CreateSeedCaptureStrategyRequest request
+    ) {
+        return captureStrategyService.update(projectId, strategyId, request);
+    }
+
+    public void deleteCaptureStrategy(long projectId, long strategyId) {
+        captureStrategyService.delete(projectId, strategyId);
+    }
+
+    public Map<String, Object> executeCaptureStrategy(long projectId, long strategyId) {
+        return captureStrategyService.execute(projectId, strategyId);
+    }
+
+    public Map<String, Object> getCaptureSample(long projectId, long sampleId) {
+        return captureStrategyService.getSample(projectId, sampleId);
+    }
+
+    public Map<String, Object> cancelCaptureSample(long projectId, long sampleId) {
+        return captureStrategyService.cancelSample(projectId, sampleId);
     }
 
     @Transactional(readOnly = true)
@@ -218,7 +135,7 @@ public class SeedFactoryService {
         return templateRepository.findByProjectIdOrderByIdDesc(projectId).stream()
                 .map(t -> Map.<String, Object>of(
                         "id", t.getId(),
-                        "captureSessionId", t.getCaptureSessionId(),
+                        "analysisId", t.getAnalysisId(),
                         "status", t.getStatus(),
                         "versionNo", t.getVersionNo(),
                         "confirmedBy", t.getConfirmedBy() == null ? "" : t.getConfirmedBy(),
@@ -232,6 +149,7 @@ public class SeedFactoryService {
         PersistentSeedTemplateRecord template = requireTemplate(projectId, templateId);
         return Map.of(
                 "id", template.getId(),
+                "analysisId", template.getAnalysisId(),
                 "status", template.getStatus(),
                 "versionNo", template.getVersionNo(),
                 "body", SeedJson.draftFromJson(template.getBodyJson()),
@@ -407,26 +325,9 @@ public class SeedFactoryService {
         return null;
     }
 
-    @SuppressWarnings("unchecked")
-    private static Map<String, Map<String, String>> castRows(Object value) {
-        if (!(value instanceof Map<?, ?> map)) {
-            return Map.of();
-        }
-        Map<String, Map<String, String>> result = new LinkedHashMap<>();
-        for (Map.Entry<?, ?> e : map.entrySet()) {
-            result.put(String.valueOf(e.getKey()), SeedTemplateInference.castStringMap(e.getValue()));
-        }
-        return result;
-    }
-
     private PersistentSeedDatasourceRecord requireDatasource(long projectId, long id) {
         return datasourceRepository.findByIdAndProjectId(id, projectId)
                 .orElseThrow(() -> new SeedValidationException("datasource not found: " + id));
-    }
-
-    private PersistentSeedCaptureSessionRecord requireSession(long projectId, long id) {
-        return captureRepository.findByIdAndProjectId(id, projectId)
-                .orElseThrow(() -> new SeedValidationException("capture session not found: " + id));
     }
 
     private PersistentSeedTemplateRecord requireTemplate(long projectId, long id) {

@@ -26,7 +26,9 @@
 | 实体 | 说明 |
 |------|------|
 | `seed_datasource` | 项目测环境 MySQL 连接（密码加密存储） |
-| `seed_capture_session` | 录制会话、过滤、样本 Diff |
+| `seed_capture_strategy` | 可复用采集配置与版本 |
+| `seed_capture_sample` | 一次异步快照执行及其分片 |
+| `seed_capture_analysis` | 多样本相邻 Diff 与模板草稿来源 |
 | `seed_template` | 草稿/已确认模板版本 |
 | `seed_clone_job` | 克隆任务与结果审计 |
 
@@ -36,9 +38,10 @@
 |------|------|------|
 | `GET/POST` | `/api/projects/{id}/seed/datasources` | 数据源列表/创建 |
 | `POST` | `/api/projects/{id}/seed/datasources/{dsId}/test` | 测连 |
-| `POST` | `/api/projects/{id}/seed/captures` | 开始录制 |
-| `POST` | `/api/projects/{id}/seed/captures/{sid}/samples` | 结束本样本 |
-| `POST` | `/api/projects/{id}/seed/captures/{sid}/finish` | 结束并推断模板 |
+| `GET/POST/PUT/DELETE` | `/api/projects/{id}/seed/capture-strategies` | 管理采集策略 |
+| `POST` | `/api/projects/{id}/seed/capture-strategies/{strategyId}/execute` | 执行异步样本 |
+| `GET` | `/api/projects/{id}/seed/capture-strategies/{strategyId}/samples` | 查询样本历史 |
+| `POST` | `/api/projects/{id}/seed/capture-analyses` | 创建多样本分析 |
 | `GET/PUT` | `/api/projects/{id}/seed/templates/{tid}` | 模板详情/保存草稿 |
 | `POST` | `/api/projects/{id}/seed/templates/{tid}/confirm` | 确认生效 |
 | `POST` | `/api/projects/{id}/seed/clone-jobs` | 创建并执行克隆 |

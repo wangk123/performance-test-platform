@@ -1,11 +1,12 @@
 package com.yr.perftest.platform.api;
 
 import com.yr.perftest.platform.seed.CreateCloneJobRequest;
+import com.yr.perftest.platform.seed.CreateSeedCaptureStrategyRequest;
 import com.yr.perftest.platform.seed.CreateSeedDatasourceRequest;
 import com.yr.perftest.platform.seed.SeedDatasourceView;
+import com.yr.perftest.platform.seed.SeedCaptureStrategyView;
 import com.yr.perftest.platform.seed.SeedFactoryService;
 import com.yr.perftest.platform.seed.SeedTemplateDraft;
-import com.yr.perftest.platform.seed.StartCaptureRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -60,20 +61,70 @@ public class SeedFactoryController {
         return seedFactoryService.testDatasource(projectId, id);
     }
 
-    @PostMapping("/projects/{projectId}/seed/captures")
+    @GetMapping("/projects/{projectId}/seed/capture-strategies")
+    public List<SeedCaptureStrategyView> listCaptureStrategies(@PathVariable long projectId) {
+        return seedFactoryService.listCaptureStrategies(projectId);
+    }
+
+    @PostMapping("/projects/{projectId}/seed/capture-strategies")
     @ResponseStatus(HttpStatus.CREATED)
-    public Map<String, Object> startCapture(@PathVariable long projectId, @RequestBody StartCaptureRequest request) {
-        return seedFactoryService.startCapture(projectId, request);
+    public SeedCaptureStrategyView createCaptureStrategy(
+            @PathVariable long projectId,
+            @RequestBody CreateSeedCaptureStrategyRequest request
+    ) {
+        return seedFactoryService.createCaptureStrategy(projectId, request);
     }
 
-    @PostMapping("/projects/{projectId}/seed/captures/{sessionId}/samples")
-    public Map<String, Object> endSample(@PathVariable long projectId, @PathVariable long sessionId) {
-        return seedFactoryService.endSample(projectId, sessionId);
+    @GetMapping("/projects/{projectId}/seed/capture-strategies/{strategyId}")
+    public SeedCaptureStrategyView getCaptureStrategy(
+            @PathVariable long projectId,
+            @PathVariable long strategyId
+    ) {
+        return seedFactoryService.getCaptureStrategy(projectId, strategyId);
     }
 
-    @PostMapping("/projects/{projectId}/seed/captures/{sessionId}/finish")
-    public Map<String, Object> finishCapture(@PathVariable long projectId, @PathVariable long sessionId) {
-        return seedFactoryService.finishCapture(projectId, sessionId);
+    @PutMapping("/projects/{projectId}/seed/capture-strategies/{strategyId}")
+    public SeedCaptureStrategyView updateCaptureStrategy(
+            @PathVariable long projectId,
+            @PathVariable long strategyId,
+            @RequestBody CreateSeedCaptureStrategyRequest request
+    ) {
+        return seedFactoryService.updateCaptureStrategy(projectId, strategyId, request);
+    }
+
+    @DeleteMapping("/projects/{projectId}/seed/capture-strategies/{strategyId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteCaptureStrategy(
+            @PathVariable long projectId,
+            @PathVariable long strategyId
+    ) {
+        seedFactoryService.deleteCaptureStrategy(projectId, strategyId);
+    }
+
+    @PostMapping("/projects/{projectId}/seed/capture-strategies/{strategyId}/execute")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Map<String, Object> executeCaptureStrategy(
+            @PathVariable long projectId,
+            @PathVariable long strategyId
+    ) {
+        return seedFactoryService.executeCaptureStrategy(projectId, strategyId);
+    }
+
+    @GetMapping("/projects/{projectId}/seed/samples/{sampleId}")
+    public Map<String, Object> getCaptureSample(
+            @PathVariable long projectId,
+            @PathVariable long sampleId
+    ) {
+        return seedFactoryService.getCaptureSample(projectId, sampleId);
+    }
+
+    @PostMapping("/projects/{projectId}/seed/samples/{sampleId}/cancel")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public Map<String, Object> cancelCaptureSample(
+            @PathVariable long projectId,
+            @PathVariable long sampleId
+    ) {
+        return seedFactoryService.cancelCaptureSample(projectId, sampleId);
     }
 
     @GetMapping("/projects/{projectId}/seed/templates")

@@ -20,8 +20,8 @@ public class PersistentSeedTemplateRecord {
     @Column(nullable = false)
     private Long projectId;
 
-    @Column(nullable = false)
-    private Long captureSessionId;
+    @Column(name = "capture_session_id", nullable = false)
+    private Long analysisId;
 
     @Column(nullable = false, length = 32)
     private String status;
@@ -49,16 +49,25 @@ public class PersistentSeedTemplateRecord {
     protected PersistentSeedTemplateRecord() {
     }
 
-    public PersistentSeedTemplateRecord(long projectId, long captureSessionId, String bodyJson, String seedRowsJson) {
+    public PersistentSeedTemplateRecord(long projectId, long analysisId, String bodyJson, String seedRowsJson) {
         Instant now = Instant.now();
         this.projectId = projectId;
-        this.captureSessionId = captureSessionId;
+        this.analysisId = analysisId;
         this.status = "DRAFT";
         this.versionNo = 1;
         this.bodyJson = bodyJson;
         this.seedRowsJson = seedRowsJson;
         this.createdAt = now;
         this.updatedAt = now;
+    }
+
+    public static PersistentSeedTemplateRecord forAnalysis(
+            long projectId,
+            long analysisId,
+            String bodyJson,
+            String seedRowsJson
+    ) {
+        return new PersistentSeedTemplateRecord(projectId, analysisId, bodyJson, seedRowsJson);
     }
 
     public void updateDraft(String bodyJson) {
@@ -85,8 +94,8 @@ public class PersistentSeedTemplateRecord {
         return projectId;
     }
 
-    public Long getCaptureSessionId() {
-        return captureSessionId;
+    public Long getAnalysisId() {
+        return analysisId;
     }
 
     public String getStatus() {

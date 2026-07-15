@@ -51,3 +51,6 @@ platform:
   seed:
     credential-secret: ${SEED_CREDENTIAL_SECRET:perftest-seed-default-key!}
     max-clone-count: ${SEED_MAX_CLONE_COUNT:10000}
+    disk-low-water-bytes: ${SEED_DISK_LOW_WATER_BYTES:1073741824}
+    capture:
+      heartbeat-timeout-seconds: ${SEED_CAPTURE_HEARTBEAT_TIMEOUT_SECONDS:300}
