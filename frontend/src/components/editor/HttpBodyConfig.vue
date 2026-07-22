@@ -44,16 +44,19 @@
 
   <CodeEditor
     v-else-if="bodyType === 'raw'"
+    ref="codeEditorRef"
+    field-id="body"
     :model-value="body"
     :placeholder="bodyPlaceholder"
     :language="codeLanguage"
     @update:model-value="emit('updateBody', $event)"
     @blur="emit('formatBody')"
+    @active="(id, caret, value) => emit('bodyActive', id, caret, value)"
   />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { HttpBodyType, HttpParamConfig, HttpRawBodyType } from '../../types';
 import type { ActiveVariableField, VariableOption } from '../../utils/http-request-config';
 import HttpKeyValueEditor from './HttpKeyValueEditor.vue';
@@ -70,6 +73,7 @@ const props = defineProps<{
   suggestions: VariableOption[];
 }>();
 
+const codeEditorRef = ref<InstanceType<typeof CodeEditor> | null>(null);
 const resolvedRawBodyType = computed(() => props.rawBodyType || 'json');
 const codeLanguage = computed<'json' | 'xml' | 'html' | 'text'>(() => {
   if (resolvedRawBodyType.value === 'json' || resolvedRawBodyType.value === 'xml' || resolvedRawBodyType.value === 'html') {
@@ -86,9 +90,16 @@ const emit = defineEmits<{
   removeBodyParam: [index: number];
   addBodyParam: [];
   active: [id: string, element: HTMLInputElement | HTMLTextAreaElement];
+  bodyActive: [id: string, caret: number, value: string];
   choose: [key?: string];
   move: [offset: number];
   close: [];
   formatBody: [];
 }>();
+
+defineExpose({
+  insertAtCursor(text: string, replaceFrom?: number) {
+    codeEditorRef.value?.insertAtCursor(text, replaceFrom);
+  },
+});
 </script>

@@ -950,7 +950,7 @@
   color: #1d4ed8;
   font: inherit;
   font-weight: inherit;
-  background: rgba(37, 99, 235, 0.12);
+  background: transparent;
 }
 
 .syntax-key {
@@ -989,11 +989,37 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
   gap: 14px;
-  align-items: start;
+  align-items: stretch;
+  min-height: 360px;
+  max-height: min(70vh, 720px);
 }
 
 .http-config-tabs {
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.http-request-preview {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+}
+
+.http-request-preview-text {
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  max-height: min(50vh, 480px);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  font-family: "JetBrains Mono", "Fira Code", "SF Mono", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .kv-table {
@@ -1329,12 +1355,16 @@
 }
 
 .variable-field.is-plain .variable-control {
-  color: var(--text);
+  color: transparent;
   caret-color: var(--text);
 }
 
-.variable-field.is-plain .variable-control:focus {
+.variable-field.is-plain:focus-within {
   background: color-mix(in srgb, var(--primary) 6%, var(--surface-raised));
+}
+
+.variable-field.is-plain .variable-control:focus {
+  background: transparent;
   box-shadow: none;
 }
 
@@ -1400,12 +1430,24 @@
 }
 
 .variable-panel {
-  display: grid;
-  gap: 12px;
-  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface-soft);
+}
+
+.variable-panel-scroll {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  padding: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .variable-panel section {
@@ -1415,9 +1457,14 @@
 }
 
 .variable-panel h3 {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   margin: 0 0 4px;
+  padding: 2px 0;
   color: var(--text);
   font-size: 13px;
+  background: var(--surface-soft);
 }
 
 .variable-panel-hint {

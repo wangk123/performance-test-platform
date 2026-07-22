@@ -1,5 +1,7 @@
+const PLACEHOLDER_RE = /\$\{[\w.-]+(?:\([^}]*\))?\}/g;
+
 export function highlightVariables(value: string) {
-  return escapeHtml(value).replace(/\$\{[\w.-]+\}/g, (match) => `<mark>${match}</mark>`);
+  return escapeHtml(value).replace(PLACEHOLDER_RE, (match) => `<mark>${match}</mark>`);
 }
 
 export function highlightContent(value: string, mode = 'text') {
@@ -17,7 +19,7 @@ export function highlightContent(value: string, mode = 'text') {
 
 function highlightJson(value: string) {
   return value.replace(
-    /(\$\{[\w.-]+\})|("(?:\\.|[^"\\])*"(?=\s*:))|("(?:\\.|[^"\\])*")|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b|([{}[\],:])/g,
+    /(\$\{[\w.-]+(?:\([^}]*\))?\})|("(?:\\.|[^"\\])*"(?=\s*:))|("(?:\\.|[^"\\])*")|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b|([{}[\],:])/g,
     (match, variable, key, string, number, literal, punct) => {
       if (variable) {
         return `<mark>${escapeHtml(variable)}</mark>`;
@@ -51,12 +53,12 @@ function highlightMarkup(value: string) {
       );
       return `<span class="syntax-punct">${open}</span><span class="syntax-tag">${tag}</span>${highlightedAttrs}<span class="syntax-punct">${close}</span>`;
     })
-    .replace(/\$\{[\w.-]+\}/g, (match) => `<mark>${match}</mark>`);
+    .replace(PLACEHOLDER_RE, (match) => `<mark>${match}</mark>`);
 }
 
 function highlightJavaScript(value: string) {
   return value.replace(
-    /(\$\{[\w.-]+\})|(\/\/.*?$|\/\*[\s\S]*?\*\/)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(-?\d+(?:\.\d+)?)|\b(const|let|var|return|if|else|true|false|null|undefined|function|await|async)\b/gm,
+    /(\$\{[\w.-]+(?:\([^}]*\))?\})|(\/\/.*?$|\/\*[\s\S]*?\*\/)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(-?\d+(?:\.\d+)?)|\b(const|let|var|return|if|else|true|false|null|undefined|function|await|async)\b/gm,
     (match, variable, comment, string, number, keyword) => {
       if (variable) {
         return `<mark>${escapeHtml(variable)}</mark>`;

@@ -68,6 +68,7 @@
 
         <a-tab-pane tab="Body" key="body">
           <HttpBodyConfig
+            ref="bodyConfigRef"
             :body-type="config.bodyType"
             :raw-body-type="config.rawBodyType"
             :body="config.body"
@@ -83,6 +84,7 @@
             @remove-body-param="removeConfigListItem('bodyParams', $event)"
             @add-body-param="addConfigListItem('bodyParams')"
             @active="updateActiveField"
+            @body-active="updateBodyActiveField"
             @choose="chooseSuggestion"
             @move="moveSuggestion"
             @close="closeSuggestion"
@@ -93,15 +95,46 @@
         <a-tab-pane tab="Advanced" key="advanced">
           <HttpAdvancedConfig :advanced="config.advanced" @update="updateAdvanced" />
         </a-tab-pane>
+
+        <a-tab-pane tab="预览" key="preview">
+          <div class="http-request-preview">
+            <p class="variable-panel-hint">函数不在预览中执行，变量按当前已知值替换。</p>
+            <pre class="http-request-preview-text">{{ previewText }}</pre>
+          </div>
+        </a-tab-pane>
       </a-tabs>
 
-      <VariablePanel :project-variables="projectVariables" @insert="insertVariable" />
+      <VariablePanel
+        :project-variables="projectVariables"
+        :platform-functions="platformFunctions"
+        :platform-functions-loading="platformFunctionsLoading"
+        @insert="insertVariable"
+      />
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="showBodySuggestions"
+        class="variable-suggest is-floating"
+        :style="bodySuggestionStyle"
+      >
+        <button
+          v-for="(item, index) in suggestionVariables"
+          :key="item.key"
+          type="button"
+          :class="{ active: index === activeIndex }"
+          @mousedown.prevent="chooseSuggestion(item.key)"
+        >
+          <strong>{{ item.insertText ?? placeholderOf(item.key) }}</strong>
+          <span>{{ item.label }}</span>
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import type {
   HttpAdvancedConfig as HttpAdvancedConfigType,
   HttpBodyType,
@@ -110,16 +143,20 @@ import type {
   HttpRequestConfig,
   ScriptStep,
 } from '../../types';
+import { fetchJmeterFunctions, type JmeterFunctionDefinition } from '../../api/jmeter-functions';
 import type { ActiveVariableField, VariableOption } from '../../utils/http-request-config';
 import {
   createEmptyHttpParam,
   formatBodyContent,
   normalizeBodyType,
   normalizeRawBodyType,
+  placeholderOf,
   preferredHttpConfigTab,
   systemVariables,
   syncHeadersContentType,
 } from '../../utils/http-request-config';
+import { jmeterBuiltinFunctions } from '../../utils/jmeter-builtin-functions';
+import { buildHttpRequestPreview } from '../../utils/http-request-preview';
 import { useScriptEditor } from '../../composables/useScriptEditor';
 import HttpAdvancedConfig from './HttpAdvancedConfig.vue';
 import HttpBodyConfig from './HttpBodyConfig.vue';
@@ -136,6 +173,10 @@ const editor = useScriptEditor();
 const activeTab = ref('params');
 const activeField = ref<ActiveVariableField | null>(null);
 const activeIndex = ref(0);
+const bodyConfigRef = ref<InstanceType<typeof HttpBodyConfig> | null>(null);
+const platformFunctions = ref<JmeterFunctionDefinition[]>([]);
+const platformFunctionsLoading = ref(false);
+const bodySuggestionStyle = ref<Record<string, string>>({});
 const httpMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
 
 const projectVariables = computed<VariableOption[]>(() => {
@@ -150,14 +191,74 @@ const projectVariables = computed<VariableOption[]>(() => {
 });
 
 const allVariables = computed(() => [...systemVariables, ...projectVariables.value]);
+
+const functionSuggestions = computed<VariableOption[]>(() => [
+  ...platformFunctions.value.map((item) => ({
+    key: item.key,
+    label: item.displayName,
+    value: item.example,
+    insertText: item.example,
+  })),
+  ...jmeterBuiltinFunctions.map((item) => ({
+    key: item.key,
+    label: item.displayName,
+    value: item.example,
+    insertText: item.example,
+  })),
+]);
+
 const bodyPlaceholder = computed(() =>
   config.value.rawBodyType === 'xml' ? '<user><name>${name}</name></user>' : '{"mobile":"${mobile}"}',
 );
+
 const suggestionVariables = computed(() => {
   const query = activeField.value?.query.toLowerCase() ?? '';
-  return allVariables.value.filter((item) => item.key.toLowerCase().includes(query) || item.label.includes(query));
+  const candidates = [...allVariables.value, ...functionSuggestions.value];
+  if (!query) {
+    return candidates;
+  }
+  return candidates.filter(
+    (item) =>
+      item.key.toLowerCase().includes(query) ||
+      item.label.toLowerCase().includes(query) ||
+      (item.insertText?.toLowerCase().includes(query) ?? false),
+  );
 });
+
+const showBodySuggestions = computed(
+  () =>
+    activeField.value?.source === 'codemirror' &&
+    activeField.value.suggesting &&
+    suggestionVariables.value.length > 0,
+);
+
 const config = computed(() => normalizeHttpConfig(props.step));
+
+const requestPreview = computed(() => buildHttpRequestPreview(config.value, allVariables.value));
+
+const previewText = computed(() => {
+  const preview = requestPreview.value;
+  const headerLines = Object.entries(preview.headers)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join('\n');
+  return [`${preview.method} ${preview.url}`, headerLines, '', preview.body].filter((line, index, arr) => {
+    if (line === '' && index === arr.length - 1) {
+      return false;
+    }
+    return true;
+  }).join('\n');
+});
+
+onMounted(() => {
+  platformFunctionsLoading.value = true;
+  fetchJmeterFunctions()
+    .then((items) => {
+      platformFunctions.value = items;
+    })
+    .finally(() => {
+      platformFunctionsLoading.value = false;
+    });
+});
 
 watch(
   () => props.step.id,
@@ -250,20 +351,39 @@ function syncContentType(bodyType: HttpBodyType, rawBodyType: HttpRawBodyType) {
   setConfig('headers', syncHeadersContentType(config.value.headers, bodyType, rawBodyType));
 }
 
-function insertVariable(key: string) {
+function resolveInsertText(key: string) {
+  const option = suggestionVariables.value.find((item) => item.key === key);
+  if (option?.insertText) {
+    return option.insertText;
+  }
   if (key.startsWith('${') && key.endsWith('}')) {
-    insertRaw(key);
+    return key;
+  }
+  return `\${${key}}`;
+}
+
+function insertVariable(key: string) {
+  const text = resolveInsertText(key);
+  if (activeField.value?.source === 'codemirror') {
+    const from = activeField.value.suggesting ? activeField.value.triggerStart : undefined;
+    bodyConfigRef.value?.insertAtCursor(text, from);
     return;
   }
-  chooseSuggestion(key);
+  if (!activeField.value?.element) {
+    return;
+  }
+  insertRaw(text);
 }
 
 function insertRaw(value: string) {
-  if (!activeField.value) {
+  if (!activeField.value?.element) {
     return;
   }
-  const { element, triggerStart } = activeField.value;
-  const end = element.selectionStart ?? element.value.length;
+  const { element, triggerStart, suggesting } = activeField.value;
+  let end = element.selectionStart ?? element.value.length;
+  if (suggesting && element.value[end] === '}') {
+    end += 1;
+  }
   const nextValue = `${element.value.slice(0, triggerStart)}${value}${element.value.slice(end)}`;
   element.value = nextValue;
   element.dispatchEvent(new Event('input', { bubbles: true }));
@@ -279,13 +399,24 @@ function chooseSuggestion(key = suggestionVariables.value[activeIndex.value]?.ke
   if (!activeField.value || !key) {
     return;
   }
-  const { element, triggerStart } = activeField.value;
-  const end = element.selectionStart ?? element.value.length;
-  const nextValue = `${element.value.slice(0, triggerStart)}\${${key}}${element.value.slice(end)}`;
+  const text = resolveInsertText(key);
+  if (activeField.value.source === 'codemirror') {
+    bodyConfigRef.value?.insertAtCursor(text, activeField.value.triggerStart);
+    return;
+  }
+  if (!activeField.value.element) {
+    return;
+  }
+  const { element, triggerStart, suggesting } = activeField.value;
+  let end = element.selectionStart ?? element.value.length;
+  if (suggesting && element.value[end] === '}') {
+    end += 1;
+  }
+  const nextValue = `${element.value.slice(0, triggerStart)}${text}${element.value.slice(end)}`;
   element.value = nextValue;
   element.dispatchEvent(new Event('input', { bubbles: true }));
   nextTick(() => {
-    const caret = triggerStart + key.length + 3;
+    const caret = triggerStart + text.length;
     element.focus();
     element.setSelectionRange(caret, caret);
     updateActiveField(activeField.value?.id ?? '', element);
@@ -297,9 +428,38 @@ function updateActiveField(id: string, element: HTMLInputElement | HTMLTextAreaE
   const beforeCaret = element.value.slice(0, caret);
   const match = beforeCaret.match(/\$\{([\w.-]*)$/);
   activeField.value = match
-    ? { id, element, triggerStart: caret - match[0].length, query: match[1], suggesting: true }
-    : { id, element, triggerStart: caret, query: '', suggesting: false };
+    ? { id, element, triggerStart: caret - match[0].length, query: match[1], suggesting: true, source: 'input' }
+    : { id, element, triggerStart: caret, query: '', suggesting: false, source: 'input' };
   activeIndex.value = 0;
+}
+
+function updateBodyActiveField(id: string, caret: number, value: string) {
+  const beforeCaret = value.slice(0, caret);
+  const match = beforeCaret.match(/\$\{([\w.-]*)$/);
+  activeField.value = match
+    ? {
+        id,
+        element: null,
+        triggerStart: caret - match[0].length,
+        query: match[1],
+        suggesting: true,
+        source: 'codemirror',
+      }
+    : {
+        id,
+        element: null,
+        triggerStart: caret,
+        query: '',
+        suggesting: false,
+        source: 'codemirror',
+      };
+  activeIndex.value = 0;
+  bodySuggestionStyle.value = {
+    position: 'fixed',
+    left: '40%',
+    top: '45%',
+    width: 'min(320px, calc(100vw - 16px))',
+  };
 }
 
 function moveSuggestion(offset: number) {

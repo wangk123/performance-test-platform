@@ -42,6 +42,7 @@
         <VariableField
           :id="`${kind}.${index}.value`"
           :value="item.value"
+          :placeholder="valuePlaceholder"
           :active-field="activeField"
           :active-index="activeIndex"
           :suggestions="suggestions"

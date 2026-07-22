@@ -9,7 +9,6 @@
     }"
   >
     <div
-      v-if="!plain"
       class="variable-highlight-layer"
       v-html="value ? highlightContent(value, highlightMode) : ''"
     />
@@ -51,7 +50,7 @@
         :class="{ active: index === activeIndex }"
         @mousedown.prevent="emit('choose', item.key)"
       >
-        <strong>{{ placeholderOf(item.key) }}</strong>
+        <strong>{{ item.insertText ?? placeholderOf(item.key) }}</strong>
         <span>{{ item.label }}</span>
       </button>
       </div>

@@ -4,14 +4,17 @@ export type VariableOption = {
   key: string;
   label: string;
   value: string;
+  /** When set, insert this text as-is instead of `${key}`. */
+  insertText?: string;
 };
 
 export type ActiveVariableField = {
   id: string;
-  element: HTMLInputElement | HTMLTextAreaElement;
+  element: HTMLInputElement | HTMLTextAreaElement | null;
   triggerStart: number;
   query: string;
   suggesting: boolean;
+  source?: 'input' | 'codemirror';
 };
 
 export const systemVariables: VariableOption[] = [

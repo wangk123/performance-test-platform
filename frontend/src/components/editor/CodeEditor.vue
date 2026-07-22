@@ -5,26 +5,51 @@
 <script setup lang="ts">
 import { Compartment, EditorState } from '@codemirror/state';
 import { basicSetup } from 'codemirror';
-import { EditorView, placeholder } from '@codemirror/view';
+import { Decoration, EditorView, MatchDecorator, ViewPlugin, placeholder, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { json } from '@codemirror/lang-json';
 import { xml } from '@codemirror/lang-xml';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useTheme } from '../../composables/useTheme';
+
+const PLACEHOLDER_RE = /\$\{[\w.-]+(?:\([^}]*\))?\}/g;
+
+const placeholderMatcher = new MatchDecorator({
+  regexp: PLACEHOLDER_RE,
+  decoration: Decoration.mark({ class: 'cm-var-placeholder' }),
+});
+
+const placeholderHighlighter = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+
+    constructor(view: EditorView) {
+      this.decorations = placeholderMatcher.createDeco(view);
+    }
+
+    update(update: ViewUpdate) {
+      this.decorations = placeholderMatcher.updateDeco(update, this.decorations);
+    }
+  },
+  { decorations: (value) => value.decorations },
+);
 
 const props = withDefaults(defineProps<{
   modelValue: string;
   language?: 'json' | 'xml' | 'html' | 'javascript' | 'text';
   placeholder?: string;
   readonly?: boolean;
+  fieldId?: string;
 }>(), {
   language: 'text',
   placeholder: '',
   readonly: false,
+  fieldId: 'body',
 });
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
   blur: [];
+  active: [id: string, caret: number, value: string];
 }>();
 
 const hostRef = ref<HTMLDivElement | null>(null);
@@ -47,6 +72,7 @@ onMounted(() => {
         placeholder(props.placeholder),
         languageCompartment.of(languageExtension()),
         themeCompartment.of(editorTheme()),
+        placeholderHighlighter,
         EditorState.readOnly.of(props.readonly),
         EditorView.updateListener.of((update) => {
           if (!props.readonly && update.docChanged) {
@@ -54,6 +80,10 @@ onMounted(() => {
           }
           if (update.focusChanged && !update.view.hasFocus) {
             emit('blur');
+          }
+          if (update.view.hasFocus && (update.focusChanged || update.selectionSet || update.docChanged)) {
+            const caret = update.state.selection.main.head;
+            emit('active', props.fieldId, caret, update.state.doc.toString());
           }
         }),
       ],
@@ -86,6 +116,25 @@ onBeforeUnmount(() => {
   editorView?.destroy();
   editorView = null;
 });
+
+function insertAtCursor(text: string, replaceFrom?: number) {
+  if (!editorView || props.readonly) {
+    return;
+  }
+  const caret = editorView.state.selection.main.head;
+  const from = replaceFrom ?? caret;
+  let to = caret;
+  // basicSetup auto-closes `{` → consume the trailing `}` left after `${…`
+  if (replaceFrom !== undefined && editorView.state.doc.sliceString(caret, caret + 1) === '}') {
+    to = caret + 1;
+  }
+  editorView.dispatch({
+    changes: { from, to, insert: text },
+    selection: { anchor: from + text.length },
+  });
+  editorView.focus();
+  emit('active', props.fieldId, from + text.length, editorView.state.doc.toString());
+}
 
 function languageExtension() {
   if (props.language === 'json') {
@@ -129,6 +178,12 @@ function editorTheme() {
     '&.cm-focused': {
       outline: '1px solid var(--primary)',
     },
+    '.cm-var-placeholder': {
+      color: '#1d4ed8',
+      backgroundColor: 'transparent',
+    },
   }, { dark: resolvedTheme.value === 'dark' });
 }
+
+defineExpose({ insertAtCursor });
 </script>
