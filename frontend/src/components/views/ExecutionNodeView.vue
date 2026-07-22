@@ -1,12 +1,13 @@
 <template>
-  <section class="panel settings-panel">
-    <div class="panel-header">
+  <section class="settings-panel">
+    <div class="page-head">
       <div>
-        <h2>执行器列表</h2>
+        <h1>执行器配置</h1>
         <p>维护远程 JMeter Controller / Worker 节点。</p>
       </div>
       <a-button type="primary" @click="openCreateDialog">新增执行器</a-button>
     </div>
+    <div class="panel">
 
     <a-table
       :columns="nodeColumns"
@@ -30,6 +31,7 @@
         </template>
       </template>
     </a-table>
+    </div>
 
     <a-modal v-model:open="dialogVisible" :title="dialogTitle" width="720px" destroy-on-close>
       <a-form class="node-form" layout="vertical">

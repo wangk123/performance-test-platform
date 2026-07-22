@@ -223,7 +223,20 @@ export function useTaskPlans() {
     refreshTimer = window.setTimeout(() => void refreshExecution(executionId), 5000);
   }
 
-  watch([currentProject], () => void loadPlans(), { immediate: true });
+  watch(
+    () => [currentProject.value?.id, route.name] as const,
+    ([id, name]) => {
+      if (
+        id &&
+        ['project-task-plans', 'project-task-plan-detail', 'project-scenario-detail', 'project-execution-detail'].includes(
+          String(name),
+        )
+      ) {
+        void loadPlans();
+      }
+    },
+    { immediate: true },
+  );
 
   watch(
     () => [route.params.planId, route.name] as const,

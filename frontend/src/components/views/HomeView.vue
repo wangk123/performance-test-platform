@@ -1,60 +1,40 @@
 <template>
-  <section class="home-hero">
-    <div class="home-hero-main">
-      <span class="eyebrow">Performance Control Center</span>
-      <h1>性能测试指挥台</h1>
-      <p>把项目资产、脚本解析、执行状态、监控告警和报告沉淀放在同一个高密度视角下观察。</p>
-      <div class="home-hero-actions">
-        <a-button type="primary" size="large" @click="selectMainNav('projects')">进入项目</a-button>
-        <a-button size="large" @click="selectMainNav('settings')">系统配置</a-button>
-      </div>
+  <div class="page-head">
+    <div>
+      <h1>工作台</h1>
+      <p>项目资产、执行状态与监控告警的入口。从这里进入项目或创建压测任务。</p>
     </div>
-    <div class="home-hero-card">
-      <a-tag color="warning">今日重点</a-tag>
-      <strong>信贷核心压测复测窗口</strong>
-      <small>2 个脚本待配置执行参数，3 个监控目标已就绪</small>
+    <div class="topbar-actions">
+      <a-button @click="selectMainNav('settings')">系统配置</a-button>
+      <a-button type="primary" @click="selectMainNav('projects')">进入项目</a-button>
     </div>
-  </section>
+  </div>
 
   <section class="metrics-grid">
-    <a-statistic class="metric" title="活跃项目" :value="activeProjectCount" />
-    <a-statistic class="metric" title="脚本资产" :value="scriptAssetTotal" />
-    <a-statistic class="metric" title="待执行任务" :value="pendingTaskCount" />
-    <a-statistic class="metric" title="监控目标" :value="monitorTargetTotal" />
+    <div class="metric-card">
+      <label>活跃项目</label>
+      <strong class="font-data">{{ activeProjectCount }}</strong>
+    </div>
+    <div class="metric-card">
+      <label>脚本资产</label>
+      <strong class="font-data">{{ scriptAssetTotal }}</strong>
+    </div>
+    <div class="metric-card">
+      <label>待执行任务</label>
+      <strong class="font-data">{{ pendingTaskCount }}</strong>
+    </div>
+    <div class="metric-card">
+      <label>监控目标</label>
+      <strong class="font-data">{{ monitorTargetTotal }}</strong>
+    </div>
   </section>
 
   <section class="home-grid">
     <a-card class="panel" :bordered="false">
       <div class="panel-header">
         <div>
-          <h2>工作流入口</h2>
-          <p>只保留高频入口和当前风险状态。</p>
-        </div>
-      </div>
-      <div class="quick-actions">
-        <button type="button" @click="selectMainNav('projects')">
-          <span>01</span>
-          <strong>进入项目管理</strong>
-          <small>维护项目、成员、脚本、执行和报告归属</small>
-        </button>
-        <button type="button" @click="selectMainNav('settings')">
-          <span>02</span>
-          <strong>系统配置</strong>
-          <small>管理用户、角色、权限和平台访问边界</small>
-        </button>
-        <button type="button" :disabled="!recentProjects[0]" @click="recentProjects[0] && enterProject(recentProjects[0])">
-          <span>03</span>
-          <strong>进入近期项目</strong>
-          <small>{{ recentProjects[0]?.name ?? '暂无近期项目' }}</small>
-        </button>
-      </div>
-    </a-card>
-
-    <a-card class="panel" :bordered="false">
-      <div class="panel-header">
-        <div>
           <h2>近期项目</h2>
-          <p>按更新时间展示，点击进入项目详情页。</p>
+          <p>按更新时间展示，点击进入项目详情。</p>
         </div>
       </div>
       <div class="mini-list">
@@ -67,6 +47,30 @@
           <strong>{{ project.name }}</strong>
           <span>{{ project.code }} · {{ project.ownerUsername }}</span>
         </button>
+        <div v-if="!recentProjects.length" class="home-empty">暂无近期项目</div>
+      </div>
+    </a-card>
+
+    <a-card class="panel" :bordered="false">
+      <div class="panel-header">
+        <div>
+          <h2>工作流入口</h2>
+          <p>高频操作。</p>
+        </div>
+      </div>
+      <div class="quick-actions">
+        <button type="button" @click="selectMainNav('projects')">
+          <strong>进入项目管理</strong>
+          <small>维护项目、成员、脚本、执行和报告归属</small>
+        </button>
+        <button type="button" :disabled="!recentProjects[0]" @click="recentProjects[0] && enterProject(recentProjects[0])">
+          <strong>打开近期项目</strong>
+          <small>{{ recentProjects[0]?.name ?? '暂无近期项目' }}</small>
+        </button>
+        <button type="button" @click="selectMainNav('executionNodes')">
+          <strong>执行器配置</strong>
+          <small>查看节点负载与可用性</small>
+        </button>
       </div>
     </a-card>
 
@@ -74,7 +78,7 @@
       <div class="panel-header">
         <div>
           <h2>平台运行概览</h2>
-          <p>用一屏展示资产准备、执行计划、监控覆盖和报告闭环。</p>
+          <p>资产 → 执行 → 监控 → 报告</p>
         </div>
       </div>
       <div class="operation-board">
@@ -86,17 +90,17 @@
         <div>
           <span>执行计划</span>
           <strong>{{ pendingTaskCount }} 个待执行</strong>
-          <small>执行配置将从脚本默认参数复制快照</small>
+          <small>执行配置从脚本默认参数复制快照</small>
         </div>
         <div>
           <span>监控覆盖</span>
           <strong>{{ monitorTargetTotal }} 个目标</strong>
-          <small>应用、JVM、数据库、中间件统一归属项目</small>
+          <small>应用、JVM、数据库、中间件归项目</small>
         </div>
         <div>
           <span>报告沉淀</span>
           <strong>{{ reportMocks.length }} 份近期报告</strong>
-          <small>后续按项目、脚本和执行批次追溯</small>
+          <small>按项目、脚本、执行批次追溯</small>
         </div>
       </div>
     </a-card>

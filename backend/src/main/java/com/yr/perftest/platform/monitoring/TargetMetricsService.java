@@ -58,10 +58,12 @@ public class TargetMetricsService {
             Integer stepSeconds
     ) {
         ExecutionContext context = loadContext(executionId);
-        if (isFinishedStatus(context.status()) && (targetIds == null || targetIds.isEmpty()) && itemId == null) {
+        // Finished executions always prefer persisted snapshot. Frontend passes selected
+        // targetIds by default; skipping snapshot in that case made charts empty after Prometheus retention.
+        if (isFinishedStatus(context.status())) {
             java.util.Optional<TargetMetricsQueryResult> snapshot = loadSnapshot(executionId, kind);
             if (snapshot.isPresent()) {
-                return snapshot.get();
+                return applySeriesFilters(snapshot.get(), targetIds, itemId);
             }
         }
         if (context.boundTargetIds().isEmpty()) {
@@ -129,6 +131,34 @@ public class TargetMetricsService {
                         return java.util.Optional.<TargetMetricsQueryResult>empty();
                     }
                 });
+    }
+
+    static TargetMetricsQueryResult applySeriesFilters(
+            TargetMetricsQueryResult source,
+            List<Long> targetIds,
+            String itemId
+    ) {
+        boolean filterTargets = targetIds != null && !targetIds.isEmpty();
+        boolean filterItem = itemId != null && !itemId.isBlank();
+        if (!filterTargets && !filterItem) {
+            return source;
+        }
+        java.util.Set<String> targetIdSet = filterTargets
+                ? targetIds.stream().map(String::valueOf).collect(Collectors.toSet())
+                : java.util.Set.of();
+        List<MetricSeries> filtered = source.series().stream()
+                .filter(series -> {
+                    Map<String, String> labels = series.labels() == null ? Map.of() : series.labels();
+                    if (filterTargets && !targetIdSet.contains(labels.getOrDefault("target_id", ""))) {
+                        return false;
+                    }
+                    if (filterItem && !itemId.equals(labels.getOrDefault("item_id", ""))) {
+                        return false;
+                    }
+                    return true;
+                })
+                .toList();
+        return new TargetMetricsQueryResult(source.kind(), source.unit(), filtered);
     }
 
     private List<Long> filterTargetIds(List<Long> boundTargetIds, List<Long> requested) {

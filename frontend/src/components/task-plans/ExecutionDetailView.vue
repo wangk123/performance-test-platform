@@ -1,8 +1,8 @@
 <template>
-  <section v-if="execution" class="task-detail">
-    <div class="panel task-detail-hero">
+  <section v-if="execution" class="task-detail density-a" data-density="a">
+    <div class="page-head">
       <div>
-        <h2>{{ execution.scenarioName }}</h2>
+        <h1>{{ execution.scenarioName }}</h1>
         <p>{{ script?.name }} · {{ executionStatusText(uiStatus) }}</p>
       </div>
       <a-button
@@ -15,7 +15,6 @@
     <div v-if="uiStatus === 'FAILED' || uiStatus === 'INTERRUPTED'" class="panel task-failure-panel">
       <div class="panel-header">
         <div>
-          <span class="eyebrow">Failure Detail</span>
           <h2>{{ uiStatus === 'INTERRUPTED' ? '执行已停止' : '执行失败' }}</h2>
           <p>{{ execution.errorMessage || '请查看下方日志。' }}</p>
         </div>
@@ -26,7 +25,6 @@
     <div class="panel">
       <div class="panel-header">
         <div>
-          <span class="eyebrow">Aggregate Report</span>
           <h2>聚合报告<span v-if="accuracyLabel" class="aggregate-accuracy-badge inline-badge" :class="accuracyClass">{{ accuracyLabel }}</span></h2>
         </div>
         <a-dropdown
@@ -49,7 +47,6 @@
             <div class="execution-history-panel" @mousedown.stop @click.stop>
               <div class="execution-history-header">
                 <div>
-                  <span class="execution-history-eyebrow">History</span>
                   <strong class="execution-history-title">执行记录</strong>
                 </div>
                 <span class="execution-history-count-badge">{{ historyExecutions.length }}</span>
@@ -154,14 +151,14 @@
 
     <div class="panel">
       <div class="panel-header">
-        <div><span class="eyebrow">Live Metrics</span><h2>实时监控</h2></div>
+        <div><h2>实时监控</h2></div>
       </div>
       <TaskMonitoringCharts :monitoring="execution.monitoring" />
     </div>
 
     <div class="panel">
       <div class="panel-header">
-        <div><span class="eyebrow">Target Metrics</span><h2>被测目标监控</h2></div>
+        <div><h2>被测目标监控</h2></div>
       </div>
       <TargetServerMetricsPanel
         v-if="targetMonitoring?.serverTargets?.length"
@@ -183,7 +180,7 @@
     <section class="task-result-workbench">
       <div class="panel result-tree-panel">
         <div class="panel-header">
-          <div><span class="eyebrow">View Results Tree</span><h2>异常样本</h2></div>
+          <div><h2>异常样本</h2></div>
         </div>
         <a-table
           class="workspace-table result-sample-table"

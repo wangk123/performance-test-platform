@@ -342,5 +342,5 @@ function chunkIncomplete(chunk: SeedCaptureChunk) {
 }
 .row-table { margin-top: 12px; }
 .empty-rows { color: var(--muted); padding: 18px 0; text-align: center; }
-.error-text { color: #cf1322; margin-top: 8px; }
+.error-text { color: var(--danger); margin-top: 8px; }
 </style>

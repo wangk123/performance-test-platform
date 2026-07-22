@@ -1,20 +1,20 @@
 <template>
-  <section class="script-workspace">
-    <div class="panel script-assets-panel">
-      <div class="panel-header">
-        <div>
-          <span class="eyebrow">Module 03</span>
-          <h2>平台脚本资产</h2>
-          <p>{{ currentProject?.name }} 下可用于任务计划的脚本，支持新建空白脚本或导入 JMX 资产。</p>
-        </div>
-        <div class="script-assets-actions">
-          <a-input v-model:value="scriptKeyword" class="compact-search" allow-clear placeholder="搜索脚本、接口、变量" />
-          <a-button :disabled="selectedRows.length === 0" danger @click="deleteSelectedScripts">批量删除</a-button>
-          <a-button @click="openScriptCreateDialog">新建脚本</a-button>
-          <a-button type="primary" @click="openScriptImportDialog">导入 JMX</a-button>
-        </div>
+  <section class="script-workspace-page">
+    <div class="page-head">
+      <div>
+        <h1>脚本管理</h1>
+        <p>{{ currentProject?.name }} 下可用于任务计划的脚本，支持新建空白脚本或导入 JMX 资产。</p>
       </div>
+      <div class="script-assets-actions">
+        <a-input v-model:value="scriptKeyword" class="compact-search" allow-clear placeholder="搜索脚本、接口、变量" />
+        <a-button :disabled="selectedRows.length === 0" danger @click="deleteSelectedScripts">批量删除</a-button>
+        <a-button @click="openScriptCreateDialog">新建脚本</a-button>
+        <a-button type="primary" @click="openScriptImportDialog">导入 JMX</a-button>
+      </div>
+    </div>
 
+    <div class="script-workspace">
+    <div class="panel script-assets-panel">
       <a-table
         class="workspace-table"
         :columns="scriptColumns"
@@ -67,7 +67,6 @@
       <template v-if="selectedScriptAsset">
         <div class="detail-heading">
           <div>
-            <span class="eyebrow">Parsed Script</span>
             <h2>{{ selectedScriptAsset.name }}</h2>
           </div>
           <a-button type="primary" @click="openParamDrawer(selectedScriptAsset)">默认参数</a-button>
@@ -131,6 +130,7 @@
         <p>右侧展示解析后的线程组、接口、监控和参数，而不是上传文件列表。</p>
       </div>
     </aside>
+    </div>
   </section>
 </template>
 

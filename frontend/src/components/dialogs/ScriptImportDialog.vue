@@ -7,7 +7,6 @@
   >
     <div class="script-import-dialog">
       <div class="import-guidance">
-        <span class="eyebrow">Import Scope</span>
         <h3>解析后直接生成平台脚本资产</h3>
         <p>导入不会在脚本页展示单独上传记录。系统会提取线程组、API、变量、监控配置和默认执行参数；同名脚本会追加新版本。</p>
       </div>

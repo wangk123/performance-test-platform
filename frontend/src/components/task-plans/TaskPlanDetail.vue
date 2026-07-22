@@ -1,21 +1,22 @@
 <template>
   <section class="task-detail">
-    <div class="panel task-detail-hero">
+    <div class="page-head">
       <div>
-        <h2>{{ plan.name }}</h2>
+        <h1>{{ plan.name }}</h1>
         <p>{{ plan.scenarioCount }} 个场景 · {{ plan.remark || '无备注' }}</p>
       </div>
-      <a-button @click="openAddScenario">添加场景</a-button>
+      <div class="script-assets-actions">
+        <a-button @click="planDialogVisible = true">编辑计划默认配置</a-button>
+        <a-button type="primary" @click="openAddScenario">添加场景</a-button>
+      </div>
     </div>
 
     <div class="panel">
       <div class="panel-header">
         <div>
-          <span class="eyebrow">Scenarios</span>
           <h2>测试场景</h2>
           <p>展开查看线程组配置与最近一次执行聚合结果。</p>
         </div>
-        <a-button @click="planDialogVisible = true">编辑计划默认配置</a-button>
       </div>
 
       <div v-if="scenarios.length === 0" class="scenario-list-empty">暂无场景，请添加。</div>

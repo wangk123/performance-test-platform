@@ -96,7 +96,7 @@ function groupSummary(rows: ScenarioThreadGroupConfig[]) {
   display: grid;
   gap: 10px;
   padding: 12px 14px 14px 42px;
-  border-top: 1px dashed var(--border);
+  border-top: 1px dashed var(--line);
   background: var(--surface-soft);
 }
 
@@ -125,14 +125,14 @@ function groupSummary(rows: ScenarioThreadGroupConfig[]) {
 .scenario-preset-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  padding: 0 10px;
-  color: var(--primary-ink);
-  font-size: 13px;
+  min-height: 22px;
+  padding: 0 8px;
+  color: var(--accent-ink);
+  font-size: 12px;
   font-weight: 600;
   line-height: 1;
-  border-radius: 999px;
-  background: var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
 }
 
 .scenario-preset-meta {

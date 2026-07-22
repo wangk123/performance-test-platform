@@ -1,15 +1,14 @@
 <template>
   <section class="function-library">
-    <div class="panel">
-      <div class="panel-header">
-        <div>
-          <span class="eyebrow">Function Library</span>
-          <h2>函数库</h2>
-          <p>平台 JMeter 自定义函数只读展示。压测执行走分布式节点；本地执行请导出 JMX 并安装函数包至 JMeter <code>lib/ext/</code>。</p>
-        </div>
-        <a-button type="primary" :loading="downloading" @click="downloadPackage">下载函数包</a-button>
+    <div class="page-head">
+      <div>
+        <h1>函数库</h1>
+        <p>平台 JMeter 自定义函数只读展示。压测执行走分布式节点；本地执行请导出 JMX 并安装函数包至 JMeter <code>lib/ext/</code>。</p>
       </div>
+      <a-button type="primary" :loading="downloading" @click="downloadPackage">下载函数包</a-button>
+    </div>
 
+    <div class="panel">
       <a-table
         :columns="columns"
         :data-source="functions"
@@ -22,7 +21,7 @@
             <code>{{ record.example }}</code>
           </template>
           <template v-else-if="column.key === 'parameters'">
-            <span v-if="record.parameters.length">{{ record.parameters.map((item) => item.name).join(', ') }}</span>
+            <span v-if="record.parameters.length">{{ record.parameters.map((item: { name: string }) => item.name).join(', ') }}</span>
             <span v-else class="monitor-cell-muted">无</span>
           </template>
           <template v-else-if="column.key === 'actions'">

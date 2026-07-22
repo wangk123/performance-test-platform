@@ -1,13 +1,13 @@
 <template>
   <section class="seed-factory">
-    <div class="panel">
-      <div class="panel-header">
-        <div>
-          <h2>造数工厂</h2>
-          <p class="detail-description">测环境写库：配置数据源 → 过滤录制 → 确认模板 → 批量克隆。</p>
-        </div>
+    <div class="page-head">
+      <div>
+        <h1>造数工厂</h1>
+        <p>测环境写库：配置数据源 → 过滤录制 → 确认模板 → 批量克隆。</p>
       </div>
+    </div>
 
+    <div class="panel">
       <a-tabs v-model:activeKey="tab">
         <a-tab-pane key="datasource" tab="数据源">
           <SeedDatasourcePanel @changed="onDatasourcesChanged" />
@@ -274,5 +274,5 @@ async function startClone() {
 <style scoped>
 .tab-toolbar { margin-bottom: 12px; }
 .seed-op { margin-bottom: 16px; }
-.seed-risk { color: #cf1322; }
+.seed-risk { color: var(--danger); }
 </style>

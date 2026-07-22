@@ -360,6 +360,6 @@ function formatBytes(value: number | null | undefined) {
 <style scoped>
 .sample-toolbar { margin-bottom: 12px; }
 .secondary-text { color: var(--muted); font-size: 12px; line-height: 1.6; }
-.error-text { color: #cf1322; overflow-wrap: anywhere; }
+.error-text { color: var(--danger); overflow-wrap: anywhere; }
 .retry-text { color: #d46b08; }
 </style>

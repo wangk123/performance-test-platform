@@ -1,5 +1,12 @@
 <template>
-  <section class="panel settings-shell">
+  <section class="settings-shell">
+    <div class="page-head">
+      <div>
+        <h1>系统配置</h1>
+        <p>管理用户、角色与平台访问边界。</p>
+      </div>
+    </div>
+    <div class="panel">
     <SettingsTabBar v-model="activeConfigTab" :options="tabOptions" />
 
     <div class="settings-body">
@@ -57,6 +64,7 @@
           </div>
         </div>
       </template>
+    </div>
     </div>
   </section>
 </template>

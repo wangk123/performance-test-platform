@@ -2,8 +2,7 @@
   <aside class="step-sidebar">
     <header class="step-sidebar-header">
       <div>
-        <span class="step-eyebrow">Script Steps</span>
-        <h2>脚本步骤编排</h2>
+        <h2>脚本步骤</h2>
         <p>拖拽调整顺序，点击节点编辑配置。</p>
       </div>
       <button class="step-add-root" type="button" @click="editor.openStepDialog('root')">

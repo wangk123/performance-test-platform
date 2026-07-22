@@ -1,13 +1,11 @@
 <template>
   <template v-if="currentProject">
-    <section class="project-hero">
+    <section class="page-head">
       <div>
-        <button class="breadcrumb-button" type="button" @click="backToProjects">项目列表 /</button>
-        <span class="eyebrow">{{ currentProject.code }}</span>
         <h1>{{ currentProject.name }}</h1>
-        <p>{{ currentProject.description }}</p>
+        <p>{{ currentProject.code }} · {{ currentProject.description }}</p>
       </div>
-      <div class="project-hero-actions">
+      <div class="script-assets-actions">
         <a-tag :color="currentProject.status === 'ACTIVE' ? 'success' : 'default'">
           {{ projectStatusText(currentProject.status) }}
         </a-tag>
@@ -105,7 +103,7 @@ defineEmits<{
   (e: 'members', project: Project): void;
 }>();
 
-const { backToProjects, enterProjectTab, openScript } = useNavigation();
+const { enterProjectTab, openScript } = useNavigation();
 const { currentProject, currentProjectScripts, currentProjectMonitorCount, reportMocks } =
   useWorkspace();
 

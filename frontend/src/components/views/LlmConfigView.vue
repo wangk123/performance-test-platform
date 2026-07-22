@@ -1,11 +1,18 @@
 <template>
-  <section class="panel settings-shell">
-    <SettingsTabBar :model-value="activeLlmConfigTab" :options="tabOptions" @update:model-value="selectLlmConfigTab" />
-
-    <div class="settings-body">
-      <LlmProvidersPanel v-if="activeLlmConfigTab === 'llm-providers'" />
-      <LlmModelsPanel v-else-if="activeLlmConfigTab === 'llm-models'" />
-      <LlmCallRecordsPanel v-else-if="activeLlmConfigTab === 'llm-call-records'" />
+  <section class="settings-shell">
+    <div class="page-head">
+      <div>
+        <h1>模型配置</h1>
+        <p>管理 LLM 提供商、模型与调用记录。</p>
+      </div>
+    </div>
+    <div class="panel">
+      <SettingsTabBar :model-value="activeLlmConfigTab" :options="tabOptions" @update:model-value="selectLlmConfigTab" />
+      <div class="settings-body">
+        <LlmProvidersPanel v-if="activeLlmConfigTab === 'llm-providers'" />
+        <LlmModelsPanel v-else-if="activeLlmConfigTab === 'llm-models'" />
+        <LlmCallRecordsPanel v-else-if="activeLlmConfigTab === 'llm-call-records'" />
+      </div>
     </div>
   </section>
 </template>

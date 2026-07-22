@@ -2,40 +2,24 @@
   <section class="script-editor-page">
     <template v-if="script">
       <header class="script-editor-platform-topbar">
-        <div class="brand script-editor-brand">
-          <span class="brand-mark">PT</span>
-          <div>
-            <strong>性能测试平台</strong>
-            <small>Project Workspace</small>
-          </div>
-        </div>
+        <button class="script-editor-exit" type="button" @click="leaveEditor">← 退出编辑</button>
         <div class="script-editor-title">
-          <span class="eyebrow">Phase 2 Prototype</span>
-          <h1>{{ projectName(script.projectId) }} · 脚本编辑</h1>
+          <h1>{{ projectName(script.projectId) }} · {{ script.name }}</h1>
         </div>
         <div class="script-editor-platform-actions">
-          <a-tag color="success">Backend API</a-tag>
-          <a-tag v-if="currentProject" color="success">{{ currentProject.code }}</a-tag>
           <a-dropdown v-if="currentUser" trigger="click">
             <button class="user-menu-trigger" type="button">
-              <a-avatar class="user-avatar">{{ userInitial }}</a-avatar>
+              <a-avatar class="user-avatar" :size="26">{{ userInitial }}</a-avatar>
               <span>{{ currentUser.displayName }}</span>
             </button>
             <template #overlay>
               <a-menu>
-                <a-menu-item key="profile" disabled>
-                  <strong>{{ currentUser.displayName }}</strong>
-                  <small>{{ currentUser.username }} · 平台管理员</small>
-                </a-menu-item>
-                <a-menu-divider />
                 <a-menu-item key="theme">
                   <div class="user-menu-section" @click.stop>
                     <span>主题</span>
                     <a-segmented v-model:value="themeMode" :options="themeModeOptions" />
                   </div>
                 </a-menu-item>
-                <a-menu-item key="settings" disabled>用户设置（Mock）</a-menu-item>
-                <a-menu-item key="notifications" disabled>消息中心（Mock）</a-menu-item>
                 <a-menu-divider />
                 <a-menu-item key="logout" danger @click="fullLogout">退出登录</a-menu-item>
               </a-menu>
@@ -79,7 +63,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuth } from '../composables/useAuth';
 import { useScriptEditor } from '../composables/useScriptEditor';
 import { useTheme } from '../composables/useTheme';
@@ -91,8 +75,9 @@ import StepImportDialog from '../components/editor/StepImportDialog.vue';
 
 const editor = useScriptEditor();
 const route = useRoute();
+const router = useRouter();
 const { currentUser } = useAuth();
-const { projectName, currentProject, loadProjectContext, fullLogout } = useWorkspace();
+const { projectName, loadProjectContext, fullLogout } = useWorkspace();
 const { themeMode, themeModeOptions } = useTheme();
 const script = computed(() => editor.editorScriptAsset.value);
 const userInitial = computed(() => currentUser.value?.displayName?.slice(0, 1).toUpperCase() ?? 'U');
@@ -176,8 +161,17 @@ async function onSave() {
   }
 }
 
+function leaveEditor() {
+  const projectId = Number(route.params.projectId);
+  if (projectId) {
+    void router.push(`/projects/${projectId}/scripts`);
+    return;
+  }
+  void router.push('/projects');
+}
+
 function closeCurrentTab() {
-  window.close();
+  leaveEditor();
 }
 
 function currentScriptSnapshot() {

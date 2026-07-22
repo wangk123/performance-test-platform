@@ -34,7 +34,7 @@ const props = defineProps<{
 
 use([CanvasRenderer, LineChart, GridComponent, LegendComponent, TooltipComponent]);
 
-const colors = ['#1f6f5f', '#d98724', '#3d6fb6', '#c24132', '#7a5cba', '#5b7c28'];
+const colors = ['#0B7F8A', '#C9850A', '#3d6fb6', '#D14343', '#5C6B7A', '#2F9B6A'];
 
 const interfaceNames = computed<string[]>(() => {
   const names = new Set<string>();

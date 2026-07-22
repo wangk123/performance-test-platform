@@ -72,8 +72,24 @@
 }
 
 .ant-pagination .ant-pagination-item-active {
-  background: rgba(43, 191, 159, 0.14);
-  border-color: var(--primary);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.ant-btn-primary {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent-ink) !important;
+}
+
+.ant-btn-primary:not(:disabled):hover {
+  background: var(--primary-dark) !important;
+  border-color: var(--primary-dark) !important;
+}
+
+.ant-menu-item-selected,
+.ant-menu-item-active {
+  color: var(--accent) !important;
 }
 
 .ant-pagination .ant-pagination-item-active a {

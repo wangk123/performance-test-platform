@@ -12,9 +12,13 @@
   <ProjectMonitoringView v-else-if="activeProjectTab === 'monitoring'" />
 
   <section v-else-if="activeProjectTab === 'reports'" class="placeholder-grid">
+    <div class="page-head">
+      <div>
+        <h1>报告管理</h1>
+        <p>报告属于当前项目，后续展示执行结论、趋势和瓶颈定位。</p>
+      </div>
+    </div>
     <div class="panel">
-      <h2>报告管理</h2>
-      <p class="detail-description">报告属于当前项目，后续展示执行结论、趋势和瓶颈定位。</p>
       <div class="report-list">
         <div v-for="report in reportMocks" :key="report.name">
           <strong>{{ report.name }}</strong>
@@ -30,10 +34,14 @@
 
   <FunctionLibraryView v-else-if="activeProjectTab === 'functions'" />
 
-  <section v-else class="placeholder-grid">
+  <section v-else class="members-page">
+    <div class="page-head">
+      <div>
+        <h1>成员权限</h1>
+        <p>成员关系仍是项目级权限前置校验，脚本、执行、报告不重复维护成员。</p>
+      </div>
+    </div>
     <div class="panel">
-      <h2>成员权限</h2>
-      <p class="detail-description">成员关系仍是项目级权限前置校验，脚本、执行、报告不重复维护成员。</p>
       <a-table
         v-if="currentProject"
         :columns="memberColumns"

@@ -1,8 +1,8 @@
 <template>
   <section class="task-detail">
-    <div class="panel task-detail-hero">
+    <div class="page-head">
       <div>
-        <h2>{{ scenario.name }}</h2>
+        <h1>{{ scenario.name }}</h1>
         <p>{{ script?.name }}</p>
       </div>
       <a-button type="primary" @click="runScenario(scenario)">执行场景</a-button>
@@ -11,7 +11,6 @@
     <div class="panel">
       <div class="panel-header">
         <div>
-          <span class="eyebrow">Executions</span>
           <h2>执行记录</h2>
           <p>保留全部历史记录，可查看任意一次执行详情或删除无效记录。</p>
         </div>

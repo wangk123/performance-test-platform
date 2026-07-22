@@ -32,7 +32,7 @@ const props = withDefaults(defineProps<{
 
 use([CanvasRenderer, LineChart, GridComponent, LegendComponent, TooltipComponent]);
 
-const colors = ['#1f6f5f', '#d98724', '#3d6fb6', '#c24132', '#7a5cba', '#5b7c28', '#2f7f99', '#9c5f2d'];
+const colors = ['#0B7F8A', '#C9850A', '#3d6fb6', '#D14343', '#7a5cba', '#5b7c28', '#2f7f99', '#9c5f2d'];
 
 const hasData = computed(() => props.series.some((item) => item.points.length > 0));
 

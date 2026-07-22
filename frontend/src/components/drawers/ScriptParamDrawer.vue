@@ -2,8 +2,8 @@
   <a-drawer v-model:open="paramDrawerVisible" title="脚本默认执行参数" size="460px">
     <div v-if="paramScriptAsset" class="param-drawer">
       <div class="drawer-title">
-        <span class="eyebrow">{{ currentProject?.code }}</span>
-        <h2>{{ paramScriptAsset.name }} v{{ paramScriptAsset.latestVersion }}</h2>
+        <h2>{{ paramScriptAsset.name }} · v{{ paramScriptAsset.latestVersion }}</h2>
+        <p v-if="currentProject?.code">{{ currentProject.code }}</p>
       </div>
 
       <a-form layout="vertical" @submit.prevent>

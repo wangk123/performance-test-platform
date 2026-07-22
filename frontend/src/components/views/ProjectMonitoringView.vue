@@ -1,15 +1,13 @@
 <template>
-  <section class="monitoring-config">
-    <div class="panel">
-      <div class="panel-header">
-        <div>
-          <span class="eyebrow">Target Monitoring</span>
-          <h2>监控配置</h2>
-          <p>按服务器维护资源采集，按需添加 JVM、MySQL、Redis、Nginx、Kafka 监控项。</p>
-        </div>
-        <a-button type="primary" @click="openCreate">新增服务器</a-button>
+  <section class="monitoring-config density-b" data-density="b">
+    <div class="page-head">
+      <div>
+        <h1>监控配置</h1>
+        <p>按服务器维护资源采集，按需添加 JVM、MySQL、Redis、Nginx、Kafka 监控项。</p>
       </div>
-
+      <a-button type="primary" @click="openCreate">新增服务器</a-button>
+    </div>
+    <div class="panel">
       <a-table
         class="monitor-target-table"
         :columns="targetColumns"

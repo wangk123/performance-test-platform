@@ -1,14 +1,13 @@
 <template>
   <section class="project-home-grid">
-    <div class="panel">
-      <div class="panel-header">
-        <div>
-          <h2>项目列表</h2>
-          <p>项目只做归档，不做物理删除；已归档项目保留历史资产查看。</p>
-        </div>
-        <a-button type="primary" @click="$emit('create')">新建项目</a-button>
+    <div class="page-head">
+      <div>
+        <h1>项目管理</h1>
+        <p>项目只做归档，不做物理删除；已归档项目保留历史资产查看。</p>
       </div>
-
+      <a-button type="primary" @click="$emit('create')">新建项目</a-button>
+    </div>
+    <div class="panel">
       <div class="filters">
         <a-input v-model:value="projectKeyword" allow-clear placeholder="搜索项目名称、编码、负责人" />
         <a-segmented v-model:value="projectStatusFilter" :options="projectStatusOptions" />

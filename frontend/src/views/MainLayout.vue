@@ -1,11 +1,11 @@
 <template>
-  <a-layout class="app-shell">
-    <SidebarNav />
+  <div class="app-shell" :class="{ 'has-ctx': Boolean(currentProject) }">
+    <GlobalRail />
+    <ProjectContextNav v-if="currentProject" />
 
-    <a-layout>
+    <div class="app-main">
       <TopBar />
-
-      <a-layout-content class="content">
+      <main class="content">
         <RouterView v-slot="{ Component }">
           <component
             :is="Component"
@@ -14,9 +14,9 @@
             @members="openMembers"
           />
         </RouterView>
-      </a-layout-content>
-    </a-layout>
-  </a-layout>
+      </main>
+    </div>
+  </div>
 
   <ProjectFormDialog v-model="projectDialogVisible" :editing-project="editingProject" />
   <MemberDialog v-model="memberDialogVisible" :project="memberProject" />
@@ -28,13 +28,17 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import type { Project } from '../types';
-import SidebarNav from '../components/layout/SidebarNav.vue';
+import GlobalRail from '../components/layout/GlobalRail.vue';
+import ProjectContextNav from '../components/layout/ProjectContextNav.vue';
 import TopBar from '../components/layout/TopBar.vue';
 import ProjectFormDialog from '../components/dialogs/ProjectFormDialog.vue';
 import MemberDialog from '../components/dialogs/MemberDialog.vue';
 import ScriptImportDialog from '../components/dialogs/ScriptImportDialog.vue';
 import ScriptCreateDialog from '../components/dialogs/ScriptCreateDialog.vue';
 import ScriptParamDrawer from '../components/drawers/ScriptParamDrawer.vue';
+import { useWorkspace } from '../composables/useWorkspace';
+
+const { currentProject } = useWorkspace();
 
 const projectDialogVisible = ref(false);
 const memberDialogVisible = ref(false);
