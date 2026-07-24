@@ -9,33 +9,33 @@
 
 ## L0 里程碑总览
 
-| 里程碑 | 目标 | 任务 |
-|---|---|---|
-| M1 认证底座 | 平台与 agent 面获得请求级身份（简单 token + API Key） | T1 |
-| M2 业务入口与契约 | 业务入口收敛到 Facade，agent 面统一响应契约 | T3 T4 |
-| M3 数据链与分析 | 数据可关联、可下钻，产出确定性事实 | T5 T6 T7 T8 |
-| M4 闭环与治理 | 取证/验证闭环 + 脱敏/审计/限流 | T9 T10 T11(起步) |
-| M5 外部 Agent 接入 | MCP + Skill，真实 Claude Code 端到端验收 | T12 T13 T11(持续) |
+| 里程碑 | 目标 | 任务 | 状态 |
+|---|---|---|---|
+| M1 认证底座 | 平台与 agent 面获得请求级身份（简单 token + API Key） | T1 | ✅ 完成（`add-auth-foundation` 已归档） |
+| M2 业务入口与契约 | 业务入口收敛到 Facade，agent 面统一响应契约 | T3 T4 | 待开始 |
+| M3 数据链与分析 | 数据可关联、可下钻，产出确定性事实 | T5 T6 T7 T8 | 待开始 |
+| M4 闭环与治理 | 取证/验证闭环 + 脱敏/审计/限流 | T9 T10 T11(起步) | 待开始 |
+| M5 外部 Agent 接入 | MCP + Skill，真实 Claude Code 端到端验收 | T12 T13 T11(持续) | 待开始 |
 
 > 按需/后移：T2 细粒度授权。不绑定里程碑，待真正需要按项目/角色/工具控制访问时再启动。
 
 ### 任务索引
 
-| # | 任务 | 涉及模块 | 依赖 | 类型 |
-|---|---|---|---|---|
-| T1 | 认证底座：平台 token + agent API Key + 统一 Principal | `identity` `config` `api` | — | 阻塞 |
-| T3 | Agent-ready Facade | `facade`(新) | T1 | 阻塞 |
-| T4 | 统一响应契约 + 错误码 + OpenAPI | `api` | T3 | 底座 |
-| T5 | 有界查询 / 分页 / 数据可用性 | `execution` `monitoring` `report` | T4 | 底座 |
-| T6 | 数据链关联骨架（关联键 + 时钟对齐） | `evidence`(新) | T5 | 底座 |
-| T7 | 确定性分析 | `analysis`(新) | T6 | 底座 |
-| T8 | 压测执行工具化（幂等 / 预检 / 异步任务） | `execution` `task` | T4 | 底座 |
-| T9 | 补充取证 + 优化验证 | `execution` `facade` | T7 T8 | 底座 |
-| T10 | 治理（脱敏 / 审计 / 限流） | 跨模块 | T3 | 底座 |
-| T11 | 深度证据逐源接入 | `evidence` `monitoring` | T6 | 底座(渐进) |
-| T12 | MCP Server | `mcp`(新) | T4 T5 T10 | 方案2 |
-| T13 | Skill Pack + Claude Code 验收 | 交付物 | T12 | 方案2 |
-| T2 | 细粒度授权（项目/角色/工具级策略） | `project` `identity` `facade` | T1 T3 | 按需·后移 |
+| # | 任务 | 涉及模块 | 依赖 | 类型 | 状态 |
+|---|---|---|---|---|---|
+| T1 | 认证底座：平台 token + agent API Key + 统一 Principal | `identity` `config` `api` | — | 阻塞 | ✅ 完成 |
+| T3 | Agent-ready Facade | `facade`(新) | T1 | 阻塞 | 待开始 |
+| T4 | 统一响应契约 + 错误码 + OpenAPI | `api` | T3 | 底座 | 待开始 |
+| T5 | 有界查询 / 分页 / 数据可用性 | `execution` `monitoring` `report` | T4 | 底座 | 待开始 |
+| T6 | 数据链关联骨架（关联键 + 时钟对齐） | `evidence`(新) | T5 | 底座 | 待开始 |
+| T7 | 确定性分析 | `analysis`(新) | T6 | 底座 | 待开始 |
+| T8 | 压测执行工具化（幂等 / 预检 / 异步任务） | `execution` `task` | T4 | 底座 | 待开始 |
+| T9 | 补充取证 + 优化验证 | `execution` `facade` | T7 T8 | 底座 | 待开始 |
+| T10 | 治理（脱敏 / 审计 / 限流） | 跨模块 | T3 | 底座 | 待开始 |
+| T11 | 深度证据逐源接入 | `evidence` `monitoring` | T6 | 底座(渐进) | 待开始 |
+| T12 | MCP Server | `mcp`(新) | T4 T5 T10 | 方案2 | 待开始 |
+| T13 | Skill Pack + Claude Code 验收 | 交付物 | T12 | 方案2 | 待开始 |
+| T2 | 细粒度授权（项目/角色/工具级策略） | `project` `identity` `facade` | T1 T3 | 按需·后移 | 后移 |
 
 > 排除项（不列为任务）：`llm` 层扩建 Agent Runtime / Tool Calling / 多轮会话。现有 `LlmGateway` 单次调用保留作平台自身轻量用途（如报告摘要）。
 
@@ -43,23 +43,25 @@
 
 ## M1 认证底座
 
-### T1 认证底座：平台 token + agent API Key + 统一 Principal —— [阻塞]
+### T1 认证底座：平台 token + agent API Key + 统一 Principal —— [✅ 完成]
 - 目标：平台从当前「无请求级身份」变为所有请求携带并校验身份。平台用户用简单 token 全站认证；agent 面用独立 API Key；两者共用同一条 Spring Security 过滤链，解析为统一 `Principal(human|machine)` 注入下游。
 - 涉及：`identity` `config` `api/AuthController` + `frontend`(登录态适配)。依赖：无。
-- 现状约束：`/api/auth/login` 现在只校验密码、返回 `AuthenticatedUser`，**不签发 token**；`SecurityConfiguration` 全放行。启用全站校验会破坏现有前端，需前端配合存储并在请求头携带 token。
+- 交付：OpenSpec change `add-auth-foundation`（已归档至 `openspec/changes/archive/2026-07-24-add-auth-foundation/`）；主 spec `openspec/specs/platform-authentication/spec.md`。
+- 实现要点：服务端 opaque token（存哈希，TTL 24h）；`Authorization: Bearer` / `X-API-Key` 双头；ADMIN 可管理 Agent API Key（前端系统配置 tab）。
 - 本任务不含授权：只判断「身份是否有效」，不判断「能否访问某资源」（授权见 T2，后移）。
 - 验收：登录拿 token→带 token 访问通过；无/失效 token→401；签发 API Key→带 Key 访问通过；吊销后→401。
 
-- [ ] 定义统一 `Principal` 抽象：human（username/roles）与 machine（apiKeyId/预留 scope）两种主体，注入请求上下文
-- [ ] 平台用户：`login` 成功后签发 token（形态在设计阶段定：无状态 JWT 或服务端 opaque token），随响应返回
-- [ ] 平台用户：鉴权过滤器校验 token，解析为 human Principal；缺失/失效→401
-- [ ] agent：新增 API Key 实体 + 仓库，支持签发 / 吊销 / 过期（scope 字段预留，暂不做策略判定）
-- [ ] agent：同一 `SecurityFilterChain` 内识别 API Key，解析为 machine Principal
-- [ ] `SecurityConfiguration` 改为默认 `authenticated`，白名单仅 `/api/auth/login`、健康检查、OpenAPI
-- [ ] 对外统一 401/未授权稳定语义；真实原因最小化记录（完整审计复用 T10）
-- [ ] 前端：登录态适配——存储 token 并在请求头统一注入（`frontend`）
-- [ ] 先失败测试：无 token→401、失效 token→401、有效 token→200；无 Key→401、有效/已吊销 Key→200/401
-- [ ] 验证：`./gradlew :backend:test` 相关用例通过；前端登录后带 token 正常访问
+- [x] 定义统一 `Principal` 抽象：human（username/roles）与 machine（apiKeyId/预留 scope）两种主体，注入请求上下文
+- [x] 平台用户：`login` 成功后签发服务端 opaque token，随响应返回
+- [x] 平台用户：鉴权过滤器校验 token，解析为 human Principal；缺失/失效→401
+- [x] agent：新增 API Key 实体 + 仓库，支持签发 / 吊销 / 过期（scope 字段预留，暂不做策略判定）
+- [x] agent：同一 `SecurityFilterChain` 内识别 API Key，解析为 machine Principal
+- [x] `SecurityConfiguration` 改为默认 `authenticated`，白名单 `/api/auth/login`、`/actuator/health`
+- [x] 对外统一 401/未授权稳定语义；真实原因最小化记录（完整审计复用 T10）
+- [x] 前端：登录态适配——存储 token 并在请求头统一注入；401 清会话并跳登录
+- [x] Agent API Key 管理页（系统配置 tab，仅 ADMIN）：列表 / 签发一次性明文 / 吊销
+- [x] 先失败测试：无 token→401、失效 token→401、有效 token→200；无 Key→401、有效/已吊销 Key→200/401
+- [x] 验证：后端认证相关测试通过；前端联调通过
 
 ---
 
