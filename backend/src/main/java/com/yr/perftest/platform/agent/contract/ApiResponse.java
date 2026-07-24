@@ -15,6 +15,17 @@ public record ApiResponse<T>(
         return new ApiResponse<>(requestId, schemaVersion, data, null, List.of(), null, null);
     }
 
+    public static <T> ApiResponse<T> paged(
+            String requestId,
+            String schemaVersion,
+            T data,
+            List<String> warnings,
+            boolean truncated,
+            String nextCursor
+    ) {
+        return new ApiResponse<>(requestId, schemaVersion, data, null, warnings, truncated, nextCursor);
+    }
+
     public static <T> ApiResponse<T> error(String requestId, String schemaVersion, ApiErrorBody error) {
         return new ApiResponse<>(requestId, schemaVersion, null, error, List.of(), null, null);
     }

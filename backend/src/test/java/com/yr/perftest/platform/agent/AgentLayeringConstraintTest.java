@@ -12,10 +12,23 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AgentLayeringConstraintTest {
+    private static final List<String> BOUNDED_QUERY_CONTROLLERS = List.of(
+            "AgentAggregateController.java",
+            "AgentFailureSampleController.java",
+            "AgentMetricSeriesController.java",
+            "AgentPrometheusController.java"
+    );
+
     @Test
     void agentPackageDoesNotDependOnRepositoriesFilesOrPrometheus() throws IOException {
         Path root = Path.of("src/main/java/com/yr/perftest/platform/agent");
         assertThat(Files.isDirectory(root)).as("agent package exists").isTrue();
+
+        Path executionPackage = root.resolve("execution");
+        assertThat(BOUNDED_QUERY_CONTROLLERS)
+                .allSatisfy(fileName -> assertThat(executionPackage.resolve(fileName))
+                        .as(fileName + " exists")
+                        .isRegularFile());
 
         List<String> violations = new ArrayList<>();
         try (Stream<Path> paths = Files.walk(root)) {

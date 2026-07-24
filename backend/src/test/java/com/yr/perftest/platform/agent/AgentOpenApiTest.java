@@ -44,6 +44,21 @@ class AgentOpenApiTest {
                 .anyMatch(path -> path.contains("/api/agent/executions/") && path.contains("/summary"));
     }
 
+    @Test
+    void openApiContainsBoundedQueryEndpoints() throws Exception {
+        String token = loginToken();
+        MvcResult result = mockMvc.perform(get("/v3/api-docs/agent")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode paths = objectMapper.readTree(result.getResponse().getContentAsString()).path("paths");
+        assertThat(paths.fieldNames()).toIterable().anyMatch(path -> path.contains("/aggregate"));
+        assertThat(paths.fieldNames()).toIterable().anyMatch(path -> path.contains("/metrics/series"));
+        assertThat(paths.fieldNames()).toIterable().anyMatch(path -> path.contains("/failure-samples"));
+        assertThat(paths.fieldNames()).toIterable().anyMatch(path -> path.contains("/prometheus"));
+    }
+
     private String loginToken() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

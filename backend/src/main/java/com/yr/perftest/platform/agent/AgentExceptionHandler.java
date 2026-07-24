@@ -4,6 +4,8 @@ import com.yr.perftest.platform.agent.contract.AgentErrorCode;
 import com.yr.perftest.platform.agent.contract.ApiErrorBody;
 import com.yr.perftest.platform.agent.contract.ApiResponse;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
+import com.yr.perftest.platform.facade.DataSourceUnavailableException;
+import com.yr.perftest.platform.facade.query.Availability;
 import com.yr.perftest.platform.identity.AuthenticationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestControllerAdvice(basePackages = "com.yr.perftest.platform.agent")
@@ -29,6 +32,28 @@ public class AgentExceptionHandler {
             return envelope(HttpStatus.NOT_FOUND, AgentErrorCode.NOT_FOUND, message);
         }
         return envelope(HttpStatus.BAD_REQUEST, AgentErrorCode.VALIDATION_FAILED, message);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException exception) {
+        return envelope(HttpStatus.BAD_REQUEST, AgentErrorCode.VALIDATION_FAILED, exception.getMessage());
+    }
+
+    @ExceptionHandler(DataSourceUnavailableException.class)
+    public ResponseEntity<?> handleDataSourceUnavailable(DataSourceUnavailableException exception) {
+        if (exception.availability() != null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(new ApiResponse<>(
+                            UUID.randomUUID().toString(),
+                            SCHEMA_VERSION,
+                            new AvailabilityData(exception.availability()),
+                            new ApiErrorBody(AgentErrorCode.DATA_SOURCE_UNAVAILABLE, exception.getMessage()),
+                            List.of(),
+                            null,
+                            null
+                    ));
+        }
+        return envelope(HttpStatus.SERVICE_UNAVAILABLE, AgentErrorCode.DATA_SOURCE_UNAVAILABLE, exception.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -56,5 +81,8 @@ public class AgentExceptionHandler {
                         SCHEMA_VERSION,
                         new ApiErrorBody(code, message)
                 ));
+    }
+
+    public record AvailabilityData(Availability availability) {
     }
 }

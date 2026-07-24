@@ -226,6 +226,19 @@ public class ScenarioExecutionService {
     }
 
     @Transactional(readOnly = true)
+    public FailureSampleSlice listFailureSamplesAfter(long executionId, long lastId, int limit) throws Exception {
+        PersistentScenarioExecutionRecord execution = requireExecution(executionId);
+        Path dbPath = resolveDbPath(execution);
+        if (dbPath == null || !Files.exists(dbPath)) {
+            return new FailureSampleSlice(List.of(), FailureSamplePaths.SQLITE_FILE);
+        }
+        return new FailureSampleSlice(
+                failureSampleStore.listSummariesAfter(dbPath, lastId, limit),
+                dbPath.getFileName().toString()
+        );
+    }
+
+    @Transactional(readOnly = true)
     public TaskExecutionResult.Sample getSampleDetail(long executionId, long sampleId) {
         PersistentScenarioExecutionRecord execution = requireExecution(executionId);
         Path dbPath = resolveDbPath(execution);
@@ -455,6 +468,9 @@ public class ScenarioExecutionService {
                 || status == ExecutionStatus.FAILED
                 || status == ExecutionStatus.CANCELLED
                 || status == ExecutionStatus.INTERRUPTED;
+    }
+
+    public record FailureSampleSlice(List<TaskExecutionResult.Sample> samples, String sourceName) {
     }
 
 }
