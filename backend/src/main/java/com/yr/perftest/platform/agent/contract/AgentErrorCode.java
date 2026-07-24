@@ -1,0 +1,15 @@
+package com.yr.perftest.platform.agent.contract;
+
+public enum AgentErrorCode {
+    AUTHENTICATION_FAILED,
+    ACCESS_DENIED,
+    NOT_FOUND,
+    DATA_SOURCE_UNAVAILABLE,
+    QUERY_TOO_LARGE,
+    TIMEOUT,
+    RATE_LIMITED,
+    IDEMPOTENCY_CONFLICT,
+    EXECUTION_CONFLICT,
+    VALIDATION_FAILED,
+    INTERNAL_ERROR
+}
