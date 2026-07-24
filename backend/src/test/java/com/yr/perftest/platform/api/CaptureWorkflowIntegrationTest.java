@@ -1,5 +1,6 @@
 package com.yr.perftest.platform.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.seed.CaptureBatchConsumer;
 import com.yr.perftest.platform.seed.CaptureChunkStore;
 import com.yr.perftest.platform.seed.CapturePartitionPlanner;
@@ -65,6 +66,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class CaptureWorkflowIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private String authToken;
+
+    @BeforeEach
+    void authenticate() throws Exception {
+        authToken = AuthTestSupport.loginToken(mockMvc, objectMapper);
+    }
 
     @Autowired
     private PersistentSeedDatasourceRepository datasourceRepository;
@@ -243,6 +254,7 @@ class CaptureWorkflowIntegrationTest {
     @Test
     void retiredSessionEndpointsDoNotCreateLegacySessions() throws Exception {
         mockMvc.perform(post("/api/projects/1/seed/captures")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -253,9 +265,11 @@ class CaptureWorkflowIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(post("/api/projects/1/seed/captures/1/samples"))
+        mockMvc.perform(post("/api/projects/1/seed/captures/1/samples")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(post("/api/projects/1/seed/captures/1/finish"))
+        mockMvc.perform(post("/api/projects/1/seed/captures/1/finish")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isNotFound());
         assertThat(legacySessionRepository.count()).isZero();
     }

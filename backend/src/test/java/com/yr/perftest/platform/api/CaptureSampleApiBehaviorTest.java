@@ -1,5 +1,6 @@
 package com.yr.perftest.platform.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.seed.DatasourceCaptureLeaseService;
 import com.yr.perftest.platform.seed.CaptureChunkStore;
 import com.yr.perftest.platform.seed.PersistentSeedCaptureChunkRecord;
@@ -54,6 +55,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class CaptureSampleApiBehaviorTest {
     @BeforeEach
+    void authenticate() throws Exception {
+        authToken = AuthTestSupport.loginToken(mockMvc, objectMapper);
+    }
+
+    @BeforeEach
     void cleanStorage() throws IOException {
         Path root = Path.of("build/test-storage/capture-sample-api");
         if (Files.exists(root)) {
@@ -71,6 +77,11 @@ class CaptureSampleApiBehaviorTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private String authToken;
 
     @Autowired
     private PersistentSeedCaptureStrategyRepository strategyRepository;
@@ -128,7 +139,8 @@ class CaptureSampleApiBehaviorTest {
         sampleRepository.saveAndFlush(sample);
         leaseService.acquire(strategy.getDatasourceId(), sample.getId());
 
-        mockMvc.perform(get("/api/projects/1/seed/samples/" + sample.getId()))
+        mockMvc.perform(get("/api/projects/1/seed/samples/" + sample.getId())
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("CAPTURING")))
                 .andExpect(jsonPath("$.completedTables", is(2)))
@@ -136,6 +148,7 @@ class CaptureSampleApiBehaviorTest {
                 .andExpect(jsonPath("$.activeWorkers", is(1)));
 
         mockMvc.perform(post("/api/projects/1/seed/samples/" + sample.getId() + "/cancel")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.status", is("CANCEL_REQUESTED")));
@@ -156,6 +169,7 @@ class CaptureSampleApiBehaviorTest {
         saveSample(strategy, 3, "FAILED", sameStart.plusSeconds(60));
 
         mockMvc.perform(get("/api/projects/1/seed/capture-strategies/1/samples")
+                        .header("Authorization", "Bearer " + authToken)
                         .param("status", "SUCCEEDED")
                         .param("from", sameStart.toString())
                         .param("to", sameStart.toString())
@@ -167,6 +181,7 @@ class CaptureSampleApiBehaviorTest {
                 .andExpect(jsonPath("$.content[0].sampleSeq", is(2)));
 
         mockMvc.perform(get("/api/projects/1/seed/capture-strategies/1/samples")
+                        .header("Authorization", "Bearer " + authToken)
                         .param("status", "SUCCEEDED")
                         .param("from", sameStart.toString())
                         .param("to", sameStart.toString())
@@ -214,7 +229,8 @@ class CaptureSampleApiBehaviorTest {
                 100L
         ));
 
-        mockMvc.perform(get("/api/projects/1/seed/capture-samples/" + sample.getId() + "/tables"))
+        mockMvc.perform(get("/api/projects/1/seed/capture-samples/" + sample.getId() + "/tables")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tables", hasSize(1)))
                 .andExpect(jsonPath("$.tables[0].tableName", is("shop.orders")))
@@ -254,7 +270,8 @@ class CaptureSampleApiBehaviorTest {
 
         String nextCursor = mockMvc.perform(get(
                         "/api/projects/1/seed/capture-samples/" + sample.getId() + "/tables/shop.orders/rows"
-                ).param("limit", "3"))
+                ).header("Authorization", "Bearer " + authToken)
+                .param("limit", "3"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rows", hasSize(3)))
                 .andExpect(jsonPath("$.rows[0].id", is(1)))
@@ -270,7 +287,8 @@ class CaptureSampleApiBehaviorTest {
 
         mockMvc.perform(get(
                         "/api/projects/1/seed/capture-samples/" + sample.getId() + "/tables/shop.orders/rows"
-                ).param("cursor", cursor).param("limit", "3"))
+                ).header("Authorization", "Bearer " + authToken)
+                .param("cursor", cursor).param("limit", "3"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rows", hasSize(2)))
                 .andExpect(jsonPath("$.rows[0].id", is(4)))
@@ -297,7 +315,8 @@ class CaptureSampleApiBehaviorTest {
                 new PersistentSeedCaptureAnalysisInputLockRecord(analysis.getId(), sample.getId())
         );
 
-        mockMvc.perform(delete("/api/projects/1/seed/capture-samples/" + sample.getId()))
+        mockMvc.perform(delete("/api/projects/1/seed/capture-samples/" + sample.getId())
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", org.hamcrest.Matchers.containsString(
                         "active analysis"
@@ -317,7 +336,8 @@ class CaptureSampleApiBehaviorTest {
         PersistentSeedCaptureChunkRecord chunk = writeChunk(sample, strategy, 0, List.of(row(1)));
         chunkRepository.saveAndFlush(chunk);
 
-        mockMvc.perform(delete("/api/projects/1/seed/capture-samples/" + sample.getId()))
+        mockMvc.perform(delete("/api/projects/1/seed/capture-samples/" + sample.getId())
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isNoContent());
 
         org.assertj.core.api.Assertions.assertThat(sampleRepository.findById(sample.getId())).isEmpty();
@@ -392,6 +412,7 @@ class CaptureSampleApiBehaviorTest {
 
     private void createProject() throws Exception {
         mockMvc.perform(post("/api/projects")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-User", "admin")
                         .content("{\"code\":\"sample-project\",\"name\":\"Sample Project\",\"description\":\"Seed\"}"))
@@ -400,6 +421,7 @@ class CaptureSampleApiBehaviorTest {
 
     private void createDatasource() throws Exception {
         mockMvc.perform(post("/api/projects/1/seed/datasources")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -416,6 +438,7 @@ class CaptureSampleApiBehaviorTest {
 
     private void createStrategy() throws Exception {
         mockMvc.perform(post("/api/projects/1/seed/capture-strategies")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

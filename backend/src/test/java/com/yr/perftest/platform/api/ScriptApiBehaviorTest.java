@@ -1,5 +1,7 @@
 package com.yr.perftest.platform.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -29,6 +31,16 @@ class ScriptApiBehaviorTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private String authToken;
+
+    @BeforeEach
+    void authenticate() throws Exception {
+        authToken = AuthTestSupport.loginToken(mockMvc, objectMapper);
+    }
+
     @Test
     void uploadsAndListsJmeterScriptVersions() throws Exception {
         createProject();
@@ -42,13 +54,15 @@ class ScriptApiBehaviorTest {
 
         mockMvc.perform(multipart("/api/projects/1/scripts")
                         .file(script)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.projectId", is(1)))
                 .andExpect(jsonPath("$.versionNo", is(1)))
                 .andExpect(jsonPath("$.originalFilename", is("loan-search.jmx")));
 
-        mockMvc.perform(get("/api/projects/1/scripts"))
+        mockMvc.perform(get("/api/projects/1/scripts")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].versionNo", is(1)));
@@ -60,6 +74,7 @@ class ScriptApiBehaviorTest {
 
         mockMvc.perform(post("/api/projects/1/scripts")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
                         .content("{\"name\":\"登录链路压测\"}"))
                 .andExpect(status().isCreated())
@@ -82,6 +97,7 @@ class ScriptApiBehaviorTest {
 
         mockMvc.perform(multipart("/api/projects/1/scripts")
                         .file(script)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", is("only .jmx files are supported")));
@@ -90,6 +106,7 @@ class ScriptApiBehaviorTest {
     private void createProject() throws Exception {
         mockMvc.perform(post("/api/projects")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
                         .content("{\"code\":\"loan-core\",\"name\":\"信贷核心压测\",\"description\":\"授信和放款链路\"}"))
                 .andExpect(status().isCreated());

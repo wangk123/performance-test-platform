@@ -24,6 +24,7 @@ export const configTabOptions: Array<{ label: string; value: ConfigTab }> = [
   { label: '用户管理', value: 'users' },
   { label: '角色管理', value: 'roles' },
   { label: '权限配置', value: 'permissions' },
+  { label: 'Agent API Key', value: 'agent-api-keys' },
 ];
 
 export const llmConfigTabOptions: Array<{ label: string; value: LlmConfigTab }> = [

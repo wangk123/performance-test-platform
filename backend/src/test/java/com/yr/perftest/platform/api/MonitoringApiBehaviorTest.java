@@ -1,5 +1,7 @@
 package com.yr.perftest.platform.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -33,16 +35,28 @@ class MonitoringApiBehaviorTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private String authToken;
+
+    @BeforeEach
+    void authenticate() throws Exception {
+        authToken = AuthTestSupport.loginToken(mockMvc, objectMapper);
+    }
+
     @Test
     void managesServerMonitorTargetsAndWritesExporterDiscovery() throws Exception {
         mockMvc.perform(post("/api/projects")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
                         .content("{\"code\":\"loan-core\",\"name\":\"信贷核心压测\",\"description\":\"授信链路\"}"))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(post("/api/projects/1/monitor-targets")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .content("""
                                 {
                                   "name":"订单服务器",
@@ -77,7 +91,8 @@ class MonitoringApiBehaviorTest {
                 .andExpect(jsonPath("$.items", hasSize(2)))
                 .andExpect(jsonPath("$.items[0].processKeyword", is("order-service.jar")));
 
-        mockMvc.perform(get("/api/projects/1/monitor-targets"))
+        mockMvc.perform(get("/api/projects/1/monitor-targets")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].address", is("127.0.0.1:9100")));
@@ -95,6 +110,7 @@ class MonitoringApiBehaviorTest {
 
         mockMvc.perform(put("/api/monitor-targets/1")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .content("""
                                 {
                                   "name":"订单服务器",
@@ -112,15 +128,18 @@ class MonitoringApiBehaviorTest {
                 .andExpect(jsonPath("$.address", is("127.0.0.1:9200")))
                 .andExpect(jsonPath("$.items", hasSize(0)));
 
-        mockMvc.perform(post("/api/monitor-targets/1/check"))
+        mockMvc.perform(post("/api/monitor-targets/1/check")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.lastCheckStatus", is("FAILED")))
                 .andExpect(jsonPath("$.lastCheckMessage", containsString("unavailable")));
 
-        mockMvc.perform(delete("/api/monitor-targets/1"))
+        mockMvc.perform(delete("/api/monitor-targets/1")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/projects/1/monitor-targets"))
+        mockMvc.perform(get("/api/projects/1/monitor-targets")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(0)));
     }
@@ -129,12 +148,14 @@ class MonitoringApiBehaviorTest {
     void preservesRemoteDeployFieldsOnPartialUpdate() throws Exception {
         mockMvc.perform(post("/api/projects")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
                         .content("{\"code\":\"loan-core\",\"name\":\"信贷核心压测\",\"description\":\"授信链路\"}"))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(post("/api/projects/1/monitor-targets")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .content("""
                                 {
                                   "name":"订单服务器",
@@ -158,6 +179,7 @@ class MonitoringApiBehaviorTest {
 
         mockMvc.perform(put("/api/monitor-targets/1")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .content("""
                                 {
                                   "name":"订单服务器-更新",

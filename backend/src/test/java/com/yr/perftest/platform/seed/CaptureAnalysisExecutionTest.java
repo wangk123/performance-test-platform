@@ -1,5 +1,7 @@
 package com.yr.perftest.platform.seed;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yr.perftest.platform.api.AuthTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,6 +78,16 @@ class CaptureAnalysisExecutionTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private String authToken;
+
+    @BeforeEach
+    void authenticate() throws Exception {
+        authToken = AuthTestSupport.loginToken(mockMvc, objectMapper);
+    }
+
     @BeforeEach
     void cleanStorage() throws IOException {
         if (!Files.exists(STORAGE)) {
@@ -133,14 +145,15 @@ class CaptureAnalysisExecutionTest {
 
         mockMvc.perform(get(
                         "/api/projects/1/seed/capture-analyses/" + analysisId
-                ))
+                ).header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.inputManifest.samples", org.hamcrest.Matchers.hasSize(3)));
         mockMvc.perform(get(
                         "/api/projects/1/seed/capture-analyses/"
                                 + analysisId + "/tables/shop.orders/diffs"
-                ).param("limit", "10"))
+                ).header("Authorization", "Bearer " + authToken)
+                .param("limit", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rows", org.hamcrest.Matchers.hasSize(2)))
                 .andExpect(jsonPath("$.rows[0].kind").value("UPDATE"))

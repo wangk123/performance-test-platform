@@ -1,5 +1,8 @@
 package com.yr.perftest.platform.jmeterfunction;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yr.perftest.platform.api.AuthTestSupport;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -26,9 +29,20 @@ class JmeterFunctionApiBehaviorTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private String authToken;
+
+    @BeforeEach
+    void authenticate() throws Exception {
+        authToken = AuthTestSupport.loginToken(mockMvc, objectMapper);
+    }
+
     @Test
     void listsFunctions() throws Exception {
-        mockMvc.perform(get("/api/jmeter-functions"))
+        mockMvc.perform(get("/api/jmeter-functions")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(11)))
                 .andExpect(jsonPath("$[*].key", hasItem("randomMobile")))
@@ -38,7 +52,8 @@ class JmeterFunctionApiBehaviorTest {
 
     @Test
     void downloadsFunctionPackage() throws Exception {
-        mockMvc.perform(get("/api/jmeter-functions/download"))
+        mockMvc.perform(get("/api/jmeter-functions/download")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("perftest-jmeter-functions.jar")))
                 .andExpect(content().contentType("application/java-archive"));

@@ -1,7 +1,9 @@
 package com.yr.perftest.platform.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.seed.PersistentSeedCaptureSampleRecord;
 import com.yr.perftest.platform.seed.PersistentSeedCaptureSampleRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -36,6 +38,16 @@ class CaptureStrategyApiBehaviorTest {
     private MockMvc mockMvc;
 
     @Autowired
+    private ObjectMapper objectMapper;
+
+    private String authToken;
+
+    @BeforeEach
+    void authenticate() throws Exception {
+        authToken = AuthTestSupport.loginToken(mockMvc, objectMapper);
+    }
+
+    @Autowired
     private PersistentSeedCaptureSampleRepository sampleRepository;
 
     @Test
@@ -44,6 +56,7 @@ class CaptureStrategyApiBehaviorTest {
         createDatasource();
 
         mockMvc.perform(post("/api/projects/1/seed/capture-strategies")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(strategyJson("baseline", 1, List.of("db.*"), List.of(), 4, 5000)))
                 .andExpect(status().isCreated())
@@ -51,16 +64,19 @@ class CaptureStrategyApiBehaviorTest {
                 .andExpect(jsonPath("$.includes[0]", is("db.*")))
                 .andExpect(jsonPath("$.configVersion", is(1)));
 
-        mockMvc.perform(get("/api/projects/1/seed/capture-strategies"))
+        mockMvc.perform(get("/api/projects/1/seed/capture-strategies")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].name", is("baseline")));
 
-        mockMvc.perform(get("/api/projects/1/seed/capture-strategies/1"))
+        mockMvc.perform(get("/api/projects/1/seed/capture-strategies/1")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.batchRows", is(5000)));
 
         mockMvc.perform(put("/api/projects/1/seed/capture-strategies/1")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(strategyJson("baseline-v2", 1, List.of("db.orders"), List.of("db.audit"), 8, 10000)))
                 .andExpect(status().isOk())
@@ -68,10 +84,12 @@ class CaptureStrategyApiBehaviorTest {
                 .andExpect(jsonPath("$.configVersion", is(2)))
                 .andExpect(jsonPath("$.excludes[0]", is("db.audit")));
 
-        mockMvc.perform(delete("/api/projects/1/seed/capture-strategies/1"))
+        mockMvc.perform(delete("/api/projects/1/seed/capture-strategies/1")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/projects/1/seed/capture-strategies"))
+        mockMvc.perform(get("/api/projects/1/seed/capture-strategies")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(0)));
     }
@@ -82,18 +100,21 @@ class CaptureStrategyApiBehaviorTest {
         createDatasource();
 
         mockMvc.perform(post("/api/projects/1/seed/capture-strategies")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(strategyJson("empty-include", 1, List.of(), List.of(), 4, 5000)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", is("include filter is required")));
 
         mockMvc.perform(post("/api/projects/1/seed/capture-strategies")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(strategyJson("bad-thread", 1, List.of("db.*"), List.of(), 0, 5000)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", is("threadCount must be between 1 and 32")));
 
         mockMvc.perform(post("/api/projects/1/seed/capture-strategies")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(strategyJson("bad-batch", 1, List.of("db.*"), List.of(), 4, 99)))
                 .andExpect(status().isBadRequest())
@@ -105,22 +126,26 @@ class CaptureStrategyApiBehaviorTest {
         createProject();
         createDatasource();
         mockMvc.perform(post("/api/projects")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-User", "admin")
                         .content("{\"code\":\"other\",\"name\":\"Other\",\"description\":\"Other\"}"))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(post("/api/projects/2/seed/capture-strategies")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(strategyJson("wrong-owner", 1, List.of("db.*"), List.of(), 4, 5000)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", is("datasource not found: 1")));
 
-        mockMvc.perform(get("/api/projects/1/seed/capture-strategies/999"))
+        mockMvc.perform(get("/api/projects/1/seed/capture-strategies/999")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", is("capture strategy not found: 999")));
 
-        mockMvc.perform(post("/api/projects/1/seed/capture-strategies/999/execute"))
+        mockMvc.perform(post("/api/projects/1/seed/capture-strategies/999/execute")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", is("capture strategy not found: 999")));
     }
@@ -130,18 +155,21 @@ class CaptureStrategyApiBehaviorTest {
         createProject();
         createDatasource();
         mockMvc.perform(post("/api/projects/1/seed/capture-strategies")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(strategyJson("baseline", 1, List.of("db.*"), List.of(), 4, 5000)))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(post("/api/projects/1/seed/capture-strategies/1/execute"))
+        mockMvc.perform(post("/api/projects/1/seed/capture-strategies/1/execute")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status", is("QUEUED")))
                 .andExpect(jsonPath("$.sampleSeq", is(1)))
                 .andExpect(jsonPath("$.configVersion", is(1)))
                 .andExpect(jsonPath("$.captureStartedAt", matchesPattern(".+Z")));
 
-        mockMvc.perform(post("/api/projects/1/seed/capture-strategies/1/execute"))
+        mockMvc.perform(post("/api/projects/1/seed/capture-strategies/1/execute")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", matchesPattern(".*active capture.*")));
 
@@ -160,6 +188,7 @@ class CaptureStrategyApiBehaviorTest {
 
     private void createProject() throws Exception {
         mockMvc.perform(post("/api/projects")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-User", "admin")
                         .content("{\"code\":\"seed-project\",\"name\":\"Seed Project\",\"description\":\"Seed\"}"))
@@ -168,6 +197,7 @@ class CaptureStrategyApiBehaviorTest {
 
     private void createDatasource() throws Exception {
         mockMvc.perform(post("/api/projects/1/seed/datasources")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

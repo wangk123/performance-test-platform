@@ -10,6 +10,7 @@ import com.yr.perftest.platform.script.ScriptValidationException;
 import com.yr.perftest.platform.seed.SeedValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -62,6 +63,12 @@ public class PlatformExceptionHandler {
     public ResponseEntity<ApiError> handleSeedValidation(SeedValidationException exception) {
         return ResponseEntity.badRequest()
                 .body(new ApiError("SEED_VALIDATION_FAILED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException exception) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ApiError("ACCESS_DENIED", exception.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

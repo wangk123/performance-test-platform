@@ -1,9 +1,11 @@
 package com.yr.perftest.platform.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.seed.PersistentSeedCaptureStrategyRecord;
 import com.yr.perftest.platform.seed.PersistentSeedCaptureStrategyRepository;
 import com.yr.perftest.platform.seed.PersistentSeedCaptureSampleRecord;
 import com.yr.perftest.platform.seed.PersistentSeedCaptureSampleRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -34,6 +36,16 @@ class CaptureAnalysisApiBehaviorTest {
     private MockMvc mockMvc;
 
     @Autowired
+    private ObjectMapper objectMapper;
+
+    private String authToken;
+
+    @BeforeEach
+    void authenticate() throws Exception {
+        authToken = AuthTestSupport.loginToken(mockMvc, objectMapper);
+    }
+
+    @Autowired
     private PersistentSeedCaptureStrategyRepository strategyRepository;
 
     @Autowired
@@ -46,6 +58,7 @@ class CaptureAnalysisApiBehaviorTest {
         createStrategy();
 
         mockMvc.perform(post("/api/projects/1/seed/capture-analyses")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -68,6 +81,7 @@ class CaptureAnalysisApiBehaviorTest {
         saveSample(strategy, 3, "SUCCEEDED");
 
         mockMvc.perform(post("/api/projects/1/seed/capture-analyses")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -90,6 +104,7 @@ class CaptureAnalysisApiBehaviorTest {
         saveSample(strategy, 3, "SUCCEEDED");
 
         mockMvc.perform(post("/api/projects/1/seed/capture-analyses")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -104,6 +119,7 @@ class CaptureAnalysisApiBehaviorTest {
 
     private void createProject() throws Exception {
         mockMvc.perform(post("/api/projects")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-User", "admin")
                         .content("{\"code\":\"analysis-project\",\"name\":\"Analysis Project\",\"description\":\"Seed\"}"))
@@ -112,6 +128,7 @@ class CaptureAnalysisApiBehaviorTest {
 
     private void createDatasource() throws Exception {
         mockMvc.perform(post("/api/projects/1/seed/datasources")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -128,6 +145,7 @@ class CaptureAnalysisApiBehaviorTest {
 
     private void createStrategy() throws Exception {
         mockMvc.perform(post("/api/projects/1/seed/capture-strategies")
+                        .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

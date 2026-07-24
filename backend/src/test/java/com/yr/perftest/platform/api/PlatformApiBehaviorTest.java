@@ -1,5 +1,7 @@
 package com.yr.perftest.platform.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -29,6 +31,16 @@ class PlatformApiBehaviorTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private String authToken;
+
+    @BeforeEach
+    void authenticate() throws Exception {
+        authToken = AuthTestSupport.loginToken(mockMvc, objectMapper);
+    }
+
     @Test
     void authenticatesDemoUser() throws Exception {
         mockMvc.perform(post("/api/auth/login")
@@ -44,27 +56,32 @@ class PlatformApiBehaviorTest {
     void createsListsAndArchivesProjects() throws Exception {
         mockMvc.perform(post("/api/projects")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
                         .content("{\"code\":\"loan-core\",\"name\":\"信贷核心压测\",\"description\":\"授信和放款链路\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.code", is("loan-core")))
                 .andExpect(jsonPath("$.status", is("ACTIVE")));
 
-        mockMvc.perform(get("/api/projects"))
+        mockMvc.perform(get("/api/projects")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].name", is("信贷核心压测")));
 
         mockMvc.perform(patch("/api/projects/1/archive")
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("ARCHIVED")));
 
-        mockMvc.perform(get("/api/projects"))
+        mockMvc.perform(get("/api/projects")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(0)));
 
-        mockMvc.perform(get("/api/projects?includeArchived=true"))
+        mockMvc.perform(get("/api/projects?includeArchived=true")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].status", is("ARCHIVED")));
@@ -74,12 +91,14 @@ class PlatformApiBehaviorTest {
     void managesProjectMembersAndRestrictsOwnerActions() throws Exception {
         mockMvc.perform(post("/api/projects")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
                         .content("{\"code\":\"risk-core\",\"name\":\"风控核心压测\",\"description\":\"规则引擎链路\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id", is(1)));
 
-        mockMvc.perform(get("/api/projects/1/members"))
+        mockMvc.perform(get("/api/projects/1/members")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].username", is("admin")))
@@ -87,17 +106,20 @@ class PlatformApiBehaviorTest {
 
         mockMvc.perform(post("/api/projects/1/members")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
                         .content("{\"username\":\"tester\",\"role\":\"MEMBER\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.username", is("tester")))
                 .andExpect(jsonPath("$.role", is("MEMBER")));
 
-        mockMvc.perform(get("/api/projects/1/members"))
+        mockMvc.perform(get("/api/projects/1/members")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)));
 
         mockMvc.perform(patch("/api/projects/1/archive")
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "tester"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", is("project owner permission is required")));
@@ -107,34 +129,40 @@ class PlatformApiBehaviorTest {
     void getsUpdatesAndRemovesProjectMembers() throws Exception {
         mockMvc.perform(post("/api/projects")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
                         .content("{\"code\":\"loan-core\",\"name\":\"信贷核心压测\",\"description\":\"授信链路\"}"))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(get("/api/projects/1"))
+        mockMvc.perform(get("/api/projects/1")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code", is("loan-core")))
                 .andExpect(jsonPath("$.name", is("信贷核心压测")));
 
         mockMvc.perform(put("/api/projects/1")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
                         .content("{\"name\":\"信贷核心容量测试\",\"description\":\"授信和放款链路\",\"ownerUsername\":\"tester\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name", is("信贷核心容量测试")))
                 .andExpect(jsonPath("$.ownerUsername", is("tester")));
 
-        mockMvc.perform(get("/api/projects/1/members"))
+        mockMvc.perform(get("/api/projects/1/members")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[1].username", is("tester")))
                 .andExpect(jsonPath("$[1].role", is("OWNER")));
 
         mockMvc.perform(delete("/api/projects/1/members/admin")
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "tester"))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/projects/1/members"))
+        mockMvc.perform(get("/api/projects/1/members")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].username", is("tester")));
@@ -144,19 +172,23 @@ class PlatformApiBehaviorTest {
     void returnsDashboardSummaryWithoutLoadingProjectAssets() throws Exception {
         mockMvc.perform(post("/api/projects")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
                         .content("{\"code\":\"loan-core\",\"name\":\"信贷核心压测\",\"description\":\"授信链路\"}"))
                 .andExpect(status().isCreated());
         mockMvc.perform(post("/api/projects")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
                         .content("{\"code\":\"risk-core\",\"name\":\"风控核心压测\",\"description\":\"规则链路\"}"))
                 .andExpect(status().isCreated());
         mockMvc.perform(patch("/api/projects/2/archive")
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin"))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/dashboard/summary"))
+        mockMvc.perform(get("/api/dashboard/summary")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.activeProjectCount", is(1)))
                 .andExpect(jsonPath("$.archivedProjectCount", is(1)))

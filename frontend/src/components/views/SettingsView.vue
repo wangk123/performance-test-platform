@@ -3,7 +3,7 @@
     <div class="page-head">
       <div>
         <h1>系统配置</h1>
-        <p>管理用户、角色与平台访问边界。</p>
+        <p>管理用户、角色、平台访问边界与 Agent 凭据。</p>
       </div>
     </div>
     <div class="panel">
@@ -64,23 +64,45 @@
           </div>
         </div>
       </template>
+
+      <AgentApiKeysPanel v-else-if="activeConfigTab === 'agent-api-keys' && isAdmin" />
     </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
+import { computed, watch } from 'vue';
 import type { TableColumnsType } from 'ant-design-vue';
 import { configTabOptions, systemPermissions, systemRoles, systemUsers } from '../../constants';
+import { useAuth } from '../../composables/useAuth';
 import { useNavigation } from '../../composables/useNavigation';
 import SettingsTabBar from '../settings/SettingsTabBar.vue';
+import AgentApiKeysPanel from '../settings/AgentApiKeysPanel.vue';
 
 const { activeConfigTab } = useNavigation();
+const { currentUser } = useAuth();
 
-const tabOptions = configTabOptions.map((option) => ({
-  label: option.label,
-  value: option.value,
-}));
+const isAdmin = computed(() => (currentUser.value?.roles ?? []).includes('ADMIN'));
+
+const tabOptions = computed(() =>
+  configTabOptions
+    .filter((option) => option.value !== 'agent-api-keys' || isAdmin.value)
+    .map((option) => ({
+      label: option.label,
+      value: option.value,
+    })),
+);
+
+watch(
+  [isAdmin, activeConfigTab],
+  () => {
+    if (activeConfigTab.value === 'agent-api-keys' && !isAdmin.value) {
+      activeConfigTab.value = 'users';
+    }
+  },
+  { immediate: true },
+);
 
 type SystemUser = (typeof systemUsers)[number];
 

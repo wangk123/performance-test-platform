@@ -1,5 +1,6 @@
 package com.yr.perftest.platform.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,7 +11,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -37,8 +37,18 @@ class LlmApiBehaviorTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private String authToken;
+
     private HttpServer server;
     private String baseUrl;
+
+    @BeforeEach
+    void authenticate() throws Exception {
+        authToken = AuthTestSupport.loginToken(mockMvc, objectMapper);
+    }
 
     @BeforeEach
     void setUp() throws Exception {
@@ -76,6 +86,7 @@ class LlmApiBehaviorTest {
     void coversProviderModelAvailableAndCallFlow() throws Exception {
         mockMvc.perform(post("/api/llm/providers")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .content("""
                                 {
                                   "name":"DeepSeek",
@@ -89,13 +100,15 @@ class LlmApiBehaviorTest {
                 .andExpect(jsonPath("$.apiKeyConfigured", is(true)))
                 .andExpect(jsonPath("$.name", is("DeepSeek")));
 
-        mockMvc.perform(get("/api/llm/providers"))
+        mockMvc.perform(get("/api/llm/providers")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].apiKeyConfigured", is(true)))
                 .andExpect(jsonPath("$[0].baseUrl", is(baseUrl)));
 
         mockMvc.perform(post("/api/llm/providers/1/fetch-models")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.models", hasSize(2)))
@@ -103,6 +116,7 @@ class LlmApiBehaviorTest {
 
         mockMvc.perform(post("/api/llm/providers/1/import-models")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .content("""
                                 {
                                   "apiType":"OPENAI",
@@ -114,6 +128,7 @@ class LlmApiBehaviorTest {
 
         mockMvc.perform(post("/api/llm/providers")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .content("""
                                 {
                                   "name":"Other",
@@ -126,6 +141,7 @@ class LlmApiBehaviorTest {
 
         mockMvc.perform(post("/api/llm/models")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .content("""
                                 {"providerId":2,"modelName":"deepseek-v4-flash"}
                                 """))
@@ -133,11 +149,13 @@ class LlmApiBehaviorTest {
                 .andExpect(jsonPath("$.apiType", is("OPENAI")))
                 .andExpect(jsonPath("$.apiTypes[0]", is("OPENAI")));
 
-        mockMvc.perform(put("/api/llm/models/1/default"))
+        mockMvc.perform(put("/api/llm/models/1/default")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isDefault", is(true)));
 
-        mockMvc.perform(get("/api/llm/available-models"))
+        mockMvc.perform(get("/api/llm/available-models")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[0].models[0].modelName", is("deepseek-v4-flash")))
@@ -145,29 +163,35 @@ class LlmApiBehaviorTest {
 
         mockMvc.perform(post("/api/llm/providers/1/test")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
                         .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)));
 
-        mockMvc.perform(get("/api/llm/call-records"))
+        mockMvc.perform(get("/api/llm/call-records")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements", is(1)))
                 .andExpect(jsonPath("$.content[0].scene", is("TEST_CONNECTION")))
                 .andExpect(jsonPath("$.content[0].status", is("SUCCESS")))
                 .andExpect(jsonPath("$.content[0].requestBody", nullValue()));
 
-        mockMvc.perform(delete("/api/llm/providers/1"))
+        mockMvc.perform(delete("/api/llm/providers/1")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isConflict());
 
-        mockMvc.perform(delete("/api/llm/providers/1?cascade=true"))
+        mockMvc.perform(delete("/api/llm/providers/1?cascade=true")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/llm/models?providerId=1"))
+        mockMvc.perform(get("/api/llm/models?providerId=1")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(0)));
 
-        mockMvc.perform(get("/api/llm/call-records"))
+        mockMvc.perform(get("/api/llm/call-records")
+                        .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements", is(1)));
     }

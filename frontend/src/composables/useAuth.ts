@@ -2,7 +2,8 @@ import { reactive, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import type { User } from '../types';
 import { CURRENT_USER_KEY } from '../constants';
-import { loginApi } from '../api/auth';
+import { AUTH_TOKEN_KEY, clearAuthSession, onAuthSessionCleared } from '../api/http';
+import { loginApi, logoutApi } from '../api/auth';
 
 function readStoredUser(): User | null {
   const stored = localStorage.getItem(CURRENT_USER_KEY);
@@ -18,6 +19,15 @@ function readStoredUser(): User | null {
 
 const currentUser = ref<User | null>(readStoredUser());
 const loginLoading = ref(false);
+
+if (currentUser.value && !localStorage.getItem(AUTH_TOKEN_KEY)) {
+  clearAuthSession();
+  currentUser.value = null;
+}
+
+onAuthSessionCleared(() => {
+  currentUser.value = null;
+});
 
 const loginForm = reactive({
   username: 'admin',
@@ -40,7 +50,13 @@ async function login() {
     return false;
   }
   try {
-    currentUser.value = await loginApi(loginForm.username.trim(), loginForm.password.trim());
+    const result = await loginApi(loginForm.username.trim(), loginForm.password.trim());
+    localStorage.setItem(AUTH_TOKEN_KEY, result.token);
+    currentUser.value = {
+      username: result.username,
+      displayName: result.displayName,
+      roles: result.roles,
+    };
     message.success('已登录');
     return true;
   } catch (error) {
@@ -51,8 +67,15 @@ async function login() {
   }
 }
 
-function logout() {
-  currentUser.value = null;
+async function logout() {
+  try {
+    await logoutApi();
+  } catch {
+    // ignore logout API failures; clear local session anyway
+  } finally {
+    clearAuthSession();
+    currentUser.value = null;
+  }
 }
 
 export function useAuth() {
