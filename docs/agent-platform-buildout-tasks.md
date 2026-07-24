@@ -12,7 +12,7 @@
 | 里程碑 | 目标 | 任务 | 状态 |
 |---|---|---|---|
 | M1 认证底座 | 平台与 agent 面获得请求级身份（简单 token + API Key） | T1 | ✅ 完成（`add-auth-foundation` 已归档） |
-| M2 业务入口与契约 | 业务入口收敛到 Facade，agent 面统一响应契约 | T3 T4 | 待开始 |
+| M2 业务入口与契约 | 业务入口收敛到 Facade，agent 面统一响应契约 | T3 T4 | ✅ 完成（`add-agent-facade-contract` 已归档） |
 | M3 数据链与分析 | 数据可关联、可下钻，产出确定性事实 | T5 T6 T7 T8 | 待开始 |
 | M4 闭环与治理 | 取证/验证闭环 + 脱敏/审计/限流 | T9 T10 T11(起步) | 待开始 |
 | M5 外部 Agent 接入 | MCP + Skill，真实 Claude Code 端到端验收 | T12 T13 T11(持续) | 待开始 |
@@ -24,8 +24,8 @@
 | # | 任务 | 涉及模块 | 依赖 | 类型 | 状态 |
 |---|---|---|---|---|---|
 | T1 | 认证底座：平台 token + agent API Key + 统一 Principal | `identity` `config` `api` | — | 阻塞 | ✅ 完成 |
-| T3 | Agent-ready Facade | `facade`(新) | T1 | 阻塞 | 待开始 |
-| T4 | 统一响应契约 + 错误码 + OpenAPI | `api` | T3 | 底座 | 待开始 |
+| T3 | Agent-ready Facade | `facade`(新) | T1 | 阻塞 | ✅ 完成 |
+| T4 | 统一响应契约 + 错误码 + OpenAPI | `agent` `facade` `config` | T3 | 底座 | ✅ 完成 |
 | T5 | 有界查询 / 分页 / 数据可用性 | `execution` `monitoring` `report` | T4 | 底座 | 待开始 |
 | T6 | 数据链关联骨架（关联键 + 时钟对齐） | `evidence`(新) | T5 | 底座 | 待开始 |
 | T7 | 确定性分析 | `analysis`(新) | T6 | 底座 | 待开始 |
@@ -67,29 +67,33 @@
 
 ## M2 业务入口与契约
 
-### T3 Agent-ready Facade —— [阻塞]
-- 目标：新建 `facade` 层，成为 UI/REST/MCP 唯一强制业务入口；接第一个 agent 只读能力时立起骨架，不做 18 个 controller 全量迁移。
-- 涉及：`facade`(新)。依赖：T1。
-- 验收：调用方无法绕过 Facade 直连 Repository/文件/Prometheus；至少一条只读能力经 Facade 端到端打通。
+### T3 Agent-ready Facade —— [✅ 完成]
+- 目标：新建 `facade` 层，成为 agent 面唯一强制业务入口；接第一个 agent 只读能力时立起骨架，不做 18 个 controller 全量迁移。
+- 涉及：`facade`(新) `agent`(新)。依赖：T1。
+- 交付：OpenSpec change `add-agent-facade-contract`（已归档至 `openspec/changes/archive/2026-07-24-add-agent-facade-contract/`）；主 spec `openspec/specs/agent-facade/spec.md`。
+- 实现要点：并行 agent 面 `/api/agent/**`；`FacadeGuard` 主体校验 + 审计/授权钩子占位；`DataFacade`（数据组，其余组用到再加）；只读切片 `GET /api/agent/executions/{id}/summary`。
+- 验收：调用方无法绕过 Facade 直连 Repository/文件/Prometheus；执行摘要经 Facade 端到端打通。
 
-- [ ] 新建 `facade` 包，定义能力分组入口：资产 / 执行 / 数据 / 分析 / 取证 / 验证
-- [ ] Facade 内统一装配：主体校验(T1)、审计钩子、响应预算入口（授权钩子预留给 T2）
-- [ ] 先打通一条只读能力垂直切片（如执行摘要查询），验证边界
-- [ ] 约束校验：Repository/文件/监控访问不暴露给 Controller/MCP 层
-- [ ] 先失败测试：Facade 主体校验失败路径（无效身份/环境不符）
-- [ ] 验证：`./gradlew :backend:test` + 静态检查无跨层直连
+- [x] 新建 `facade` 包，立起数据组入口（资产/执行/分析/取证/验证用到再加）
+- [x] Facade 内统一装配：主体校验(T1)、审计钩子占位、授权钩子预留给 T2
+- [x] 先打通一条只读能力垂直切片（执行摘要查询），验证边界
+- [x] 约束校验：agent 包不直连 Repository/文件/监控（分层守护测试）
+- [x] 先失败测试：Facade 主体校验失败路径（无效身份）
+- [x] 验证：`gradle :backend:test` + 分层约束测试通过
 
-### T4 统一响应契约 + 错误码 + OpenAPI —— [底座]
+### T4 统一响应契约 + 错误码 + OpenAPI —— [✅ 完成]
 - 目标：面向 Agent 的统一响应封套与稳定错误语义 + 自动 OpenAPI。
-- 涉及：`api` `build.gradle`。依赖：T3。
+- 涉及：`agent` `config` `build.gradle`。依赖：T3。
+- 交付：同 change `add-agent-facade-contract`；主 spec `openspec/specs/agent-response-contract/spec.md`。
+- 实现要点：`ApiResponse` 封套（分页字段先定义后休眠）；`AgentErrorCode` 全枚举；包作用域 `AgentExceptionHandler`（UI 面 `PlatformExceptionHandler` 不动）；springdoc 分组 `/v3/api-docs/agent`。
 - 验收：Agent 接口响应含契约字段；OpenAPI 可生成。
 
-- [ ] 定义响应封套：`requestId` `schemaVersion` `data|error` `warnings` `truncated` `nextCursor` + 数据范围说明
-- [ ] 定义稳定错误码枚举：认证/权限/不存在/数据源不可用/查询过大/超时/限流/幂等冲突/执行冲突
-- [ ] 扩展 `PlatformExceptionHandler` 映射到统一封套与错误码
-- [ ] 引入 springdoc，生成 OpenAPI；领域 DTO 标注 `schemaVersion`
-- [ ] 先失败测试：各错误场景返回对应稳定码 + 封套结构
-- [ ] 验证：访问 OpenAPI 端点可得完整 spec；`./gradlew :backend:test` 通过
+- [x] 定义响应封套：`requestId` `schemaVersion` `data|error` `warnings` `truncated` `nextCursor`（分页字段本阶段恒 null）
+- [x] 定义稳定错误码枚举：认证/权限/不存在/数据源不可用/查询过大/超时/限流/幂等冲突/执行冲突/参数校验/内部错
+- [x] 包作用域 `@RestControllerAdvice` 映射到统一封套与错误码（不改 UI 面 handler）
+- [x] 引入 springdoc，生成 OpenAPI；领域 DTO 标注 `schemaVersion`
+- [x] 先失败测试：各错误场景返回对应稳定码 + 封套结构；UI 面裸 `ApiError` 不变
+- [x] 验证：访问 `/v3/api-docs/agent` 可得完整 spec；`gradle :backend:test` 通过
 
 ---
 
