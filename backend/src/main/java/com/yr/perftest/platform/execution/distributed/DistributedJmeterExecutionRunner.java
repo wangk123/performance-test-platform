@@ -485,6 +485,12 @@ public class DistributedJmeterExecutionRunner {
             if (execution == null) {
                 return;
             }
+            if (execution.getStatus() == ExecutionStatus.SUCCESS
+                    || execution.getStatus() == ExecutionStatus.FAILED
+                    || execution.getStatus() == ExecutionStatus.CANCELLED
+                    || execution.getStatus() == ExecutionStatus.INTERRUPTED) {
+                return;
+            }
             execution.markInterrupted(exitCode, normalizeMessage(message));
             monitorBindingService.markEnd(executionId, execution.getEndTime());
         });

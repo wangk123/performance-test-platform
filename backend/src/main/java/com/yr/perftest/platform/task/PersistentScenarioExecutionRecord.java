@@ -144,6 +144,14 @@ public class PersistentScenarioExecutionRecord {
         finish(ExecutionStatus.INTERRUPTED, exitCode, errorMessage);
     }
 
+    public void markCancelled() {
+        this.status = ExecutionStatus.CANCELLED;
+        this.endTime = Instant.now();
+        if (startTime != null) {
+            this.durationMs = Duration.between(startTime, endTime).toMillis();
+        }
+    }
+
     private void finish(ExecutionStatus status, Integer exitCode, String errorMessage) {
         this.status = status;
         this.exitCode = exitCode;
