@@ -76,7 +76,7 @@ public final class ErrorClustering {
         if (message == null) {
             return "";
         }
-        String normalized = message.replaceAll("\\d+", "#");
+        String normalized = message.replaceAll("\\s+", " ").trim().replaceAll("\\d+", "#");
         return normalized.length() > PATTERN_MAX_LENGTH
                 ? normalized.substring(0, PATTERN_MAX_LENGTH)
                 : normalized;

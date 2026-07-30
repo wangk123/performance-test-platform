@@ -455,6 +455,9 @@ public class DistributedJmeterExecutionRunner {
     private void markRunning(long executionId, Path resultPath, Path logPath) {
         transactionTemplate.executeWithoutResult(status -> {
             PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId).orElseThrow();
+            if (isTerminalStatus(execution.getStatus())) {
+                return;
+            }
             execution.markRunning(resultPath.toString(), logPath.toString());
             monitorBindingService.markStart(executionId, execution.getStartTime());
         });
@@ -463,6 +466,9 @@ public class DistributedJmeterExecutionRunner {
     private void markSuccess(long executionId) {
         transactionTemplate.executeWithoutResult(status -> {
             PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId).orElseThrow();
+            if (isTerminalStatus(execution.getStatus())) {
+                return;
+            }
             execution.markSuccess(0);
             monitorBindingService.markEnd(executionId, execution.getEndTime());
         });
@@ -472,6 +478,9 @@ public class DistributedJmeterExecutionRunner {
         transactionTemplate.executeWithoutResult(status -> {
             PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId).orElse(null);
             if (execution == null) {
+                return;
+            }
+            if (isTerminalStatus(execution.getStatus())) {
                 return;
             }
             execution.markFailed(exitCode, normalizeMessage(message));
@@ -485,15 +494,19 @@ public class DistributedJmeterExecutionRunner {
             if (execution == null) {
                 return;
             }
-            if (execution.getStatus() == ExecutionStatus.SUCCESS
-                    || execution.getStatus() == ExecutionStatus.FAILED
-                    || execution.getStatus() == ExecutionStatus.CANCELLED
-                    || execution.getStatus() == ExecutionStatus.INTERRUPTED) {
+            if (isTerminalStatus(execution.getStatus())) {
                 return;
             }
             execution.markInterrupted(exitCode, normalizeMessage(message));
             monitorBindingService.markEnd(executionId, execution.getEndTime());
         });
+    }
+
+    static boolean isTerminalStatus(ExecutionStatus status) {
+        return status == ExecutionStatus.SUCCESS
+                || status == ExecutionStatus.FAILED
+                || status == ExecutionStatus.CANCELLED
+                || status == ExecutionStatus.INTERRUPTED;
     }
 
     private void appendLog(Path logPath, String content) {

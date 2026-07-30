@@ -89,6 +89,21 @@ class ErrorClusteringTest {
     }
 
     @Test
+    void multilineFailureMessageIsNormalizedToSingleLine() {
+        TaskExecutionResult.Sample sample = new TaskExecutionResult.Sample(
+                1, "t", "500", false, "login", 100, null, "thread-1",
+                null, null, null, null, null, "timeout after 100 ms\n\tat com.example.Foo.bar(Foo.java:42)");
+
+        AnalysisFact fact = new ErrorClustering().analyze(List.of(sample), List.of());
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> clusters = (List<Map<String, Object>>) fact.data().get("clusters");
+        assertThat(clusters).hasSize(1);
+        assertThat(clusters.get(0)).containsEntry(
+                "messagePattern", "timeout after # ms at com.example.Foo.bar(Foo.java:#)");
+    }
+
+    @Test
     void emptyInputProducesEmptyClusters() {
         AnalysisFact fact = new ErrorClustering().analyze(List.of(), List.of());
 
