@@ -12,7 +12,7 @@ import java.util.TreeMap;
 
 public final class ResourceSaturation {
     public static final String ALGORITHM_ID = "resource-saturation";
-    public static final String VERSION = "1";
+    public static final String VERSION = "2";
 
     public AnalysisFact analyze(
             List<PrometheusMetricPoint> points,
@@ -82,24 +82,31 @@ public final class ResourceSaturation {
             accumulator[0] += point.value();
             accumulator[1] += 1;
         }
-        Map<Long, Double> throughputBySecond = new TreeMap<>();
+        List<Long> resourceSeconds = new ArrayList<>(resourceBySecond.keySet());
+        long stepSeconds = deriveStepSeconds(resourceSeconds);
+        long origin = resourceSeconds.isEmpty() ? 0 : resourceSeconds.get(0);
+
+        Map<Long, double[]> throughputByCell = new TreeMap<>();
         if (loadTicks != null) {
             for (MetricTick tick : loadTicks) {
                 if (tick == null || tick.overall() == null) {
                     continue;
                 }
-                throughputBySecond.put(tick.bucketTimeMs() / 1000, tick.overall().throughput());
+                long cell = Math.floorDiv(tick.bucketTimeMs() / 1000 - origin, stepSeconds);
+                double[] accumulator = throughputByCell.computeIfAbsent(cell, key -> new double[2]);
+                accumulator[0] += tick.overall().throughput();
+                accumulator[1] += 1;
             }
         }
         List<Double> resourceValues = new ArrayList<>();
         List<Double> throughputValues = new ArrayList<>();
         for (Map.Entry<Long, double[]> entry : resourceBySecond.entrySet()) {
-            Double throughput = throughputBySecond.get(entry.getKey());
+            double[] throughput = throughputByCell.get(Math.floorDiv(entry.getKey() - origin, stepSeconds));
             if (throughput == null) {
                 continue;
             }
             resourceValues.add(entry.getValue()[0] / entry.getValue()[1]);
-            throughputValues.add(throughput);
+            throughputValues.add(throughput[0] / throughput[1]);
         }
         Map<String, Object> correlation = new LinkedHashMap<>();
         correlation.put("alignedPairs", resourceValues.size());
@@ -107,6 +114,17 @@ public final class ResourceSaturation {
                 ? null
                 : AnalysisMath.round4(pearson(resourceValues, throughputValues)));
         return correlation;
+    }
+
+    private long deriveStepSeconds(List<Long> sortedSeconds) {
+        long step = Long.MAX_VALUE;
+        for (int index = 1; index < sortedSeconds.size(); index++) {
+            long delta = sortedSeconds.get(index) - sortedSeconds.get(index - 1);
+            if (delta > 0 && delta < step) {
+                step = delta;
+            }
+        }
+        return step == Long.MAX_VALUE ? 1 : step;
     }
 
     private double pearson(List<Double> xs, List<Double> ys) {

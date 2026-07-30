@@ -30,8 +30,10 @@ public class ExecutionControlService {
     @Transactional
     public StartOutcome start(StartCommand command, String idempotencyKey) {
         String requestHash = RequestHashing.sha256(
-                command.scenarioId() + "|" + command.executionName() + "|"
-                        + command.threadGroupConfigId() + "|" + command.threadGroupPresetSortOrder());
+                hashField(command.scenarioId())
+                        + hashField(command.executionName())
+                        + hashField(command.threadGroupConfigId())
+                        + hashField(command.threadGroupPresetSortOrder()));
         IdempotencyService.IdempotentExecution result = idempotencyService.execute(
                 idempotencyKey,
                 requestHash,
@@ -83,6 +85,14 @@ public class ExecutionControlService {
                 || status == ExecutionStatus.FAILED
                 || status == ExecutionStatus.CANCELLED
                 || status == ExecutionStatus.INTERRUPTED;
+    }
+
+    private static String hashField(Object value) {
+        if (value == null) {
+            return "-;";
+        }
+        String text = String.valueOf(value);
+        return text.length() + ":" + text + ";";
     }
 
     public record StartCommand(

@@ -21,8 +21,8 @@ public final class ErrorClustering {
         Map<String, Integer> clusterCounts = new HashMap<>();
         Map<String, Integer> labelCounts = new HashMap<>();
         for (TaskExecutionResult.Sample sample : failures) {
-            String label = sample.label() == null ? "" : sample.label();
-            String statusCode = sample.statusCode() == null ? "" : sample.statusCode();
+            String label = normalizeKeyPart(sample.label());
+            String statusCode = normalizeKeyPart(sample.statusCode());
             String pattern = patternOf(sample);
             clusterCounts.merge(label + "\n" + statusCode + "\n" + pattern, 1, Integer::sum);
             labelCounts.merge(label, 1, Integer::sum);
@@ -67,6 +67,10 @@ public final class ErrorClustering {
                 data,
                 evidenceRefs
         );
+    }
+
+    private String normalizeKeyPart(String value) {
+        return value == null ? "" : value.replaceAll("\\s+", " ").trim();
     }
 
     private String patternOf(TaskExecutionResult.Sample sample) {

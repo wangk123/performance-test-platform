@@ -97,7 +97,7 @@ class AgentAnalysisApiTest {
                 .andExpect(jsonPath("$.data.algorithmVersions.trend", is("1")))
                 .andExpect(jsonPath("$.data.algorithmVersions.anomaly", is("1")))
                 .andExpect(jsonPath("$.data.algorithmVersions['error-cluster']", is("1")))
-                .andExpect(jsonPath("$.data.algorithmVersions['resource-saturation']", is("1")))
+                .andExpect(jsonPath("$.data.algorithmVersions['resource-saturation']", is("2")))
                 .andExpect(jsonPath("$.data.facts.length()", is(4)))
                 .andExpect(jsonPath("$.data.facts[0].kind", is("trend")))
                 .andExpect(jsonPath("$.data.facts[0].algorithmVersion", is("1")))

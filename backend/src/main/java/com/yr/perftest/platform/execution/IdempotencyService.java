@@ -19,6 +19,9 @@ public class IdempotencyService {
         if (idemKey == null || idemKey.isBlank()) {
             return new IdempotentExecution(action.get(), false);
         }
+        if (idemKey.length() > 128) {
+            throw new ExecutionValidationException("idempotency key exceeds 128 characters");
+        }
         return repository.findByIdemKey(idemKey)
                 .map(existing -> replay(existing, requestHash))
                 .orElseGet(() -> create(idemKey, requestHash, action));

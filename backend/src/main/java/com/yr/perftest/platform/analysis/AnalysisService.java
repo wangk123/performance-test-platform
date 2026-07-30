@@ -3,6 +3,7 @@ package com.yr.perftest.platform.analysis;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.aggregate.MetricTick;
 import com.yr.perftest.platform.facade.DataFacade;
+import com.yr.perftest.platform.facade.DataSourceUnavailableException;
 import com.yr.perftest.platform.facade.data.ExecutionSummary;
 import com.yr.perftest.platform.facade.data.PrometheusMetricPoint;
 import com.yr.perftest.platform.facade.query.Availability;
@@ -135,7 +136,7 @@ public class AnalysisService {
                     ),
                     availability == null ? null : availability.sourceRef()
             );
-        } catch (RuntimeException exception) {
+        } catch (DataSourceUnavailableException exception) {
             return new SourceData<>(
                     List.of(),
                     new SourceCompleteness(sourceType, false, false, "SOURCE_UNAVAILABLE"),

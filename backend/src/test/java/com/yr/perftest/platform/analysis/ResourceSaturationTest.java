@@ -48,7 +48,7 @@ class ResourceSaturationTest {
 
         assertThat(first).isEqualTo(second);
         assertThat(first.algorithmId()).isEqualTo("resource-saturation");
-        assertThat(first.algorithmVersion()).isEqualTo("1");
+        assertThat(first.algorithmVersion()).isEqualTo("2");
         assertThat(first.data()).containsEntry("threshold", 0.9);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> windows = (List<Map<String, Object>>) first.data().get("windows");
@@ -96,5 +96,38 @@ class ResourceSaturationTest {
         assertThat(correlation)
                 .containsEntry("alignedPairs", 2)
                 .containsEntry("pearson", null);
+    }
+
+    @Test
+    void misalignedTickTimestampsAreResampledOntoTheResourceGrid() {
+        List<PrometheusMetricPoint> points = List.of(
+                new PrometheusMetricPoint("cpu-app-1", Map.of(), 100L, 0.5, 0),
+                new PrometheusMetricPoint("cpu-app-1", Map.of(), 115L, 0.6, 0),
+                new PrometheusMetricPoint("cpu-app-1", Map.of(), 130L, 0.7, 0),
+                new PrometheusMetricPoint("cpu-app-1", Map.of(), 145L, 0.8, 0)
+        );
+        List<MetricTick> ticks = List.of(
+                tick(103_999L, 10),
+                tick(116_500L, 20),
+                tick(131_250L, 30),
+                tick(138_750L, 30),
+                tick(149_900L, 40)
+        );
+
+        AnalysisFact fact = new ResourceSaturation().analyze(points, 0.9, 2, ticks, List.of());
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> correlation = (Map<String, Object>) fact.data().get("correlation");
+        assertThat(correlation)
+                .containsEntry("alignedPairs", 4)
+                .containsEntry("pearson", 1.0);
+    }
+
+    private static MetricTick tick(long bucketTimeMs, double throughput) {
+        return new MetricTick(
+                bucketTimeMs,
+                List.of(),
+                new MetricTick.LabelMetric("__total__", 10, 0, throughput, 100, 120)
+        );
     }
 }
