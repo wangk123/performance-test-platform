@@ -3,7 +3,9 @@ package com.yr.perftest.platform.agent;
 import com.yr.perftest.platform.agent.contract.AgentErrorCode;
 import com.yr.perftest.platform.agent.contract.ApiErrorBody;
 import com.yr.perftest.platform.agent.contract.ApiResponse;
+import com.yr.perftest.platform.execution.ExecutionConflictException;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
+import com.yr.perftest.platform.execution.IdempotencyConflictException;
 import com.yr.perftest.platform.facade.DataSourceUnavailableException;
 import com.yr.perftest.platform.facade.query.Availability;
 import com.yr.perftest.platform.identity.AuthenticationException;
@@ -54,6 +56,16 @@ public class AgentExceptionHandler {
                     ));
         }
         return envelope(HttpStatus.SERVICE_UNAVAILABLE, AgentErrorCode.DATA_SOURCE_UNAVAILABLE, exception.getMessage());
+    }
+
+    @ExceptionHandler(IdempotencyConflictException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIdempotencyConflict(IdempotencyConflictException exception) {
+        return envelope(HttpStatus.CONFLICT, AgentErrorCode.IDEMPOTENCY_CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(ExecutionConflictException.class)
+    public ResponseEntity<ApiResponse<Void>> handleExecutionConflict(ExecutionConflictException exception) {
+        return envelope(HttpStatus.CONFLICT, AgentErrorCode.EXECUTION_CONFLICT, exception.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
