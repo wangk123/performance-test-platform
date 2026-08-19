@@ -11,6 +11,7 @@ import com.yr.perftest.platform.facade.query.Availability;
 import com.yr.perftest.platform.identity.AuthenticationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -66,6 +67,11 @@ public class AgentExceptionHandler {
     @ExceptionHandler(ExecutionConflictException.class)
     public ResponseEntity<ApiResponse<Void>> handleExecutionConflict(ExecutionConflictException exception) {
         return envelope(HttpStatus.CONFLICT, AgentErrorCode.EXECUTION_CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException exception) {
+        return envelope(HttpStatus.FORBIDDEN, AgentErrorCode.ACCESS_DENIED, exception.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

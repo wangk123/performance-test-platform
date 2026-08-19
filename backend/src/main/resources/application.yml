@@ -64,3 +64,7 @@ platform:
       max-in-flight-human: 10
       max-in-flight-machine: 50
       max-in-flight-anonymous: 5
+  verification:
+    p95-regression-pct: 5.0
+    significant-pct: 5.0
+    error-rate-increase-pct: 0.01
