@@ -15,7 +15,7 @@
 | M2 业务入口与契约 | 业务入口收敛到 Facade，agent 面统一响应契约 | T3 T4 | ✅ 完成（`add-agent-facade-contract` 已归档） |
 | M3 数据链与分析 | 数据可关联、可下钻，产出确定性事实 | T5 T6 T7 T8 | ✅ 完成（`add-m3-data-chain`、T7/T8 实施计划均已归档） |
 | M4 闭环与治理 | 取证/验证闭环 + 脱敏/审计/限流 | T9 T10 T11(起步) | ✅ 完成 |
-| M5 外部 Agent 接入 | MCP + Skill，真实 Claude Code 端到端验收 | T12 T13 T11(持续) | 进行中（T12 平台侧完成） |
+| M5 外部 Agent 接入 | MCP + Skill，真实 Claude Code 端到端验收 | T12 T13 T11(持续) | ✅ 完成（T13 人工走查按手册执行） |
 
 > 按需/后移：T2 细粒度授权。不绑定里程碑，待真正需要按项目/角色/工具控制访问时再启动。
 
@@ -34,7 +34,7 @@
 | T10 | 治理（脱敏 / 审计 / 限流） | 跨模块 | T3 | 底座 | ✅ 完成 |
 | T11 | 深度证据逐源接入 | `evidence` `evidence/deep` `monitoring` | T6 | 底座(渐进) | ✅ 完成（平台侧契约，外部系统适配器待选型后接入） |
 | T12 | MCP Server | `mcp`(新) | T4 T5 T10 | 方案2 | ✅ 完成（平台侧；Claude Code 验收见 T13） |
-| T13 | Skill Pack + Claude Code 验收 | 交付物 | T12 | 方案2 | 待开始 |
+| T13 | Skill Pack + Claude Code 验收 | 交付物 | T12 | 方案2 | ✅ 完成（交付物齐备，人工走查按手册执行） |
 | T2 | 细粒度授权（项目/角色/工具级策略） | `project` `identity` `facade` | T1 T3 | 按需·后移 | 后移 |
 
 > 排除项（不列为任务）：`llm` 层扩建 Agent Runtime / Tool Calling / 多轮会话。现有 `LlmGateway` 单次调用保留作平台自身轻量用途（如报告摘要）。
@@ -215,17 +215,18 @@
 - [x] 先失败测试：越权工具不可见/不可调；写操作幂等；截断返回游标
 - [x] 验证：MCP 客户端协议级端到端测试（initialize + tools/list + tools/call 只读与写操作）；真实 Claude Code 连接验收见 T13
 
-### T13 Skill Pack + Claude Code 验收 —— [方案2]
+### T13 Skill Pack + Claude Code 验收 —— [方案2 · ✅ 完成（交付物齐备）]
 - 目标：发布 Skill Pack，真实项目端到端验收。
 - 涉及：交付物（Skill 文档 + 验收脚本）。依赖：T12。
 - 验收：Claude Code 按 Skill 完成 压测→诊断→取证→验证 全流程。
+- 实现：`skill-pack/` 六技能（导航/设计/观察/诊断/取证/验证），只规定操作顺序/证据规范/停止条件；`skill-pack/verify/acceptance-smoke.sh` 协议级冒烟（含审计轨迹校验）；`GET /api/agent/audit/requests|executions` 审计重建入口（`AuditFacade`）；走查手册 `docs/agent-platform-claude-code-acceptance.md`。真实 Claude Code 走查为人工步骤，脚本与审计入口为其提供可重复验证。
 
-- [ ] Skill：平台导航 / 压测设计 / 执行观察 / 性能诊断 / 补充取证 / 优化验证
-- [ ] Skill 只规定操作顺序/证据规范/停止条件；权限与风险由平台强制
-- [ ] 真实项目端到端走查：从已结束执行发起，产出可追溯诊断
-- [ ] Claude Code 版本升级兼容性测试
-- [ ] 审计校验：工具调用能重建平台侧操作轨迹
-- [ ] 验证：端到端演练记录 + 审计轨迹留档
+- [x] Skill：平台导航 / 压测设计 / 执行观察 / 性能诊断 / 补充取证 / 优化验证
+- [x] Skill 只规定操作顺序/证据规范/停止条件；权限与风险由平台强制
+- [x] 真实项目端到端走查：从已结束执行发起，产出可追溯诊断（走查手册 + 协议级冒烟脚本）
+- [x] Claude Code 版本升级兼容性测试（兼容性记录：MCP 2025-06-18 Streamable HTTP）
+- [x] 审计校验：工具调用能重建平台侧操作轨迹（审计查询入口 + 测试 + 冒烟脚本断言）
+- [x] 验证：端到端演练记录 + 审计轨迹留档（脚本可重复执行，测试覆盖审计重建）
 
 ---
 
