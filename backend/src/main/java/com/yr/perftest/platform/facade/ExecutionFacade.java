@@ -3,6 +3,10 @@ package com.yr.perftest.platform.facade;
 import com.yr.perftest.platform.facade.data.ExecutionPrecheckView;
 import com.yr.perftest.platform.facade.data.ExecutionStartResult;
 import com.yr.perftest.platform.facade.data.ExecutionStatusView;
+import com.yr.perftest.platform.governance.ExecutionAuditService;
+import com.yr.perftest.platform.identity.HumanPrincipal;
+import com.yr.perftest.platform.identity.MachinePrincipal;
+import com.yr.perftest.platform.identity.Principal;
 import com.yr.perftest.platform.task.ExecutionControlService;
 import com.yr.perftest.platform.task.ExecutionPrecheckService;
 import com.yr.perftest.platform.task.ScenarioExecution;
@@ -13,15 +17,18 @@ public class ExecutionFacade {
     private final FacadeGuard guard;
     private final ExecutionControlService controlService;
     private final ExecutionPrecheckService precheckService;
+    private final ExecutionAuditService executionAuditService;
 
     public ExecutionFacade(
             FacadeGuard guard,
             ExecutionControlService controlService,
-            ExecutionPrecheckService precheckService
+            ExecutionPrecheckService precheckService,
+            ExecutionAuditService executionAuditService
     ) {
         this.guard = guard;
         this.controlService = controlService;
         this.precheckService = precheckService;
+        this.executionAuditService = executionAuditService;
     }
 
     public ExecutionStartResult startExecution(
@@ -37,6 +44,7 @@ public class ExecutionFacade {
                             scenarioId, executionName, threadGroupConfigId, threadGroupPresetSortOrder),
                     idempotencyKey
             );
+            auditExecution(outcome.executionId(), "START", outcome.replayed());
             return new ExecutionStartResult(
                     ExecutionStartResult.SCHEMA_VERSION,
                     outcome.executionId(),
@@ -49,6 +57,7 @@ public class ExecutionFacade {
     public ExecutionStatusView stopExecution(long executionId) {
         return guard.requirePrincipal(() -> {
             controlService.stop(executionId);
+            auditExecution(executionId, "STOP", false);
             return statusView(controlService.status(executionId));
         });
     }
@@ -56,6 +65,7 @@ public class ExecutionFacade {
     public ExecutionStatusView cancelExecution(long executionId) {
         return guard.requirePrincipal(() -> {
             controlService.cancel(executionId);
+            auditExecution(executionId, "CANCEL", false);
             return statusView(controlService.status(executionId));
         });
     }
@@ -101,5 +111,14 @@ public class ExecutionFacade {
                 execution.durationMs(),
                 execution.errorMessage()
         );
+    }
+
+    private void auditExecution(long executionId, String action, boolean replayed) {
+        Principal principal = guard.context().principal();
+        if (principal instanceof HumanPrincipal human) {
+            executionAuditService.record(executionId, action, replayed, "HUMAN", human.username());
+        } else if (principal instanceof MachinePrincipal machine) {
+            executionAuditService.record(executionId, action, replayed, "MACHINE", Long.toString(machine.apiKeyId()));
+        }
     }
 }

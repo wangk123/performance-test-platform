@@ -5,6 +5,7 @@ import com.yr.perftest.platform.agent.AgentExceptionHandler;
 import com.yr.perftest.platform.agent.contract.AgentErrorCode;
 import com.yr.perftest.platform.agent.contract.ApiErrorBody;
 import com.yr.perftest.platform.agent.contract.ApiResponse;
+import com.yr.perftest.platform.governance.AgentGovernanceFilter;
 import com.yr.perftest.platform.identity.AgentApiKeyService;
 import com.yr.perftest.platform.identity.AuthTokenService;
 import org.springframework.context.annotation.Bean;
@@ -32,6 +33,7 @@ public class SecurityConfiguration {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             AuthenticationFilter authenticationFilter,
+            AgentGovernanceFilter agentGovernanceFilter,
             ObjectMapper objectMapper
     ) throws Exception {
         return http
@@ -81,6 +83,7 @@ public class SecurityConfiguration {
                             }
                         }))
                 .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(agentGovernanceFilter, AuthenticationFilter.class)
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
                 .build();

@@ -54,3 +54,13 @@ platform:
     disk-low-water-bytes: ${SEED_DISK_LOW_WATER_BYTES:1073741824}
     capture:
       heartbeat-timeout-seconds: ${SEED_CAPTURE_HEARTBEAT_TIMEOUT_SECONDS:300}
+  governance:
+    enabled: true
+    rate-limit:
+      window-millis: 10000
+      human-capacity: 120
+      machine-capacity: 600
+      anonymous-capacity: 30
+      max-in-flight-human: 10
+      max-in-flight-machine: 50
+      max-in-flight-anonymous: 5
