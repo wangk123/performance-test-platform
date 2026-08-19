@@ -42,12 +42,14 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(
                                 "/api/auth/login",
-                                "/actuator/health",
                                 "/v3/api-docs",
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**"
                         ).permitAll()
+                        // actuator 端点不在 MVC handler mapping 内，字符串 matcher 匹配不到，需按 URI 放行
+                        .requestMatchers(request ->
+                                "/actuator/health".equals(request.getRequestURI())).permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, authException) -> {
