@@ -6,6 +6,9 @@
 - [阶段性开发计划](development-plan.md)
 - [实现记录](implementation-log.md)
 - [前端组件库选型](frontend-component-selection.md)
+- [Agent 化平台建设任务清单](agent-platform-buildout-tasks.md)（T1–T13 已全部完成）
+- [Claude Code 端到端验收走查](agent-platform-claude-code-acceptance.md)（T13）
+- [Skill Pack](../skill-pack/README.md)（导航/设计/观察/诊断/取证/验证六技能）
 
 ## 模块文档
 
