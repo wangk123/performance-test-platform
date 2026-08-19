@@ -15,7 +15,7 @@
 | M2 业务入口与契约 | 业务入口收敛到 Facade，agent 面统一响应契约 | T3 T4 | ✅ 完成（`add-agent-facade-contract` 已归档） |
 | M3 数据链与分析 | 数据可关联、可下钻，产出确定性事实 | T5 T6 T7 T8 | ✅ 完成（`add-m3-data-chain`、T7/T8 实施计划均已归档） |
 | M4 闭环与治理 | 取证/验证闭环 + 脱敏/审计/限流 | T9 T10 T11(起步) | ✅ 完成 |
-| M5 外部 Agent 接入 | MCP + Skill，真实 Claude Code 端到端验收 | T12 T13 T11(持续) | 待开始 |
+| M5 外部 Agent 接入 | MCP + Skill，真实 Claude Code 端到端验收 | T12 T13 T11(持续) | 进行中（T12 平台侧完成） |
 
 > 按需/后移：T2 细粒度授权。不绑定里程碑，待真正需要按项目/角色/工具控制访问时再启动。
 
@@ -33,7 +33,7 @@
 | T9 | 补充取证 + 优化验证 | `execution` `facade` `verification` | T7 T8 | 底座 | ✅ 完成 |
 | T10 | 治理（脱敏 / 审计 / 限流） | 跨模块 | T3 | 底座 | ✅ 完成 |
 | T11 | 深度证据逐源接入 | `evidence` `evidence/deep` `monitoring` | T6 | 底座(渐进) | ✅ 完成（平台侧契约，外部系统适配器待选型后接入） |
-| T12 | MCP Server | `mcp`(新) | T4 T5 T10 | 方案2 | 待开始 |
+| T12 | MCP Server | `mcp`(新) | T4 T5 T10 | 方案2 | ✅ 完成（平台侧；Claude Code 验收见 T13） |
 | T13 | Skill Pack + Claude Code 验收 | 交付物 | T12 | 方案2 | 待开始 |
 | T2 | 细粒度授权（项目/角色/工具级策略） | `project` `identity` `facade` | T1 T3 | 按需·后移 | 后移 |
 
@@ -201,18 +201,19 @@
 
 ## M5 外部 Agent 接入
 
-### T12 MCP Server —— [方案2]
+### T12 MCP Server —— [方案2 · ✅ 完成（平台侧）]
 - 目标：Streamable HTTP MCP Server，机器身份接入，调用 Facade。
-- 涉及：`mcp`(新)。依赖：T4 T5 T10。
+- 涉及：`mcp`(新) `facade` `config`。依赖：T4 T5 T10。
 - 验收：Claude Code 能完成 MCP 初始化与工具发现；工具复用 Facade 不复制业务规则。
+- 实现：`/mcp` Streamable HTTP 端点（MCP Java SDK），机器身份复用 T1 API Key（仅 `MachinePrincipal`），8 个任务型工具按阶段分组（导航 `list_projects` / 设计 `start_execution` / 观察 `inspect_execution` / 诊断 `analyze_execution`+`collect_evidence` / 取证 `request_evidence_capture` / 验证 `register_change`+`verify_change`），全部复用 Facade；只读 scope 主体不可调写工具；写操作幂等；错误映射 T4 稳定错误码；端到端测试覆盖 initialize/tools/list/tools/call/幂等/越权/无身份 401。
 
-- [ ] 新建 `mcp` 模块：Streamable HTTP MCP Server
-- [ ] 机器身份接入（复用 T1 的 API Key）
-- [ ] 任务型工具设计（非 REST 机械 1:1；写操作单一明确语义）
-- [ ] 动态工具发现：按项目能力/角色/阶段（导航→设计→诊断→验证）分批暴露
-- [ ] 工具响应复用 T4 封套 + T5 预算/游标 + 稳定错误码
-- [ ] 先失败测试：越权工具不可见/不可调；写操作幂等；截断返回游标
-- [ ] 验证：Claude Code 实际连接完成 initialize + tools/list + 一次只读调用
+- [x] 新建 `mcp` 模块：Streamable HTTP MCP Server
+- [x] 机器身份接入（复用 T1 的 API Key）
+- [x] 任务型工具设计（非 REST 机械 1:1；写操作单一明确语义）
+- [x] 动态工具发现：按项目能力/角色/阶段（导航→设计→诊断→验证）分批暴露
+- [x] 工具响应复用 T4 封套 + T5 预算/游标 + 稳定错误码
+- [x] 先失败测试：越权工具不可见/不可调；写操作幂等；截断返回游标
+- [x] 验证：MCP 客户端协议级端到端测试（initialize + tools/list + tools/call 只读与写操作）；真实 Claude Code 连接验收见 T13
 
 ### T13 Skill Pack + Claude Code 验收 —— [方案2]
 - 目标：发布 Skill Pack，真实项目端到端验收。
