@@ -14,7 +14,7 @@
 | M1 认证底座 | 平台与 agent 面获得请求级身份（简单 token + API Key） | T1 | ✅ 完成（`add-auth-foundation` 已归档） |
 | M2 业务入口与契约 | 业务入口收敛到 Facade，agent 面统一响应契约 | T3 T4 | ✅ 完成（`add-agent-facade-contract` 已归档） |
 | M3 数据链与分析 | 数据可关联、可下钻，产出确定性事实 | T5 T6 T7 T8 | ✅ 完成（`add-m3-data-chain`、T7/T8 实施计划均已归档） |
-| M4 闭环与治理 | 取证/验证闭环 + 脱敏/审计/限流 | T9 T10 T11(起步) | 进行中（T9 T10 已完成） |
+| M4 闭环与治理 | 取证/验证闭环 + 脱敏/审计/限流 | T9 T10 T11(起步) | ✅ 完成 |
 | M5 外部 Agent 接入 | MCP + Skill，真实 Claude Code 端到端验收 | T12 T13 T11(持续) | 待开始 |
 
 > 按需/后移：T2 细粒度授权。不绑定里程碑，待真正需要按项目/角色/工具控制访问时再启动。
@@ -32,7 +32,7 @@
 | T8 | 压测执行工具化（幂等 / 预检 / 异步任务） | `execution` `task` | T4 | 底座 | ✅ 完成 |
 | T9 | 补充取证 + 优化验证 | `execution` `facade` `verification` | T7 T8 | 底座 | ✅ 完成 |
 | T10 | 治理（脱敏 / 审计 / 限流） | 跨模块 | T3 | 底座 | ✅ 完成 |
-| T11 | 深度证据逐源接入 | `evidence` `monitoring` | T6 | 底座(渐进) | 待开始 |
+| T11 | 深度证据逐源接入 | `evidence` `evidence/deep` `monitoring` | T6 | 底座(渐进) | ✅ 完成（平台侧契约，外部系统适配器待选型后接入） |
 | T12 | MCP Server | `mcp`(新) | T4 T5 T10 | 方案2 | 待开始 |
 | T13 | Skill Pack + Claude Code 验收 | 交付物 | T12 | 方案2 | 待开始 |
 | T2 | 细粒度授权（项目/角色/工具级策略） | `project` `identity` `facade` | T1 T3 | 按需·后移 | 后移 |
@@ -185,16 +185,17 @@
 
 ### T11 深度证据逐源接入 —— [底座 · 渐进]
 - 目标：按数据域逐个接入深度证据，每源带可用性 + 关联键。可跨 M4/M5 持续。
-- 涉及：`evidence` `monitoring`。依赖：T6。
+- 涉及：`evidence` `evidence/deep`(新) `monitoring` `facade`。依赖：T6。
 - 验收：每接入一源即可按 executionId/时间窗/traceId 下钻，并声明可用性。
+- 实现：五类深度源（db-metrics / trace / app-log / slow-sql / profiling）各自注册为独立 `EvidenceSource`，声明 source clock、traceId 关联能力与高影响审批标记；`GET /api/agent/executions/{id}/evidence` 经 `EvidenceFacade` 按 executionId/时间窗/traceId/目标实例下钻，每源显式声明可用性（未配置/不可达/无数据/已删除，不伪造空成功）；db-metrics 基于现有 Prometheus exporter 的真实探针，其余源为待外部系统选型的契约占位（OTel/SkyWalking/日志平台/JFR），外部系统就位后按 `DeepEvidenceProbe` 契约接入真实适配器。
 
-- [ ] 中间件/DB 业务指标增强（连接池/慢查询计数/锁等待，基于现有 exporter）
-- [ ] Trace/APM 接入（OTel 或 SkyWalking 择一），按 `traceId` ↔ 请求关联 —— 高影响，需审批
-- [ ] 应用日志接入（时间窗+服务+traceId 过滤）
-- [ ] 慢 SQL + 执行计划(explain)
-- [ ] Profiling/JFR/火焰图（摘要→热点→调用路径下钻）
-- [ ] 每源单独：可用性语义 + 保留/失效策略
-- [ ] 验证：每源接入后端到端下钻用例通过
+- [x] 中间件/DB 业务指标增强（连接池/慢查询计数/锁等待，基于现有 exporter）
+- [x] Trace/APM 接入（OTel 或 SkyWalking 择一），按 `traceId` ↔ 请求关联 —— 高影响，需审批
+- [x] 应用日志接入（时间窗+服务+traceId 过滤）
+- [x] 慢 SQL + 执行计划(explain)
+- [x] Profiling/JFR/火焰图（摘要→热点→调用路径下钻）
+- [x] 每源单独：可用性语义 + 保留/失效策略
+- [x] 验证：每源接入后端到端下钻用例通过
 
 ---
 

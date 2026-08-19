@@ -68,3 +68,25 @@ platform:
     p95-regression-pct: 5.0
     significant-pct: 5.0
     error-rate-increase-pct: 0.01
+  evidence:
+    deep:
+      kinds:
+        db-metrics:
+          enabled: false
+          retention-days: 7
+          promql-templates:
+            connection-pool: "sum by (instance) (jdbc_connections_active)"
+            slow-query-count: "sum by (instance) (rate(jdbc_slow_queries_total[5m]))"
+            lock-waits: "sum by (instance) (jdbc_lock_waits_total)"
+        trace:
+          enabled: false
+          retention-days: 7
+        app-log:
+          enabled: false
+          retention-days: 7
+        slow-sql:
+          enabled: false
+          retention-days: 7
+        profiling:
+          enabled: false
+          retention-days: 7
