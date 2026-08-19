@@ -54,6 +54,7 @@ public class DistributedJmeterExecutionRunner {
     private final PersistentTaskPlanRepository planRepository;
     private final PersistentTaskScenarioRepository scenarioRepository;
     private final PersistentScenarioExecutionRepository executionRepository;
+    private final com.yr.perftest.platform.auxscript.AuxScriptLifecycle auxScriptLifecycle;
     private final PersistentScriptVersionRepository scriptVersionRepository;
     private final PersistentExecutionNodeRepository nodeRepository;
     private final RemoteRunnerClient remoteRunnerClient;
@@ -84,6 +85,7 @@ public class DistributedJmeterExecutionRunner {
             PersistentTaskPlanRepository planRepository,
             PersistentTaskScenarioRepository scenarioRepository,
             PersistentScenarioExecutionRepository executionRepository,
+            com.yr.perftest.platform.auxscript.AuxScriptLifecycle auxScriptLifecycle,
             PersistentScriptVersionRepository scriptVersionRepository,
             PersistentExecutionNodeRepository nodeRepository,
             RemoteRunnerClient remoteRunnerClient,
@@ -112,6 +114,7 @@ public class DistributedJmeterExecutionRunner {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
         this.executionRepository = executionRepository;
+        this.auxScriptLifecycle = auxScriptLifecycle;
         this.scriptVersionRepository = scriptVersionRepository;
         this.nodeRepository = nodeRepository;
         this.remoteRunnerClient = remoteRunnerClient;
@@ -452,6 +455,16 @@ public class DistributedJmeterExecutionRunner {
         }
     }
 
+    private void scheduleAuxPostScripts(long executionId) {
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        auxScriptLifecycle.afterExecutionFinished(executionId);
+                    }
+                });
+    }
+
     private void markRunning(long executionId, Path resultPath, Path logPath) {
         transactionTemplate.executeWithoutResult(status -> {
             PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId).orElseThrow();
@@ -471,6 +484,7 @@ public class DistributedJmeterExecutionRunner {
             }
             execution.markSuccess(0);
             monitorBindingService.markEnd(executionId, execution.getEndTime());
+            scheduleAuxPostScripts(executionId);
         });
     }
 
@@ -485,6 +499,7 @@ public class DistributedJmeterExecutionRunner {
             }
             execution.markFailed(exitCode, normalizeMessage(message));
             monitorBindingService.markEnd(executionId, execution.getEndTime());
+            scheduleAuxPostScripts(executionId);
         });
     }
 
@@ -499,6 +514,7 @@ public class DistributedJmeterExecutionRunner {
             }
             execution.markInterrupted(exitCode, normalizeMessage(message));
             monitorBindingService.markEnd(executionId, execution.getEndTime());
+            scheduleAuxPostScripts(executionId);
         });
     }
 

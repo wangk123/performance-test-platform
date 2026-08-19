@@ -11,17 +11,20 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ExecutionControlService {
     private final ScenarioExecutionService scenarioExecutionService;
+    private final com.yr.perftest.platform.auxscript.AuxScriptLifecycle auxScriptLifecycle;
     private final PersistentScenarioExecutionRepository executionRepository;
     private final ScenarioExecutionRuntime executionRuntime;
     private final IdempotencyService idempotencyService;
 
     public ExecutionControlService(
             ScenarioExecutionService scenarioExecutionService,
+            com.yr.perftest.platform.auxscript.AuxScriptLifecycle auxScriptLifecycle,
             PersistentScenarioExecutionRepository executionRepository,
             ScenarioExecutionRuntime executionRuntime,
             IdempotencyService idempotencyService
     ) {
         this.scenarioExecutionService = scenarioExecutionService;
+        this.auxScriptLifecycle = auxScriptLifecycle;
         this.executionRepository = executionRepository;
         this.executionRuntime = executionRuntime;
         this.idempotencyService = idempotencyService;
@@ -68,6 +71,13 @@ public class ExecutionControlService {
         }
         executionRuntime.requestStop(executionId);
         execution.markCancelled();
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        auxScriptLifecycle.afterExecutionFinished(executionId);
+                    }
+                });
     }
 
     @Transactional(readOnly = true)

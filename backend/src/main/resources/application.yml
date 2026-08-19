@@ -90,3 +90,5 @@ platform:
         profiling:
           enabled: false
           retention-days: 7
+  auxscript:
+    timeout-seconds: ${AUX_SCRIPT_TIMEOUT_SECONDS:60}

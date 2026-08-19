@@ -40,6 +40,7 @@ public class ScenarioExecutionService {
     private final PersistentTaskPlanRepository planRepository;
     private final PersistentTaskScenarioRepository scenarioRepository;
     private final PersistentScenarioExecutionRepository executionRepository;
+    private final com.yr.perftest.platform.auxscript.AuxScriptLifecycle auxScriptLifecycle;
     private final ExecutionConfigMerger configMerger;
     private final ExecutionMonitorBindingService monitorBindingService;
     private final DistributedJmeterExecutionRunner distributedJmeterExecutionRunner;
@@ -56,6 +57,7 @@ public class ScenarioExecutionService {
             PersistentTaskPlanRepository planRepository,
             PersistentTaskScenarioRepository scenarioRepository,
             PersistentScenarioExecutionRepository executionRepository,
+            com.yr.perftest.platform.auxscript.AuxScriptLifecycle auxScriptLifecycle,
             ExecutionConfigMerger configMerger,
             ExecutionMonitorBindingService monitorBindingService,
             DistributedJmeterExecutionRunner distributedJmeterExecutionRunner,
@@ -71,6 +73,7 @@ public class ScenarioExecutionService {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
         this.executionRepository = executionRepository;
+        this.auxScriptLifecycle = auxScriptLifecycle;
         this.configMerger = configMerger;
         this.monitorBindingService = monitorBindingService;
         this.distributedJmeterExecutionRunner = distributedJmeterExecutionRunner;
@@ -115,6 +118,7 @@ public class ScenarioExecutionService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
+                auxScriptLifecycle.afterExecutionStarted(saved.getId());
                 distributedJmeterExecutionRunner.submit(saved.getId());
             }
         });
