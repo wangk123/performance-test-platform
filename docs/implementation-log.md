@@ -89,3 +89,22 @@
 1. `gradle :backend:test` 全量通过（含 agent 分层守护、幂等、预检、分析黄金数据集用例）。
 2. `openspec validate add-m3-data-chain --strict` 通过，变更已归档并同步主 spec。
 3. OpenSpec 变更归档：`add-auth-foundation`、`add-agent-facade-contract`、`add-m3-data-chain`。
+
+## 2026-08-19（M4/M5 与后续增强模块收官）
+
+已完成：
+
+1. 流程收尾：归档 M3 OpenSpec 变更、同步主 spec、补齐实现记录、勾选 T7/T8 计划、`.mcp.json`（含个人密钥）加入 `.gitignore`。
+2. T10 治理：`governance` 包——输出边界脱敏（敏感键/令牌/头部）、请求审计 + 执行审计、滑动窗口限流 + 在途并发限流（仅 `/api/agent/**`），执行 START/STOP/CANCEL 审计落库。
+3. T9 补充取证 + 优化验证：`verification` 包——取证（目的/影响/成本预检 → 人工审批 → 证据快照回流）+ 变更登记 + 三态优化验证（IMPROVED/REGRESSED/INCONCLUSIVE，复用 T7 execution-compare + 错误率护栏）。
+4. T11 深度证据：`evidence/deep` 五类源（db-metrics/trace/app-log/slow-sql/profiling）注册进证据链，`GET /api/agent/executions/{id}/evidence` 按 executionId/时间窗/traceId 下钻，每源显式可用性；db-metrics 接 Prometheus exporter 真实探针。
+5. T12 MCP Server：`/mcp` Streamable HTTP（MCP Java SDK），机器身份复用 API Key，8 个任务型工具复用 Facade，只读 scope 越权拦截，写操作幂等，端到端协议级测试。
+6. T13 Skill Pack：`skill-pack/` 六技能 + 协议级验收脚本 + 审计重建入口（`GET /api/agent/audit/requests|executions`）+ Claude Code 走查手册。
+7. 模块 09 辅助脚本：前置/后置脚本、版本不可变绑定、STOP_TASK/CONTINUE/MANUAL_CONFIRM 失败策略、超时与日志、执行生命周期钩子（PRE 在启动后、POST 在终态后）。
+8. 模块 10 Git/日志/AI：Git 仓库配置与 JGit 提交导入、任务代码绑定、日志制品上传与检索、报告 AI 分析（LlmGateway 单次调用，保留输入/模型/Prompt 版本）。
+9. 模块 06 增强：报告对比（标签级 + 总体差异，纯函数算法）+ PDF 导出（openhtmltopdf）；移除与真实接口冲突的 `ModuleMockController.compareReports` 占位。
+
+验证：
+
+1. 每阶段 `gradle :backend:test` 全量通过（含治理/取证/证据/MCP/辅助脚本/Git/AI/报告对比用例）。
+2. 新增端到端：MCP initialize/tools/list/tools/call、幂等启动、只读 scope 越权、审计重建、取证审批流、深度证据可用性、辅助脚本失败策略、JGit 真实仓库导入、Mock LLM Provider 全链路。

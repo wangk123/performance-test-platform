@@ -73,9 +73,4 @@ public class ModuleMockController {
     public Map<String, Object> regenerateReport(@PathVariable long reportId) {
         return Map.of("id", reportId, "status", "REGENERATING");
     }
-
-    @PostMapping("/reports/compare")
-    public Map<String, Object> compareReports() {
-        return Map.of("id", 1, "status", "MOCK_CREATED");
-    }
 }

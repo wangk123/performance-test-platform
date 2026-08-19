@@ -66,9 +66,11 @@
 
 ## 后续增强
 
-1. [监控采集和报告整合](modules/06-monitoring.md)。
-2. [造数工厂](modules/07-test-data-factory.md)。
-3. [函数库](modules/08-function-library.md)。
-4. [辅助脚本](modules/09-auxiliary-scripts.md)。
-5. [Git、日志与 AI 分析](modules/10-git-log-ai.md)。
-6. [分布式执行](modules/11-distributed-execution.md)。
+> 状态（2026-08-19）：以下增强均已落地并自测通过，详见 `docs/implementation-log.md`。
+
+1. [监控采集和报告整合](modules/06-monitoring.md)。✅ 已实现（Prometheus 集成、监控目标、报告 Word/PDF 导出、报告对比）
+2. [造数工厂](modules/07-test-data-factory.md)。✅ 已实现（录制/克隆/相邻 Diff 分析）
+3. [函数库](modules/08-function-library.md)。✅ 已实现（内置 JMeter 函数扩展与只读展示）
+4. [辅助脚本](modules/09-auxiliary-scripts.md)。✅ 已实现（前置/后置脚本、失败策略、生命周期钩子）
+5. [Git、日志与 AI 分析](modules/10-git-log-ai.md)。✅ 已实现（Git 仓库/提交导入、任务代码绑定、日志制品检索、报告 AI 分析）
+6. [分布式执行](modules/11-distributed-execution.md)。✅ 已实现（执行节点注册、远程 JMeter 运行、结果回收）

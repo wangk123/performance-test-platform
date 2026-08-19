@@ -33,6 +33,9 @@ dependencies {
     // JGit — Git 仓库提交记录导入（模块 10）
     implementation 'org.eclipse.jgit:org.eclipse.jgit:7.7.1.202607240634-r'
 
+    // openhtmltopdf — 报告 PDF 导出（模块 06 增强）
+    implementation 'com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

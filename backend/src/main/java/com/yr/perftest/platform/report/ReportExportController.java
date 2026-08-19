@@ -24,9 +24,11 @@ import java.time.format.DateTimeFormatter;
 public class ReportExportController {
 
     private final ReportExportService reportExportService;
+    private final ReportPdfService reportPdfService;
 
-    public ReportExportController(ReportExportService reportExportService) {
+    public ReportExportController(ReportExportService reportExportService, ReportPdfService reportPdfService) {
         this.reportExportService = reportExportService;
+        this.reportPdfService = reportPdfService;
     }
 
     @PostMapping("/plans/{planId}/export/word")
@@ -48,6 +50,23 @@ public class ReportExportController {
                 .contentType(MediaType.parseMediaType(
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
                 .body(docxBytes);
+    }
+
+    @PostMapping("/plans/{planId}/export/pdf")
+    public ResponseEntity<byte[]> exportPdf(@PathVariable long planId) {
+        byte[] pdfBytes = reportPdfService.generatePdf(planId);
+
+        String filename = "performance-report-"
+                + DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+                .withZone(ZoneId.systemDefault())
+                .format(Instant.now())
+                + ".pdf";
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdfBytes);
     }
 
     @ExceptionHandler(ExecutionValidationException.class)
