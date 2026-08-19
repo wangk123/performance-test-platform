@@ -15,3 +15,5 @@ __pycache__/
 /storage/
 backend/storage/
 .superpowers/
+# 本地 MCP 客户端配置，含个人 API Key，不入库
+.mcp.json

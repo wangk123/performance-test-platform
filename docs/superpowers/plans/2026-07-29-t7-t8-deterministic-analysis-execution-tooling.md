@@ -1,5 +1,6 @@
 # T7 确定性分析 + T8 压测执行工具化 实施计划
 
+> **状态：✅ 已完成（2026-07-30）**。全部任务已提交：`221b41f`…`2cf7b47`（T7/T8 主体）与 `5ebb2a7`、`dc00ad5`（审查修复）。任务清单见 `docs/agent-platform-buildout-tasks.md`。
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** T7 新建 `analysis` 模块，用带版本号的确定性算法产出事实（趋势/异常/错误聚类/资源饱和/执行对比），经 Facade 暴露给 agent 面；T8 给压测执行补 Agent 驱动语义（幂等启动、预检、统一启停取消、稳定 ID + 状态查询）。
@@ -65,7 +66,7 @@
   - `TrendAnalysis.ALGORITHM_ID="trend"`、`TrendAnalysis.VERSION="1"`、`new TrendAnalysis().analyze(List<MetricTick> ticks, List<String> evidenceRefs) -> AnalysisFact`
   - trend `data` 键：`tickCount`(int)、`avgRtMs`/`throughput`/`errorRate` 各为 `{first, second, deltaPct, direction}`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.yr.perftest.platform.analysis;
@@ -154,12 +155,12 @@ class TrendAnalysisTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.analysis.TrendAnalysisTest"`
 Expected: 编译失败（`AnalysisFact`、`TrendAnalysis` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `AnalysisFact.java`：
 
@@ -295,12 +296,12 @@ public final class TrendAnalysis {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.analysis.TrendAnalysisTest"`
 Expected: PASS（3 个用例）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java/com/yr/perftest/platform/analysis backend/src/test/java/com/yr/perftest/platform/analysis
@@ -321,7 +322,7 @@ git commit -m "feat：新增 analysis 模块骨架与趋势分析算法（T7）"
 - `data` 键：`mean`(double)、`stddev`(double)、`threshold`(double)、`intervals`(List of `{fromMs,toMs,points,maxAvgRtMs}`)、`kneePointMs`(Long，可 null)
 - 规则：threshold = mean + 3*stddev（stddev==0 不报异常）；异常区间 = 连续 avgRt > threshold 的 tick 段；拐点 = 首个 i≥3 满足 `v[i] >= 2 * median(v[0..i-1])` 且其后所有值 `>= 1.5 * median`（前缀中位数基线）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.yr.perftest.platform.analysis;
@@ -405,12 +406,12 @@ class AnomalyDetectionTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.analysis.AnomalyDetectionTest"`
 Expected: 编译失败（`AnomalyDetection` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```java
 package com.yr.perftest.platform.analysis;
@@ -507,12 +508,12 @@ public final class AnomalyDetection {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.analysis.AnomalyDetectionTest"`
 Expected: PASS（4 个用例）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java/com/yr/perftest/platform/analysis/AnomalyDetection.java backend/src/test/java/com/yr/perftest/platform/analysis/AnomalyDetectionTest.java
@@ -533,7 +534,7 @@ git commit -m "feat：新增异常区间与拐点检测算法（T7）"
 - `data` 键：`totalFailures`(int)、`clusters`(List of `{label,statusCode,messagePattern,count,sharePct}`)、`labelContribution`(List of `{label,count,sharePct}`)
 - 规则：只看 `success()==false`；messagePattern = failureMessage（空则用 message）中所有数字串替换为 `#`，截断 120 字符；排序 count 降序、并列按聚类键字典序
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.yr.perftest.platform.analysis;
@@ -638,12 +639,12 @@ class ErrorClusteringTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.analysis.ErrorClusteringTest"`
 Expected: 编译失败（`ErrorClustering` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```java
 package com.yr.perftest.platform.analysis;
@@ -732,12 +733,12 @@ public final class ErrorClustering {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.analysis.ErrorClusteringTest"`
 Expected: PASS（3 个用例）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java/com/yr/perftest/platform/analysis/ErrorClustering.java backend/src/test/java/com/yr/perftest/platform/analysis/ErrorClusteringTest.java
@@ -758,7 +759,7 @@ git commit -m "feat：新增错误聚类与贡献度分析算法（T7）"
 - `data` 键：`threshold`(double)、`windows`(List of `{series,fromEpochSec,toEpochSec,points,maxValue}`)、`correlation`(`{alignedPairs,pearson}`，对齐点对 <3 时 pearson 为 null)
 - 规则：按 `displayName` 分序列、按 timestamp 排序，连续 `value >= threshold` 且点数 `>= minSustainedPoints` 记为一个饱和窗口；相关性 = 资源值（同秒多序列取均值）与吞吐量（`bucketTimeMs/1000` 对齐）的 Pearson 系数
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.yr.perftest.platform.analysis;
@@ -863,12 +864,12 @@ class ResourceSaturationTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.analysis.ResourceSaturationTest"`
 Expected: 编译失败（`ResourceSaturation` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```java
 package com.yr.perftest.platform.analysis;
@@ -1003,12 +1004,12 @@ public final class ResourceSaturation {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.analysis.ResourceSaturationTest"`
 Expected: PASS（3 个用例）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java/com/yr/perftest/platform/analysis/ResourceSaturation.java backend/src/test/java/com/yr/perftest/platform/analysis/ResourceSaturationTest.java
@@ -1032,7 +1033,7 @@ git commit -m "feat：新增资源饱和与压测相关性分析算法（T7）"
 - `data` 键：`baselineExecutionId`、`candidateExecutionId`、`comparable`(boolean)、`reasons`(List<String>)、`labels`(List of `{label,baselineP95,candidateP95,p95DeltaPct,avgRtDeltaPct,throughputDeltaPct,errorRateDelta,verdict}`)、`overallVerdict`（`REGRESSED`/`IMPROVED`/`STABLE`/`NOT_COMPARABLE`）
 - 可比规则：同 scenarioId + 标签集合一致 + 双方 durationMs 均有效（非 null 且 >0）时比例须 ∈ [0.8, 1.25]（任一方时长缺失则跳过时长检查）；单标签 verdict 按 p95DeltaPct（>5 REGRESSED / <-5 IMPROVED / 否则 STABLE）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.yr.perftest.platform.analysis;
@@ -1138,12 +1139,12 @@ class ExecutionComparisonTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.analysis.ExecutionComparisonTest"`
 Expected: 编译失败（`ExecutionComparison` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```java
 package com.yr.perftest.platform.analysis;
@@ -1255,12 +1256,12 @@ public final class ExecutionComparison {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.analysis.ExecutionComparisonTest"`
 Expected: PASS（4 个用例）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java/com/yr/perftest/platform/analysis/ExecutionComparison.java backend/src/test/java/com/yr/perftest/platform/analysis/ExecutionComparisonTest.java
@@ -1292,7 +1293,7 @@ git commit -m "feat：新增执行间可比性与差异分析算法（T7）"
   - `AnalysisFacade.getExecutionAnalysis(long, Instant, Instant, List<String>, String) -> AnalysisReport`、`AnalysisFacade.compareExecutions(long, long) -> AnalysisFact`
   - REST：`GET /api/agent/executions/{executionId}/analysis?from=&to=&kinds=&metric=`、`GET /api/agent/executions/compare?baselineId=&candidateId=`
 
-- [ ] **Step 1: 写失败测试（端到端 MockMvc）**
+- [x] **Step 1: 写失败测试（端到端 MockMvc）**
 
 ```java
 package com.yr.perftest.platform.agent;
@@ -1469,12 +1470,12 @@ class AgentAnalysisApiTest {
 
 注意：Prometheus 数据源在测试环境无监控绑定，`AnalysisService` 必须把它记为 `present=false`（`NO_DATA` 或 `SOURCE_UNAVAILABLE` 均可），resource-saturation 事实仍以空输入产出，不得让整个请求失败。
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.agent.AgentAnalysisApiTest"`
 Expected: 404 / 编译失败（`AnalysisService`、`AgentAnalysisController` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `SourceCompleteness.java`：
 
@@ -1766,17 +1767,17 @@ public class AgentAnalysisController {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.agent.AgentAnalysisApiTest"`
 Expected: PASS（5 个用例）
 
-- [ ] **Step 5: 回归相关测试**
+- [x] **Step 5: 回归相关测试**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.agent.*" --tests "com.yr.perftest.platform.analysis.*"`
 Expected: 全部 PASS（含 `AgentLayeringConstraintTest` 分层约束）
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/src/main/java/com/yr/perftest/platform/analysis backend/src/main/java/com/yr/perftest/platform/facade/AnalysisFacade.java backend/src/main/java/com/yr/perftest/platform/agent/analysis backend/src/test/java/com/yr/perftest/platform/agent/AgentAnalysisApiTest.java
@@ -1806,7 +1807,7 @@ git commit -m "feat：打通 agent 面确定性分析入口（T7）"
   - `record IdempotencyService.IdempotentExecution(long executionId, boolean replayed)`
   - 语义：key 空白 → 直接执行不去重；key 已存在且 hash 一致 → 返回原 executionId、`replayed=true`，不执行 action；key 已存在且 hash 不同 → 抛 `IdempotencyConflictException`；否则执行 action 并落库
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.yr.perftest.platform.execution;
@@ -1877,12 +1878,12 @@ class IdempotencyServiceTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.execution.IdempotencyServiceTest"`
 Expected: 编译失败（`IdempotencyService` 等不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `IdempotencyConflictException.java`：
 
@@ -2056,12 +2057,12 @@ public class IdempotencyService {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.execution.IdempotencyServiceTest"`
 Expected: PASS（3 个用例）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java/com/yr/perftest/platform/execution/IdempotencyConflictException.java backend/src/main/java/com/yr/perftest/platform/execution/RequestHashing.java backend/src/main/java/com/yr/perftest/platform/execution/PersistentIdempotencyRecord.java backend/src/main/java/com/yr/perftest/platform/execution/PersistentIdempotencyRepository.java backend/src/main/java/com/yr/perftest/platform/execution/IdempotencyService.java backend/src/test/java/com/yr/perftest/platform/execution/IdempotencyServiceTest.java
@@ -2096,7 +2097,7 @@ git commit -m "feat：新增写操作幂等键支持（T8）"
   - `status(long) -> ScenarioExecution`
   - 终态定义：SUCCESS / FAILED / CANCELLED / INTERRUPTED
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.yr.perftest.platform.task;
@@ -2236,12 +2237,12 @@ class ExecutionControlServiceTest {
 
 注意：`sameIdempotencyKeyStartsExecutionOnlyOnce` 中 runner 会因测试库无脚本版本而异步失败并把执行置为 FAILED——这是既有行为，不影响断言（断言只依赖同步返回的 QUEUED 与执行条数）；不要断言第二次调用的 status。
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.task.ExecutionControlServiceTest"`
 Expected: 编译失败（`ExecutionControlService`、`ExecutionConflictException`、`markCancelled` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `ExecutionConflictException.java`：
 
@@ -2391,12 +2392,12 @@ public class ExecutionControlService {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.task.ExecutionControlServiceTest"`
 Expected: PASS（6 个用例）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java/com/yr/perftest/platform/execution/ExecutionConflictException.java backend/src/main/java/com/yr/perftest/platform/task/PersistentScenarioExecutionRecord.java backend/src/main/java/com/yr/perftest/platform/execution/distributed/DistributedJmeterExecutionRunner.java backend/src/main/java/com/yr/perftest/platform/task/ExecutionControlService.java backend/src/test/java/com/yr/perftest/platform/task/ExecutionControlServiceTest.java
@@ -2424,7 +2425,7 @@ git commit -m "feat：统一启动/停止/取消执行控制语义（T8）"
   - `precheck(long scenarioId, Long threadGroupConfigId, Integer threadGroupPresetSortOrder) -> PrecheckReport`
   - 规则：scenario/plan 不存在 → `ExecutionValidationException("... does not exist")`；merge 失败 → errors 收录并提前返回；controller 缺失/节点不存在 → errors；节点 OFFLINE → warnings；threads<=0 / duration<=0 → warnings；`queueAhead` = QUEUED+RUNNING 执行数（>0 时加 warning）；workerNodeIds 为空时 workerCount 按 controller 计 1 且不重复列节点
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.yr.perftest.platform.task;
@@ -2524,12 +2525,12 @@ class ExecutionPrecheckServiceTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.task.ExecutionPrecheckServiceTest"`
 Expected: 编译失败（`ExecutionPrecheckService`、`countByStatusIn` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `PersistentScenarioExecutionRepository.java` 追加：
 
@@ -2669,12 +2670,12 @@ public class ExecutionPrecheckService {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.task.ExecutionPrecheckServiceTest"`
 Expected: PASS（4 个用例）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java/com/yr/perftest/platform/task/PersistentScenarioExecutionRepository.java backend/src/main/java/com/yr/perftest/platform/task/ExecutionPrecheckService.java backend/src/test/java/com/yr/perftest/platform/task/ExecutionPrecheckServiceTest.java
@@ -2708,7 +2709,7 @@ git commit -m "feat：新增执行预检与影响评估（T8）"
   - REST：`POST /api/agent/scenarios/{scenarioId}/executions`（头 `Idempotency-Key`）、`POST /api/agent/scenarios/{scenarioId}/precheck`、`POST /api/agent/executions/{executionId}/stop`、`POST /api/agent/executions/{executionId}/cancel`、`GET /api/agent/executions/{executionId}/status`
   - 错误映射：幂等键不同参数 → 409 `IDEMPOTENCY_CONFLICT`；终态上 stop/cancel → 409 `EXECUTION_CONFLICT`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package com.yr.perftest.platform.agent;
@@ -2905,12 +2906,12 @@ class AgentExecutionControlApiTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.agent.AgentExecutionControlApiTest"`
 Expected: 404 / 编译失败
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `facade/data/ExecutionStartResult.java`：
 
@@ -3196,21 +3197,21 @@ public class AgentExecutionControlController {
     }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `./gradlew :backend:test --tests "com.yr.perftest.platform.agent.AgentExecutionControlApiTest"`
 Expected: PASS（6 个用例）
 
-- [ ] **Step 5: 全量回归**
+- [x] **Step 5: 全量回归**
 
 Run: `./gradlew :backend:test`
 Expected: 全部 PASS（含 `AgentLayeringConstraintTest`、`AgentOpenApiTest` 等既有用例）
 
-- [ ] **Step 6: 更新任务清单勾选**
+- [x] **Step 6: 更新任务清单勾选**
 
 修改 `docs/agent-platform-buildout-tasks.md`：T7、T8 的清单项 `[ ]` 改为 `[x]`，任务索引表中 T7/T8 状态改为「✅ 完成」。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/src/main/java/com/yr/perftest/platform/facade backend/src/main/java/com/yr/perftest/platform/agent backend/src/test/java/com/yr/perftest/platform/agent/AgentExecutionControlApiTest.java docs/agent-platform-buildout-tasks.md

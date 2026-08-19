@@ -13,7 +13,7 @@
 |---|---|---|---|
 | M1 认证底座 | 平台与 agent 面获得请求级身份（简单 token + API Key） | T1 | ✅ 完成（`add-auth-foundation` 已归档） |
 | M2 业务入口与契约 | 业务入口收敛到 Facade，agent 面统一响应契约 | T3 T4 | ✅ 完成（`add-agent-facade-contract` 已归档） |
-| M3 数据链与分析 | 数据可关联、可下钻，产出确定性事实 | T5 T6 T7 T8 | 进行中 |
+| M3 数据链与分析 | 数据可关联、可下钻，产出确定性事实 | T5 T6 T7 T8 | ✅ 完成（`add-m3-data-chain`、T7/T8 实施计划均已归档） |
 | M4 闭环与治理 | 取证/验证闭环 + 脱敏/审计/限流 | T9 T10 T11(起步) | 待开始 |
 | M5 外部 Agent 接入 | MCP + Skill，真实 Claude Code 端到端验收 | T12 T13 T11(持续) | 待开始 |
 
