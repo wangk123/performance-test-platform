@@ -30,6 +30,9 @@ dependencies {
     // MCP Java SDK — Streamable HTTP MCP Server（T12）
     implementation 'io.modelcontextprotocol.sdk:mcp:1.1.3'
 
+    // JGit — Git 仓库提交记录导入（模块 10）
+    implementation 'org.eclipse.jgit:org.eclipse.jgit:7.7.1.202607240634-r'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
