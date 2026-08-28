@@ -39,36 +39,57 @@
 
 ```mermaid
 flowchart TB
-    UI["平台 Web UI<br/>Vue3 单页应用"] -->|REST| API
-    AGENT["本地 Agent<br/>Claude Code / DSH<br/>skills/perf-plan/"] -->|MCP 工具| API
+    subgraph ACCESS["接入层"]
+        direction LR
+        WEB["Web UI<br/>Vue3 单页应用"]
+        AGENT["本地 Agent<br/>Claude Code / DSH · skills/perf-plan"]
+    end
 
-    subgraph PLATFORM["platform（单仓，单进程部署）"]
-        API["platform-api<br/>REST 控制器 · /api/agent/**<br/>MCP Server · Facade 层<br/>安全 · 通知编排<br/>（托管前端静态资源）"]
-        CORE["platform-core<br/>领域模型：计划/场景/执行/缺陷/环境检查/报告<br/>确定性分析 · 证据链 · LLM 网关<br/>Prometheus 采集 · 造数工厂 · 审计治理"]
-        WORKER["platform-worker<br/>执行控制 seam · 脚本装配<br/>分布式 Runner · JMeter 运行时<br/>环境检查执行器 · 辅助脚本"]
+    subgraph PLATFORM["platform 平台本体 · 单仓三模块 · 单进程部署"]
+        direction TB
+        API["platform-api · 对外接口层<br/>REST · /api/agent/** · MCP Server<br/>Facade · 安全 · 通知编排 · 前端静态托管"]
+        CORE["platform-core · 领域内核<br/>计划 / 场景 / 执行 / 缺陷 / 报告<br/>确定性分析 · 证据链 · LLM 网关<br/>Prometheus 采集 · 造数工厂 · 审计治理"]
+        WORKER["platform-worker · 执行引擎<br/>执行控制 seam · 脚本装配 · 分布式 Runner<br/>JMeter 运行时 · 环境检查 · 辅助脚本"]
         API --> CORE
-        API -->|触发执行/预检| WORKER
+        API -->|"触发执行 / 预检"| WORKER
         WORKER --> CORE
     end
 
-    DB[("MySQL<br/>主库 + 执行明细")]
+    subgraph DATA["数据层"]
+        DB[("MySQL<br/>主库 + 执行明细")]
+    end
+
+    subgraph EXTERNAL["外部系统"]
+        direction LR
+        NODES["执行节点集群<br/>SSH · 1 Controller + N Workers"]
+        PROM["被测服务<br/>Prometheus"]
+        JIRA["Jira 缺陷平台"]
+        MAIL["MCP 邮件服务"]
+        LLM["LLM Providers"]
+    end
+
+    WEB -->|"REST /api/**"| API
+    AGENT -->|"MCP 工具"| API
     CORE --> DB
+    WORKER -->|"SSH 编排 / 结果回传"| NODES
+    NODES -. "压测流量" .-> PROM
+    CORE -->|"查询指标"| PROM
+    API -->|"DefectGateway"| JIRA
+    API -->|"sendEmail"| MAIL
+    CORE -->|"LlmGateway"| LLM
 
-    NODES["执行节点集群<br/>SSH · 1 Controller + N Workers<br/>Docker JMeter"]
-    WORKER -->|SSH 编排/回传| NODES
-
-    PROM["被测服务<br/>Prometheus 监控"]
-    CORE -->|查询指标| PROM
-    WORKER -.压测流量.-> PROM
-
-    JIRA["Jira 缺陷平台"]
-    API -->|DefectGateway| JIRA
-
-    MAIL["MCP 邮件服务"]
-    API -->|sendEmail| MAIL
-
-    LLM["LLM Providers"]
-    CORE -->|LlmGateway| LLM
+    classDef access fill:#EFF6FF,stroke:#3B82F6,stroke-width:1.5px
+    classDef api fill:#DBEAFE,stroke:#2563EB,stroke-width:1.5px
+    classDef core fill:#FEF9C3,stroke:#CA8A04,stroke-width:1.5px
+    classDef worker fill:#DCFCE7,stroke:#16A34A,stroke-width:1.5px
+    classDef data fill:#FCE7F3,stroke:#DB2777,stroke-width:1.5px
+    classDef ext fill:#F8FAFC,stroke:#94A3B8,stroke-width:1.5px
+    class WEB,AGENT access
+    class API api
+    class CORE core
+    class WORKER worker
+    class DB data
+    class NODES,PROM,JIRA,MAIL,LLM ext
 ```
 
 ### 3.2 模块职责
@@ -89,18 +110,27 @@ flowchart TB
 ## 4. 核心闭环与平台分工
 
 ```mermaid
-flowchart LR
-    A["① 需求梳理<br/>本地 Agent + 公司模板<br/>（平台外为主，MCP 同步）"] --> B["② 计划评审<br/>平台内：状态机 + 批注"]
-    B --> S["③ 脚本开发<br/>与评审并行（现有能力）"]
-    S --> C["④ 环境检查<br/>平台预检任务：SSH 探测 + 分级自动修复"]
-    C --> D["⑤ 测试执行<br/>平台：单机/多节点 + 实时流"]
-    D --> E["⑥ 缺陷分析<br/>平台：确定性分析 + LLM 归因"]
+flowchart TB
+    A["① 需求梳理<br/>本地 Agent 对话 + 公司模板<br/>MCP 同步到平台"] --> B["② 计划评审<br/>状态机流转 + 成员批注"]
+    B --> S["③ 脚本开发<br/>与评审并行 · 现有能力"]
+    S --> C["④ 环境检查<br/>SSH 探测 · 分级自动修复"]
+    C --> D["⑤ 测试执行<br/>单机 / 多节点 + 实时流"]
+    D --> E["⑥ 缺陷分析<br/>确定性分析 + LLM 归因"]
     E --> F["⑦ 缺陷提交<br/>平台台账 → Jira 同步"]
-    F --> G["⑧ 修复/复测<br/>外部修复；平台一键复测对比"]
-    G --> D
+    F --> G["⑧ 修复 / 复测<br/>外部修复 · 平台一键复测"]
+    G -. 回归 .-> D
     D --> H["⑨ 报告生成<br/>聚合 + 验收判等"]
-    H --> I["⑩ 发布（终态）<br/>+ 分享链接 + 邮件通知（MCP）"]
+    H --> I["⑩ 发布（终态）<br/>分享链接 + 邮件通知"]
     I --> J["⑪ 迭代对比<br/>vs 上次发布快照"]
+
+    classDef prep fill:#EFF6FF,stroke:#3B82F6,stroke-width:1.5px
+    classDef run fill:#DCFCE7,stroke:#16A34A,stroke-width:1.5px
+    classDef defect fill:#FFF7ED,stroke:#EA580C,stroke-width:1.5px
+    classDef report fill:#F5F3FF,stroke:#7C3AED,stroke-width:1.5px
+    class A,B,S prep
+    class C,D run
+    class E,F,G defect
+    class H,I,J report
 ```
 
 | 环节 | 平台内 | 平台外 |
