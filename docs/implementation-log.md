@@ -108,3 +108,18 @@
 
 1. 每阶段 `gradle :backend:test` 全量通过（含治理/取证/证据/MCP/辅助脚本/Git/AI/报告对比用例）。
 2. 新增端到端：MCP initialize/tools/list/tools/call、幂等启动、只读 scope 越权、审计重建、取证审批流、深度证据可用性、辅助脚本失败策略、JGit 真实仓库导入、Mock LLM Provider 全链路。
+
+## 2026-08-28（架构评审重构：控制 seam 收敛 + 上帝模块拆分）
+
+依据架构评审报告执行（improve-codebase-architecture），C7 按报告结论跳过：
+
+1. **C1 收敛双执行控制路径**：UI 面 `TaskPlanController` 触发/停止改走 `ExecutionControlService`（幂等键 + 审计 + 冲突语义），与 agent 面共用同一条 seam；前端执行确认对话框生成幂等键（`Idempotency-Key` 头）；`ExecutionConflictException` 映射 409。
+2. **C2 拆分执行上帝模块**：`ScenarioExecutionService`（原 480 行 14 方法）拆为写模型（触发/停止/删除）+ `ExecutionQueryService` 读模型（结果/采样/失败样本/指标/实时流）；调用方 DataFacade/ReportDataService/TaskPlanController 全部切换。
+3. **C4 脚本装配收敛**：新增 `ExecutionScriptAssembler`（装载→线程组预设补丁→监听器注入→写出），`DistributedJmeterExecutionRunner` 从 662 行减负，不再直接持有 Parser/Patcher/Injector；新增纯文件级装配测试。
+4. **C5 Facade 一致性**：`AuditFacade` 执行审计改有界查询（`findByExecutionIdOrderByIdDesc`），移除全量内存过滤；`FacadeGuard` 清理占位注释；`ExecutionFacade` 审计移交控制模块。
+5. **C6 造数工厂**：`testDatasource` 改类型化记录 `SeedDatasourceTestResult`（JSON 键不变）；行级数据保持 schema-less（表结构天然动态）。
+6. **C8 前端**：抽出 `useExecutionEventStream`（SSE 连接/指数退避/回放），状态文案 `executionStatusText` 收敛到 api 层单点。
+7. **功能修复**：脚本列表 N+1 消除；`steppingThreadGroupSupported` 改探测注入容器的 `jmeter-runtime/*.jar`（不再误测本机 JMeter）；`GitCommitImporter` 残留副本自愈重建（修复 GitLogAiApiTest 偶发失败）；`ModuleMockController` 整体删除；前端 reports 页接真实报告列表（HTML 预览/Word/PDF）；`PROMETHEUS_BASE_URL` 空默认 + 显式未配置报错；README/需求规格的模块状态与文档漂移修正。
+8. 新增 `CONTEXT.md`：领域词汇 + 模块地图 + 关键 seam 决策记录。
+
+验证：新增 `UiExecutionControlApiTest`（UI 幂等/审计/409）、`ExecutionScriptAssemblerTest`；`gradle :backend:test` 全量通过；`npm run build` 通过。

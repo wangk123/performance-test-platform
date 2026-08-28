@@ -13,11 +13,13 @@
 | 📊 聚合报告 | 吞吐量/响应时间/错误率统计、按标签明细、图表快照 | ✅ |
 | 🖥️ 执行节点 | SSH 远程节点注册、健康检查、批量初始化、密钥部署 | ✅ |
 | 📈 监控采集 | Prometheus 集成、CPU/内存/JVM 指标、代理一键部署 | ✅ |
-| 📄 报告生成 | Markdown/HTML 报告生成与下载 | 📋 |
-| 🏭 造数工厂 | 数据模板、生成规则、预览导出 | 📋 |
+| 📄 报告生成 | 计划维度报告、HTML 预览、Word/PDF 导出、报告对比 | ✅ |
+| 🏭 造数工厂 | 数据源/采集策略/快照样本/相邻 Diff 分析/模板确认/克隆写库 | ✅ |
 | 📚 函数库 | Java JMeter Function 只读展示、函数包下载、编辑器插入 | ✅ |
+| 🔧 辅助脚本 | 前置/后置脚本、失败策略、执行日志 | ✅ |
+| 🔗 Git 日志 AI | Git 仓库/代码绑定、日志制品检索、确定性分析驱动的 AI 建议 | ✅ |
 
-> 📋 = 远期规划 &nbsp;|&nbsp; 完整需求清单见 [需求规格说明书](docs/requirements-spec.md)
+> 📋 = 远期规划 &nbsp;|&nbsp; 完整需求清单见 [需求规格说明书](docs/requirements-spec.md)。模块状态以 `docs/agent-platform-buildout-tasks.md` 与代码实现为准。
 
 ## 技术栈
 
@@ -488,7 +490,7 @@ curl http://localhost/
 | `platform.execution.max-concurrent-tasks` | 最大并发执行数 | `1` |
 | `platform.jmeter.executable` | JMeter CLI 路径 | 本地 JMeter 安装路径 |
 | `platform.jmeter.java-home` | JMeter 使用的 JDK | 当前 JDK |
-| `platform.monitoring.prometheus.base-url` | Prometheus API 地址 | `http://192.168.17.216:9090` |
+| `platform.monitoring.prometheus.base-url` | Prometheus API 地址（空默认，需显式配置） | 空 |
 | `platform.monitoring.prometheus.file-sd-path` | JMX 服务发现文件路径 | - |
 | `platform.distributed.runner.python` | Python 解释器 | `python3` |
 | `platform.distributed.runner.entry` | Remote runner 脚本路径 | `./remote-runner/.../main.py` |

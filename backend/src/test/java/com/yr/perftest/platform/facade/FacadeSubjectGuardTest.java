@@ -3,7 +3,7 @@ package com.yr.perftest.platform.facade;
 import com.yr.perftest.platform.identity.AuthenticationException;
 import com.yr.perftest.platform.identity.MachinePrincipal;
 import com.yr.perftest.platform.identity.Principal;
-import com.yr.perftest.platform.task.ScenarioExecutionService;
+import com.yr.perftest.platform.task.ExecutionQueryService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -21,13 +21,13 @@ import static org.mockito.Mockito.verifyNoInteractions;
 @ExtendWith(MockitoExtension.class)
 class FacadeSubjectGuardTest {
     @Mock
-    private ScenarioExecutionService scenarioExecutionService;
+    private ExecutionQueryService executionQueryService;
 
     @Test
     void missingPrincipalBlocksBusinessCall() {
         SecurityContextHolder.clearContext();
         FacadeGuard guard = new FacadeGuard();
-        DataFacade facade = new DataFacade(guard, scenarioExecutionService);
+        DataFacade facade = new DataFacade(guard, executionQueryService);
         AtomicBoolean reached = new AtomicBoolean(false);
 
         assertThatThrownBy(() -> guard.requirePrincipal(() -> {
@@ -39,7 +39,7 @@ class FacadeSubjectGuardTest {
 
         assertThatThrownBy(() -> facade.getExecutionSummary(1L))
                 .isInstanceOf(AuthenticationException.class);
-        verifyNoInteractions(scenarioExecutionService);
+        verifyNoInteractions(executionQueryService);
     }
 
     @Test

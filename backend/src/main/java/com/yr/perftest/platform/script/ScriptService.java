@@ -3,6 +3,8 @@ package com.yr.perftest.platform.script;
 import com.yr.perftest.platform.project.PersistentProjectRepository;
 import com.yr.perftest.platform.project.ProjectValidationException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,7 +29,6 @@ public class ScriptService {
     private final JmeterScriptPatcher jmeterScriptPatcher;
     private final JmeterScriptRenderer jmeterScriptRenderer;
     private final Path storageRoot;
-    private final Path jmeterExecutable;
 
     public ScriptService(
             PersistentProjectRepository projectRepository,
@@ -35,8 +36,7 @@ public class ScriptService {
             JmeterScriptParser jmeterScriptParser,
             JmeterScriptPatcher jmeterScriptPatcher,
             JmeterScriptRenderer jmeterScriptRenderer,
-            @Value("${platform.storage.root:./storage}") String storageRoot,
-            @Value("${platform.jmeter.executable:jmeter}") String jmeterExecutable
+            @Value("${platform.storage.root:./storage}") String storageRoot
     ) {
         this.projectRepository = projectRepository;
         this.scriptVersionRepository = scriptVersionRepository;
@@ -44,7 +44,6 @@ public class ScriptService {
         this.jmeterScriptPatcher = jmeterScriptPatcher;
         this.jmeterScriptRenderer = jmeterScriptRenderer;
         this.storageRoot = Path.of(storageRoot);
-        this.jmeterExecutable = Path.of(jmeterExecutable);
     }
 
     @Transactional
@@ -128,14 +127,23 @@ public class ScriptService {
         if (!projectRepository.existsById(projectId)) {
             throw new ProjectValidationException("project does not exist");
         }
-        return scriptVersionRepository.findAllByProjectIdOrderByVersionNoDesc(projectId).stream()
-                .map(this::toScriptDefinition)
+        List<PersistentScriptVersionRecord> records =
+                scriptVersionRepository.findAllByProjectIdOrderByVersionNoDesc(projectId);
+        List<ScriptVersion> versions = records.stream()
+                .map(PersistentScriptVersionRecord::toScriptVersion)
+                .toList();
+        return records.stream()
+                .map(record -> toScriptDefinition(record, versions))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public ScriptDefinition getScriptDefinition(long projectId, long versionId) {
-        return toScriptDefinition(requireScriptVersion(projectId, versionId));
+        PersistentScriptVersionRecord record = requireScriptVersion(projectId, versionId);
+        List<ScriptVersion> versions = scriptVersionRepository.findAllByProjectIdOrderByVersionNoDesc(projectId).stream()
+                .map(PersistentScriptVersionRecord::toScriptVersion)
+                .toList();
+        return toScriptDefinition(record, versions);
     }
 
     @Transactional(readOnly = true)
@@ -235,7 +243,7 @@ public class ScriptService {
         }
     }
 
-    private ScriptDefinition toScriptDefinition(PersistentScriptVersionRecord record) {
+    private ScriptDefinition toScriptDefinition(PersistentScriptVersionRecord record, List<ScriptVersion> versions) {
         String content = readStoredContent(record);
         List<ScriptStepDefinition> steps = jmeterScriptParser.parseSteps(content);
         return new ScriptDefinition(
@@ -249,9 +257,7 @@ public class ScriptService {
                 record.toScriptVersion().uploadedAt(),
                 steppingThreadGroupSupported(),
                 steps,
-                scriptVersionRepository.findAllByProjectIdOrderByVersionNoDesc(record.getProjectId()).stream()
-                        .map(PersistentScriptVersionRecord::toScriptVersion)
-                        .toList()
+                versions
         );
     }
 
@@ -276,16 +282,18 @@ public class ScriptService {
     }
 
     private boolean steppingThreadGroupSupported() {
-        Path home = jmeterExecutable.getParent() == null ? null : jmeterExecutable.getParent().getParent();
-        if (home == null) {
+        // 实际执行环境是远端 Docker 容器，能力由注入容器的 jmeter-runtime/*.jar 决定，
+        // 而不是平台本机的 JMeter 安装（本机 JMeter 不参与执行）。
+        try {
+            Resource[] resources = new PathMatchingResourcePatternResolver()
+                    .getResources("classpath:jmeter-runtime/*.jar");
+            for (Resource resource : resources) {
+                String filename = resource.getFilename();
+                if (filename != null && filename.contains("casutg")) {
+                    return true;
+                }
+            }
             return false;
-        }
-        Path ext = home.resolve("lib").resolve("ext");
-        if (!Files.isDirectory(ext)) {
-            return false;
-        }
-        try (var files = Files.list(ext)) {
-            return files.anyMatch(path -> path.getFileName().toString().startsWith("jmeter-plugins-casutg-"));
         } catch (IOException exception) {
             return false;
         }

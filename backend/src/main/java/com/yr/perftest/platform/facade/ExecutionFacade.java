@@ -3,32 +3,30 @@ package com.yr.perftest.platform.facade;
 import com.yr.perftest.platform.facade.data.ExecutionPrecheckView;
 import com.yr.perftest.platform.facade.data.ExecutionStartResult;
 import com.yr.perftest.platform.facade.data.ExecutionStatusView;
-import com.yr.perftest.platform.governance.ExecutionAuditService;
-import com.yr.perftest.platform.identity.HumanPrincipal;
-import com.yr.perftest.platform.identity.MachinePrincipal;
-import com.yr.perftest.platform.identity.Principal;
 import com.yr.perftest.platform.task.ExecutionControlService;
 import com.yr.perftest.platform.task.ExecutionPrecheckService;
 import com.yr.perftest.platform.task.ScenarioExecution;
 import org.springframework.stereotype.Service;
 
+/**
+ * agent 面的执行控制 adapter：主体校验 + 视图映射。
+ * 幂等、审计、预检语义全部由 {@link ExecutionControlService} 与 {@link ExecutionPrecheckService} 拥有，
+ * UI 面与 agent 面共用同一条控制 seam。
+ */
 @Service
 public class ExecutionFacade {
     private final FacadeGuard guard;
     private final ExecutionControlService controlService;
     private final ExecutionPrecheckService precheckService;
-    private final ExecutionAuditService executionAuditService;
 
     public ExecutionFacade(
             FacadeGuard guard,
             ExecutionControlService controlService,
-            ExecutionPrecheckService precheckService,
-            ExecutionAuditService executionAuditService
+            ExecutionPrecheckService precheckService
     ) {
         this.guard = guard;
         this.controlService = controlService;
         this.precheckService = precheckService;
-        this.executionAuditService = executionAuditService;
     }
 
     public ExecutionStartResult startExecution(
@@ -44,7 +42,6 @@ public class ExecutionFacade {
                             scenarioId, executionName, threadGroupConfigId, threadGroupPresetSortOrder),
                     idempotencyKey
             );
-            auditExecution(outcome.executionId(), "START", outcome.replayed());
             return new ExecutionStartResult(
                     ExecutionStartResult.SCHEMA_VERSION,
                     outcome.executionId(),
@@ -57,7 +54,6 @@ public class ExecutionFacade {
     public ExecutionStatusView stopExecution(long executionId) {
         return guard.requirePrincipal(() -> {
             controlService.stop(executionId);
-            auditExecution(executionId, "STOP", false);
             return statusView(controlService.status(executionId));
         });
     }
@@ -65,7 +61,6 @@ public class ExecutionFacade {
     public ExecutionStatusView cancelExecution(long executionId) {
         return guard.requirePrincipal(() -> {
             controlService.cancel(executionId);
-            auditExecution(executionId, "CANCEL", false);
             return statusView(controlService.status(executionId));
         });
     }
@@ -111,14 +106,5 @@ public class ExecutionFacade {
                 execution.durationMs(),
                 execution.errorMessage()
         );
-    }
-
-    private void auditExecution(long executionId, String action, boolean replayed) {
-        Principal principal = guard.context().principal();
-        if (principal instanceof HumanPrincipal human) {
-            executionAuditService.record(executionId, action, replayed, "HUMAN", human.username());
-        } else if (principal instanceof MachinePrincipal machine) {
-            executionAuditService.record(executionId, action, replayed, "MACHINE", Long.toString(machine.apiKeyId()));
-        }
     }
 }

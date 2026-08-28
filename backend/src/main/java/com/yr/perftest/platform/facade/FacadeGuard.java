@@ -12,8 +12,6 @@ import java.util.function.Supplier;
 public class FacadeGuard {
     public <T> T requirePrincipal(Supplier<T> action) {
         Principal principal = currentPrincipal();
-        // audit hook placeholder (T10)
-        // authorization hook placeholder (T2)
         return action.get();
     }
 

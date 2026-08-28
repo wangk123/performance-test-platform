@@ -110,6 +110,7 @@ function handleExecuteConfirm(payload: {
   executionName?: string;
   threadGroupConfigId?: number | null;
   threadGroupPresetSortOrder?: number | null;
+  idempotencyKey: string;
 }) {
   if (pendingScenario.value) {
     void runScenario(pendingScenario.value, payload);

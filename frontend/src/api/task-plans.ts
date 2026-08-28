@@ -127,6 +127,7 @@ export function triggerExecutionApi(
     executionName?: string;
     threadGroupConfigId?: number | null;
     threadGroupPresetSortOrder?: number | null;
+    idempotencyKey?: string;
   },
 ) {
   const body: {
@@ -137,9 +138,11 @@ export function triggerExecutionApi(
   if (options?.executionName) body.executionName = options.executionName;
   if (options?.threadGroupConfigId != null) body.threadGroupConfigId = options.threadGroupConfigId;
   if (options?.threadGroupPresetSortOrder != null) body.threadGroupPresetSortOrder = options.threadGroupPresetSortOrder;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (options?.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
   return request<ScenarioExecution>(`/api/scenarios/${scenarioId}/executions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   });
 }
@@ -223,4 +226,16 @@ export function toUiStatus(status: ScenarioExecution['status']): import('../type
   if (status === 'STOPPING') return 'STOPPING';
   if (status === 'INTERRUPTED' || status === 'CANCELLED') return 'INTERRUPTED';
   return status;
+}
+
+export function executionStatusText(status: import('../types').ExecutionUiStatus): string {
+  const map: Record<import('../types').ExecutionUiStatus, string> = {
+    PENDING: '排队中',
+    RUNNING: '运行中',
+    STOPPING: '停止中',
+    SUCCESS: '成功',
+    FAILED: '失败',
+    INTERRUPTED: '已停止',
+  };
+  return map[status];
 }

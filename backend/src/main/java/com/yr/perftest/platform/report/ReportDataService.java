@@ -30,7 +30,7 @@ public class ReportDataService {
             new PlanReportResponse.AggregateSummary(0, 0, 0, 0, 0, "none");
 
     private final TaskPlanService planService;
-    private final ScenarioExecutionService executionService;
+    private final ExecutionQueryService executionService;
     private final ScriptService scriptService;
     private final PersistentTaskScenarioRepository scenarioRepository;
     private final PersistentScenarioExecutionRepository executionRepository;
@@ -39,7 +39,7 @@ public class ReportDataService {
 
     public ReportDataService(
             TaskPlanService planService,
-            ScenarioExecutionService executionService,
+            ExecutionQueryService executionService,
             ScriptService scriptService,
             PersistentTaskScenarioRepository scenarioRepository,
             PersistentScenarioExecutionRepository executionRepository,

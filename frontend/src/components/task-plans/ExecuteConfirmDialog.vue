@@ -62,6 +62,7 @@ const emit = defineEmits<{
     executionName?: string;
     threadGroupConfigId?: number | null;
     threadGroupPresetSortOrder?: number | null;
+    idempotencyKey: string;
   }): void;
 }>();
 
@@ -72,6 +73,7 @@ const visible = computed({
 
 const executionName = ref('');
 const selectedPresetSortOrder = ref<number | null>(null);
+const idempotencyKey = ref('');
 
 const presetGroups = computed(() => groupStoredThreadGroupConfigs(props.scenario?.threadGroupConfigs ?? []));
 
@@ -79,8 +81,16 @@ watch(() => props.modelValue, (val) => {
   if (val) {
     executionName.value = '';
     selectedPresetSortOrder.value = null;
+    idempotencyKey.value = generateIdempotencyKey();
   }
 });
+
+function generateIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 function onConfirm() {
   const selectedGroup = presetGroups.value.find((group) => group.sortOrder === selectedPresetSortOrder.value);
@@ -88,6 +98,7 @@ function onConfirm() {
     executionName: executionName.value.trim() || undefined,
     threadGroupPresetSortOrder: selectedPresetSortOrder.value,
     threadGroupConfigId: selectedGroup ? presetRepresentativeConfigId(selectedGroup) : null,
+    idempotencyKey: idempotencyKey.value,
   });
   visible.value = false;
 }

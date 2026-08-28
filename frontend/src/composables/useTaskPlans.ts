@@ -13,6 +13,7 @@ import type {
 } from '../types';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
+import { useExecutionEventStream } from './useExecutionEventStream';
 import {
   createScenarioApi,
   createTaskPlanApi,
@@ -29,6 +30,7 @@ import {
   listExecutionsApi,
   listScenariosApi,
   listTaskPlansApi,
+  executionStatusText,
   mapExecutionDetail,
   stopExecutionApi,
   toUiStatus,
@@ -49,22 +51,7 @@ const selectedSampleId = ref<number | null>(null);
 const selectedSampleDetail = ref<TaskSample | null>(null);
 const sampleDetailLoading = ref(false);
 let refreshTimer: number | null = null;
-let sampleStreamBackoffStep = 0;
-let sampleStream: EventSource | null = null;
-let sampleStreamExecutionId: number | null = null;
-let sampleStreamRetryTimer: number | null = null;
-
-function executionStatusText(status: ExecutionUiStatus) {
-  const map: Record<ExecutionUiStatus, string> = {
-    PENDING: '排队中',
-    RUNNING: '运行中',
-    STOPPING: '停止中',
-    SUCCESS: '成功',
-    FAILED: '失败',
-    INTERRUPTED: '已停止',
-  };
-  return map[status];
-}
+const sampleStream = useExecutionEventStream();
 
 export function useTaskPlans() {
   const { currentProject, currentProjectScripts } = useWorkspace();
@@ -114,56 +101,31 @@ export function useTaskPlans() {
   }
 
   function disconnectSampleStream() {
-    if (sampleStreamRetryTimer !== null) {
-      window.clearTimeout(sampleStreamRetryTimer);
-      sampleStreamRetryTimer = null;
-    }
-    sampleStream?.close();
-    sampleStream = null;
-    sampleStreamExecutionId = null;
+    sampleStream.disconnect();
   }
 
   function connectSampleStream(executionId: number) {
-    if (sampleStream && sampleStreamExecutionId === executionId) return;
-    disconnectSampleStream();
-    sampleStreamExecutionId = executionId;
-    sampleStream = new EventSource(`/api/executions/${executionId}/stream`);
-    sampleStream.addEventListener('sample', (event) => {
-      if (!executionDetail.value || executionDetail.value.id !== executionId) return;
-      try {
-        const sample = JSON.parse(event.data) as TaskSample;
+    sampleStream.connect(executionId, {
+      onSample: (raw) => {
+        const sample = raw as TaskSample;
+        if (!executionDetail.value || executionDetail.value.id !== executionId) return;
         if (executionDetail.value.samples.some((item) => item.id === sample.id)) return;
         executionDetail.value.samples = [sample, ...executionDetail.value.samples].slice(0, pageSize.value);
         executionDetail.value.sampleTotal += 1;
-      } catch {
-      }
-    });
-    sampleStream.addEventListener('metric-tick', (event) => {
-      if (!executionDetail.value || executionDetail.value.id !== executionId) return;
-      try {
-        const tick = JSON.parse(event.data) as MetricTick;
+      },
+      onMetricTick: (tick) => {
+        if (!executionDetail.value || executionDetail.value.id !== executionId) return;
         const ticks = executionDetail.value.monitoring.ticks;
         if (ticks.length && ticks[ticks.length - 1].bucketTimeMs >= tick.bucketTimeMs) return;
         ticks.push(tick);
         if (ticks.length > 1200) ticks.splice(0, ticks.length - 1200);
-      } catch {
-      }
-    });
-    sampleStream.onerror = () => {
-      disconnectSampleStream();
-      const delay = Math.min(30000, 1000 * Math.pow(2, sampleStreamBackoffStep));
-      sampleStreamBackoffStep = Math.min(5, sampleStreamBackoffStep + 1);
-      sampleStreamRetryTimer = window.setTimeout(() => {
-        if (!executionDetail.value || executionDetail.value.id !== executionId) return;
+      },
+      shouldReconnect: () => {
+        if (!executionDetail.value || executionDetail.value.id !== executionId) return false;
         const status = toUiStatus(executionDetail.value.status);
-        if (status === 'RUNNING' || status === 'PENDING' || status === 'STOPPING') {
-          connectSampleStream(executionId);
-        }
-      }, delay);
-    };
-    sampleStream.onopen = () => {
-      sampleStreamBackoffStep = 0;
-    };
+        return status === 'RUNNING' || status === 'PENDING' || status === 'STOPPING';
+      },
+    });
   }
 
   async function loadSelectedSampleDetail(executionId: number, sampleId: number | null) {
@@ -387,6 +349,7 @@ export function useTaskPlans() {
       executionName?: string;
       threadGroupConfigId?: number | null;
       threadGroupPresetSortOrder?: number | null;
+      idempotencyKey?: string;
     },
   ) {
     try {

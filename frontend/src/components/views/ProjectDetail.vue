@@ -15,16 +15,24 @@
     <div class="page-head">
       <div>
         <h1>报告管理</h1>
-        <p>报告属于当前项目，后续展示执行结论、趋势和瓶颈定位。</p>
+        <p>按测试计划生成性能测试报告，支持 HTML 预览与 Word/PDF 导出。</p>
       </div>
     </div>
     <div class="panel">
-      <div class="report-list">
-        <div v-for="report in reportMocks" :key="report.name">
-          <strong>{{ report.name }}</strong>
-          <span>{{ report.time }} · {{ report.result }}</span>
-        </div>
-      </div>
+      <a-empty v-if="!projectPlans.length" description="暂无测试计划，请先创建计划并完成执行" />
+      <a-list v-else :data-source="projectPlans" :pagination="false">
+        <template #renderItem="{ item }">
+          <a-list-item>
+            <a-list-item-meta>
+              <template #title>{{ item.name }}</template>
+              <template #description>{{ item.remark || '无备注' }}</template>
+            </a-list-item-meta>
+            <template #actions>
+              <a-button type="link" @click="openPlanReport(item.id)">查看报告</a-button>
+            </template>
+          </a-list-item>
+        </template>
+      </a-list>
     </div>
   </section>
 
@@ -59,11 +67,12 @@
 
 <script setup lang="ts">
 import { watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import type { TableColumnsType } from 'ant-design-vue';
 import { projectRoleText } from '../../utils/format';
 import { useNavigation } from '../../composables/useNavigation';
 import { useWorkspace } from '../../composables/useWorkspace';
+import { useTaskPlans } from '../../composables/useTaskPlans';
 import type { Project, ProjectMember } from '../../types';
 import ProjectOverview from './ProjectOverview.vue';
 import ProjectMonitoringView from './ProjectMonitoringView.vue';
@@ -80,7 +89,6 @@ defineEmits<{
 const { activeProjectTab } = useNavigation();
 const {
   currentProject,
-  reportMocks,
   membersByProject,
   loadProject,
   loadProjectScripts,
@@ -89,7 +97,14 @@ const {
   selectedProjectId,
 } =
   useWorkspace();
+const { projectPlans, loadPlans } = useTaskPlans();
 const route = useRoute();
+const router = useRouter();
+
+function openPlanReport(planId: number) {
+  if (!currentProject.value) return;
+  router.push(`/projects/${currentProject.value.id}/reports/plans/${planId}`);
+}
 
 const memberColumns: TableColumnsType<ProjectMember> = [
   { title: '账号', dataIndex: 'username', key: 'username' },
@@ -112,6 +127,9 @@ watch(
     }
     if (route.name === 'project-members') {
       void loadMembers(id);
+    }
+    if (route.name === 'project-reports') {
+      void loadPlans();
     }
   },
   { immediate: true },

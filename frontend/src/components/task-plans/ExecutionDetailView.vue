@@ -283,7 +283,7 @@ import { message } from 'ant-design-vue';
 import { DownOutlined, EditOutlined, HistoryOutlined } from '@ant-design/icons-vue';
 import type { ExecutionDetail, ScenarioExecution, TaskSample } from '../../types';
 import { useTaskPlans } from '../../composables/useTaskPlans';
-import { listExecutionsApi, deleteExecutionsApi, toUiStatus } from '../../api/task-plans';
+import { listExecutionsApi, deleteExecutionsApi, toUiStatus, executionStatusText } from '../../api/task-plans';
 import { formatDate } from '../../utils/format';
 import { detectHttpBodyLanguage, formatHttpBodyAuto } from '../../utils/http-request-config';
 
@@ -302,7 +302,6 @@ const {
   selectedSample,
   selectedSampleId,
   sampleDetailLoading,
-  executionStatusText,
   scriptById,
   stopActiveExecution,
   openExecution,
@@ -412,12 +411,7 @@ function switchToExecution(executionId: number) {
 }
 
 function historyStatusText(status: ScenarioExecution['status']) {
-  const ui = toUiStatus(status);
-  const map: Record<string, string> = {
-    PENDING: '排队中', RUNNING: '运行中', STOPPING: '停止中',
-    SUCCESS: '成功', FAILED: '失败', INTERRUPTED: '已停止',
-  };
-  return map[ui] || status;
+  return executionStatusText(toUiStatus(status));
 }
 
 function historyStatusClass(status: ScenarioExecution['status']) {

@@ -38,8 +38,6 @@ public class AuditFacade {
     }
 
     public List<PersistentExecutionAuditRecord> executions(long executionId) {
-        return guard.requirePrincipal(() -> executionAuditRepository.findAll().stream()
-                .filter(record -> record.getExecutionId() == executionId)
-                .toList());
+        return guard.requirePrincipal(() -> executionAuditRepository.findByExecutionIdOrderByIdDesc(executionId));
     }
 }

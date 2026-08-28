@@ -5,29 +5,41 @@ import com.yr.perftest.platform.execution.ExecutionStatus;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
 import com.yr.perftest.platform.execution.IdempotencyService;
 import com.yr.perftest.platform.execution.RequestHashing;
+import com.yr.perftest.platform.governance.ExecutionAuditService;
+import com.yr.perftest.platform.identity.HumanPrincipal;
+import com.yr.perftest.platform.identity.MachinePrincipal;
+import com.yr.perftest.platform.identity.Principal;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ExecutionControlService {
     private final ScenarioExecutionService scenarioExecutionService;
+    private final ExecutionQueryService executionQueryService;
     private final com.yr.perftest.platform.auxscript.AuxScriptLifecycle auxScriptLifecycle;
     private final PersistentScenarioExecutionRepository executionRepository;
     private final ScenarioExecutionRuntime executionRuntime;
     private final IdempotencyService idempotencyService;
+    private final ExecutionAuditService executionAuditService;
 
     public ExecutionControlService(
             ScenarioExecutionService scenarioExecutionService,
+            ExecutionQueryService executionQueryService,
             com.yr.perftest.platform.auxscript.AuxScriptLifecycle auxScriptLifecycle,
             PersistentScenarioExecutionRepository executionRepository,
             ScenarioExecutionRuntime executionRuntime,
-            IdempotencyService idempotencyService
+            IdempotencyService idempotencyService,
+            ExecutionAuditService executionAuditService
     ) {
         this.scenarioExecutionService = scenarioExecutionService;
+        this.executionQueryService = executionQueryService;
         this.auxScriptLifecycle = auxScriptLifecycle;
         this.executionRepository = executionRepository;
         this.executionRuntime = executionRuntime;
         this.idempotencyService = idempotencyService;
+        this.executionAuditService = executionAuditService;
     }
 
     @Transactional
@@ -45,9 +57,10 @@ public class ExecutionControlService {
                         command.executionName(),
                         command.threadGroupConfigId(),
                         command.threadGroupPresetSortOrder()
-                ).id()
+                )
         );
-        ScenarioExecution execution = scenarioExecutionService.getExecution(result.executionId());
+        ScenarioExecution execution = executionQueryService.getExecution(result.executionId());
+        audit(result.executionId(), "START", result.replayed());
         return new StartOutcome(execution.id(), execution.status(), result.replayed());
     }
 
@@ -61,6 +74,7 @@ public class ExecutionControlService {
             return;
         }
         scenarioExecutionService.stopExecution(executionId);
+        audit(executionId, "STOP", false);
     }
 
     @Transactional
@@ -71,6 +85,7 @@ public class ExecutionControlService {
         }
         executionRuntime.requestStop(executionId);
         execution.markCancelled();
+        audit(executionId, "CANCEL", false);
         org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
                 new org.springframework.transaction.support.TransactionSynchronization() {
                     @Override
@@ -82,12 +97,32 @@ public class ExecutionControlService {
 
     @Transactional(readOnly = true)
     public ScenarioExecution status(long executionId) {
-        return scenarioExecutionService.getExecution(executionId);
+        return executionQueryService.getExecution(executionId);
     }
 
     private PersistentScenarioExecutionRecord requireExecution(long executionId) {
         return executionRepository.findById(executionId)
                 .orElseThrow(() -> new ExecutionValidationException("execution does not exist"));
+    }
+
+    private void audit(long executionId, String action, boolean replayed) {
+        Principal principal = currentPrincipalOrNull();
+        if (principal == null) {
+            return;
+        }
+        if (principal instanceof HumanPrincipal human) {
+            executionAuditService.record(executionId, action, replayed, "HUMAN", human.username());
+        } else if (principal instanceof MachinePrincipal machine) {
+            executionAuditService.record(executionId, action, replayed, "MACHINE", Long.toString(machine.apiKeyId()));
+        }
+    }
+
+    private Principal currentPrincipalOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof Principal principal)) {
+            return null;
+        }
+        return principal;
     }
 
     private boolean isFinished(ExecutionStatus status) {

@@ -1,7 +1,9 @@
 package com.yr.perftest.platform.api;
 
 import com.yr.perftest.platform.task.ScenarioExecution;
+import com.yr.perftest.platform.task.ExecutionQueryService;
 import com.yr.perftest.platform.task.ScenarioExecutionService;
+import com.yr.perftest.platform.task.ExecutionControlService;
 import com.yr.perftest.platform.task.TaskPlan;
 import com.yr.perftest.platform.task.TaskPlanService;
 import com.yr.perftest.platform.task.ScenarioThreadGroupConfig;
@@ -41,6 +43,8 @@ public class TaskPlanController {
     private final TaskPlanService planService;
     private final TaskScenarioService scenarioService;
     private final ScenarioExecutionService executionService;
+    private final ExecutionQueryService executionQueryService;
+    private final ExecutionControlService executionControlService;
     private final ExecutionMonitorBindingService monitorBindingService;
     private final TargetMetricsService targetMetricsService;
 
@@ -48,12 +52,16 @@ public class TaskPlanController {
             TaskPlanService planService,
             TaskScenarioService scenarioService,
             ScenarioExecutionService executionService,
+            ExecutionQueryService executionQueryService,
+            ExecutionControlService executionControlService,
             ExecutionMonitorBindingService monitorBindingService,
             TargetMetricsService targetMetricsService
     ) {
         this.planService = planService;
         this.scenarioService = scenarioService;
         this.executionService = executionService;
+        this.executionQueryService = executionQueryService;
+        this.executionControlService = executionControlService;
         this.monitorBindingService = monitorBindingService;
         this.targetMetricsService = targetMetricsService;
     }
@@ -152,27 +160,36 @@ public class TaskPlanController {
 
     @PostMapping("/scenarios/{scenarioId}/executions")
     @ResponseStatus(HttpStatus.CREATED)
-    public ScenarioExecution triggerExecution(@PathVariable long scenarioId, @RequestBody(required = false) TriggerExecutionRequest request) {
+    public ScenarioExecution triggerExecution(
+            @PathVariable long scenarioId,
+            @RequestBody(required = false) TriggerExecutionRequest request,
+            @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey
+    ) {
         String executionName = request != null ? request.executionName() : null;
         Long threadGroupConfigId = request != null ? request.threadGroupConfigId() : null;
         Integer threadGroupPresetSortOrder = request != null ? request.threadGroupPresetSortOrder() : null;
-        return executionService.triggerExecution(scenarioId, executionName, threadGroupConfigId, threadGroupPresetSortOrder);
+        ExecutionControlService.StartOutcome outcome = executionControlService.start(
+                new ExecutionControlService.StartCommand(
+                        scenarioId, executionName, threadGroupConfigId, threadGroupPresetSortOrder),
+                idempotencyKey
+        );
+        return executionQueryService.getExecution(outcome.executionId());
     }
 
     @GetMapping("/scenarios/{scenarioId}/executions")
     public List<ScenarioExecution> listExecutions(@PathVariable long scenarioId) {
-        return executionService.listExecutions(scenarioId);
+        return executionQueryService.listExecutions(scenarioId);
     }
 
     @GetMapping("/executions/{executionId}")
     public ScenarioExecution getExecution(@PathVariable long executionId) {
-        return executionService.getExecution(executionId);
+        return executionQueryService.getExecution(executionId);
     }
 
     @PostMapping("/executions/{executionId}/stop")
     public ScenarioExecution stopExecution(@PathVariable long executionId) {
-        executionService.stopExecution(executionId);
-        return executionService.getExecution(executionId);
+        executionControlService.stop(executionId);
+        return executionQueryService.getExecution(executionId);
     }
 
     @DeleteMapping("/executions/{executionId}")
@@ -189,12 +206,12 @@ public class TaskPlanController {
 
     @GetMapping(value = "/executions/{executionId}/logs", produces = MediaType.TEXT_PLAIN_VALUE)
     public String getLogs(@PathVariable long executionId) {
-        return executionService.getLogs(executionId);
+        return executionQueryService.getLogs(executionId);
     }
 
     @GetMapping("/executions/{executionId}/result")
     public TaskExecutionResult getResult(@PathVariable long executionId) {
-        return executionService.getResult(executionId);
+        return executionQueryService.getResult(executionId);
     }
 
     @GetMapping("/executions/{executionId}/samples")
@@ -206,7 +223,7 @@ public class TaskPlanController {
             @RequestParam(required = false) String code,
             @RequestParam(required = false) Boolean success
     ) {
-        return executionService.getSamples(executionId, page, pageSize, label, code, success);
+        return executionQueryService.getSamples(executionId, page, pageSize, label, code, success);
     }
 
     @GetMapping("/executions/{executionId}/samples/{sampleId}")
@@ -214,7 +231,7 @@ public class TaskPlanController {
             @PathVariable long executionId,
             @PathVariable long sampleId
     ) {
-        return executionService.getSampleDetail(executionId, sampleId);
+        return executionQueryService.getSampleDetail(executionId, sampleId);
     }
 
     @GetMapping(value = "/executions/{executionId}/samples/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -222,17 +239,17 @@ public class TaskPlanController {
             @PathVariable long executionId,
             @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId
     ) {
-        return executionService.streamSamples(executionId, lastEventId);
+        return executionQueryService.streamSamples(executionId, lastEventId);
     }
 
     @GetMapping(value = "/executions/{executionId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamExecution(@PathVariable long executionId) {
-        return executionService.streamExecution(executionId);
+        return executionQueryService.streamExecution(executionId);
     }
 
     @GetMapping("/executions/{executionId}/monitoring")
     public TaskMetricSeries getMonitoring(@PathVariable long executionId) {
-        return executionService.getMonitoring(executionId);
+        return executionQueryService.getMonitoring(executionId);
     }
 
     @GetMapping("/executions/{executionId}/target-monitoring")

@@ -5,7 +5,7 @@ import com.yr.perftest.platform.task.PersistentScenarioExecutionRepository;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRecord;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRepository;
-import com.yr.perftest.platform.task.ScenarioExecutionService;
+import com.yr.perftest.platform.task.ExecutionQueryService;
 import com.yr.perftest.platform.task.ScenarioThreadGroupConfigSupport;
 import com.yr.perftest.platform.script.JmeterScriptParser;
 import com.yr.perftest.platform.script.ScriptService;
@@ -30,7 +30,7 @@ class ReportDataServiceTest {
   @Mock
   private TaskPlanService planService;
   @Mock
-  private ScenarioExecutionService executionService;
+  private ExecutionQueryService executionService;
   @Mock
   private ScriptService scriptService;
   @Mock

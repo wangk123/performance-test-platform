@@ -95,3 +95,14 @@ Key patterns:
 - **Script**: JMeter test plan (.jmx) with versioning (ScriptVersion, ScriptDefinition)
 - **Task**: Scheduled or manual test execution configuration
 - **Execution**: Running task instance with status tracking and results
+
+### Full-suite test note (added 2026-08-28)
+
+Running the entire `:backend:test` suite in ONE Gradle invocation (one test JVM, hundreds of Spring context reloads) eventually trips the Gradle 9 instrumentation agent (`java.lang.instrument ASSERTION FAILED "!errorOutstanding"`) on macOS, causing cascading false failures. Run the suite in per-package chunks (each chunk = fresh JVM), e.g.:
+
+```bash
+export JAVA_HOME=/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home/
+gradle :backend:test --tests "com.yr.perftest.platform.seed.*" --tests "com.yr.perftest.platform.gitlog.*" --tests "com.yr.perftest.platform.auxscript.*"
+gradle :backend:test --tests "com.yr.perftest.platform.api.*" --tests "com.yr.perftest.platform.llm.*" --tests "com.yr.perftest.platform.report.*" --tests "com.yr.perftest.platform.monitoring.*" --tests "com.yr.perftest.platform.project.*" --tests "com.yr.perftest.platform.identity.*" --tests "com.yr.perftest.platform.jmeterfunction.*" --tests "com.yr.perftest.platform.script.*" --tests "com.yr.perftest.platform.config.*"
+gradle :backend:test --tests "com.yr.perftest.platform.agent.*" --tests "com.yr.perftest.platform.facade.*" --tests "com.yr.perftest.platform.governance.*" --tests "com.yr.perftest.platform.mcp.*" --tests "com.yr.perftest.platform.verification.*" --tests "com.yr.perftest.platform.evidence.*" --tests "com.yr.perftest.platform.analysis.*" --tests "com.yr.perftest.platform.task.*" --tests "com.yr.perftest.platform.execution.*" --tests "com.yr.perftest.platform.BackendCoreBehaviorTest"
+```

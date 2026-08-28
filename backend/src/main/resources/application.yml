@@ -45,7 +45,8 @@ platform:
       bundle-path: ${MONITORING_DEPLOY_BUNDLE_PATH:../deploy/monitoring/prometheus}
     prometheus:
       file-sd-path: ${PROMETHEUS_JMX_FILE_SD_PATH:./deploy/monitoring/prometheus/file_sd/jmx-targets.json}
-      base-url: ${PROMETHEUS_BASE_URL:http://192.168.17.216:9090}
+      # 空默认：未显式配置 PROMETHEUS_BASE_URL 时资源指标通道不可用，避免误连环境特定地址
+      base-url: ${PROMETHEUS_BASE_URL:}
       connect-timeout-ms: ${PROMETHEUS_CONNECT_TIMEOUT_MS:3000}
       request-timeout-ms: ${PROMETHEUS_REQUEST_TIMEOUT_MS:10000}
   seed:

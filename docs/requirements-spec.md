@@ -158,7 +158,7 @@
 
 **功能说明**：平台级配置项管理，包括执行并发上限、文件大小限制、日志保留周期等。
 
-**当前状态**：配置项硬编码在 `application.yml`，无管理界面。`ModuleMockController` 提供 Mock API。
+**当前状态**：配置项硬编码在 `application.yml`，无管理界面（Mock API 已移除）。
 
 ---
 
@@ -559,22 +559,22 @@
 - 前端：`ExecutionDetailView.vue` 聚合报告区域
 - 聚合计算在 `ReportAggregator` 中完成
 
-#### REQ-REPORT-002 报告生成与下载 📋
+#### REQ-REPORT-002 报告生成与下载 ✅
 
 **用户故事**：作为性能测试工程师，我希望生成独立的测试报告文件用于交付。
 
 **功能说明**：
-1. 基于聚合数据生成 Markdown 格式报告
-2. 基于聚合数据生成 HTML 格式报告
-3. 支持报告下载
+1. 计划维度报告数据（`GET /api/reports/plans/{planId}/data`）
+2. HTML 在线预览（`ReportPreviewPage`）
+3. Word / PDF 导出（`POST /api/reports/plans/{planId}/export/word|pdf`）
 
-**当前状态**：未实现。`ModuleMockController` 提供 Mock API。前端 Reports 标签页为占位状态。
+**实现要点**：`report` 包 `ReportDataService` / `ReportExportService` / `ReportPdfService` / `ReportTemplateService`
 
-#### REQ-REPORT-003 报告对比 📋
+#### REQ-REPORT-003 报告对比 ✅
 
-**功能说明**：支持选择两次执行进行对比，展示指标差异。
+**功能说明**：基线 vs 目标计划报告对比，标签级指标差异 + 总体差异（`POST /api/reports/compare`）。
 
-**当前状态**：未实现。Mock API 存在（`POST /api/reports/compare`）。
+**实现要点**：`ReportCompareService`（纯函数对比算法，可独立单测）
 
 #### REQ-REPORT-004 报告分享与追溯 📋
 
@@ -682,64 +682,59 @@
 
 ### 4.7 造数工厂
 
-**模块定位** 📋 全部未实现
+**模块定位** ✅ 已实现（V1：测环境录制 → 确认 → 写库克隆）
 
 **功能范围**：
-1. 数据模板管理：创建、编辑、删除数据生成模板
-2. 数据生成规则：随机值、序列、正则、引用、SQL 查询等
-3. 数据预览：在生成前预览样例数据
-4. 数据导出：CSV/JSON/SQL 格式导出，可直接绑定到脚本的 CSV Data Set
+1. 数据源管理：项目级 MySQL 连接、密码加密存储、连通性测试
+2. 采集策略：include/exclude 过滤（通配/regex）、可复用版本、异步快照样本执行
+3. 多样本相邻 Diff 分析：字段角色推断、置信度分级、模板草稿
+4. 模板确认（硬门禁）与批量克隆写库（INSERT/UPDATE，CONTINUE/STOP 失败策略）
 
-**当前状态**：前端 Reports/Data 标签页为占位状态。`ModuleMockController` 提供 Mock API：
-- `GET /api/projects/{id}/data-templates`
-- `POST /api/projects/{id}/data-templates`
-- `POST /api/data-templates/{id}/preview`
-- `POST /api/data-templates/{id}/generate`
+**实现要点**：
+- 后端：`seed` 包 + `SeedFactoryController` / `SeedCaptureAnalysisController` / `SeedCaptureSampleController`
+- 前端：`SeedFactoryView.vue` + 数据源/策略/样本/分析/模板/克隆六类面板
+- 详见 `docs/modules/07-test-data-factory.md`
 
 ---
 
 ### 4.8 函数库
 
-**模块定位** 📋 全部未实现
+**模块定位** ✅ 已实现（Java Function 只读展示 + 运行时注入）
 
 **功能范围**：
-1. Groovy 函数管理：创建、编辑、版本记录
-2. 函数调试：在线运行并查看输出
-3. 函数与脚本绑定：在 JMeter 脚本中引用函数
-4. 函数分类和搜索
+1. `jmeter-functions` 子模块：11 个内置函数（randomMobile/randomString/randomIdCard/randomBankCard/randomName/randomEmail + md5/sha256/base64Encode/base64Decode/urlEncode）
+2. 函数元数据只读 API + 函数包 JAR 下载
+3. 脚本编辑器「平台函数」区点选插入 `${__key(...)}` 语法
+4. 分布式执行自动将 `jmeter-runtime/*.jar` 注入容器 `lib/ext/`
 
-**当前状态**：前端 Functions 标签页为占位状态。`ModuleMockController` 提供 Mock API：
-- `GET /api/projects/{id}/functions`
-- `POST /api/projects/{id}/functions`
-- `POST /api/function-versions/{id}/debug`
+**实现要点**：`jmeterfunction` 包 + `FunctionLibraryView.vue`；详见 `docs/modules/08-function-library.md`
 
 ---
 
 ### 4.9 辅助脚本
 
-**模块定位** 📋 全部未实现
+**模块定位** ✅ 已实现（前置/后置脚本 + 失败策略）
 
 **功能范围**：
-1. 前置/后置执行脚本：在压测开始前或结束后执行自定义操作
-2. 脚本类型：Shell、Python、SQL
-3. 执行日志：记录辅助脚本执行过程
-4. 失败策略：忽略/重试/中止压测
+1. Shell/Python 辅助脚本管理（项目私有/系统公共），版本不可变
+2. 场景绑定前置/后置阶段，失败策略 STOP / CONTINUE / MANUAL_CONFIRM（人工确认后继续）
+3. 执行记录：日志、退出码、开始/结束时间；执行日志查看
 
-**当前状态**：仅文档设计，无代码实现。
+**实现要点**：`auxscript` 包 + `AuxScriptController` / `AuxScriptBindingController` / `AuxScriptExecutionController`；详见 `docs/modules/09-auxiliary-scripts.md`
 
 ---
 
 ### 4.10 Git 日志 AI 分析
 
-**模块定位** 📋 全部未实现
+**模块定位** ✅ 已实现（代码绑定 + 日志制品 + 确定性分析驱动的 AI 建议）
 
 **功能范围**：
-1. Git 仓库关联：项目绑定 Git 仓库
-2. 代码变更分析：分析 commit log，识别可能影响性能的变更
-3. AI 辅助分析：基于 LLM 分析日志异常、性能退化原因
-4. 变更与压测关联：某次压测关联的代码变更范围
+1. Git 仓库配置、commit 批量导入与提交记录查询
+2. 场景代码绑定：分支/commit/备注
+3. 日志文件上传、查询与关键字检索
+4. AI 分析任务：以确定性分析事实为输入，LLM 单次调用生成带证据引用的建议（无 Tool Calling，保留模型/Prompt 追溯）
 
-**当前状态**：仅文档设计，无代码实现。
+**实现要点**：`gitlog` 包 + `GitCodeController` / `LogAndAiController`；详见 `docs/modules/10-git-log-ai.md`
 
 ---
 
@@ -910,7 +905,7 @@ backend/src/main/java/com/yr/perftest/platform/
 │   ├── ExecutionNodeController   CRUD /api/execution-nodes
 │   ├── MonitorTargetController   CRUD /api/monitor-targets
 │   ├── HttpDebugController       POST /api/http-debug
-│   └── ModuleMockController      模拟 API（造数/函数/报告）
+
 ├── config/         平台配置（Security, PlatformService, MonitoringSchema）
 ├── execution/      JMeter 执行引擎
 │   ├── JmeterCommandExecutor     JMeter CLI 封装
@@ -1084,8 +1079,8 @@ storage/
 | REQ-EXEC-007 | 采样浏览器 | ✅ |
 | REQ-EXEC-008 | 执行历史管理 | ✅ |
 | REQ-REPORT-001 | 聚合报告展示 | ✅ |
-| REQ-REPORT-002 | 报告生成与下载 | 📋 |
-| REQ-REPORT-003 | 报告对比 | 📋 |
+| REQ-REPORT-002 | 报告生成与下载 | ✅ |
+| REQ-REPORT-003 | 报告对比 | ✅ |
 | REQ-REPORT-004 | 报告分享与追溯 | 📋 |
 | REQ-MON-001 | 监控目标管理 | ✅ |
 | REQ-MON-002 | 监控代理部署 | ✅ |
@@ -1093,13 +1088,13 @@ storage/
 | REQ-MON-004 | 资源指标展示 | ✅ |
 | REQ-MON-005 | 监控告警 | 📋 |
 | REQ-MON-006 | Word/PDF 导出 | 📋 |
-| - | 造数工厂（全部） | 📋 |
-| - | 函数库（全部） | 📋 |
-| - | 辅助脚本（全部） | 📋 |
-| - | Git 日志 AI 分析（全部） | 📋 |
+| - | 造数工厂（数据源/策略/样本/分析/模板/克隆） | ✅ |
+| - | 函数库（只读展示 + 运行时注入） | ✅ |
+| - | 辅助脚本（前后置 + 失败策略） | ✅ |
+| - | Git 日志 AI 分析（代码绑定/日志/LLM 建议） | ✅ |
 | REQ-DIST-001 | 执行节点管理 | ✅ |
 | REQ-DIST-002 | 远程执行 | ✅ |
 | REQ-DIST-003 | 分布式调度 | 📋 |
 | REQ-DIST-004 | 平台运行监控 | 📋 |
 
-**统计**：✅ 已实现 25 项 &nbsp;|&nbsp; 🔨 部分实现 2 项 &nbsp;|&nbsp; 📋 未实现 16 项
+**统计**：✅ 已实现 31 项 &nbsp;|&nbsp; 🔨 部分实现 2 项 &nbsp;|&nbsp; 📋 未实现 10 项

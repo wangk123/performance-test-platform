@@ -84,11 +84,11 @@ public class SeedFactoryService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> testDatasource(long projectId, long id) {
+    public SeedDatasourceTestResult testDatasource(long projectId, long id) {
         PersistentSeedDatasourceRecord record = requireDatasource(projectId, id);
         String message = SeedJdbcSupport.testConnectionMessage(record, cipher);
         boolean ok = "OK".equals(message);
-        return Map.of("ok", ok, "message", message);
+        return new SeedDatasourceTestResult(ok, message);
     }
 
     public List<SeedCaptureStrategyView> listCaptureStrategies(long projectId) {

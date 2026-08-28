@@ -14,7 +14,7 @@ import com.yr.perftest.platform.facade.query.CursorCodec;
 import com.yr.perftest.platform.facade.query.PageBudget;
 import com.yr.perftest.platform.facade.query.PrometheusBoundedQuery;
 import com.yr.perftest.platform.task.ScenarioExecution;
-import com.yr.perftest.platform.task.ScenarioExecutionService;
+import com.yr.perftest.platform.task.ExecutionQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -30,28 +30,28 @@ public class DataFacade {
     private static final CursorCodec CURSOR_CODEC = new CursorCodec();
 
     private final FacadeGuard guard;
-    private final ScenarioExecutionService scenarioExecutionService;
+    private final ExecutionQueryService executionQueryService;
     private final PrometheusBoundedQuery prometheusBoundedQuery;
 
-    public DataFacade(FacadeGuard guard, ScenarioExecutionService scenarioExecutionService) {
-        this(guard, scenarioExecutionService, null);
+    public DataFacade(FacadeGuard guard, ExecutionQueryService executionQueryService) {
+        this(guard, executionQueryService, null);
     }
 
     @Autowired
     public DataFacade(
             FacadeGuard guard,
-            ScenarioExecutionService scenarioExecutionService,
+            ExecutionQueryService executionQueryService,
             PrometheusBoundedQuery prometheusBoundedQuery
     ) {
         this.guard = guard;
-        this.scenarioExecutionService = scenarioExecutionService;
+        this.executionQueryService = executionQueryService;
         this.prometheusBoundedQuery = prometheusBoundedQuery;
     }
 
     public ExecutionSummary getExecutionSummary(long executionId) {
         return guard.requirePrincipal(() -> {
-            ScenarioExecution execution = scenarioExecutionService.getExecution(executionId);
-            TaskExecutionResult result = scenarioExecutionService.getResult(executionId);
+            ScenarioExecution execution = executionQueryService.getExecution(executionId);
+            TaskExecutionResult result = executionQueryService.getResult(executionId);
             TaskExecutionResult.Summary summary = result.summary() == null
                     ? TaskExecutionResult.empty().summary()
                     : result.summary();
@@ -84,12 +84,12 @@ public class DataFacade {
     ) {
         return guard.requirePrincipal(() -> {
             budget.validate();
-            scenarioExecutionService.getExecution(executionId);
+            executionQueryService.getExecution(executionId);
             long lastId = decodeFailureSampleCursor(cursor);
             long startedAt = System.nanoTime();
-            ScenarioExecutionService.FailureSampleSlice source;
+            ExecutionQueryService.FailureSampleSlice source;
             try {
-                source = scenarioExecutionService.listFailureSamplesAfter(
+                source = executionQueryService.listFailureSamplesAfter(
                         executionId,
                         lastId,
                         budget.maxItems() == Integer.MAX_VALUE ? Integer.MAX_VALUE : budget.maxItems() + 1
@@ -151,10 +151,10 @@ public class DataFacade {
     ) {
         return guard.requirePrincipal(() -> {
             budget.validate();
-            scenarioExecutionService.getExecution(executionId);
+            executionQueryService.getExecution(executionId);
             TaskExecutionResult result;
             try {
-                result = scenarioExecutionService.getResult(executionId);
+                result = executionQueryService.getResult(executionId);
             } catch (ExecutionValidationException exception) {
                 throw exception;
             } catch (Exception exception) {
@@ -229,10 +229,10 @@ public class DataFacade {
             if (from.isAfter(to)) {
                 throw new IllegalArgumentException("metric series time range is invalid");
             }
-            scenarioExecutionService.getExecution(executionId);
+            executionQueryService.getExecution(executionId);
             TaskMetricSeries source;
             try {
-                source = scenarioExecutionService.getMonitoring(executionId);
+                source = executionQueryService.getMonitoring(executionId);
             } catch (ExecutionValidationException exception) {
                 throw exception;
             } catch (Exception exception) {
@@ -309,7 +309,7 @@ public class DataFacade {
             PageBudget budget
     ) {
         return guard.requirePrincipal(() -> {
-            scenarioExecutionService.getExecution(executionId);
+            executionQueryService.getExecution(executionId);
             return prometheusBoundedQuery.query(
                     executionId,
                     metricSelector,

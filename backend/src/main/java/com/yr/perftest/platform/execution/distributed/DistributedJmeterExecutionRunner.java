@@ -11,12 +11,7 @@ import com.yr.perftest.platform.execution.failure.FailureSampleIngestor;
 import com.yr.perftest.platform.execution.failure.FailureSamplePaths;
 import com.yr.perftest.platform.monitoring.ExecutionMonitorBindingService;
 import com.yr.perftest.platform.monitoring.TargetMetricsSnapshotService;
-import com.yr.perftest.platform.script.JmeterScriptNormalizer;
-import com.yr.perftest.platform.script.JmeterScriptParser;
-import com.yr.perftest.platform.script.JmeterScriptPatcher;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
-import com.yr.perftest.platform.script.ScriptStepDefinition;
-import com.yr.perftest.platform.script.ThreadGroupStepPatcher;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
 import com.yr.perftest.platform.task.PersistentScenarioExecutionRecord;
 import com.yr.perftest.platform.task.PersistentScenarioExecutionRepository;
@@ -25,8 +20,6 @@ import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRecord;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRepository;
 import com.yr.perftest.platform.task.ScenarioExecutionRuntime;
-import com.yr.perftest.platform.task.ScenarioThreadGroupConfig;
-import com.yr.perftest.platform.task.ScenarioThreadGroupConfigSupport;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -58,17 +51,12 @@ public class DistributedJmeterExecutionRunner {
     private final PersistentScriptVersionRepository scriptVersionRepository;
     private final PersistentExecutionNodeRepository nodeRepository;
     private final RemoteRunnerClient remoteRunnerClient;
-    private final JmeterBackendListenerInjector backendListenerInjector;
+    private final ExecutionScriptAssembler scriptAssembler;
     private final JmeterDependencyCollector dependencyCollector;
     private final FailureSampleIngestor failureSampleIngestor;
     private final AggregateReportService aggregateReportService;
     private final TargetMetricsSnapshotService targetMetricsSnapshotService;
     private final FailureSampleSettings failureSampleSettings;
-    private final JmeterScriptNormalizer scriptNormalizer;
-    private final JmeterScriptParser scriptParser;
-    private final JmeterScriptPatcher scriptPatcher;
-    private final ThreadGroupStepPatcher threadGroupStepPatcher;
-    private final ScenarioThreadGroupConfigSupport threadGroupConfigSupport;
     private final ExecutionMonitorBindingService monitorBindingService;
     private final ScenarioExecutionRuntime executionRuntime;
     private final TransactionTemplate transactionTemplate;
@@ -89,17 +77,12 @@ public class DistributedJmeterExecutionRunner {
             PersistentScriptVersionRepository scriptVersionRepository,
             PersistentExecutionNodeRepository nodeRepository,
             RemoteRunnerClient remoteRunnerClient,
-            JmeterBackendListenerInjector backendListenerInjector,
+            ExecutionScriptAssembler scriptAssembler,
             JmeterDependencyCollector dependencyCollector,
             FailureSampleIngestor failureSampleIngestor,
             AggregateReportService aggregateReportService,
             TargetMetricsSnapshotService targetMetricsSnapshotService,
             FailureSampleSettings failureSampleSettings,
-            JmeterScriptNormalizer scriptNormalizer,
-            JmeterScriptParser scriptParser,
-            JmeterScriptPatcher scriptPatcher,
-            ThreadGroupStepPatcher threadGroupStepPatcher,
-            ScenarioThreadGroupConfigSupport threadGroupConfigSupport,
             ExecutionMonitorBindingService monitorBindingService,
             ScenarioExecutionRuntime executionRuntime,
             TransactionTemplate transactionTemplate,
@@ -118,17 +101,12 @@ public class DistributedJmeterExecutionRunner {
         this.scriptVersionRepository = scriptVersionRepository;
         this.nodeRepository = nodeRepository;
         this.remoteRunnerClient = remoteRunnerClient;
-        this.backendListenerInjector = backendListenerInjector;
+        this.scriptAssembler = scriptAssembler;
         this.dependencyCollector = dependencyCollector;
         this.failureSampleIngestor = failureSampleIngestor;
         this.aggregateReportService = aggregateReportService;
         this.targetMetricsSnapshotService = targetMetricsSnapshotService;
         this.failureSampleSettings = failureSampleSettings;
-        this.scriptNormalizer = scriptNormalizer;
-        this.scriptParser = scriptParser;
-        this.scriptPatcher = scriptPatcher;
-        this.threadGroupStepPatcher = threadGroupStepPatcher;
-        this.threadGroupConfigSupport = threadGroupConfigSupport;
         this.monitorBindingService = monitorBindingService;
         this.executionRuntime = executionRuntime;
         this.transactionTemplate = transactionTemplate;
@@ -173,12 +151,12 @@ public class DistributedJmeterExecutionRunner {
             }
             Files.createDirectories(preparation.executionDirectory());
             ensureRuntimeJars(preparation.executionDirectory());
-            scriptNormalizer.copyNormalized(preparation.sourcePath(), preparation.originalTestPlanPath());
-            applyThreadGroupOverride(executionId, preparation.originalTestPlanPath());
-            backendListenerInjector.inject(
+            scriptAssembler.prepare(
+                    preparation.config(),
+                    preparation.threadGroupConfigsJson(),
+                    preparation.sourcePath(),
                     preparation.originalTestPlanPath(),
-                    preparation.distributedTestPlanPath(),
-                    Path.of("/test/aggregate-snapshot.bin")
+                    preparation.distributedTestPlanPath()
             );
             Files.writeString(
                     preparation.logPath(),
@@ -326,6 +304,8 @@ public class DistributedJmeterExecutionRunner {
             String filename = sanitizeFilename(script.getOriginalFilename());
             return new DistributedExecutionPreparation(
                     "execution-" + execution.getId(),
+                    config,
+                    scenario.getThreadGroupConfigsJson(),
                     Path.of(script.getStoredPath()),
                     executionDirectory,
                     executionDirectory.resolve(filename),
@@ -337,54 +317,6 @@ public class DistributedJmeterExecutionRunner {
                     workers
             );
         });
-    }
-
-    private void applyThreadGroupOverride(long executionId, Path testPlanPath) {
-        PersistentScenarioExecutionRecord execution = transactionTemplate.execute(status ->
-                executionRepository.findById(executionId)
-                        .orElseThrow(() -> new ExecutionValidationException("execution does not exist")));
-        ExecutionConfig config = readConfig(execution.getConfigJson());
-        if (config == null) {
-            return;
-        }
-        PersistentTaskScenarioRecord scenario = transactionTemplate.execute(status ->
-                scenarioRepository.findById(execution.getScenarioId())
-                        .orElseThrow(() -> new ExecutionValidationException("scenario does not exist")));
-        List<ScenarioThreadGroupConfig> stored = threadGroupConfigSupport.readStored(scenario.getThreadGroupConfigsJson());
-        List<ScenarioThreadGroupConfig> presetRows = List.of();
-        if (config.threadGroupPresetSortOrder() != null) {
-            presetRows = threadGroupConfigSupport.presetConfigsBySortOrder(stored, config.threadGroupPresetSortOrder());
-        } else if (config.threadGroupConfigId() != null) {
-            presetRows = threadGroupConfigSupport.presetConfigs(stored, config.threadGroupConfigId());
-        } else if (config.stepId() != null && !config.stepId().isBlank() && config.threads() > 0) {
-            presetRows = List.of(new ScenarioThreadGroupConfig(
-                    config.threadGroupConfigId() != null ? config.threadGroupConfigId() : 0L,
-                    config.stepId(),
-                    config.stepName() != null ? config.stepName() : "",
-                    config.threads(),
-                    config.rampUp(),
-                    config.duration(),
-                    0,
-                    null
-            ));
-        }
-        if (presetRows.isEmpty()) {
-            return;
-        }
-        try {
-            String content = Files.readString(testPlanPath, StandardCharsets.UTF_8);
-            List<ScriptStepDefinition> steps = scriptParser.parseSteps(content);
-            List<ThreadGroupStepPatcher.ThreadGroupPatch> patches = threadGroupConfigSupport.buildPatches(steps, presetRows);
-            if (patches.isEmpty()) {
-                return;
-            }
-            List<ScriptStepDefinition> patched = threadGroupStepPatcher.patchAll(steps, patches);
-            Files.writeString(testPlanPath, scriptPatcher.patch(content, patched), StandardCharsets.UTF_8);
-        } catch (ExecutionValidationException exception) {
-            throw exception;
-        } catch (Exception exception) {
-            throw new ExecutionValidationException("failed to apply thread group override");
-        }
     }
 
     private Map<String, Object> payload(DistributedExecutionPreparation preparation) {
@@ -648,6 +580,8 @@ public class DistributedJmeterExecutionRunner {
 
     private record DistributedExecutionPreparation(
             String runId,
+            ExecutionConfig config,
+            String threadGroupConfigsJson,
             Path sourcePath,
             Path executionDirectory,
             Path originalTestPlanPath,

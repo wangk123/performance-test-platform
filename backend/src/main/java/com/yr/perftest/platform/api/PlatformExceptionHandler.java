@@ -1,6 +1,7 @@
 package com.yr.perftest.platform.api;
 
 import com.yr.perftest.platform.identity.AuthenticationException;
+import com.yr.perftest.platform.execution.ExecutionConflictException;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
 import com.yr.perftest.platform.llm.LlmConflictException;
 import com.yr.perftest.platform.llm.LlmValidationException;
@@ -39,6 +40,12 @@ public class PlatformExceptionHandler {
     public ResponseEntity<ApiError> handleExecutionValidation(ExecutionValidationException exception) {
         return ResponseEntity.badRequest()
                 .body(new ApiError("EXECUTION_VALIDATION_FAILED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(ExecutionConflictException.class)
+    public ResponseEntity<ApiError> handleExecutionConflict(ExecutionConflictException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError("EXECUTION_CONFLICT", exception.getMessage()));
     }
 
     @ExceptionHandler(MonitoringValidationException.class)

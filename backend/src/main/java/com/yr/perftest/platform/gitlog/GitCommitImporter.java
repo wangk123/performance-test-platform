@@ -31,12 +31,42 @@ public class GitCommitImporter {
     public List<PersistentGitCommitRecord> importCommits(PersistentGitRepositoryRecord repository, String branch) {
         Path cloneDir = Path.of(storageRoot, "git-repos", Long.toString(repository.getId()));
         try {
-            File gitDir = Files.isDirectory(cloneDir)
-                    ? refresh(cloneDir, branch)
-                    : clone(repository, branch, cloneDir);
+            File gitDir = load(repository, branch, cloneDir);
             return walk(gitDir, repository.getId(), branch);
         } catch (Exception exception) {
             throw new IllegalStateException("git import failed: " + exception.getMessage());
+        }
+    }
+
+    /**
+     * 已有完整克隆则增量刷新；残留/损坏/远端不可达时删除本地副本重新克隆，保证导入自愈。
+     */
+    private File load(PersistentGitRepositoryRecord repository, String branch, Path cloneDir)
+            throws GitAPIException, IOException {
+        if (Files.isDirectory(cloneDir) && Files.isDirectory(cloneDir.resolve(".git"))) {
+            try {
+                return refresh(cloneDir, branch);
+            } catch (Exception refreshFailure) {
+                deleteRecursively(cloneDir);
+            }
+        } else {
+            deleteRecursively(cloneDir);
+        }
+        return clone(repository, branch, cloneDir);
+    }
+
+    private void deleteRecursively(Path dir) throws IOException {
+        if (!Files.exists(dir)) {
+            return;
+        }
+        try (var paths = Files.walk(dir)) {
+            paths.sorted(java.util.Comparator.reverseOrder())
+                    .forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (IOException ignored) {
+                        }
+                    });
         }
     }
 

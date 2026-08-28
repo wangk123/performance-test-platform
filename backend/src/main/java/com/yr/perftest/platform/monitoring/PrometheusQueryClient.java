@@ -26,7 +26,7 @@ public class PrometheusQueryClient {
 
     public PrometheusQueryClient(
             ObjectMapper objectMapper,
-            @Value("${platform.monitoring.prometheus.base-url:http://192.168.17.216:9090}") String baseUrl,
+            @Value("${platform.monitoring.prometheus.base-url:}") String baseUrl,
             @Value("${platform.monitoring.prometheus.connect-timeout-ms:3000}") long connectTimeoutMs,
             @Value("${platform.monitoring.prometheus.request-timeout-ms:10000}") long requestTimeoutMs
     ) {
@@ -39,6 +39,10 @@ public class PrometheusQueryClient {
     }
 
     public List<MetricSeries> queryRange(String promql, long startEpochSeconds, long endEpochSeconds, int stepSeconds) {
+        if (baseUrl.isBlank()) {
+            throw new MonitoringValidationException(
+                    "prometheus is not configured (platform.monitoring.prometheus.base-url is empty)");
+        }
         try {
             String url = baseUrl + "/api/v1/query_range?query="
                     + URLEncoder.encode(promql, StandardCharsets.UTF_8)

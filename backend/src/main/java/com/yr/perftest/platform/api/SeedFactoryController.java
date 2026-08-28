@@ -3,6 +3,7 @@ package com.yr.perftest.platform.api;
 import com.yr.perftest.platform.seed.CreateCloneJobRequest;
 import com.yr.perftest.platform.seed.CreateSeedCaptureStrategyRequest;
 import com.yr.perftest.platform.seed.CreateSeedDatasourceRequest;
+import com.yr.perftest.platform.seed.SeedDatasourceTestResult;
 import com.yr.perftest.platform.seed.SeedDatasourceView;
 import com.yr.perftest.platform.seed.SeedCaptureStrategyView;
 import com.yr.perftest.platform.seed.SeedFactoryService;
@@ -57,7 +58,7 @@ public class SeedFactoryController {
     }
 
     @PostMapping("/projects/{projectId}/seed/datasources/{id}/test")
-    public Map<String, Object> testDatasource(@PathVariable long projectId, @PathVariable long id) {
+    public SeedDatasourceTestResult testDatasource(@PathVariable long projectId, @PathVariable long id) {
         return seedFactoryService.testDatasource(projectId, id);
     }
 
