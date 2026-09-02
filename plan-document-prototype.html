@@ -175,6 +175,8 @@
     .markdown-body td { background: var(--surface); }
     .markdown-body blockquote { margin: 10px 0; padding: 8px 14px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--muted); font-size: 13px; }
     .markdown-body .mermaid { margin: 14px 0; text-align: center; }
+    .markdown-body h4 { margin: 14px 0 6px; font-size: 13px; }
+    .bf-h4 { color: var(--accent); display: flex; align-items: center; gap: 8px; }
     .backfill-heading { color: var(--accent) !important; border-bottom-color: var(--accent) !important; }
     .backfill-chip { font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 1px 8px; border-radius: 999px; border: 1px solid var(--accent); }
     .backfill-wrap { border: 1px dashed var(--accent); border-radius: 10px; background: var(--accent-soft); padding: 10px 16px 12px; margin-bottom: 12px; }
@@ -256,7 +258,7 @@ flowchart LR
 
 本次重点验证支用申请 09-01 基线失败后的修复效果，并输出容量拐点与扩容建议。
 
-## 测试目的与指标
+## 二、测试目的与指标
 
 获取信贷系统各交易不同场景下的性能指标，为上线提供评估依据。
 
@@ -269,7 +271,7 @@ flowchart LR
 | 还款结果查询 | TPS | > 1,000 t/s | 查询类 |
 | 全链路 | 稳定性 | 8h 无异常 | 成功率 100% |
 
-## 测试范围
+## 三、测试范围
 
 **范围内**
 
@@ -283,7 +285,7 @@ flowchart LR
 
 **范围外**：搜索推荐、对账批处理、第三方接口（挡板）
 
-## 测试资源
+## 四、测试资源
 
 **人员**：毛曦云（开发）、王建涛（开发）、关昕（测试）、赵敏（运维支持）
 
@@ -299,7 +301,7 @@ flowchart LR
 **监控目标**：order-svc / mysql / redis
 **时间窗口**：09-05 20:00–23:00（封网窗口）
 
-## 测试约束
+## 五、测试约束
 
 **入口准则**
 
@@ -315,11 +317,11 @@ flowchart LR
 - [x] 高优先级场景均已执行（执行完成后自动核验）
 - [ ] 结果通过评审、指标达标（报告阶段判等 P0-3）
 
-## 二、测试策略
+## 六、测试策略
 
 本次采用四类测试：**基准测试**（单请求平均响应时间基线）、**单交易并发测试**（单接口多并发处理能力与性能拐点）、**组合交易测试**（多交易并发运行验证相互影响）、**稳定性测试**（8 小时持续压力观察内存泄漏与性能衰减）。期间监控各服务器 CPU/内存/带宽与磁盘读写。
 
-## 场景设计
+## 七、场景设计
 
 ### S1 授信申请 · 单交易并发
 
@@ -331,6 +333,9 @@ flowchart LR
 | 2 | 50 | 5 分钟 | 同时加载 | 同时退出 |
 | 3 | 80 | 5 分钟 | 同时加载 | 同时退出 |
 
+#### 执行记录
+- 2026-09-01 21:40 · 30 用户基线 · SUCCESS · 吞吐 260.3 TPS · P95 114 ms · 错误率 0%
+
 ### S2 支用申请 · 单交易并发
 
 场景目的：验证支用申请接口在 30→80 并发梯度下的处理能力与性能拐点，09-01 基线错误率 1.8% 超标，本次为修复后复测。
@@ -340,6 +345,9 @@ flowchart LR
 | 1 | 30 | 5 分钟 | 同时加载 | 同时退出 |
 | 2 | 50 | 5 分钟 | 同时加载 | 同时退出 |
 | 3 | 80 | 5 分钟 | 同时加载 | 同时退出 |
+
+#### 执行记录
+- 2026-09-02 10:15 · 30 用户 · FAILED · 吞吐 96.4 TPS · P95 412 ms · 错误率 1.8%
 
 ### S3 授信结果查询 · 单交易并发
 
@@ -351,14 +359,17 @@ flowchart LR
 | 2 | 50 | 5 分钟 | 同时加载 | 同时退出 |
 | 3 | 80 | 5 分钟 | 同时加载 | 同时退出 |
 
-## 三、风险与预案
+#### 执行记录
+（暂无执行）
+
+## 八、风险与预案
 
 - 压测窗口与线上发布冲突 → 已申请封网窗口（09-05 20:00–23:00）
 - 大事务导致主从延迟 → 延迟超过 5s 自动停止并告警
 - 数据污染 → 使用隔离影子库 + 造数快照，结束后校验清理
 - 支用申请复测仍失败 → 回滚配置，缺陷登记台账，计划延期发布
 
-## 排期与协作
+## 九、排期与协作
 
 | 环节 | 时间 | 负责人 |
 |------|------|--------|
@@ -369,22 +380,12 @@ flowchart LR
 | 全量梯度 + 稳定性 | 09-05 封网窗口 | 关昕 + 运维 |
 | 报告与发布 | 09-06 | 关昕 |
 
-## 四、附录
+## 十、附录
 
 - 术语：TPS = 每秒事务数；ART = 平均响应时间
 - 参考：上期发布快照 v2（2026-08-15）、线上监控大盘
 
-## 五、执行记录
-
-### 2026-09-01 21:40 · S1 授信申请 · 30 用户基线
-- 状态：SUCCESS
-- 样本 78137 ｜ 吞吐 260.3 TPS ｜ P95 114 ms ｜ 错误率 0%
-
-### 2026-09-02 10:15 · S2 支用申请 · 30 用户
-- 状态：FAILED
-- 样本 149693 ｜ 吞吐 96.4 TPS ｜ P95 412 ms ｜ 错误率 1.8%
-
-## 结论
+## 十一、结论
 
 | 指标 | 目标 | 实际结果 | 状态 |
 |------|------|----------|------|
@@ -609,7 +610,7 @@ flowchart LR
                 <div class="card side-card" style="margin-top:16px;">
                   <h4>报告内容预览（占位）</h4>
                   <div class="skeleton-row"><div class="skeleton-bar" style="width:120px;"></div><span style="font-size:12px;color:var(--muted);">指标达成表：实际列（聚合）· 状态列（判等 P0-3）</span></div>
-                  <div class="skeleton-row"><div class="skeleton-bar" style="width:120px;"></div><span style="font-size:12px;color:var(--muted);">执行明细与回填记录</span></div>
+                  <div class="skeleton-row"><div class="skeleton-bar" style="width:120px;"></div><span style="font-size:12px;color:var(--muted);">执行明细与场景内回填记录</span></div>
                   <div class="skeleton-row" style="border-bottom:none;"><div class="skeleton-bar" style="width:120px;"></div><span style="font-size:12px;color:var(--muted);">风险与建议（缺陷清单 P3-7 / 人工补充）</span></div>
                 </div>
               </div>
@@ -714,8 +715,8 @@ flowchart LR
                 <div class="line">| 授信申请 | TPS |</div>
                 <div class="line del">| > 100 t/s | 峰值口径 |</div>
                 <div class="line add">| > 100 t/s | 峰值口径 + 拐点输出  ← 评审批注后调整 |</div>
-                <div class="line">## 五、执行记录</div>
-                <div class="line add">### 09-02 10:15 · S2 支用申请 · FAILED（自动回填）</div>
+                <div class="line">### S2 支用申请 · 单交易并发</div>
+                <div class="line add">- 09-02 10:15 · 30 用户 · FAILED（回填到场景块）</div>
               </div>
             </div>
             <div class="diff-col">
@@ -723,7 +724,7 @@ flowchart LR
               <div class="diff-body">
                 <div class="line">| 授信申请 | TPS |</div>
                 <div class="line add">| > 120 t/s | 峰值口径  ← 你的修改 |</div>
-                <div class="line">## 三、风险与预案</div>
+                <div class="line">## 八、风险与预案</div>
                 <div class="line add">- 新增：监控告警阈值下调至 80% 水位  ← 你的补充</div>
                 <div class="line">（本地版本中没有 09-02 的执行记录）</div>
               </div>
@@ -759,12 +760,12 @@ flowchart LR
   const src = document.getElementById('plan-doc-md').textContent.trim();
 
   const KNOWN = {
-    '测试目的与指标': { icon: '🎯', kind: 'goals' },
-    '测试范围': { icon: '🧭', kind: 'scope' },
-    '测试资源': { icon: '🧱', kind: 'resources' },
-    '测试约束': { icon: '🧪', kind: 'criteria' },
-    '场景设计': { icon: '⚙', kind: 'scenarios' },
-    '排期与协作': { icon: '📅', kind: 'schedule' }
+    '二、测试目的与指标': { icon: '🎯', kind: 'goals' },
+    '三、测试范围': { icon: '🧭', kind: 'scope' },
+    '四、测试资源': { icon: '🧱', kind: 'resources' },
+    '五、测试约束': { icon: '🧪', kind: 'criteria' },
+    '七、场景设计': { icon: '⚙', kind: 'scenarios' },
+    '九、排期与协作': { icon: '📅', kind: 'schedule' }
   };
 
   // 章节解析（按 ## 切分）
@@ -933,13 +934,21 @@ flowchart LR
       const body = lines.slice(1).join('\n');
       const tables = tablesIn(body);
       const purposeM = body.match(/场景目的：([^\n]*)/);
-      blocks.push({ title, purpose: purposeM ? purposeM[1].trim() : '', table: tables[0] || null });
+      blocks.push({ title, purpose: purposeM ? purposeM[1].trim() : '', table: tables[0] || null, raw: p });
     }
-    const RUNTIME = {
-      'S1': { status: 'ok', text: 'SUCCESS 09-01 21:40', tag: '' },
-      'S2': { status: 'run', text: 'RUNNING 复测中', tag: '<span class="tag soft">复测</span>' },
-      'S3': { status: 'none', text: '— 待执行', tag: '' }
-    };
+    // 场景块内的回填记录（#### 执行记录 下的条目）
+    function execEntries(block) {
+      const m = block.match(/#### 执行记录\n([\s\S]*?)(?=\n### |$)/);
+      if (!m) return [];
+      return m[1].split('\n').filter(l => l.trim().startsWith('-')).map(l => l.trim().slice(2));
+    }
+    function entryStatus(e) {
+      const parts = e.split('·').map(x => x.trim());
+      const st = parts.find(p => /SUCCESS|FAILED|INTERRUPTED|CANCELLED/.test(p));
+      return { date: parts[0] || '', status: st || '' };
+    }
+    // 执行系统实时态（不在文档里，仅叠加展示）
+    const LIVE = { 'S2': { status: 'run', text: 'RUNNING 复测中', tag: '<span class="tag soft">复测</span>' } };
     function settingsCell(t) {
       if (!t || t.length < 2) return '—';
       const rows = t.slice(1);
@@ -950,17 +959,24 @@ flowchart LR
     for (const b of blocks) {
       const idM = b.title.match(/^(S\d+)/);
       const id = idM ? idM[1] : '';
-      const rt = RUNTIME[id] || { status: 'none', text: '—', tag: '' };
+      const entries = execEntries(b.raw);
+      const live = LIVE[id];
+      const latest = entries.length ? entryStatus(entries[0]) : null;
       const typeM = b.title.match(/·\s*([^·（]+)/);
       const type = typeM ? typeM[1].trim() : '';
-      h += '<tr><td><b>' + esc(b.title.replace(/（[^）]*）/, '')) + '</b> ' + rt.tag + '</td>'
+      const cell = live
+        ? '<span class="exec-status run"><span class="dot" style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>' + live.text + '</span>'
+        : latest
+          ? '<span class="exec-status ' + (latest.status === 'SUCCESS' ? 'ok' : 'fail') + '">● ' + latest.status + '</span> ' + esc(latest.date)
+          : '<span style="color:var(--muted);font-size:12px;">— 待执行</span>';
+      h += '<tr><td><b>' + esc(b.title.replace(/（[^）]*）/, '')) + '</b> ' + (live ? live.tag : '') + '</td>'
         + '<td><span class="tag">' + esc(type) + '</span></td>'
         + '<td>' + esc(settingsCell(b.table)) + '</td>'
         + '<td>' + esc(b.purpose) + '</td>'
-        + '<td>' + (rt.status === 'ok' ? '<span class="exec-status ok">● ' + rt.text + '</span>' : rt.status === 'run' ? '<span class="exec-status run"><span class="dot" style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>' + rt.text + '</span>' : '<span style="color:var(--muted);font-size:12px;">' + rt.text + '</span>') + '</td>'
+        + '<td>' + cell + '</td>'
         + '<td><div class="row-actions">'
-        + (rt.status === 'run' ? '' : '<button class="btn btn-sm btn-primary">执行</button>')
-        + '<button class="btn btn-sm"' + (rt.status === 'run' ? ' disabled title="运行中不可编辑"' : '') + '>编辑</button>'
+        + (live ? '' : '<button class="btn btn-sm btn-primary">执行</button>')
+        + '<button class="btn btn-sm"' + (live ? ' disabled title="运行中不可编辑"' : '') + '>编辑</button>'
         + '<button class="btn btn-sm">执行记录</button></div></td></tr>';
     }
     h += '</tbody></table>';
@@ -978,7 +994,12 @@ flowchart LR
         + '<div class="sd-field"><div class="flabel">场景设置（业务语言 → 自动翻译线程组）</div>' + tableHtml(s2.table).replace('mini-table', 'preset-table') + '</div>'
         + '<div class="sd-field"><div class="flabel">预期指标</div><div class="fvalue">目标 TPS &gt; 100 t/s（与计划指标清单一致）</div><span class="extend-badge">🔗 验收标准实体 · P0-3 扩展位（阈值挂接与自动判等）</span></div>'
         + '<div class="sd-field"><div class="flabel">测试数据</div><div class="fvalue">前置交易数据批量构造（授信申请回放数据）</div><span class="extend-badge">🔗 CSV 参数文件分发 · P1-5 扩展位</span></div>'
-        + '</div></div>';
+        + '</div>'
+        + '<h4 class="bf-h4" style="margin-top:14px;">执行记录 <span class="backfill-chip">系统自动回填</span></h4>'
+        + '<ul style="padding-left:18px;font-size:12.5px;color:var(--muted);margin-top:4px;">'
+        + execEntries(s2.raw).map(e => '<li>' + esc(e) + '</li>').join('')
+        + '</ul>'
+        + '</div>';
     }
     return h;
   }
@@ -1021,6 +1042,7 @@ flowchart LR
         continue;
       }
       if (!t) { i++; continue; }
+      if (t.startsWith('#### ')) { html += '<h4>' + inline(t.slice(5)) + '</h4>'; i++; continue; }
       if (t.startsWith('### ')) { html += '<h3>' + inline(t.slice(4)) + '</h3>'; i++; continue; }
       if (t.startsWith('## ')) { html += '<h2>' + inline(t.slice(3)) + '</h2>'; i++; continue; }
       if (t.startsWith('- ')) {
@@ -1048,22 +1070,13 @@ flowchart LR
     });
   }
   function styleBackfillSection(root) {
-    root.querySelectorAll('h2').forEach(h => {
+    root.querySelectorAll('h4').forEach(h => {
       if (h.textContent.includes('执行记录')) {
-        h.classList.add('backfill-heading');
+        h.classList.add('bf-h4');
         const chip = document.createElement('span');
         chip.className = 'backfill-chip';
         chip.textContent = '系统自动回填';
         h.appendChild(chip);
-        const wrap = document.createElement('div');
-        wrap.className = 'backfill-wrap';
-        let n = h.nextElementSibling;
-        while (n && n.tagName !== 'H2') {
-          const next = n.nextElementSibling;
-          wrap.appendChild(n);
-          n = next;
-        }
-        h.after(wrap);
       }
     });
   }
