@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>压测计划文档 · 改版效果图（P0-1 · 一稿走到头）</title>
+  <title>压测计划文档 · 改版效果图（P0-1 · 双模式 + 章节导航）</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -111,7 +111,7 @@
       background: var(--canvas); border: 1px solid var(--line); color: var(--muted); font-family: var(--mono);
     }
     .tag.soft { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-    .meta-kv { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--muted); }
+    .meta-kv { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--muted); align-items: center; }
     .meta-kv b { color: var(--ink); font-weight: 600; }
     .mono { font-family: var(--mono); font-size: 12px; }
 
@@ -120,7 +120,7 @@
     .plan-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
     .plan-title { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .plan-meta { margin-top: 8px; }
-    .plan-actions { display: flex; gap: 8px; flex: none; }
+    .plan-actions { display: flex; gap: 8px; flex: none; align-items: center; }
 
     /* 阶段步进条（二级状态） */
     .stepper {
@@ -166,6 +166,31 @@
     .tab-body { padding: 20px 24px; }
 
     /* ============ 文档 Tab ============ */
+    .doc-layout { display: grid; grid-template-columns: 208px 1fr; gap: 20px; align-items: start; }
+
+    /* 章节导航 TOC */
+    .toc { position: sticky; top: 0; }
+    .toc .toc-title { font-size: 12px; font-weight: 700; letter-spacing: .3px; padding: 2px 4px 8px; color: var(--ink); }
+    .toc .toc-group { font-size: 11px; color: var(--muted); padding: 10px 4px 4px; letter-spacing: .4px; }
+    .toc a {
+      display: block; padding: 5px 8px; border-radius: 6px; font-size: 12.5px; color: var(--muted);
+      text-decoration: none; cursor: pointer; border-left: 2px solid transparent;
+    }
+    .toc a:hover { color: var(--accent); background: var(--accent-soft); }
+    .toc a.current { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+
+    /* 模式切换 */
+    .mode-switch {
+      display: inline-flex; gap: 4px; padding: 4px; background: var(--canvas); border-radius: 8px;
+      margin-bottom: 16px; border: 1px solid var(--line);
+    }
+    .mode-switch button {
+      border: none; background: transparent; font-family: var(--font); font-size: 12.5px; font-weight: 500;
+      padding: 5px 14px; border-radius: 6px; cursor: pointer; color: var(--muted);
+    }
+    .mode-switch button.active { background: var(--surface); color: var(--accent); font-weight: 600; box-shadow: 0 1px 2px rgba(26,35,50,.08); }
+
+    /* 结构化模块 */
     .modules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
     .module-card { padding: 16px 18px; }
     .module-card.full { grid-column: 1 / -1; }
@@ -189,8 +214,7 @@
     .person-list { font-size: 12.5px; margin-bottom: 8px; }
     .window-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
 
-    /* 入口准则清单 */
-    .check-list { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; margin-bottom: 10px; }
+    .check-list { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; margin-bottom: 8px; }
     .check-item { display: flex; align-items: center; gap: 8px; }
     .check-item .box {
       width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--line);
@@ -199,22 +223,41 @@
     .check-item.pass .box { background: var(--ok); border-color: var(--ok); }
     .check-item .how { font-size: 11px; color: var(--muted); margin-left: auto; }
     .check-item .how.auto { color: var(--accent); }
-    .precheck-box {
-      border: 1px dashed var(--accent); border-radius: 8px; background: var(--accent-soft);
-      padding: 10px 12px; font-size: 12.5px; margin-bottom: 10px;
-    }
-    .precheck-box .pc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .conclusion-empty {
       border: 1px dashed var(--line); border-radius: 8px; padding: 12px 14px; text-align: center;
       color: var(--muted); font-size: 12.5px; margin-bottom: 8px;
     }
+
+    /* 场景模块 */
+    table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.data th, table.data td { border-bottom: 1px solid var(--line); padding: 9px 10px; text-align: left; vertical-align: top; }
+    table.data th { background: var(--canvas); font-weight: 600; font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .exec-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+    .exec-status.ok { color: var(--ok); }
+    .exec-status.fail { color: var(--danger); }
+    .exec-status.run { color: var(--accent); }
+    .exec-status.run .dot { animation: pulse 1.2s ease-in-out infinite; }
+    .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+    .scenario-detail { margin-top: 14px; padding: 16px 18px; background: var(--canvas); border-radius: 10px; border: 1px solid var(--line); }
+    .scenario-detail .sd-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .scenario-detail .sd-head h3 { font-size: 14px; }
+    .sd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .sd-field .flabel { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .sd-field .fvalue { font-size: 13px; line-height: 1.7; }
+    .extend-badge {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted);
+      border: 1px dashed var(--line); border-radius: 6px; padding: 2px 8px; margin-top: 6px;
+    }
+    .preset-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 4px; }
+    .preset-table th, .preset-table td { border: 1px solid var(--line); padding: 5px 10px; text-align: left; }
+    .preset-table th { background: var(--canvas); font-weight: 600; color: var(--muted); }
 
     /* Markdown 正文 */
     .markdown-body { line-height: 1.75; }
     .markdown-body h1 { font-size: 22px; margin: 4px 0 12px; }
     .markdown-body h2 {
       font-size: 16px; margin: 26px 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 8px; scroll-margin-top: 16px;
     }
     .markdown-body h3 { font-size: 14px; margin: 18px 0 8px; }
     .markdown-body p { margin: 8px 0; }
@@ -235,7 +278,6 @@
     }
     .markdown-body .mermaid { margin: 14px 0; text-align: center; }
 
-    /* 系统回填区块 */
     .backfill-heading { color: var(--accent) !important; border-bottom-color: var(--accent) !important; }
     .backfill-chip {
       font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft);
@@ -251,6 +293,12 @@
     .backfill-wrap::before {
       content: "自动追加 · 不可手改 · 条目幂等"; display: block; font-size: 11px;
       color: var(--accent); font-family: var(--mono); margin-bottom: 4px;
+    }
+
+    .md-editor {
+      width: 100%; min-height: 720px; border: 1px solid var(--line); border-radius: 10px;
+      padding: 16px 20px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7;
+      color: var(--ink); background: var(--surface); resize: vertical; outline: none;
     }
 
     /* ============ 评审 Tab ============ */
@@ -284,30 +332,6 @@
     .kv { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; }
     .kv .k { color: var(--muted); }
     .kv .v { font-family: var(--mono); font-size: 12px; }
-
-    /* ============ 场景 Tab ============ */
-    table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
-    table.data th, table.data td { border-bottom: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
-    table.data th { background: var(--canvas); font-weight: 600; font-size: 12px; color: var(--muted); white-space: nowrap; }
-    .exec-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
-    .exec-status.ok { color: var(--ok); }
-    .exec-status.fail { color: var(--danger); }
-    .exec-status.run { color: var(--accent); }
-    .exec-status.run .dot { animation: pulse 1.2s ease-in-out infinite; }
-    .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
-    .scenario-detail { margin-top: 16px; padding: 18px 20px; }
-    .scenario-detail .sd-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-    .scenario-detail .sd-head h3 { font-size: 15px; }
-    .sd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .sd-field .flabel { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
-    .sd-field .fvalue { font-size: 13px; line-height: 1.7; }
-    .extend-badge {
-      display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted);
-      border: 1px dashed var(--line); border-radius: 6px; padding: 2px 8px; margin-top: 6px;
-    }
-    .preset-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 4px; }
-    .preset-table th, .preset-table td { border: 1px solid var(--line); padding: 5px 10px; text-align: left; }
-    .preset-table th { background: var(--canvas); font-weight: 600; color: var(--muted); }
 
     /* ============ 报告 / 发布 Tab ============ */
     .report-layout, .publish-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
@@ -361,8 +385,8 @@
 </head>
 <body>
 
-<!-- ============ 计划正文（markdown 源，改这里！） ============ -->
-<script type="text/markdown" id="plan-doc-md">
+<!-- ============ 正文（叙述性 markdown 源，改这里！） ============ -->
+<script type="text/markdown" id="plan-body-md">
 ## 一、背景
 
 大促前对信贷核心业务（授信/支用/还款及查询链路）进行容量评估，为上线提供依据。总体口径：核心交易与查询类接口的 TPS 目标见上方"测试目的与指标"模块，场景级目标以验收指标为准。
@@ -413,6 +437,85 @@ flowchart LR
 ### 2026-09-02 10:15 · S2 支用申请 · 30 用户
 - 状态：FAILED
 - 样本 149693 ｜ 吞吐 96.4 TPS ｜ P95 412 ms ｜ 错误率 1.8%
+</script>
+
+<!-- ============ 结构化模块的 Markdown 渲染（MD·预览模式的模块章节，由平台渲染器生成） ============ -->
+<script type="text/markdown" id="modules-md">
+## 测试目的与指标
+
+获取信贷系统各交易不同场景下的性能指标，为上线提供评估依据。
+
+| 交易 | 指标 | 目标值 | 口径 |
+|------|------|--------|------|
+| 授信申请 | TPS | > 100 t/s | 峰值口径 |
+| 支用申请 | TPS | > 100 t/s | 峰值口径 |
+| 还款申请 | TPS | > 100 t/s | 峰值口径 |
+| 授信结果查询 | TPS | > 1,000 t/s | 查询类 |
+| 还款结果查询 | TPS | > 1,000 t/s | 查询类 |
+| 全链路 | 稳定性 | 8h 无异常 | 成功率 100% |
+
+## 测试范围
+
+**范围内**
+
+| 交易名称 | 交易配比 | 备注 |
+|----------|----------|------|
+| 授信申请 | 负载动态调整 | 核心写 |
+| 支用申请 | 负载动态调整 | 核心写 |
+| 还款申请 | 负载动态调整 | 核心写 |
+| 授信申请结果查询 | 负载动态调整 | 读 |
+| 还款申请结果查询 | 负载动态调整 | 读 |
+
+**范围外**：搜索推荐、对账批处理、第三方接口（挡板）
+
+## 测试资源
+
+**人员**：毛曦云（开发）· 王建涛（开发）· 关昕（测试）· 赵敏（运维支持）
+
+| 地址 | 模块 | 配置/版本 |
+|------|------|-----------|
+| 10.168.3.97 | package-retail-product / user / mdata | 4C/16G |
+| 10.168.3.102 | MySQL | 8.0.33 · 4C/16G |
+| 10.168.3.100 | Redis | 5.0.14 · 4C/16G |
+
+执行节点：controller-01 + worker ×4 · 监控目标：order-svc / mysql / redis · 时间窗口：09-05 20:00–23:00（封网）
+
+## 测试约束
+
+**入口准则**：指标已定义 ✓ · 场景已配置 ✓ · 脚本已关联 ✓ · 环境就绪 ✓（执行前环境检查回填）· 数据已准备 ✓ · 人员到位 / 接口人明确 ✓
+
+**出口准则**：高优先级场景均已执行；结果通过评审、指标达标（报告阶段判等 P0-3）
+
+## 场景设计
+
+### S1 授信申请 · 单交易并发
+场景目的：获取单交易多负载下的并发处理能力与性能拐点。
+场景设置：3 档 · 30→50→80 用户 · 5min/档 · 同时加载 · 同时退出
+
+### S2 支用申请 · 单交易并发（复测）
+场景目的：验证修复后处理能力（09-01 基线失败复测）。
+场景设置：3 档 · 30→50→80 用户 · 5min/档 · 同时加载 · 同时退出
+
+### S3 授信结果查询 · 单交易并发
+场景目的：查询类接口吞吐能力验证（目标 >1,000 t/s）。
+场景设置：3 档 · 30→50→80 用户 · 5min/档 · 同时加载 · 同时退出
+</script>
+
+<script type="text/markdown" id="conclusion-md">
+## 结论
+
+| 指标 | 目标 | 实际结果 | 状态 |
+|------|------|----------|------|
+| 授信申请 TPS | > 100 t/s | 260.3 t/s | —（判等 P0-3 回填） |
+| 支用申请 TPS | > 100 t/s | 复测中 | — |
+| 还款申请 TPS | > 100 t/s | — | — |
+| 授信结果查询 TPS | > 1,000 t/s | — | — |
+| 还款结果查询 TPS | > 1,000 t/s | — | — |
+| 稳定性（8h） | 无异常 | — | — |
+
+**风险与建议**：报告生成后回填（缺陷清单 P3-7 / 人工补充）
+
+**总体结论**：发布时人工确认（P0-3 判等落地后自动预填）
 </script>
 
 <div class="shell">
@@ -477,6 +580,7 @@ flowchart LR
               </div>
             </div>
             <div class="plan-actions">
+              <button class="btn btn-sm" title="执行设置（非文档内容）：环境检查已启用 · 首执行 09-01 已通过 · 执行前动作不参与评审">⚙ 执行设置</button>
               <button class="btn" disabled title="执行中不可生成报告，待本轮执行完成">生成报告</button>
               <button class="btn btn-primary" disabled title="发布前置：报告已生成 + 总体结论确认 + 无活跃执行">发布计划</button>
             </div>
@@ -500,117 +604,246 @@ flowchart LR
           <div class="tabs">
             <div class="tab active" data-tab="doc">📄 文档</div>
             <div class="tab" data-tab="review">💬 评审 <span class="count">7</span></div>
-            <div class="tab" data-tab="scenario">⚙ 场景 <span class="count">3</span></div>
             <div class="tab" data-tab="report">📊 报告</div>
             <div class="tab" data-tab="publish">🚀 发布</div>
           </div>
 
           <!-- ===== Tab 文档 ===== -->
           <div class="tab-panel active" data-panel="doc">
-            <div class="tab-body">
-              <!-- 结构化模块 -->
-              <div class="modules-grid">
-                <div class="card module-card">
-                  <h4>🎯 测试目的与指标 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
-                  <div class="fvalue" style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">获取信贷系统各交易不同场景下的性能指标，为上线提供评估依据。</div>
-                  <table class="mini-table">
-                    <thead><tr><th>交易</th><th>指标</th><th>目标值</th><th>口径</th></tr></thead>
-                    <tbody>
-                      <tr><td>授信申请</td><td>TPS</td><td class="val">&gt; 100 t/s</td><td>峰值口径</td></tr>
-                      <tr><td>支用申请</td><td>TPS</td><td class="val">&gt; 100 t/s</td><td>峰值口径</td></tr>
-                      <tr><td>还款申请</td><td>TPS</td><td class="val">&gt; 100 t/s</td><td>峰值口径</td></tr>
-                      <tr><td>授信结果查询</td><td>TPS</td><td class="val">&gt; 1,000 t/s</td><td>查询类</td></tr>
-                      <tr><td>还款结果查询</td><td>TPS</td><td class="val">&gt; 1,000 t/s</td><td>查询类</td></tr>
-                      <tr><td>全链路</td><td>稳定性</td><td class="val">8h 无异常</td><td>成功率 100%</td></tr>
-                    </tbody>
-                  </table>
+            <div class="tab-body doc-layout">
+              <!-- 章节导航 TOC -->
+              <aside class="toc card" style="padding:14px 12px;">
+                <div class="toc-title">章节导航</div>
+                <div class="toc-group">结构化模块</div>
+                <a data-mod="goals">测试目的与指标</a>
+                <a data-mod="scope">测试范围</a>
+                <a data-mod="resources">测试资源</a>
+                <a data-mod="criteria">测试约束</a>
+                <a data-mod="scenarios">场景设计</a>
+                <a data-mod="conclusion">结论</a>
+                <div class="toc-group">正文章节</div>
+                <a data-body="0">一、背景</a>
+                <a data-body="1">二、测试策略</a>
+                <a data-body="2">三、风险与预案</a>
+                <a data-body="3">四、排期与协作</a>
+                <a data-body="4">五、附录</a>
+                <a data-body="5">六、执行记录</a>
+              </aside>
+
+              <div>
+                <!-- 模式切换 -->
+                <div class="mode-switch">
+                  <button class="active" data-mode="structured">结构化展示</button>
+                  <button data-mode="md-preview">MD · 预览</button>
+                  <button data-mode="md-edit">MD · 编辑</button>
                 </div>
-                <div class="card module-card">
-                  <h4>🧭 测试范围 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
-                  <table class="mini-table">
-                    <thead><tr><th>交易名称</th><th>交易配比</th><th>备注</th></tr></thead>
-                    <tbody>
-                      <tr><td>授信申请</td><td>负载动态调整</td><td>核心写</td></tr>
-                      <tr><td>支用申请</td><td>负载动态调整</td><td>核心写</td></tr>
-                      <tr><td>还款申请</td><td>负载动态调整</td><td>核心写</td></tr>
-                      <tr><td>授信申请结果查询</td><td>负载动态调整</td><td>读</td></tr>
-                      <tr><td>还款申请结果查询</td><td>负载动态调整</td><td>读</td></tr>
-                    </tbody>
-                  </table>
-                  <div class="sub-label">范围外</div>
-                  <div class="chip-list">
-                    <span class="chip off">搜索推荐</span><span class="chip off">对账批处理</span>
-                    <span class="chip off">第三方接口（挡板）</span>
-                  </div>
-                </div>
-                <div class="card module-card">
-                  <h4>🧱 测试资源 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
-                  <div class="sub-label">人员</div>
-                  <div class="person-list">毛曦云（开发）· 王建涛（开发）· 关昕（测试）· 赵敏（运维支持）</div>
-                  <div class="sub-label">环境部署信息</div>
-                  <table class="mini-table">
-                    <thead><tr><th>地址</th><th>模块</th><th>配置/版本</th></tr></thead>
-                    <tbody>
-                      <tr><td class="mono">10.168.3.97</td><td>package-retail-product / user / mdata</td><td>4C/16G</td></tr>
-                      <tr><td class="mono">10.168.3.102</td><td>MySQL</td><td>8.0.33 · 4C/16G</td></tr>
-                      <tr><td class="mono">10.168.3.100</td><td>Redis</td><td>5.0.14 · 4C/16G</td></tr>
-                    </tbody>
-                  </table>
-                  <div class="sub-label">执行节点 / 监控目标 / 时间窗口</div>
-                  <div class="chip-list">
-                    <span class="tag">controller-01</span><span class="tag">worker ×4</span>
-                    <span class="tag">order-svc 监控</span><span class="tag">mysql 监控</span>
-                  </div>
-                  <div class="window-row">09-05 20:00 – 23:00 <span class="tag soft">封网窗口</span></div>
-                </div>
-                <div class="card module-card">
-                  <h4>🧪 测试约束与环境检查 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
-                  <div class="sub-label">入口准则（结构化清单，不设硬门禁）</div>
-                  <div class="check-list">
-                    <div class="check-item pass"><span class="box">✓</span>指标已定义<span class="how auto">自动核验</span></div>
-                    <div class="check-item pass"><span class="box">✓</span>场景已配置<span class="how auto">自动核验</span></div>
-                    <div class="check-item pass"><span class="box">✓</span>脚本已关联<span class="how auto">自动核验</span></div>
-                    <div class="check-item pass"><span class="box">✓</span>环境就绪<span class="how auto">环境检查</span></div>
-                    <div class="check-item pass"><span class="box">✓</span>数据已准备<span class="how">人工勾选</span></div>
-                    <div class="check-item pass"><span class="box">✓</span>人员到位 / 接口人明确<span class="how">人工勾选</span></div>
-                  </div>
-                  <div class="precheck-box">
-                    <div class="pc-head">
-                      <b>执行前环境检查 <span class="tag soft">已启用</span></b>
-                      <span class="badge badge-approved">首执行已运行 · 通过</span>
+
+                <!-- 模式：结构化展示 -->
+                <div id="mode-structured">
+                  <div class="modules-grid">
+                    <div class="card module-card" id="mod-goals">
+                      <h4>🎯 测试目的与指标 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
+                      <div class="fvalue" style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">获取信贷系统各交易不同场景下的性能指标，为上线提供评估依据。</div>
+                      <table class="mini-table">
+                        <thead><tr><th>交易</th><th>指标</th><th>目标值</th><th>口径</th></tr></thead>
+                        <tbody>
+                          <tr><td>授信申请</td><td>TPS</td><td class="val">&gt; 100 t/s</td><td>峰值口径</td></tr>
+                          <tr><td>支用申请</td><td>TPS</td><td class="val">&gt; 100 t/s</td><td>峰值口径</td></tr>
+                          <tr><td>还款申请</td><td>TPS</td><td class="val">&gt; 100 t/s</td><td>峰值口径</td></tr>
+                          <tr><td>授信结果查询</td><td>TPS</td><td class="val">&gt; 1,000 t/s</td><td>查询类</td></tr>
+                          <tr><td>还款结果查询</td><td>TPS</td><td class="val">&gt; 1,000 t/s</td><td>查询类</td></tr>
+                          <tr><td>全链路</td><td>稳定性</td><td class="val">8h 无异常</td><td>成功率 100%</td></tr>
+                        </tbody>
+                      </table>
                     </div>
-                    <div style="font-size:12px;color:var(--muted);margin-top:6px;">
-                      2026-09-01 20:58 首次执行时自动运行（复用执行预检 seam）· 结果三态：本身 OK<br/>
-                      复测不自动重跑 · <button class="btn btn-sm" style="margin-top:6px;">手动触发预检</button>
-                      <button class="btn btn-sm" style="margin-top:6px;">跳过检查继续执行</button>
+                    <div class="card module-card" id="mod-scope">
+                      <h4>🧭 测试范围 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
+                      <table class="mini-table">
+                        <thead><tr><th>交易名称</th><th>交易配比</th><th>备注</th></tr></thead>
+                        <tbody>
+                          <tr><td>授信申请</td><td>负载动态调整</td><td>核心写</td></tr>
+                          <tr><td>支用申请</td><td>负载动态调整</td><td>核心写</td></tr>
+                          <tr><td>还款申请</td><td>负载动态调整</td><td>核心写</td></tr>
+                          <tr><td>授信申请结果查询</td><td>负载动态调整</td><td>读</td></tr>
+                          <tr><td>还款申请结果查询</td><td>负载动态调整</td><td>读</td></tr>
+                        </tbody>
+                      </table>
+                      <div class="sub-label">范围外</div>
+                      <div class="chip-list">
+                        <span class="chip off">搜索推荐</span><span class="chip off">对账批处理</span>
+                        <span class="chip off">第三方接口（挡板）</span>
+                      </div>
+                    </div>
+                    <div class="card module-card" id="mod-resources">
+                      <h4>🧱 测试资源 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
+                      <div class="sub-label">人员</div>
+                      <div class="person-list">毛曦云（开发）· 王建涛（开发）· 关昕（测试）· 赵敏（运维支持）</div>
+                      <div class="sub-label">环境部署信息</div>
+                      <table class="mini-table">
+                        <thead><tr><th>地址</th><th>模块</th><th>配置/版本</th></tr></thead>
+                        <tbody>
+                          <tr><td class="mono">10.168.3.97</td><td>package-retail-product / user / mdata</td><td>4C/16G</td></tr>
+                          <tr><td class="mono">10.168.3.102</td><td>MySQL</td><td>8.0.33 · 4C/16G</td></tr>
+                          <tr><td class="mono">10.168.3.100</td><td>Redis</td><td>5.0.14 · 4C/16G</td></tr>
+                        </tbody>
+                      </table>
+                      <div class="sub-label">执行节点 / 监控目标 / 时间窗口</div>
+                      <div class="chip-list">
+                        <span class="tag">controller-01</span><span class="tag">worker ×4</span>
+                        <span class="tag">order-svc 监控</span><span class="tag">mysql 监控</span>
+                      </div>
+                      <div class="window-row">09-05 20:00 – 23:00 <span class="tag soft">封网窗口</span></div>
+                    </div>
+                    <div class="card module-card" id="mod-criteria">
+                      <h4>🧪 测试约束 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
+                      <div class="sub-label">入口准则（结构化清单，不设硬门禁）</div>
+                      <div class="check-list">
+                        <div class="check-item pass"><span class="box">✓</span>指标已定义<span class="how auto">自动核验</span></div>
+                        <div class="check-item pass"><span class="box">✓</span>场景已配置<span class="how auto">自动核验</span></div>
+                        <div class="check-item pass"><span class="box">✓</span>脚本已关联<span class="how auto">自动核验</span></div>
+                        <div class="check-item pass"><span class="box">✓</span>环境就绪<span class="how auto">执行前环境检查回填</span></div>
+                        <div class="check-item pass"><span class="box">✓</span>数据已准备<span class="how">人工勾选</span></div>
+                        <div class="check-item pass"><span class="box">✓</span>人员到位 / 接口人明确<span class="how">人工勾选</span></div>
+                      </div>
+                      <div class="sub-label">出口准则（展示，不门禁）</div>
+                      <div class="check-list">
+                        <div class="check-item"><span class="box">✓</span>高优先级场景均已执行<span class="how">执行完成后自动核验</span></div>
+                        <div class="check-item"><span class="box"></span>结果通过评审、指标达标<span class="how">报告阶段判等（P0-3）</span></div>
+                      </div>
+                      <div style="font-size:11.5px;color:var(--muted);margin-top:6px;">
+                        环境检查不在此体现——它是执行前动作（执行设置），不参与评审。
+                      </div>
+                    </div>
+                    <div class="card module-card full" id="mod-scenarios">
+                      <h4>⚙ 场景设计 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
+                      <table class="data" style="margin-bottom:0;">
+                        <thead>
+                          <tr><th>场景</th><th>测试类型</th><th>场景设置</th><th>场景目的</th><th>最新执行</th><th style="text-align:right;">操作</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td><b>S1 授信申请</b></td>
+                            <td><span class="tag">单交易并发</span></td>
+                            <td>3 档 · 30→50→80 用户 · 5min/档 · 同时加载</td>
+                            <td>获取单交易多负载下的并发处理能力与性能拐点</td>
+                            <td><span class="exec-status ok">● SUCCESS</span> 09-01 21:40</td>
+                            <td><div class="row-actions">
+                              <button class="btn btn-sm btn-primary">执行</button>
+                              <button class="btn btn-sm">编辑</button>
+                              <button class="btn btn-sm">执行记录</button>
+                            </div></td>
+                          </tr>
+                          <tr style="background:var(--accent-soft);">
+                            <td><b>S2 支用申请</b> <span class="tag soft">复测</span></td>
+                            <td><span class="tag">单交易并发</span></td>
+                            <td>3 档 · 30→50→80 用户 · 5min/档 · 同时加载</td>
+                            <td>验证支用申请修复后处理能力（09-01 基线失败复测）</td>
+                            <td><span class="exec-status run"><span class="dot" style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>RUNNING 复测中</span></td>
+                            <td><div class="row-actions">
+                              <button class="btn btn-sm" disabled title="运行中不可编辑，请到执行详情操作">编辑</button>
+                              <button class="btn btn-sm">执行记录</button>
+                            </div></td>
+                          </tr>
+                          <tr>
+                            <td><b>S3 授信结果查询</b></td>
+                            <td><span class="tag">单交易并发</span></td>
+                            <td>3 档 · 30→50→80 用户 · 5min/档 · 同时加载</td>
+                            <td>查询类接口吞吐能力验证（目标 &gt;1,000 t/s）</td>
+                            <td><span style="color:var(--muted);font-size:12px;">— 待执行</span></td>
+                            <td><div class="row-actions">
+                              <button class="btn btn-sm btn-primary">执行</button>
+                              <button class="btn btn-sm">编辑</button>
+                              <button class="btn btn-sm">执行记录</button>
+                            </div></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <div style="padding:10px 0 0;font-size:12px;color:var(--muted);">
+                        场景为业务语言（用户数/时长/加载方式/退出方式），自动翻译 JMeter 线程组；脚本不进计划文档，评审通过后编写并关联（仅展示关联状态）。
+                      </div>
+                      <!-- S2 场景设计明细 -->
+                      <div class="scenario-detail">
+                        <div class="sd-head">
+                          <h3>S2 支用申请 · 场景设计明细</h3>
+                          <span class="badge badge-running"><span class="dot"></span>执行中 · 复测</span>
+                          <span style="margin-left:auto;font-size:12px;color:var(--muted);">测试类型：单交易并发 · 执行就绪：脚本已关联 ✓</span>
+                        </div>
+                        <div class="sd-grid">
+                          <div class="sd-field">
+                            <div class="flabel">场景目的</div>
+                            <div class="fvalue">验证支用申请接口在 30→80 并发梯度下的处理能力与性能拐点；09-01 基线错误率 1.8% 超标，本次为修复后复测。</div>
+                          </div>
+                          <div class="sd-field">
+                            <div class="flabel">交易范围</div>
+                            <div class="fvalue">支用申请（核心写接口，含前置交易数据构造）</div>
+                          </div>
+                          <div class="sd-field">
+                            <div class="flabel">测试方法</div>
+                            <div class="fvalue">逐档加压（30→50→80 用户），每档持续 5 分钟，全程监控服务器 CPU/内存/磁盘；末档保持后统一退出。</div>
+                          </div>
+                          <div class="sd-field">
+                            <div class="flabel">场景设置（业务语言 → 自动翻译线程组）</div>
+                            <table class="preset-table">
+                              <thead><tr><th>档位</th><th>用户数</th><th>持续时长</th><th>加载方式</th><th>退出方式</th></tr></thead>
+                              <tbody>
+                                <tr><td>1</td><td>30</td><td>5 分钟</td><td>同时加载</td><td>同时退出</td></tr>
+                                <tr><td>2</td><td>50</td><td>5 分钟</td><td>同时加载</td><td>同时退出</td></tr>
+                                <tr><td>3</td><td>80</td><td>5 分钟</td><td>同时加载</td><td>同时退出</td></tr>
+                              </tbody>
+                            </table>
+                          </div>
+                          <div class="sd-field">
+                            <div class="flabel">预期指标</div>
+                            <div class="fvalue">目标 TPS &gt; 100 t/s（与计划指标清单一致）</div>
+                            <span class="extend-badge">🔗 验收标准实体 · P0-3 扩展位（阈值挂接与自动判等）</span>
+                          </div>
+                          <div class="sd-field">
+                            <div class="flabel">测试数据</div>
+                            <div class="fvalue">前置交易数据批量构造（授信申请回放数据）</div>
+                            <span class="extend-badge">🔗 CSV 参数文件分发 · P1-5 扩展位</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="card module-card full" id="mod-conclusion">
+                      <h4>📌 结论 <span class="edit" title="发布时人工确认">发布时确认</span></h4>
+                      <table class="mini-table" style="margin-bottom:10px;">
+                        <thead><tr><th>指标</th><th>目标</th><th>实际结果</th><th>状态</th></tr></thead>
+                        <tbody>
+                          <tr><td>授信申请 TPS</td><td>&gt; 100 t/s</td><td class="val">260.3 t/s</td><td style="color:var(--muted);">—（判等 P0-3 回填）</td></tr>
+                          <tr><td>支用申请 TPS</td><td>&gt; 100 t/s</td><td class="val">复测中</td><td style="color:var(--muted);">—</td></tr>
+                          <tr><td>还款申请 TPS</td><td>&gt; 100 t/s</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
+                          <tr><td>授信结果查询 TPS</td><td>&gt; 1,000 t/s</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
+                          <tr><td>还款结果查询 TPS</td><td>&gt; 1,000 t/s</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
+                          <tr><td>稳定性（8h）</td><td>无异常</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
+                        </tbody>
+                      </table>
+                      <div class="conclusion-empty">风险与建议：报告生成后回填（缺陷清单 P3-7 / 人工补充）</div>
+                      <div class="conclusion-empty">总体结论：发布时人工确认（P0-3 判等落地后自动预填）</div>
                     </div>
                   </div>
-                  <div class="sub-label">出口准则（展示，不门禁）</div>
-                  <div class="check-list">
-                    <div class="check-item"><span class="box">✓</span>高优先级场景均已执行<span class="how">执行完成后自动核验</span></div>
-                    <div class="check-item"><span class="box"></span>结果通过评审、指标达标<span class="how">报告阶段判等（P0-3）</span></div>
+                  <!-- 叙述正文（结构化模式下同样展示） -->
+                  <div class="card" style="padding:24px 28px;">
+                    <div class="markdown-body" id="body-render"></div>
                   </div>
                 </div>
-                <div class="card module-card full">
-                  <h4>📌 结论 <span class="edit" title="发布时人工确认">发布时确认</span></h4>
-                  <table class="mini-table" style="margin-bottom:10px;">
-                    <thead><tr><th>指标</th><th>目标</th><th>实际结果</th><th>状态</th></tr></thead>
-                    <tbody>
-                      <tr><td>授信申请 TPS</td><td>&gt; 100 t/s</td><td class="val">260.3 t/s</td><td style="color:var(--muted);">—（判等 P0-3 回填）</td></tr>
-                      <tr><td>支用申请 TPS</td><td>&gt; 100 t/s</td><td class="val">复测中</td><td style="color:var(--muted);">—</td></tr>
-                      <tr><td>还款申请 TPS</td><td>&gt; 100 t/s</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
-                      <tr><td>授信结果查询 TPS</td><td>&gt; 1,000 t/s</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
-                      <tr><td>还款结果查询 TPS</td><td>&gt; 1,000 t/s</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
-                      <tr><td>稳定性（8h）</td><td>无异常</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
-                    </tbody>
-                  </table>
-                  <div class="conclusion-empty">风险与建议：报告生成后回填（缺陷清单 P3-7 / 人工补充）</div>
-                  <div class="conclusion-empty">总体结论：发布时人工确认（P0-3 判等落地后自动预填）</div>
+
+                <!-- 模式：MD · 预览 -->
+                <div id="mode-md-preview" style="display:none;">
+                  <div class="card" style="padding:24px 28px;">
+                    <div class="markdown-body" id="md-full-render"></div>
+                  </div>
                 </div>
-              </div>
-              <!-- Markdown 正文 -->
-              <div class="card" style="padding:24px 28px;">
-                <div class="markdown-body" id="doc-render"></div>
+
+                <!-- 模式：MD · 编辑 -->
+                <div id="mode-md-edit" style="display:none;">
+                  <div class="card" style="padding:16px 20px;">
+                    <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
+                      MD·编辑 只编辑叙述正文；结构化模块回「结构化展示」模式编辑。保存携带 baseRevision。
+                    </div>
+                    <textarea class="md-editor" id="md-editor-ta" spellcheck="false"></textarea>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -653,7 +886,7 @@ flowchart LR
                   <div class="tl-item system">
                     <div class="dot">◌</div>
                     <div class="tl-head"><span class="author">关昕</span>进入执行 · 评审通过 → 执行·待执行<span style="margin-left:auto">2026-09-01 20:00</span></div>
-                    <div class="tl-body">脚本已编写并关联（评审通过后产生，不进文档）；开始执行阶段，首执行自动运行环境检查。</div>
+                    <div class="tl-body">脚本已编写并关联（评审通过后产生，不进文档）；开始执行阶段，首执行自动运行环境检查（执行前动作）。</div>
                   </div>
                 </div>
                 <div class="card comment-box" style="margin-top:16px;">
@@ -676,104 +909,7 @@ flowchart LR
                     评审：待评审 / 评审中 / 评审通过<br/>
                     执行：待执行 / 执行中 / 执行完成<br/>
                     报告：待生成 / 生成中 / 已生成<br/>
-                    环境检查 = 计划可选项（非状态）
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- ===== Tab 场景 ===== -->
-          <div class="tab-panel" data-panel="scenario">
-            <div class="tab-body">
-              <div class="card" style="overflow:hidden;">
-                <table class="data">
-                  <thead>
-                    <tr><th>场景</th><th>测试类型</th><th>场景设置</th><th>场景目的</th><th>最新执行</th><th style="text-align:right;">操作</th></tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td><b>S1 授信申请</b></td>
-                      <td><span class="tag">单交易并发</span></td>
-                      <td>3 档 · 30→50→80 用户 · 5min/档 · 同时加载</td>
-                      <td>获取单交易多负载下的并发处理能力与性能拐点</td>
-                      <td><span class="exec-status ok">● SUCCESS</span> 09-01 21:40</td>
-                      <td><div class="row-actions">
-                        <button class="btn btn-sm btn-primary">执行</button>
-                        <button class="btn btn-sm">编辑</button>
-                        <button class="btn btn-sm">执行记录</button>
-                      </div></td>
-                    </tr>
-                    <tr style="background:var(--accent-soft);">
-                      <td><b>S2 支用申请</b> <span class="tag soft">复测</span></td>
-                      <td><span class="tag">单交易并发</span></td>
-                      <td>3 档 · 30→50→80 用户 · 5min/档 · 同时加载</td>
-                      <td>验证支用申请修复后处理能力（09-01 基线失败复测）</td>
-                      <td><span class="exec-status run"><span class="dot" style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>RUNNING 复测中</span></td>
-                      <td><div class="row-actions">
-                        <button class="btn btn-sm" disabled title="运行中不可编辑，请到执行详情操作">编辑</button>
-                        <button class="btn btn-sm">执行记录</button>
-                      </div></td>
-                    </tr>
-                    <tr>
-                      <td><b>S3 授信结果查询</b></td>
-                      <td><span class="tag">单交易并发</span></td>
-                      <td>3 档 · 30→50→80 用户 · 5min/档 · 同时加载</td>
-                      <td>查询类接口吞吐能力验证（目标 &gt;1,000 t/s）</td>
-                      <td><span style="color:var(--muted);font-size:12px;">— 待执行</span></td>
-                      <td><div class="row-actions">
-                        <button class="btn btn-sm btn-primary">执行</button>
-                        <button class="btn btn-sm">编辑</button>
-                        <button class="btn btn-sm">执行记录</button>
-                      </div></td>
-                    </tr>
-                  </tbody>
-                </table>
-                <div style="padding:12px 16px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);">
-                  场景为业务语言（用户数/时长/加载方式/退出方式），自动翻译 JMeter 线程组；脚本不进计划文档，评审通过后编写并关联（仅展示关联状态）。
-                </div>
-              </div>
-
-              <!-- 场景设计明细（S2 展开示例） -->
-              <div class="card scenario-detail">
-                <div class="sd-head">
-                  <h3>S2 支用申请 · 场景设计</h3>
-                  <span class="badge badge-running"><span class="dot"></span>执行中 · 复测</span>
-                  <span style="margin-left:auto;font-size:12px;color:var(--muted);">测试类型：单交易并发 · 执行就绪：脚本已关联 ✓</span>
-                </div>
-                <div class="sd-grid">
-                  <div class="sd-field">
-                    <div class="flabel">场景目的</div>
-                    <div class="fvalue">验证支用申请接口在 30→80 并发梯度下的处理能力与性能拐点；09-01 基线错误率 1.8% 超标，本次为修复后复测。</div>
-                  </div>
-                  <div class="sd-field">
-                    <div class="flabel">交易范围</div>
-                    <div class="fvalue">支用申请（核心写接口，含前置交易数据构造）</div>
-                  </div>
-                  <div class="sd-field">
-                    <div class="flabel">测试方法</div>
-                    <div class="fvalue">逐档加压（30→50→80 用户），每档持续 5 分钟，全程监控服务器 CPU/内存/磁盘；末档保持后统一退出。</div>
-                  </div>
-                  <div class="sd-field">
-                    <div class="flabel">场景设置（业务语言 → 自动翻译线程组）</div>
-                    <table class="preset-table">
-                      <thead><tr><th>档位</th><th>用户数</th><th>持续时长</th><th>加载方式</th><th>退出方式</th></tr></thead>
-                      <tbody>
-                        <tr><td>1</td><td>30</td><td>5 分钟</td><td>同时加载</td><td>同时退出</td></tr>
-                        <tr><td>2</td><td>50</td><td>5 分钟</td><td>同时加载</td><td>同时退出</td></tr>
-                        <tr><td>3</td><td>80</td><td>5 分钟</td><td>同时加载</td><td>同时退出</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  <div class="sd-field">
-                    <div class="flabel">预期指标</div>
-                    <div class="fvalue">目标 TPS &gt; 100 t/s（与计划指标清单一致）</div>
-                    <span class="extend-badge">🔗 验收标准实体 · P0-3 扩展位（阈值挂接与自动判等）</span>
-                  </div>
-                  <div class="sd-field">
-                    <div class="flabel">测试数据</div>
-                    <div class="fvalue">前置交易数据批量构造（授信申请回放数据）</div>
-                    <span class="extend-badge">🔗 CSV 参数文件分发 · P1-5 扩展位</span>
+                    环境检查 = 执行前动作（非状态、非文档内容）
                   </div>
                 </div>
               </div>
@@ -788,7 +924,7 @@ flowchart LR
                   <h4>报告阶段 <span class="badge badge-pending">待生成</span></h4>
                   <div class="fvalue" style="font-size:13px;line-height:1.8;margin-bottom:12px;">
                     当前阶段 <b>执行 · 执行中</b>：S2 复测进行中。全部执行结束后进入"执行完成"，
-                    随后可进入报告阶段生成报告——聚合摘要先行填充结论章节的"指标达成表·实际"列（判等状态 P0-3 起回填），
+                    随后可进入报告阶段生成报告——聚合摘要先行填充文档结论章节的"指标达成表·实际"列（判等状态 P0-3 起回填），
                     同一份文档从计划走到报告。
                   </div>
                   <button class="btn btn-primary" disabled title="执行中不可生成报告，待本轮执行全部结束">生成报告（执行完成 → 报告·已生成）</button>
@@ -954,14 +1090,14 @@ flowchart LR
 </div>
 
 <script>
-  // ===== Markdown 渲染（marked + mermaid，均为可选增强，失败降级） =====
-  const mdSrc = document.getElementById('plan-doc-md').textContent;
-  const docEl = document.getElementById('doc-render');
-
-  if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
-    docEl.innerHTML = marked.parse(mdSrc);
-
-    docEl.querySelectorAll('pre code.language-mermaid').forEach(block => {
+  // ===== 渲染工具 =====
+  function renderMarkdown(src, el) {
+    if (typeof marked === 'undefined' || typeof marked.parse !== 'function') {
+      el.innerHTML = '<pre style="white-space:pre-wrap;font-family:inherit;">' + src + '</pre>';
+      return;
+    }
+    el.innerHTML = marked.parse(src);
+    el.querySelectorAll('pre code.language-mermaid').forEach(block => {
       const pre = document.createElement('pre');
       pre.className = 'mermaid';
       pre.textContent = block.textContent;
@@ -970,12 +1106,11 @@ flowchart LR
     if (typeof mermaid !== 'undefined') {
       try {
         mermaid.initialize({ startOnLoad: false, theme: 'neutral', fontFamily: 'IBM Plex Sans, PingFang SC, sans-serif' });
-        mermaid.run({ querySelector: '.markdown-body .mermaid' });
+        mermaid.run({ querySelector: '#' + el.id + ' .mermaid' });
       } catch (e) { /* 保留纯代码块 */ }
     }
-
-    // 「执行记录」标题加徽标 + 条目包进系统回填区块
-    docEl.querySelectorAll('h2').forEach(h => {
+    // 执行记录区块样式
+    el.querySelectorAll('h2').forEach(h => {
       if (h.textContent.includes('执行记录')) {
         h.classList.add('backfill-heading');
         const chip = document.createElement('span');
@@ -984,18 +1119,66 @@ flowchart LR
         h.appendChild(chip);
         const wrap = document.createElement('div');
         wrap.className = 'backfill-wrap';
-        let el = h.nextElementSibling;
-        while (el && el.tagName !== 'H2') {
-          const next = el.nextElementSibling;
-          wrap.appendChild(el);
-          el = next;
+        let n = h.nextElementSibling;
+        while (n && n.tagName !== 'H2') {
+          const next = n.nextElementSibling;
+          wrap.appendChild(n);
+          n = next;
         }
         h.after(wrap);
       }
     });
-  } else {
-    docEl.innerHTML = '<pre style="white-space:pre-wrap;font-family:inherit;">' + mdSrc + '</pre>';
   }
+
+  const bodySrc = document.getElementById('plan-body-md').textContent;
+  const modulesSrc = document.getElementById('modules-md').textContent;
+  const conclusionSrc = document.getElementById('conclusion-md').textContent;
+
+  // 正文渲染（结构化模式）
+  renderMarkdown(bodySrc, document.getElementById('body-render'));
+  // 完整文档渲染（MD·预览）
+  renderMarkdown(modulesSrc + '\n\n' + bodySrc + '\n\n' + conclusionSrc, document.getElementById('md-full-render'));
+  // MD·编辑 textarea
+  document.getElementById('md-editor-ta').value = bodySrc.trim();
+
+  // 给 MD·预览的 h2 加锚点 id（供 TOC 跳转）
+  const mdFull = document.getElementById('md-full-render');
+  mdFull.querySelectorAll('h2').forEach((h, i) => { h.id = 'md-sec-' + i; });
+  // 给正文渲染的 h2 加锚点 id
+  document.getElementById('body-render').querySelectorAll('h2').forEach((h, i) => { h.id = 'body-sec-' + i; });
+
+  const MOD_ORDER = { goals: 0, scope: 1, resources: 2, criteria: 3, scenarios: 4, conclusion: 11 };
+
+  // ===== 文档模式切换 =====
+  let docMode = 'structured';
+  document.querySelectorAll('.mode-switch button').forEach(b => {
+    b.addEventListener('click', () => {
+      docMode = b.dataset.mode;
+      document.querySelectorAll('.mode-switch button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      document.getElementById('mode-structured').style.display = docMode === 'structured' ? '' : 'none';
+      document.getElementById('mode-md-preview').style.display = docMode === 'md-preview' ? '' : 'none';
+      document.getElementById('mode-md-edit').style.display = docMode === 'md-edit' ? '' : 'none';
+    });
+  });
+
+  // ===== 章节导航 TOC =====
+  document.querySelectorAll('.toc a').forEach(a => {
+    a.addEventListener('click', () => {
+      let target;
+      if (docMode === 'md-preview') {
+        const idx = a.dataset.mod !== undefined ? MOD_ORDER[a.dataset.mod] : 5 + Number(a.dataset.body);
+        target = document.getElementById('md-sec-' + idx);
+      } else {
+        target = a.dataset.mod !== undefined
+          ? document.getElementById('mod-' + a.dataset.mod)
+          : document.getElementById('body-sec-' + a.dataset.body);
+      }
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelectorAll('.toc a').forEach(x => x.classList.remove('current'));
+      a.classList.add('current');
+    });
+  });
 
   // ===== Tabs =====
   document.querySelectorAll('.tab').forEach(t => {

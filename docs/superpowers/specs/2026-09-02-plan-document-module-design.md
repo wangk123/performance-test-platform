@@ -57,15 +57,17 @@ TaskPlan（升级后）
 ├─ 测试范围 scope：范围内交易清单 {交易名, 配比, 备注} + 范围外清单
 ├─ 测试资源 resources：人员 {姓名, 角色} + 环境部署信息表 {地址, 模块, 配置/版本}
 │   + 执行资源沿用既有列（defaultControllerNodeIds / defaultWorkerNodeIds / defaultMonitorTargetIds）
-├─ 测试约束 criteria：入口准则清单 / 出口准则清单（结构化，不设硬门禁）
-│   + 环境检查开关（可选项：启用 + 检测清单，见 §10.2）
+├─ 测试约束 criteria：入口准则清单 / 出口准则清单（结构化清单，评审内容，不设硬门禁）
 ├─ 场景设计 scenarios：业务化场景（§3.4）；脚本不在文档中体现
 ├─ 结论 conclusion：指标达成表（P0-3 判等自动回填，P0-1 占位）+ 风险与建议 + 总体结论（发布时人工确认）
 ├─ Markdown 正文 body：背景 / 测试策略叙述 / 风险预案 / 排期协作 / 附录（自由叙述）
 ├─ 回填区块：正文内受管区块 `## 执行记录`（系统自动追加）
 ├─ revision（D5 冲突控制）+ phase/status（二级状态，§4）+ publishedAt
-└─ precheck_executed_at（环境检查首执行触发标记，§10.2）
+└─ 执行设置（非文档内容、不进评审、不参与 revision）：环境检查开关 + 检测清单 + precheck_executed_at（§10.2）
 ```
+
+- **文档两种视图模式**：**结构化展示**（模块卡片/表格，可编辑）与 **MD**（预览 = 模块渲染 + 正文拼成的完整文档，只读；编辑 = 正文 Markdown 编辑器）。文档带**章节导航**（模块章节 + 正文标题，§14.1）。
+- **环境检查不是文档内容**：它是测试前的一个执行动作（计划执行设置），不进入文档模块、不参与评审、不参与 revision 冲突（§10.2）。
 
 - 每类结构化模块一个 JSON 列存储，类型化读写（§11）。
 - "验收标准实体"属 P0-3：P0-1 的**核心指标清单**是评审人阅读与 Agent 修改的形态；P0-3 在其上叠加机器判等（阈值 + 计划级判定），同一份数据的两个阶段，不建两套。
@@ -228,7 +230,7 @@ flowchart LR
 ### 5.1 revision 语义
 
 - `task_plans.revision`：文档修订号，从 1 起。**任何导致文档内容变化（结构化模块或正文）的写入 `revision+1`**，包括用户编辑与系统回填。
-- 默认执行配置、场景、脚本关联变化**不**影响 revision（冲突控制只覆盖文档内容）。
+- 默认执行配置、场景、脚本关联、环境检查设置（执行设置，非文档内容）变化**不**影响 revision（冲突控制只覆盖文档内容）。
 
 ### 5.2 乐观并发控制
 
@@ -354,11 +356,12 @@ MCP（P0-2）与 REST 共用同一语义；"差异文本"由双方各自持有�
 
 影响面：计划/场景执行按钮、agent 面 `StartExecutionTool` 统一走此 seam；未通过评审不可执行（P0 闭环的刻意收紧）。
 
-### 10.2 环境检查（计划可选项，非状态）
+### 10.2 环境检查（执行前动作，非文档内容）
 
-- 计划文档"测试约束"模块含开关：**启用环境检查** + 检测清单（默认取入口准则中的环境类条目，可增删）。
+- **定位**：环境检查是**测试前的一个执行动作**——配置挂在计划的**执行设置**里（独立于文档），不进文档模块、不参与评审、不参与 revision 冲突、不影响快照一致性。
+- 配置：`precheck_json`（启用开关 + 检测清单，默认取入口准则中的环境类条目，可增删），通过独立接口维护（§12.1），入口在场景执行触发流程与计划设置抽屉。
 - 触发时机：**评审通过后的首次执行触发时**（`precheck_executed_at` 为空则运行），复用现有 `ExecutionPrecheckService` seam——在 start 前执行清单校验，不新建执行路径。
-- 结果自动勾选回入口准则清单（P0-1 可自动核验的项：场景已配置、指标已定义、脚本已关联、环境类占位；"环境就绪"等真实探测项由 P1-1 执行器填充）。
+- 结果自动勾选回入口准则清单（入口准则属文档，核验结果回填其上）；"环境就绪"等真实探测项由 P1-1 执行器填充。
 - **可手动跳过**：检查存在未通过项时，执行暂停并提示；用户可"跳过检查继续执行"（记系统批注留痕），或手动触发预检重跑。
 - 复测/回归不自动重跑（`precheck_executed_at` 已置）；执行前可手动触发预检。`newRevision` 重置 `precheck_executed_at`。
 
@@ -386,11 +389,12 @@ ALTER TABLE task_plans
   ADD COLUMN goals_json           LONGTEXT     NULL,  -- {narrative, indicators:[{txn,metric,target,unit,basis}]}
   ADD COLUMN scope_json           LONGTEXT     NULL,  -- {included:[{txn,ratio,note}], excluded:[]}
   ADD COLUMN resources_json       LONGTEXT     NULL,  -- {personnel:[{name,role}], deployments:[{host,modules,spec}], window:{start,end,note}}
-  ADD COLUMN criteria_json        LONGTEXT     NULL,  -- {entry:[{id,label,auto}], exit:[], precheck:{enabled, items:[]}}
+  ADD COLUMN criteria_json        LONGTEXT     NULL,  -- {entry:[{id,label,auto}], exit:[]}
   ADD COLUMN conclusion_json      LONGTEXT     NULL,  -- {achievements:[{indicator,target,actual,status}], risks, summary}
   ADD COLUMN body                 LONGTEXT     NULL,
   ADD COLUMN revision             INT          NOT NULL DEFAULT 1,
   ADD COLUMN published_at         DATETIME     NULL,
+  ADD COLUMN precheck_json        LONGTEXT     NULL,  -- 执行设置（非文档内容）：{enabled, items:[]}
   ADD COLUMN precheck_executed_at DATETIME     NULL;
 ```
 
@@ -485,6 +489,7 @@ CREATE TABLE plan_share_tokens (
 | POST | `/api/task-plans/{id}/new-revision` | 发布·已发布 → 草稿，revision+1，重置 precheck 标记 |
 | POST | `/api/task-plans/{id}/precheck-run` | 手动触发环境检查（复用执行预检 seam） |
 | POST | `/api/task-plans/{id}/precheck-skip` | 跳过检查继续执行（记系统批注） |
+| PUT | `/api/task-plans/{id}/precheck-settings` | 环境检查执行设置（启用 + 检测清单）；非文档内容，不进 revision |
 | PUT | `/api/task-plans/{id}` | 老端点（默认配置）保留；仅 DRAFT 可改 |
 | DELETE | `/api/task-plans/{id}` | 负责人/OWNER/ADMIN；级联新表 |
 | POST | `/api/projects/{projectId}/task-plans` | 创建扩展：可选 `{templateId, goals, scope, resources, criteria}`，模板渲染正文 |
@@ -544,12 +549,18 @@ CREATE TABLE plan_share_tokens (
 
 ### 14.1 计划详情页重构（`TaskPlanDetail.vue`）
 
-Tab 结构，沿用现有项目壳路由 `/projects/:projectId/task-plans/:planId`：
+**Tab 结构**：文档 / 评审 / 报告 / 发布（沿用现有项目壳路由 `/projects/:projectId/task-plans/:planId`）。场景不是独立 Tab——**场景设计是文档的一个结构化模块**。
 
 - **阶段步进条**：草稿 → 评审 → 执行 → 报告 → 发布 五节点，当前阶段高亮，节点下显示子状态；历史阶段 ✓。
-- **文档 Tab**：结构化模块卡片组——测试目的与核心指标清单（指标表格）/ 测试范围（交易清单+配比）/ 测试资源（人员/部署信息表/执行节点/监控目标/时间窗口）/ 测试约束与环境检查（入口准则清单勾选状态 + 环境检查开关 + 首执行状态）/ 结论（达成表 + 风险建议 + 总体结论）——加 Markdown 正文编辑器；保存带 baseRevision，409 弹冲突框。
+- **文档 Tab**（核心）：
+  - **视图模式切换**：`结构化展示` ｜ `MD·预览` ｜ `MD·编辑`。
+    - 结构化展示：模块卡片/表格，可编辑——测试目的与核心指标清单（指标表格）/ 测试范围（交易清单+配比）/ 测试资源（人员/部署信息表/执行节点/监控目标/时间窗口）/ 测试约束（入口·出口准则清单）/ **场景设计**（业务化场景卡片 + 场景设置档位表）/ 结论（达成表 + 风险建议 + 总体结论）。**不含环境检查**（执行设置，见下）。
+    - MD·预览：模块渲染器输出 + 正文拼成的**完整文档连续视图**（只读；模块内容由确定性模板渲染为 Markdown 章节，不落库、不双写）。
+    - MD·编辑：正文 Markdown 编辑器（`md-editor-v3`）；模块内容回结构化模式编辑。
+  - **章节导航（TOC）**：文档区左侧锚点导航，列出结构化模块章节 + 正文各级标题，点击滚动定位（模块与 MD·预览两个模式共用）。
+  - 保存带 baseRevision，409 弹冲突框（§14.3）。
+  - 环境检查：**不在文档中体现**——配置入口在"执行设置"抽屉（或执行触发弹窗），展示为执行前动作（启用/清单/首执行状态/跳过）。
 - **评审 Tab**：批注时间线（REVIEW + SYSTEM）、流转动作（开始评审/通过/驳回/撤回）。
-- **场景 Tab**：业务化场景卡片（测试类型/目的/交易范围/场景设置档位表：用户数/时长/加载方式/退出方式）；**不展示脚本名**；"关联脚本"动作与"脚本已关联"状态（仅状态不展示名称）；执行按钮按门禁启用。
 - **报告 Tab**：报告阶段状态、生成报告按钮、达成表（实际列聚合先行、状态列 P0-3）、发布前置条件清单。
 - **发布 Tab**：发布按钮 + 总体结论确认输入、发布快照列表、分享链接管理。
 
@@ -590,7 +601,7 @@ Tab 结构，沿用现有项目壳路由 `/projects/:projectId/task-plans/:planI
 |------|------|
 | P0-2 MCP 工具集 | 直接调用 `PlanDocumentService`/`PlanWorkflowService`；`plan_update` 复用 409 冲突与 `baseRevision` |
 | P0-3 验收判等 | P0-1 的核心指标清单是前身（同一份数据）；P0-3 建判等引擎，生成报告时回填达成表"状态"列并预填总体结论 |
-| P1-1 环境检查 | P0-1 交开关 + 检测清单 + 首执行触发 + 跳过 + 自动核验框架（挂现有预检 seam）；P1-1 交 SSH 探测执行器，把"环境就绪"升级为自动勾 |
+| P1-1 环境检查 | P0-1 交**执行设置**（precheck_json：开关 + 检测清单，非文档内容）+ 首执行触发 + 跳过 + 自动核验框架（挂现有预检 seam）；P1-1 交 SSH 探测执行器，把"环境就绪"升级为自动勾 |
 | P3-2 AI 生成脚本 | 脚本"评审通过后产生并关联"的流程 P0-1 已就位；AI 生成方式（OpenAPI/自然语言 → JMX）由 P3-2 提供 |
 | P1-4 迭代对比 | 消费 `plan_publish_snapshots` |
 | P0-4 MySQL 迁移 | 并行批次：新 DDL 进 `mysql-schema.sql`，开发 H2 靠 ddl-auto |
@@ -602,7 +613,7 @@ Tab 结构，沿用现有项目壳路由 `/projects/:projectId/task-plans/:planI
 
 **状态机与权限**：全链路 草稿→评审→执行→报告→发布→新修订 每步成功与非法转移（409）；复测/回归重置报告为待生成；执行生命周期事件置 RUNNING/DONE + 惰性纠偏；权限矩阵逐动作 403/通过；reject 缺批注、publish 缺结论 400；publish 有活跃执行/非报告已生成 409。
 
-**环境检查（可选项）**：启用后首执行触发自动运行（`precheck_executed_at` 空→运行→置时间戳）；复测不重跑；`precheck-skip` 留痕继续；`newRevision` 重置标记；未启用则不运行。
+**环境检查（执行设置）**：启用后首执行触发自动运行（`precheck_executed_at` 空→运行→置时间戳）；复测不重跑；`precheck-skip` 留痕继续；`newRevision` 重置标记；未启用则不运行；`precheck-settings` 更新不 bump revision。
 
 **脚本后置关联**：场景创建 scriptVersionId 可空；未关联脚本触发执行 → 400；关联脚本后执行成功；入口准则"脚本已关联"自动勾选。
 
@@ -621,10 +632,10 @@ Tab 结构，沿用现有项目壳路由 `/projects/:projectId/task-plans/:planI
 ## 18. 关键决策清单（访谈定稿，请评审确认）
 
 1. **一稿走到头**：同一份文档 计划 → 执行回填 → 报告 → 发布，不设独立报告文档；报告阶段生成的内容回填进同一文档的结论章节。
-2. **二级状态 5 阶段**：草稿/评审/执行/报告/发布；**环境检查不是状态**，是计划可选项（启用 + 清单，评审通过后首次执行时自动运行、可跳过）。
+2. **二级状态 5 阶段**：草稿/评审/执行/报告/发布；**环境检查不是状态、也不是文档内容**——它是测试前的执行动作（计划执行设置），评审通过后首次执行时自动运行、可跳过。
 3. **业务化场景模型**：测试类型 + 目的 + 交易范围 + 场景设置（用户数/时长/加载方式/退出方式）→ 自动翻译 JMeter 线程组；高级参数可微调，同源不双写。
 4. **脚本不进计划文档**：不展示、不评审；评审通过后由测试人员编写（AI 生成 P3-2）并关联到场景；`scriptVersionId` 可空、后期绑定。
-5. **入口准则结构化、不设硬门禁**：能自动核验的自动勾，其余人工勾；清单同时是 P1-1 环境检查的数据依赖。
+5. **测试约束（评审内容）**：入口/出口准则结构化清单、不设硬门禁；能自动核验的自动勾，其余人工勾；清单是 P1-1 环境检查的数据依赖。**环境检查本身不进文档**：配置在计划执行设置（precheck_json），不进评审、不进 revision。
 6. **评审**：任意项目成员可评审通过（含自审，记录审批人）；发布权限 = 负责人/项目 OWNER/系统管理员。
 7. **编辑冻结**：文档与默认配置仅草稿可编辑；执行开始后至发布前文档不可改；场景在非执行中/未发布可改；发布后走新修订。
 8. **批注**：全文档级，仅草稿/评审阶段可发。
@@ -634,6 +645,9 @@ Tab 结构，沿用现有项目壳路由 `/projects/:projectId/task-plans/:planI
 12. **模板**：OWNER/ADMIN 管理，成员可用；内置 seed。
 13. **新依赖**：`md-editor-v3` + `jsdiff`。
 14. **结构化模块存储**：每模块一个 JSON 列；指标挂交易；环境部署信息表进测试资源模块。
+15. **文档视图模式**：结构化展示 / MD·预览（模块渲染 + 正文的完整文档，只读）/ MD·编辑（正文编辑）；模块内容由确定性模板渲染为 Markdown 章节，不落库不双写。
+16. **场景是文档模块**：场景设计在文档内展示与编辑，不设独立 Tab；页面 Tab = 文档/评审/报告/发布。
+17. **章节导航**：文档区左侧 TOC（结构化模块章节 + 正文标题），点击滚动定位。
 
 ## 附录 A：决策依据索引
 
@@ -646,3 +660,4 @@ Tab 结构，沿用现有项目壳路由 `/projects/:projectId/task-plans/:planI
 - 2026-09-02 初版：单层状态机；结构化字段 = 三个自由文本。
 - 2026-09-02 修订 1：二级状态模型（草稿/评审/执行/报告/发布）；结构化模块（测试目标/范围/资源/结论）；场景设计增强。
 - 2026-09-02 修订 2（需求访谈定稿）：一稿走到头；结构化模块按团队真实报告骨架重构（指标清单挂交易/交易范围/环境部署信息表/入口·出口准则清单/结论达成表）；业务化场景模型（测试类型 + 业务场景设置翻译线程组）；脚本退出计划文档、评审后编写关联（scriptVersionId 可空）；环境检查改为计划可选项（非状态，首执行触发、可跳过）；评审 = 任意成员通过。
+- 2026-09-02 修订 3（文档视图层）：文档双模式（结构化展示 / MD·预览 + MD·编辑）+ 章节导航（TOC）；环境检查彻底移出文档——测试前的执行动作，挂计划执行设置（precheck_json），不进评审、不进 revision；场景并入文档成为结构化模块（不设独立 Tab）；页面 Tab = 文档/评审/报告/发布。
