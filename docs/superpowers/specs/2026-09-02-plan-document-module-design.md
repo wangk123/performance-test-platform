@@ -94,15 +94,50 @@ P0-2 的 MCP 工具直接调用这两个 domain service（facade seam 共用）�
 
 ### 4.1 状态与转移
 
-```
- DRAFT ──submit──▶ PENDING_REVIEW ──startReview──▶ IN_REVIEW ──approve──▶ APPROVED ──publish──▶ PUBLISHED
-   ▲                    ▲                              │                │
-   │◀──withdraw─────────┘◀──withdraw───────────────────┘◀──reject───────┘
-   └───────────────────────────── newRevision（仅从 PUBLISHED）◀─────────────────────────────────┘
+**完整生命周期（评审阶段 + 执行阶段）**：
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> DRAFT : 创建计划 / 发起新修订
+
+    DRAFT --> PENDING_REVIEW : submit · 提交评审
+    PENDING_REVIEW --> IN_REVIEW : startReview · 开始评审
+    IN_REVIEW --> APPROVED : approve · 评审通过
+    IN_REVIEW --> DRAFT : reject · 驳回（须附批注）
+    PENDING_REVIEW --> DRAFT : withdraw · 撤回
+    IN_REVIEW --> DRAFT : withdraw · 撤回
+    APPROVED --> PUBLISHED : publish · 发布（无活跃执行）
+    PUBLISHED --> DRAFT : newRevision · 发起新修订（revision+1）
+
+    APPROVED --> RUNNING : 任一场景执行开始
+    PUBLISHED --> RUNNING : 任一场景执行开始
+    RUNNING --> APPROVED : 全部执行结束
+    RUNNING --> PUBLISHED : 全部执行结束
+
+    note right of RUNNING
+        【执行中】派生显示态，不落库
+    end note
 ```
 
-存储态：`DRAFT / PENDING_REVIEW / IN_REVIEW / APPROVED / PUBLISHED`。终态 = `PUBLISHED`。
-显示态：当计划任一场景存在活跃执行（`QUEUED/RUNNING/STOPPING`）时，读取接口返回 `RUNNING`（**派生，不落库**，避免与执行状态机双写漂移）。详见 §4.3。
+**执行阶段如何派生**（计划显示态 ↔ 场景执行状态机，后者为既有 `ExecutionStatus`）：
+
+```mermaid
+flowchart LR
+    subgraph EXEC["场景执行状态机（已有，不变）"]
+        direction LR
+        Q[QUEUED] --> R[RUNNING]
+        R --> SU[SUCCESS]
+        R --> FA[FAILED]
+        R --> IN[INTERRUPTED]
+        R --> ST[STOPPING] --> CA[CANCELLED]
+    end
+    ACT["计划任一场景执行<br/>∈ QUEUED / RUNNING / STOPPING"] --> PR["计划对外显示<br/>【执行中 RUNNING】"]
+    DONE["全部场景执行<br/>∈ SUCCESS / FAILED / INTERRUPTED / CANCELLED"] --> FALLBACK["回落到存储态<br/>（APPROVED 或 PUBLISHED）"]
+```
+
+- 存储态：`DRAFT / PENDING_REVIEW / IN_REVIEW / APPROVED / PUBLISHED`。终态 = `PUBLISHED`。
+- 显示态：`RUNNING`（**派生，不落库**，避免与执行状态机双写漂移）。详见 §4.3。
 
 ### 4.2 转移动作与权限（权限判定见 §13）
 

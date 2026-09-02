@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>压测计划文档 · 改版效果图（P0-1）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+  <style>
+    /* ============ 设计令牌（与前端 design-tokens.ts 一致） ============ */
+    :root {
+      --canvas: #F4F6F8;
+      --surface: #FFFFFF;
+      --ink: #1A2332;
+      --muted: #5C6B7A;
+      --line: #E2E8EE;
+      --accent: #0B7F8A;
+      --accent-dark: #09636B;
+      --accent-soft: #E6F5F6;
+      --ok: #2F9B6A;
+      --ok-soft: #E5F5EC;
+      --warn: #C9850A;
+      --warn-soft: #FBF2E2;
+      --danger: #D14343;
+      --danger-soft: #FBEAEA;
+      --font: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { font-family: var(--font); color: var(--ink); background: var(--canvas); font-size: 14px; }
+
+    /* ============ 应用壳 ============ */
+    .shell { display: flex; height: 100vh; overflow: hidden; }
+
+    /* 左侧导航栏 */
+    .rail {
+      width: 216px; flex: none; background: var(--surface);
+      border-right: 1px solid var(--line); display: flex; flex-direction: column;
+    }
+    .rail-logo { padding: 20px 20px 16px; display: flex; align-items: center; gap: 10px; }
+    .rail-logo .mark {
+      width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;
+    }
+    .rail-logo .name { font-weight: 700; font-size: 15px; }
+    .rail-logo .sub { font-size: 11px; color: var(--muted); }
+    .rail-project {
+      margin: 0 12px 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+      background: var(--canvas);
+    }
+    .rail-project .pname { font-weight: 600; font-size: 13px; }
+    .rail-project .pmeta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .rail-nav { flex: 1; padding: 4px 12px; overflow-y: auto; }
+    .rail-nav .group-label { font-size: 11px; color: var(--muted); padding: 10px 8px 4px; letter-spacing: .4px; }
+    .rail-nav a {
+      display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin-bottom: 2px;
+      border-radius: 8px; color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500;
+    }
+    .rail-nav a svg { width: 16px; height: 16px; flex: none; }
+    .rail-nav a:hover { background: var(--accent-soft); color: var(--accent); }
+    .rail-nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+    .rail-user { padding: 12px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+    .rail-user .avatar {
+      width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;
+    }
+    .rail-user .uname { font-size: 13px; font-weight: 600; }
+    .rail-user .urole { font-size: 11px; color: var(--muted); }
+
+    /* 主内容区 */
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .breadcrumb {
+      height: 48px; flex: none; background: var(--surface); border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; padding: 0 24px; gap: 8px; font-size: 13px; color: var(--muted);
+    }
+    .breadcrumb .cur { color: var(--ink); font-weight: 600; }
+    .content { flex: 1; overflow-y: auto; padding: 20px 24px 40px; }
+
+    /* ============ 通用组件 ============ */
+    .card {
+      background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+      box-shadow: 0 1px 2px rgba(26,35,50,.04);
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 8px;
+      font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--line);
+      background: var(--surface); color: var(--ink); font-family: var(--font); transition: all .15s;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn:disabled:hover { border-color: var(--line); color: var(--ink); background: var(--surface); }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
+    .btn-danger { color: var(--danger); }
+    .btn-danger:hover { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+    .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+      font-size: 12px; font-weight: 600; line-height: 1.6;
+    }
+    .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .badge-review { background: var(--accent-soft); color: var(--accent); }
+    .badge-draft { background: #EEF0F3; color: var(--muted); }
+    .badge-pending { background: var(--warn-soft); color: var(--warn); }
+    .badge-approved { background: var(--ok-soft); color: var(--ok); }
+    .badge-published { background: var(--ink); color: #fff; }
+    .badge-running { background: var(--accent-soft); color: var(--accent); }
+    .badge-running .dot { animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: .25; } }
+
+    .tag {
+      display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 11px;
+      background: var(--canvas); border: 1px solid var(--line); color: var(--muted); font-family: var(--mono);
+    }
+    .meta-kv { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--muted); }
+    .meta-kv b { color: var(--ink); font-weight: 600; }
+
+    /* ============ 计划头部 ============ */
+    .plan-header { padding: 20px 24px 0; }
+    .plan-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .plan-title { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .plan-meta { margin-top: 8px; }
+    .plan-actions { display: flex; gap: 8px; flex: none; }
+
+    /* 状态机步进条 */
+    .stepper {
+      display: flex; align-items: center; margin-top: 16px; padding: 12px 16px;
+      background: var(--canvas); border-radius: 10px; overflow-x: auto;
+    }
+    .step { display: flex; align-items: center; gap: 8px; flex: none; }
+    .step .node {
+      width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; border: 1.5px solid var(--line); color: var(--muted); background: var(--surface);
+    }
+    .step.done .node { background: var(--ok); border-color: var(--ok); color: #fff; }
+    .step.current .node { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .step .sname { font-size: 12px; color: var(--muted); font-weight: 500; white-space: nowrap; }
+    .step.current .sname { color: var(--accent); font-weight: 700; }
+    .step.done .sname { color: var(--ok); }
+    .step-line { flex: none; width: 28px; height: 1.5px; background: var(--line); margin: 0 8px; }
+    .step-line.done { background: var(--ok); }
+
+    /* ============ Tabs ============ */
+    .tabs {
+      display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--line);
+      padding: 0 24px; background: var(--surface); border-radius: 12px 12px 0 0;
+    }
+    .tab {
+      padding: 12px 14px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer;
+      border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 6px; user-select: none;
+    }
+    .tab:hover { color: var(--ink); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+    .tab .count {
+      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; font-size: 11px;
+      background: var(--canvas); border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .tab-body { padding: 20px 24px; }
+
+    /* ============ 文档 Tab ============ */
+    .doc-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+
+    /* Markdown 正文 */
+    .markdown-body { line-height: 1.75; }
+    .markdown-body h1 { font-size: 22px; margin: 4px 0 12px; }
+    .markdown-body h2 {
+      font-size: 16px; margin: 26px 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .markdown-body h3 { font-size: 14px; margin: 18px 0 8px; }
+    .markdown-body p { margin: 8px 0; }
+    .markdown-body ul, .markdown-body ol { padding-left: 22px; margin: 8px 0; }
+    .markdown-body li { margin: 4px 0; }
+    .markdown-body code {
+      font-family: var(--mono); font-size: 12.5px; background: var(--canvas);
+      padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line);
+    }
+    .markdown-body strong { font-weight: 600; }
+    .markdown-body table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+    .markdown-body th, .markdown-body td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; }
+    .markdown-body th { background: var(--canvas); font-weight: 600; white-space: nowrap; }
+    .markdown-body td { background: var(--surface); }
+    .markdown-body blockquote {
+      margin: 10px 0; padding: 8px 14px; border-left: 3px solid var(--accent);
+      background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--muted); font-size: 13px;
+    }
+    .markdown-body .mermaid { margin: 14px 0; text-align: center; }
+
+    /* 系统回填区块 */
+    .backfill-heading { color: var(--accent) !important; border-bottom-color: var(--accent) !important; }
+    .backfill-chip {
+      font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft);
+      padding: 1px 8px; border-radius: 999px; border: 1px solid var(--accent);
+    }
+    .backfill-wrap {
+      border: 1px dashed var(--accent); border-radius: 10px; background: var(--accent-soft);
+      padding: 10px 16px 12px; margin-bottom: 12px;
+    }
+    .backfill-wrap h3 { margin-top: 10px; font-size: 13px; }
+    .backfill-wrap h3:first-child { margin-top: 4px; }
+    .backfill-wrap ul { margin: 4px 0; color: var(--muted); }
+    .backfill-wrap::before {
+      content: "自动追加 · 不可手改 · 条目幂等"; display: block; font-size: 11px;
+      color: var(--accent); font-family: var(--mono); margin-bottom: 4px;
+    }
+
+    /* 右侧栏 */
+    .side { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 0; }
+    .side-card { padding: 16px 18px; }
+    .side-card h4 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
+      margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .side-card h4 .edit {
+      font-size: 11px; color: var(--accent); cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 500;
+    }
+    .field { margin-bottom: 12px; }
+    .field:last-child { margin-bottom: 0; }
+    .field .flabel { font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+    .field .fvalue { font-size: 13px; line-height: 1.6; }
+    .field .fvalue.empty { color: var(--muted); font-style: italic; }
+    .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .kv { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; }
+    .kv .k { color: var(--muted); }
+    .kv .v { font-family: var(--mono); font-size: 12px; }
+
+    /* ============ 评审 Tab ============ */
+    .review-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+    .timeline { position: relative; padding-left: 26px; }
+    .timeline::before { content: ""; position: absolute; left: 8px; top: 6px; bottom: 6px; width: 2px; background: var(--line); }
+    .tl-item { position: relative; margin-bottom: 18px; }
+    .tl-item .dot {
+      position: absolute; left: -26px; top: 4px; width: 18px; height: 18px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 10px;
+    }
+    .tl-item.review .dot { background: var(--accent); color: #fff; }
+    .tl-item.system .dot { background: var(--canvas); border: 1.5px solid var(--line); color: var(--muted); }
+    .tl-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+    .tl-head .author { font-weight: 600; color: var(--ink); }
+    .tl-body { margin-top: 6px; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.7; }
+    .tl-item.review .tl-body { background: var(--accent-soft); border: 1px solid var(--line); }
+    .tl-item.system .tl-body { background: var(--canvas); color: var(--muted); }
+    .tl-item .reply-tag { font-size: 11px; color: var(--accent); font-weight: 600; margin-left: 4px; }
+    .comment-box { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; }
+    .comment-box textarea {
+      border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-family: var(--font);
+      font-size: 13px; resize: vertical; min-height: 76px; outline: none; color: var(--ink); background: var(--surface);
+    }
+    .comment-box textarea:focus { border-color: var(--accent); }
+    .review-side { display: flex; flex-direction: column; gap: 16px; }
+
+    /* ============ 场景 Tab ============ */
+    table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.data th, table.data td { border-bottom: 1px solid var(--line); padding: 10px 12px; text-align: left; }
+    table.data th { background: var(--canvas); font-weight: 600; font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .exec-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+    .exec-status.ok { color: var(--ok); }
+    .exec-status.fail { color: var(--danger); }
+    .row-actions { display: flex; gap: 6px; }
+
+    /* ============ 发布 Tab ============ */
+    .publish-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+    .snapshot { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; }
+    .snapshot .icon {
+      width: 36px; height: 36px; border-radius: 8px; background: var(--ink); color: #fff;
+      display: flex; align-items: center; justify-content: center; font-size: 15px; flex: none;
+    }
+    .snapshot .sinfo { flex: 1; }
+    .snapshot .stitle { font-weight: 600; font-size: 13px; }
+    .snapshot .smeta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .share-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .share-row:last-child { border-bottom: none; }
+    .share-link {
+      flex: 1; font-family: var(--mono); font-size: 12px; background: var(--canvas);
+      padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* ============ 冲突三选一（第二屏） ============ */
+    .conflict-note {
+      display: flex; gap: 10px; align-items: flex-start; padding: 12px 16px; border-radius: 10px;
+      background: var(--warn-soft); border: 1px solid var(--warn); font-size: 13px; margin-bottom: 16px;
+    }
+    .diff-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .diff-col { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+    .diff-head { padding: 10px 16px; background: var(--canvas); border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+    .diff-body { padding: 14px 18px; font-size: 13px; line-height: 1.7; max-height: 420px; overflow-y: auto; }
+    .diff-body .line { padding: 1px 6px; border-radius: 4px; font-family: var(--mono); font-size: 12.5px; }
+    .diff-body .line.del { background: var(--danger-soft); color: var(--danger); text-decoration: line-through; }
+    .diff-body .line.add { background: var(--ok-soft); color: var(--ok); }
+    .conflict-actions {
+      display: flex; gap: 10px; justify-content: center; padding: 18px 0 4px; align-items: center; flex-wrap: wrap;
+    }
+    .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); justify-content: center; margin-top: 10px; }
+    .legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
+    /* ============ 右下角切换器 ============ */
+    .preview-switch {
+      position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; gap: 6px; padding: 6px;
+      border-radius: 10px; background: rgba(26, 35, 50, .92); box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    }
+    .preview-switch button {
+      border: none; background: transparent; color: rgba(255,255,255,.65); font-family: var(--font);
+      font-size: 12px; padding: 6px 12px; border-radius: 7px; cursor: pointer;
+    }
+    .preview-switch button.active { background: var(--accent); color: #fff; font-weight: 600; }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- ================= 计划文档正文（改这里！markdown 源） ================= -->
+<script type="text/markdown" id="plan-doc-md">
+# 电商核心链路容量评估压测计划
+
+## 一、背景与目标
+
+大促前对电商核心链路（下单 → 支付 → 库存）进行容量评估，验证当前集群能否支撑 **1.5 倍峰值流量**，并定位性能瓶颈。
+
+- 整体目标：核心链路在 **1500 TPS** 下单并发下，P95 ≤ 200 ms，错误率 ≤ 0.1%
+- 容量确认：明确 MySQL / Redis 在目标负载下的水位与瓶颈点
+- 稳定性：持续 30 分钟无内存泄漏、无连接池耗尽
+
+## 二、测试范围
+
+**范围内**：订单创建、支付回调、库存扣减、优惠券核销（读多写少）。
+
+**不在范围**：搜索推荐链路、对账批处理、第三方物流接口（走挡板模拟）。
+
+## 三、被测环境
+
+| 组件 | 版本 | 规格 | 说明 |
+|------|------|------|------|
+| 网关 | nginx 1.24 | 4C8G × 2 | 前置 WAF |
+| 应用 | order-svc v2.14.0 | 8C16G × 8 | 主要被测对象 |
+| MySQL | 8.0.36 | 16C64G 主从 | 独立实例 |
+| Redis | 7.2 | 8C16G × 3 | 集群模式 |
+| Kafka | 3.6 | 4C8G × 3 | 异步消息链路 |
+
+执行节点：controller-01（16C32G）+ worker × 4（8C16G），SSH 下发任务，JMeter 5.6.3 跑在远端 Docker 容器。
+
+```mermaid
+flowchart LR
+    B[压测节点 ×5] -->|HTTP| GW[nginx 网关] --> APP[order-svc ×8]
+    APP --> DB[(MySQL 主从)]
+    APP --> RD[(Redis 集群)]
+    APP --> KF[Kafka]
+```
+
+## 四、场景清单
+
+| 场景 | 脚本 | 并发梯度 | 说明 |
+|------|------|----------|------|
+| S1 下单接口 | order-create.jmx v13 | 200 → 500 → 800 → 1000 | 含优惠券命中 |
+| S2 支付回调 | pay-callback.jmx v13 | 200 → 400 → 600 | 回调签名已参数化 |
+| S3 混合场景 | mix-3in1.jmx v8 | 100 → 300 → 500 | 并发比例 6:3:1 |
+
+## 五、验收指标
+
+| 场景 | 目标 TPS | P95 | 错误率 |
+|------|---------|-----|--------|
+| S1 下单接口 | 800 | ≤ 200 ms | ≤ 0.1% |
+| S2 支付回调 | 500 | ≤ 300 ms | ≤ 0.1% |
+| S3 混合场景 | 400 | ≤ 250 ms | ≤ 0.1% |
+
+> 总体判定口径：三个场景验收指标全部达标视为"通过"，任一超标自动标记并附超标明细（判等 P0-3 落地后自动预填结论）。
+
+## 六、风险与预案
+
+- 压测期间与线上发布窗口冲突 → 已申请封网窗口（09-05 20:00–23:00）
+- 大事务导致主从延迟 → 延迟超过 5s 自动停止并告警
+- 数据污染 → 使用隔离影子库 + 造数工厂快照，结束后校验清理
+
+## 七、执行记录
+
+### 2026-09-01 21:40 · S1 下单接口 · 基线梯度 200 并发
+- 状态：SUCCESS
+- 样本 86400 ｜ 吞吐 198.6 TPS ｜ P95 142 ms ｜ 错误率 0.02%
+
+### 2026-09-02 10:15 · S2 支付回调 · 梯度 200 并发
+- 状态：FAILED
+- 样本 31200 ｜ 吞吐 96.4 TPS ｜ P95 412 ms ｜ 错误率 1.8%
+</script>
+
+<div class="shell">
+  <!-- ============ 左侧导航 ============ -->
+  <aside class="rail">
+    <div class="rail-logo">
+      <div class="mark">P</div>
+      <div>
+        <div class="name">性能测试平台</div>
+        <div class="sub">PerfTest Platform</div>
+      </div>
+    </div>
+    <div class="rail-project">
+      <div class="pname">电商核心链路</div>
+      <div class="pmeta">项目成员 6 人 · 负责人 赵敏</div>
+    </div>
+    <nav class="rail-nav">
+      <div class="group-label">工作台</div>
+      <a href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg>概览</a>
+      <a href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h6"/></svg>脚本资产</a>
+      <a href="#" class="active"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 1.5h8v13H4zM6 4.5h4M6 7h4M6 9.5h2.5"/></svg>任务计划</a>
+      <a href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>执行记录</a>
+      <div class="group-label">分析</div>
+      <a href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13.5h12M3.5 11V7M8 11V4M12.5 11V9"/></svg>报告中心</a>
+      <a href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5c3 2.2 4.5 3.9 4.5 6a4.5 4.5 0 1 1-9 0c0-2.1 1.5-3.8 4.5-6z"/></svg>监控目标</a>
+      <div class="group-label">管理</div>
+      <a href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v1.8M8 12.7v1.8M1.5 8h1.8M12.7 8h1.8M3.4 3.4l1.3 1.3M11.3 11.3l1.3 1.3M12.6 3.4l-1.3 1.3M4.7 11.3l-1.3 1.3"/></svg>设置</a>
+    </nav>
+    <div class="rail-user">
+      <div class="avatar">张</div>
+      <div>
+        <div class="uname">张伟</div>
+        <div class="urole">计划负责人</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="breadcrumb">
+      <span>电商核心链路</span><span>/</span><span>任务计划</span><span>/</span>
+      <span class="cur">电商核心链路容量评估压测计划</span>
+    </div>
+
+    <div class="content">
+
+      <!-- ================= 屏 1：计划文档页 ================= -->
+      <div class="screen active" id="screen-plan">
+
+        <!-- 头部 -->
+        <div class="card plan-header">
+          <div class="plan-head-row">
+            <div>
+              <div class="plan-title">
+                电商核心链路容量评估压测计划
+                <span class="badge badge-review"><span class="dot"></span>评审中</span>
+              </div>
+              <div class="plan-meta meta-kv">
+                <span>负责人 <b>张伟</b></span>
+                <span>关联场景 <b>3</b></span>
+                <span>累计执行 <b>4 次</b></span>
+                <span>文档 <b class="mono">revision 3</b></span>
+                <span>更新于 <b>2026-09-02 10:15</b></span>
+              </div>
+            </div>
+            <div class="plan-actions">
+              <button class="btn" disabled title="评审中不可编辑文档，先撤回再修改">编辑文档</button>
+              <button class="btn btn-danger">撤回评审</button>
+            </div>
+          </div>
+          <!-- 状态机步进条 -->
+          <div class="stepper">
+            <div class="step done"><div class="node">✓</div><span class="sname">草稿</span></div>
+            <div class="step-line done"></div>
+            <div class="step done"><div class="node">✓</div><span class="sname">待评审</span></div>
+            <div class="step-line done"></div>
+            <div class="step current"><div class="node">3</div><span class="sname">评审中</span></div>
+            <div class="step-line"></div>
+            <div class="step"><div class="node">4</div><span class="sname">已通过</span></div>
+            <div class="step-line"></div>
+            <div class="step"><div class="node">5</div><span class="sname">执行中</span></div>
+            <div class="step-line"></div>
+            <div class="step"><div class="node">6</div><span class="sname">已发布</span></div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="card" style="margin-top:16px;">
+          <div class="tabs">
+            <div class="tab active" data-tab="doc">📄 文档</div>
+            <div class="tab" data-tab="review">💬 评审 <span class="count">5</span></div>
+            <div class="tab" data-tab="scenario">⚙ 场景 <span class="count">3</span></div>
+            <div class="tab" data-tab="publish">🚀 发布</div>
+          </div>
+
+          <!-- ===== Tab 文档 ===== -->
+          <div class="tab-panel active" data-panel="doc">
+            <div class="tab-body doc-layout">
+              <div class="card" style="padding:24px 28px;">
+                <div class="markdown-body" id="doc-render"></div>
+              </div>
+              <div class="side">
+                <div class="card side-card">
+                  <h4>结构化字段 <span class="edit">编辑</span></h4>
+                  <div class="field">
+                    <div class="flabel">目标指标</div>
+                    <div class="fvalue">核心链路峰值 1500 TPS 下单并发下，P95 ≤ 200 ms、错误率 ≤ 0.1%；持续 30 分钟无资源泄漏；输出瓶颈定位与扩容建议。</div>
+                  </div>
+                  <div class="field">
+                    <div class="flabel">环境说明</div>
+                    <div class="fvalue">测试环境 + 隔离影子库；执行节点 controller-01 + worker × 4；监控覆盖 order-svc / MySQL / Redis。</div>
+                  </div>
+                  <div class="field">
+                    <div class="flabel">结论</div>
+                    <div class="fvalue empty">待发布时确认（P0-3 判等落地后自动预填，人工确认）</div>
+                  </div>
+                </div>
+                <div class="card side-card">
+                  <h4>默认执行配置</h4>
+                  <div class="field">
+                    <div class="flabel">默认控制器</div>
+                    <div class="fvalue"><span class="tag">controller-01</span></div>
+                  </div>
+                  <div class="field">
+                    <div class="flabel">默认工作节点</div>
+                    <div class="chip-list">
+                      <span class="tag">worker-01</span><span class="tag">worker-02</span>
+                      <span class="tag">worker-03</span><span class="tag">worker-04</span>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <div class="flabel">默认监控目标</div>
+                    <div class="chip-list">
+                      <span class="tag">order-svc</span><span class="tag">mysql</span><span class="tag">redis</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="card side-card">
+                  <h4>文档信息</h4>
+                  <div class="kv"><span class="k">状态</span><span class="v">IN_REVIEW</span></div>
+                  <div class="kv"><span class="k">Revision</span><span class="v">3</span></div>
+                  <div class="kv"><span class="k">创建人</span><span class="v">张伟</span></div>
+                  <div class="kv"><span class="k">创建时间</span><span class="v">2026-08-25 14:02</span></div>
+                  <div class="kv"><span class="k">最近更新</span><span class="v">2026-09-02 10:15</span></div>
+                  <div class="kv"><span class="k">来源模板</span><span class="v">通用压测计划 v1</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== Tab 评审 ===== -->
+          <div class="tab-panel" data-panel="review">
+            <div class="tab-body review-layout">
+              <div>
+                <div class="timeline" id="review-timeline">
+                  <div class="tl-item system">
+                    <div class="dot">◌</div>
+                    <div class="tl-head"><span class="author">张伟</span>提交评审 · 草稿 → 待评审<span style="margin-left:auto">2026-08-28 18:02</span></div>
+                    <div class="tl-body">提交评审，请项目成员批注。</div>
+                  </div>
+                  <div class="tl-item system">
+                    <div class="dot">◌</div>
+                    <div class="tl-head"><span class="author">李婷</span>开始评审 · 待评审 → 评审中<span style="margin-left:auto">2026-08-29 09:14</span></div>
+                    <div class="tl-body">评审中，批注请直接在此追加。</div>
+                  </div>
+                  <div class="tl-item review">
+                    <div class="dot">💬</div>
+                    <div class="tl-head"><span class="author">李婷</span><span class="tag">成员</span><span style="margin-left:auto">2026-08-29 09:20</span></div>
+                    <div class="tl-body">验收指标表里 S1 目标 TPS 800 与背景里"1500 TPS"的口径关系没写清——建议说明 1500 是链路总体峰值口径，场景级目标以验收指标表为准。</div>
+                  </div>
+                  <div class="tl-item review">
+                    <div class="dot">💬</div>
+                    <div class="tl-head"><span class="author">王强</span><span class="tag">成员</span><span style="margin-left:auto">2026-08-29 10:41</span></div>
+                    <div class="tl-body">两个问题：① S2 支付回调的签名参数化确认在 v13 完成了吗？② 混合场景 6:3:1 是请求比例还是并发分配比例？</div>
+                  </div>
+                  <div class="tl-item review">
+                    <div class="dot">💬</div>
+                    <div class="tl-head"><span class="author">张伟</span><span class="tag">负责人</span><span class="reply-tag">回复</span><span style="margin-left:auto">2026-08-29 11:05</span></div>
+                    <div class="tl-body">① 已补充口径说明（见验收指标下引用块）；② S2 签名在 v13 已参数化；③ 6:3:1 是并发分配比例。请继续评审。</div>
+                  </div>
+                </div>
+                <div class="card comment-box" style="margin-top:16px;">
+                  <textarea placeholder="新增评审批注……（评审人与负责人均可批注）"></textarea>
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div class="meta-kv" style="color:var(--muted);font-size:12px;">驳回时必须附批注；通过后进入已通过 → 执行 → 发布</div>
+                    <div style="display:flex;gap:8px;">
+                      <button class="btn btn-sm">发表批注</button>
+                      <button class="btn btn-sm btn-danger">驳回（附批注）</button>
+                      <button class="btn btn-sm btn-primary">评审通过</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="review-side">
+                <div class="card side-card">
+                  <h4>评审信息</h4>
+                  <div class="kv"><span class="k">评审人</span><span class="v">项目成员</span></div>
+                  <div class="kv"><span class="k">批注数</span><span class="v">5（含流转记录）</span></div>
+                  <div class="kv"><span class="k">通过权限</span><span class="v">任意项目成员</span></div>
+                  <div class="kv"><span class="k">发布权限</span><span class="v">负责人 / 项目 OWNER / 管理员</span></div>
+                </div>
+                <div class="card side-card" style="background:var(--accent-soft);border-color:var(--accent);">
+                  <h4 style="color:var(--accent);">状态机说明（D2）</h4>
+                  <div class="fvalue" style="font-size:12.5px;line-height:1.8;">
+                    草稿 → 待评审 → 评审中（批注）→ 已通过 → <b>执行中（派生）</b> → 已发布（终态）。
+                    评审中修改文档需先撤回；执行中不允许发布。
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== Tab 场景 ===== -->
+          <div class="tab-panel" data-panel="scenario">
+            <div class="tab-body">
+              <div class="card" style="overflow:hidden;">
+                <table class="data">
+                  <thead>
+                    <tr><th>场景</th><th>脚本版本</th><th>线程组预设</th><th>执行节点</th><th>最新执行</th><th style="text-align:right;">操作</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><b>S1 下单接口</b></td>
+                      <td><span class="tag">order-create.jmx v13</span></td>
+                      <td>梯度 200→1000 · 5 档</td>
+                      <td>计划默认</td>
+                      <td><span class="exec-status ok">● SUCCESS</span> 09-01 21:40</td>
+                      <td><div class="row-actions" style="justify-content:flex-end;">
+                        <button class="btn btn-sm" disabled title="计划处于评审中，通过评审后方可执行">执行</button>
+                        <button class="btn btn-sm">编辑</button>
+                        <button class="btn btn-sm">执行记录</button>
+                      </div></td>
+                    </tr>
+                    <tr>
+                      <td><b>S2 支付回调</b></td>
+                      <td><span class="tag">pay-callback.jmx v13</span></td>
+                      <td>梯度 200→600 · 3 档</td>
+                      <td>计划默认</td>
+                      <td><span class="exec-status fail">● FAILED</span> 09-02 10:15</td>
+                      <td><div class="row-actions" style="justify-content:flex-end;">
+                        <button class="btn btn-sm" disabled title="计划处于评审中，通过评审后方可执行">执行</button>
+                        <button class="btn btn-sm">编辑</button>
+                        <button class="btn btn-sm">执行记录</button>
+                      </div></td>
+                    </tr>
+                    <tr>
+                      <td><b>S3 混合场景</b></td>
+                      <td><span class="tag">mix-3in1.jmx v8</span></td>
+                      <td>梯度 100→500 · 3 档</td>
+                      <td>计划默认</td>
+                      <td><span class="exec-status" style="color:var(--muted);">— 未执行</span></td>
+                      <td><div class="row-actions" style="justify-content:flex-end;">
+                        <button class="btn btn-sm" disabled title="计划处于评审中，通过评审后方可执行">执行</button>
+                        <button class="btn btn-sm">编辑</button>
+                        <button class="btn btn-sm">执行记录</button>
+                      </div></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div style="padding:12px 16px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);">
+                  执行门禁：仅「已通过 / 已发布」计划可执行；快捷执行（脚本列表 → 执行）自动创建已通过计划并留痕。
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== Tab 发布 ===== -->
+          <div class="tab-panel" data-panel="publish">
+            <div class="tab-body publish-layout">
+              <div>
+                <div class="card side-card">
+                  <h4>发布</h4>
+                  <div class="fvalue" style="font-size:13px;line-height:1.8;margin-bottom:12px;">
+                    发布后计划进入<b>终态</b>：固化发布快照（文档全文 + 场景/脚本版本 + 结果摘要，供迭代对比），
+                    文档与场景冻结；继续执行不受影响；变更内容走「发起新修订」。
+                  </div>
+                  <button class="btn btn-primary" disabled title="需先通过评审，且当前无进行中执行">发布计划（已通过 → 已发布）</button>
+                </div>
+                <div class="card side-card" style="margin-top:16px;">
+                  <h4>发布历史（快照）</h4>
+                  <div class="snapshot">
+                    <div class="icon">v2</div>
+                    <div class="sinfo">
+                      <div class="stitle">发布快照 · revision 2</div>
+                      <div class="smeta">2026-08-15 22:10 · 发布人 张伟 · 场景 3 · 结果摘要已固化</div>
+                    </div>
+                    <button class="btn btn-sm">查看</button>
+                  </div>
+                  <div class="snapshot">
+                    <div class="icon" style="background:var(--accent);">v1</div>
+                    <div class="sinfo">
+                      <div class="stitle">发布快照 · revision 1</div>
+                      <div class="smeta">2026-08-08 20:31 · 发布人 张伟 · 场景 2 · 结果摘要已固化</div>
+                    </div>
+                    <button class="btn btn-sm">查看</button>
+                  </div>
+                </div>
+              </div>
+              <div class="side">
+                <div class="card side-card">
+                  <h4>只读分享链接（已发布可用）</h4>
+                  <div class="share-row">
+                    <div class="share-link">https://perf.example.com/share/plans/9f3a…c21d</div>
+                    <span class="badge badge-approved">有效</span>
+                    <button class="btn btn-sm">复制</button>
+                    <button class="btn btn-sm btn-danger">撤销</button>
+                  </div>
+                  <div class="share-row">
+                    <div class="share-link" style="text-decoration:line-through;opacity:.6;">https://perf.example.com/share/plans/77b1…8e04</div>
+                    <span class="badge badge-draft">已撤销</span>
+                  </div>
+                  <div style="margin-top:10px;">
+                    <button class="btn btn-sm" disabled title="仅已发布计划可创建分享链接">新建分享链接（有效期 30 天）</button>
+                  </div>
+                </div>
+                <div class="card side-card">
+                  <h4>发布权限</h4>
+                  <div class="fvalue" style="font-size:12.5px;line-height:1.8;">
+                    计划负责人 / 项目 OWNER / 系统管理员。发布动作不进 MCP（D12 白名单）。
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 屏 2：编辑冲突 · 三选一 ================= -->
+      <div class="screen" id="screen-conflict">
+        <div class="card" style="padding:20px 24px;">
+          <div class="plan-title" style="font-size:17px;">⚠ 检测到编辑冲突 · 三选一处理</div>
+          <div class="conflict-note" style="margin-top:14px;">
+            <span style="font-size:16px;">⚠</span>
+            <span>你的本地草稿基于 <b>revision 3</b> 编辑，服务器当前已是 <b>revision 5</b>。
+            期间发生了 <b>1 次评审批注（李婷）</b> 与 <b>1 次执行摘要自动回填（S2 失败执行）</b>。
+            平台不做自动覆盖与行级合并（D5），请选择处理方式。</span>
+          </div>
+
+          <div class="diff-layout">
+            <div class="diff-col">
+              <div class="diff-head">
+                <b>平台当前版</b>
+                <span class="badge badge-approved">revision 5</span>
+              </div>
+              <div class="diff-body">
+                <div class="line">## 五、验收指标</div>
+                <div class="line del">| S1 下单接口 | 800 | ≤ 200 ms | ≤ 0.1% |</div>
+                <div class="line add">| S1 下单接口 | 1000 | ≤ 200 ms | ≤ 0.1% |  ← 李婷批注后调整</div>
+                <div class="line">…</div>
+                <div class="line" style="margin-top:8px;">## 七、执行记录</div>
+                <div class="line">### 2026-09-01 21:40 · S1 · SUCCESS</div>
+                <div class="line add">### 2026-09-02 10:15 · S2 · FAILED（自动回填）</div>
+                <div class="line">…</div>
+              </div>
+            </div>
+            <div class="diff-col">
+              <div class="diff-head">
+                <b>本地草稿</b>
+                <span class="badge badge-draft">基于 revision 3</span>
+              </div>
+              <div class="diff-body">
+                <div class="line">## 五、验收指标</div>
+                <div class="line add">| S1 下单接口 | 1200 | ≤ 200 ms | ≤ 0.1% |  ← 你的修改</div>
+                <div class="line">…</div>
+                <div class="line" style="margin-top:8px;">## 六、风险与预案</div>
+                <div class="line add">- 新增：压测期间监控告警阈值已下调至 80% 水位 ← 你的补充</div>
+                <div class="line">…</div>
+                <div class="line" style="margin-top:8px;">（本地版本中没有 09-02 的执行记录）</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="legend">
+            <span><span class="swatch" style="background:var(--danger-soft);border:1px solid var(--danger);"></span>平台相对本地的变更</span>
+            <span><span class="swatch" style="background:var(--ok-soft);border:1px solid var(--ok);"></span>本地相对平台的变更</span>
+          </div>
+
+          <div class="conflict-actions">
+            <button class="btn">保留平台版（放弃本地修改）</button>
+            <button class="btn btn-primary">采纳本地版（以 revision 5 重放）</button>
+            <button class="btn">手改（以平台版为基底继续编辑）</button>
+            <button class="btn" style="border:none;color:var(--muted);">取消</button>
+          </div>
+          <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:8px;">
+            采纳本地版 = 整文档覆盖（非行级合并），以服务器最新 revision 重新提交；MCP 的 plan_update 返回同样的 409 结构。
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============ 右下角切换器 ============ -->
+<div class="preview-switch">
+  <button class="active" data-screen="screen-plan">① 计划文档页（评审中）</button>
+  <button data-screen="screen-conflict">② 编辑冲突 · 三选一</button>
+</div>
+
+<script>
+  // ===== Markdown 渲染（marked + mermaid，均为可选增强，失败降级） =====
+  const mdSrc = document.getElementById('plan-doc-md').textContent;
+  const docEl = document.getElementById('doc-render');
+
+  if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+    docEl.innerHTML = marked.parse(mdSrc);
+
+    // mermaid 代码块转图表（mermaid 加载失败时保留为纯代码块）
+    docEl.querySelectorAll('pre code.language-mermaid').forEach(block => {
+      const pre = document.createElement('pre');
+      pre.className = 'mermaid';
+      pre.textContent = block.textContent;
+      block.closest('pre').replaceWith(pre);
+    });
+    if (typeof mermaid !== 'undefined') {
+      try {
+        mermaid.initialize({ startOnLoad: false, theme: 'neutral', fontFamily: 'IBM Plex Sans, PingFang SC, sans-serif' });
+        mermaid.run({ querySelector: '.markdown-body .mermaid' });
+      } catch (e) { /* 保留纯代码块 */ }
+    }
+
+    // 「执行记录」标题加徽标 + 条目包进系统回填区块
+    docEl.querySelectorAll('h2').forEach(h => {
+      if (h.textContent.includes('执行记录')) {
+        h.classList.add('backfill-heading');
+        const chip = document.createElement('span');
+        chip.className = 'backfill-chip';
+        chip.textContent = '系统自动回填';
+        h.appendChild(chip);
+        const wrap = document.createElement('div');
+        wrap.className = 'backfill-wrap';
+        let el = h.nextElementSibling;
+        while (el && el.tagName !== 'H2') {
+          const next = el.nextElementSibling;
+          wrap.appendChild(el);
+          el = next;
+        }
+        h.after(wrap);
+      }
+    });
+  } else {
+    // marked 加载失败：正文降级为纯文本展示
+    docEl.innerHTML = '<pre style="white-space:pre-wrap;font-family:inherit;">' + mdSrc + '</pre>';
+  }
+
+  // ===== Tabs =====
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      document.querySelector(`[data-panel="${t.dataset.tab}"]`).classList.add('active');
+    });
+  });
+
+  // ===== 屏幕切换 =====
+  document.querySelectorAll('.preview-switch button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.preview-switch button').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.screen').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      document.getElementById(b.dataset.screen).classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
