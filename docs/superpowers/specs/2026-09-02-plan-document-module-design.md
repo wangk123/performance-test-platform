@@ -45,33 +45,33 @@
 
 ## 3. 领域模型
 
-### 3.1 计划文档 = 结构化模块 + Markdown 正文 + 回填区块（一稿走到头）
+### 3.1 计划文档 = 一份 Markdown 原文（一稿走到头）
+
+**Markdown 原文（`body`）是压测计划的唯一数据源**，完整章节按固定顺序排列：
 
 ```
-TaskPlan（升级后）
-├─ 基本信息：name / createdBy（=负责人）/ 时间窗口（评审用）
-├─ 测试目的与指标 goals
-│   ├─ 目的叙述（文本）
-│   └─ 核心指标清单（结构化行）：{交易, 指标(TPS/ART/错误率/稳定性), 目标值, 单位, 口径备注}
-│      —— 指标挂交易（参照团队报告），P0-3 判等的前身（§16）
-├─ 测试范围 scope：范围内交易清单 {交易名, 配比, 备注} + 范围外清单
-├─ 测试资源 resources：人员 {姓名, 角色} + 环境部署信息表 {地址, 模块, 配置/版本}
-│   + 执行资源沿用既有列（defaultControllerNodeIds / defaultWorkerNodeIds / defaultMonitorTargetIds）
-├─ 测试约束 criteria：入口准则清单 / 出口准则清单（结构化清单，评审内容，不设硬门禁）
-├─ 场景设计 scenarios：业务化场景（§3.4）；脚本不在文档中体现
-├─ 结论 conclusion：指标达成表（P0-3 判等自动回填，P0-1 占位）+ 风险与建议 + 总体结论（发布时人工确认）
-├─ Markdown 正文 body：背景 / 测试策略叙述 / 风险预案 / 排期协作 / 附录（自由叙述）
-├─ 回填区块：正文内受管区块 `## 执行记录`（系统自动追加）
-├─ revision（D5 冲突控制）+ phase/status（二级状态，§4）+ publishedAt
-└─ 执行设置（非文档内容、不进评审、不参与 revision）：环境检查开关 + 检测清单 + precheck_executed_at（§10.2）
+body（Markdown 原文，唯一数据源）
+├─ 一、背景                    叙述（自由）
+├─ 测试目的与指标               受约束章节：段落 + 表格 [交易|指标|目标值|口径]
+├─ 测试范围                     受约束章节：范围内表格 [交易名称|交易配比|备注] + 范围外清单
+├─ 测试资源                     受约束章节：人员 / 环境部署信息表格 [地址|模块|配置/版本] / 执行节点·监控目标·时间窗口
+├─ 测试约束                     受约束章节：入口准则清单 / 出口准则清单（`- [x] 条目（自动/人工）`）
+├─ 二、测试策略                 叙述（自由）
+├─ 场景设计                     受约束章节：每场景 `### S{n} 名称 · 测试类型` + 场景目的 + 场景设置表格（用户数/时长/加载方式/退出方式）
+├─ 三、风险与预案               叙述（自由）
+├─ 四、排期与协作               叙述（自由）
+├─ 五、附录                     叙述（自由）
+├─ 六、执行记录                 受管区块：系统自动追加（§8）
+└─ 结论                         受约束章节：达成表 [指标|目标|实际结果|状态] + 风险与建议 + 总体结论
 ```
 
-- **文档本质 = 一份 Markdown 文档**：结构化模块是文档中**受格式约束的章节**——Pretty 视图下以表单/表格呈现（格式约束 + 快速编辑），Markdown 视图下由渲染器生成对应 Markdown 章节，**同源、按章节顺序在文档流内原位呈现，不重复堆叠**。
-- **视图切换为分段控件 `Pretty | Markdown`**（不是 Tab）：Pretty = 单文档流，模块章节以受约束表单呈现、叙述章节以 Markdown 渲染呈现；Markdown = 整份文档连续渲染，默认**预览**，工具栏「编辑」按钮切换为编辑模式（编辑叙述正文；模块章节回 Pretty 表单编辑），保存返回预览。文档带**章节导航**（§14.1）。
-- **环境检查不是文档内容**：它是测试前的一个执行动作（计划执行设置），不进入文档模块、不参与评审、不参与 revision 冲突（§10.2）。
-
-- 每类结构化模块一个 JSON 列存储，类型化读写（§11）。
-- "验收标准实体"属 P0-3：P0-1 的**核心指标清单**是评审人阅读与 Agent 修改的形态；P0-3 在其上叠加机器判等（阈值 + 计划级判定），同一份数据的两个阶段，不建两套。
+- **Pretty（格式化展示）= 从 Markdown 原文中提取受约束章节做格式化展示**：解析器按章节标题与表格结构提取（指标表格、范围、资源、约束清单、场景设置、达成表），以表单/表格呈现；**受约束章节的编辑写回原文对应区块**（章节级替换），格式约束即解析约定（标题 + 表格列固定）。
+- **Markdown = 压测计划原文**：预览即原文渲染；编辑即编辑原文（`md-editor-v3`）。叙述章节在 Pretty 里同样以渲染形态**原位**展示——Pretty 与 Markdown 是同源的两种呈现，**章节顺序完全一致，无任何堆叠重复**。
+- **视图切换为分段控件 `Pretty | Markdown`**（不是 Tab）；Markdown 默认预览，工具栏「编辑」按钮切换编辑模式，保存返回预览。文档带**章节导航**（§14.1）。
+- **不建结构化 JSON 列**：指标/范围/资源/约束/结论均以 Markdown 表格/清单存于原文，Pretty 提取展示、编辑回写原文（§11）。
+- **场景是文档章节 + 执行配置实体并存**：文档章节承载业务内容（评审阅读）；`task_scenarios` 实体承载执行配置（脚本绑定、翻译后的线程组，§3.4）。场景章节由实体渲染生成并随实体变更回写；文档视图不展示脚本。
+- "验收标准实体"属 P0-3：P0-3 判等引擎从原文指标章节解析阈值（或引入实体时以文档为准同步），P0-1 不建结构化列。
+- **环境检查不是文档内容**：测试前的执行动作（计划执行设置），不进原文、不参与评审、不参与 revision（§10.2）。
 
 ### 3.2 新增实体
 
@@ -230,8 +230,8 @@ flowchart LR
 
 ### 5.1 revision 语义
 
-- `task_plans.revision`：文档修订号，从 1 起。**任何导致文档内容变化（结构化模块或正文）的写入 `revision+1`**，包括用户编辑与系统回填。
-- 默认执行配置、场景、脚本关联、环境检查设置（执行设置，非文档内容）变化**不**影响 revision（冲突控制只覆盖文档内容）。
+- `task_plans.revision`：文档修订号，从 1 起。**任何导致 Markdown 原文变化的写入 `revision+1`**——包括用户编辑（全文编辑或 Pretty 章节写回）与系统回填。
+- 默认执行配置、场景实体（脚本关联/翻译线程组）、环境检查设置（执行设置）变化**不**影响 revision（冲突控制只覆盖文档原文）。
 
 ### 5.2 乐观并发控制
 
@@ -242,7 +242,7 @@ flowchart LR
   "code": "PLAN_REVISION_CONFLICT",
   "message": "计划文档已被修改（当前 revision=5，提交基于 revision=4）",
   "currentRevision": 5,
-  "serverDocument": { "goals": {}, "scope": {}, "resources": {}, "criteria": {}, "conclusion": {}, "markdown": "…" }
+  "serverMarkdown": "（服务器当前完整 Markdown 原文）"
 }
 ```
 
@@ -258,7 +258,7 @@ MCP（P0-2）与 REST 共用同一语义；"差异文本"由双方各自持有�
 
 ### 5.4 双栏差异展示
 
-- 前端冲突弹窗左右并排"平台当前版" vs "本地版"：结构化模块并排表单对比 + 正文行级 diff 高亮（§14.3）。
+- 前端冲突弹窗左右并排"平台当前版" vs "本地版"：整篇 Markdown 行级 diff 高亮（§14.3）。
 
 ## 6. 评审与批注（D2）
 
@@ -288,7 +288,7 @@ MCP（P0-2）与 REST 共用同一语义；"差异文本"由双方各自持有�
 ### 7.2 占位符与渲染
 
 - 占位符 `{{name}}`，P0-1 支持 `{{planName}}`，机制可扩展。
-- 模板正文是**叙述骨架**（背景 / 测试策略叙述 / 风险与预案 / 排期与协作 / 附录）；结构化模块由表单填写，与正文并存、不复制进正文（避免双份数据）。完整文档 = 结构化模块 + 正文，由前端/分享页组装。
+- 模板 = **完整 Markdown 文档模板**（全部章节骨架：背景 / 测试目的与指标 / 测试范围 / 测试资源 / 测试约束 / 测试策略 / 场景设计 / 风险与预案 / 排期与协作 / 附录 / 执行记录 / 结论），受约束章节含固定表格头；`{{planName}}` 等占位符在创建时替换。
 - 首版内置模板一份："通用压测计划"。
 
 ## 8. 自动回填（D4）
@@ -334,7 +334,7 @@ MCP（P0-2）与 REST 共用同一语义；"差异文本"由双方各自持有�
 
 `plan_publish_snapshots`：`id / planId / revision / publishedBy / publishedAt / docJson / scenarioJson / summaryJson`，`unique(planId, revision)`。
 
-- `docJson`：发布时的结构化模块（goals/scope/resources/criteria/conclusion）+ 正文全文。
+- `docJson`：发布时的 Markdown 原文全文。
 - `scenarioJson`：场景列表（测试类型/场景设置/脚本版本——快照是内部数据，不违反"文档不展示脚本"）。
 - `summaryJson`：各场景最近一次成功执行的结果摘要（复用 `ReportDataService`/`ExecutionQueryService`）。
 - P1-4 迭代对比直接消费最近两个快照。
@@ -387,12 +387,7 @@ MCP（P0-2）与 REST 共用同一语义；"差异文本"由双方各自持有�
 ALTER TABLE task_plans
   ADD COLUMN phase                VARCHAR(20)  NOT NULL DEFAULT 'DRAFT',
   ADD COLUMN status               VARCHAR(20)  NOT NULL DEFAULT 'DRAFT',
-  ADD COLUMN goals_json           LONGTEXT     NULL,  -- {narrative, indicators:[{txn,metric,target,unit,basis}]}
-  ADD COLUMN scope_json           LONGTEXT     NULL,  -- {included:[{txn,ratio,note}], excluded:[]}
-  ADD COLUMN resources_json       LONGTEXT     NULL,  -- {personnel:[{name,role}], deployments:[{host,modules,spec}], window:{start,end,note}}
-  ADD COLUMN criteria_json        LONGTEXT     NULL,  -- {entry:[{id,label,auto}], exit:[]}
-  ADD COLUMN conclusion_json      LONGTEXT     NULL,  -- {achievements:[{indicator,target,actual,status}], risks, summary}
-  ADD COLUMN body                 LONGTEXT     NULL,
+  ADD COLUMN body                 LONGTEXT     NULL,  -- Markdown 原文（唯一数据源，含全部章节）
   ADD COLUMN revision             INT          NOT NULL DEFAULT 1,
   ADD COLUMN published_at         DATETIME     NULL,
   ADD COLUMN precheck_json        LONGTEXT     NULL,  -- 执行设置（非文档内容）：{enabled, items:[]}
@@ -476,7 +471,7 @@ CREATE TABLE plan_share_tokens (
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/task-plans/{id}` | 响应含 `phase/status/goals/scope/resources/criteria/conclusion/body/revision/precheck 状态/publishedAt`；`owner` 即 `createdBy` |
-| PUT | `/api/task-plans/{id}/document` | `{baseRevision, goals?, scope?, resources?, criteria?, conclusion?, markdown?}`；200 新文档 / 409 冲突；仅 DRAFT |
+| PUT | `/api/task-plans/{id}/document` | `{baseRevision, markdown}`（**整篇原文**；Pretty 章节编辑由前端合并回原文后整体提交）；200 新原文 / 409 冲突；仅 DRAFT |
 | POST | `/api/task-plans/{id}/submit` | 草稿 → 评审·待评审；可选 `{comment}` |
 | POST | `/api/task-plans/{id}/start-review` | 评审·待评审 → 评审中 |
 | POST | `/api/task-plans/{id}/approve` | 评审中 → 评审通过；可选 `{comment}` |
@@ -570,7 +565,7 @@ CREATE TABLE plan_share_tokens (
 
 ### 14.3 冲突三选一弹窗
 
-左右双栏"平台当前版" vs "本地版"：结构化模块并排表单对比 + 正文行级 diff 高亮；三按钮：**保留平台版 / 采纳本地版 / 手改**；行级 diff 用 `jsdiff` 自绘。
+左右双栏"平台当前版" vs "本地版"：整篇 Markdown 行级 diff 高亮；三按钮：**保留平台版 / 采纳本地版 / 手改**；行级 diff 用 `jsdiff` 自绘。
 
 ### 14.4 分享公开页
 
@@ -600,7 +595,7 @@ CREATE TABLE plan_share_tokens (
 | 任务 | 关系 |
 |------|------|
 | P0-2 MCP 工具集 | 直接调用 `PlanDocumentService`/`PlanWorkflowService`；`plan_update` 复用 409 冲突与 `baseRevision` |
-| P0-3 验收判等 | P0-1 的核心指标清单是前身（同一份数据）；P0-3 建判等引擎，生成报告时回填达成表"状态"列并预填总体结论 |
+| P0-3 验收判等 | 指标清单以 Markdown 表格存于原文；P0-3 判等引擎从原文"测试目的与指标"章节解析阈值（或引入验收实体时以文档为准同步），生成报告时回填结论章节达成表"状态"列并预填总体结论 |
 | P1-1 环境检查 | P0-1 交**执行设置**（precheck_json：开关 + 检测清单，非文档内容）+ 首执行触发 + 跳过 + 自动核验框架（挂现有预检 seam）；P1-1 交 SSH 探测执行器，把"环境就绪"升级为自动勾 |
 | P3-2 AI 生成脚本 | 脚本"评审通过后产生并关联"的流程 P0-1 已就位；AI 生成方式（OpenAPI/自然语言 → JMX）由 P3-2 提供 |
 | P1-4 迭代对比 | 消费 `plan_publish_snapshots` |
@@ -619,7 +614,7 @@ CREATE TABLE plan_share_tokens (
 
 **场景业务字段**：业务字段（用户数/时长/加载方式）与 `threadGroupConfigs` 推导一致（翻译规则测试）；test_type/purpose 读写。
 
-**冲突与三选一**：同 baseRevision 成功且 revision+1；过期 base → 409 含 serverDocument；currentRevision 重放成功；回填 bump revision 后旧 base 提交 409 → 重放成功。
+**冲突与三选一**：同 baseRevision 成功且 revision+1；过期 base → 409 含 serverMarkdown 原文；currentRevision 重放成功；回填 bump revision 后旧 base 提交 409 → 重放成功。
 
 **回填**：执行终态 → 追加受管区块条目且幂等；不触碰 `## 执行记录` 之外的正文。
 
@@ -644,8 +639,8 @@ CREATE TABLE plan_share_tokens (
 11. **删除收紧**：负责人/项目 OWNER/系统管理员。
 12. **模板**：OWNER/ADMIN 管理，成员可用；内置 seed。
 13. **新依赖**：`md-editor-v3` + `jsdiff`。
-14. **结构化模块存储**：每模块一个 JSON 列；指标挂交易；环境部署信息表进测试资源模块。
-15. **文档视图**：分段控件 `Pretty | Markdown`（非 Tab）——Pretty = 单文档流内模块章节以受约束表单呈现（格式约束 + 快速编辑），与叙述章节原位排列，无重复堆叠；Markdown = 整份文档连续渲染，默认预览，「编辑」按钮切换编辑模式（编辑叙述正文，模块章节回 Pretty 编辑）。
+14. **Markdown 原文唯一数据源**：不建结构化 JSON 列——指标/范围/资源/约束/结论均以 Markdown 表格/清单存于原文；受约束章节的格式约束 = 固定标题 + 固定表格列（解析约定）。
+15. **文档视图**：分段控件 `Pretty | Markdown`（非 Tab）——Pretty = **从 Markdown 原文提取受约束章节做格式化展示**（解析标题+表格），编辑写回原文对应区块；Markdown = **压测计划原文**，默认预览、「编辑」按钮切换原文编辑；两者章节顺序完全一致。
 16. **场景是文档模块**：场景设计在文档内展示与编辑，不设独立 Tab；页面 Tab = 文档/评审/报告/发布。
 17. **章节导航**：文档区左侧 TOC（结构化模块章节 + 正文标题），点击滚动定位。
 
@@ -662,3 +657,4 @@ CREATE TABLE plan_share_tokens (
 - 2026-09-02 修订 2（需求访谈定稿）：一稿走到头；结构化模块按团队真实报告骨架重构（指标清单挂交易/交易范围/环境部署信息表/入口·出口准则清单/结论达成表）；业务化场景模型（测试类型 + 业务场景设置翻译线程组）；脚本退出计划文档、评审后编写关联（scriptVersionId 可空）；环境检查改为计划可选项（非状态，首执行触发、可跳过）；评审 = 任意成员通过。
 - 2026-09-02 修订 3（文档视图层）：文档双模式（结构化展示 / MD·预览 + MD·编辑）+ 章节导航（TOC）；环境检查彻底移出文档——测试前的执行动作，挂计划执行设置（precheck_json），不进评审、不进 revision；场景并入文档成为结构化模块（不设独立 Tab）；页面 Tab = 文档/评审/报告/发布。
 - 2026-09-02 修订 4（文档视图层·纠正）：**文档 = 一份 Markdown 文档**；结构化模块是文档内受格式约束的章节（Pretty 视图以表单呈现、Markdown 视图由渲染器生成章节），与叙述章节在同一文档流内**原位排列、不重复堆叠**；视图切换改为分段控件 `Pretty | Markdown`（非 Tab），Markdown 默认预览、「编辑」按钮切换编辑模式。
+- 2026-09-02 修订 5（数据模型定稿）：**Markdown 原文是压测计划的唯一数据源**；删除全部结构化 JSON 列（goals/scope/resources/criteria/conclusion）——Pretty（格式化展示）= 从原文**提取**受约束章节（固定标题+表格列）做格式化呈现，编辑写回原文对应区块；Markdown = 原文本身（预览/编辑）。章节按文档顺序原位交错（背景→指标→范围→资源→约束→策略→场景→风险→排期→附录→执行记录→结论），无堆叠。场景 = 文档章节（业务内容）+ 执行配置实体（脚本绑定/线程组）并存。

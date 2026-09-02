@@ -3,47 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>压测计划文档 · 改版效果图（P0-1 · Pretty/Markdown）</title>
+  <title>压测计划文档 · 改版效果图（P0-1 · Markdown 原文 + Pretty 提取视图）</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
   <style>
-    /* ============ 设计令牌（与前端 design-tokens.ts 一致） ============ */
     :root {
-      --canvas: #F4F6F8;
-      --surface: #FFFFFF;
-      --ink: #1A2332;
-      --muted: #5C6B7A;
-      --line: #E2E8EE;
-      --accent: #0B7F8A;
-      --accent-dark: #09636B;
-      --accent-soft: #E6F5F6;
-      --ok: #2F9B6A;
-      --ok-soft: #E5F5EC;
-      --warn: #C9850A;
-      --warn-soft: #FBF2E2;
-      --danger: #D14343;
-      --danger-soft: #FBEAEA;
+      --canvas: #F4F6F8; --surface: #FFFFFF; --ink: #1A2332; --muted: #5C6B7A; --line: #E2E8EE;
+      --accent: #0B7F8A; --accent-dark: #09636B; --accent-soft: #E6F5F6;
+      --ok: #2F9B6A; --ok-soft: #E5F5EC; --warn: #C9850A; --warn-soft: #FBF2E2;
+      --danger: #D14343; --danger-soft: #FBEAEA;
       --font: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
       --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; }
     body { font-family: var(--font); color: var(--ink); background: var(--canvas); font-size: 14px; }
-
-    /* ============ 应用壳 ============ */
     .shell { display: flex; height: 100vh; overflow: hidden; }
-    .rail {
-      width: 216px; flex: none; background: var(--surface);
-      border-right: 1px solid var(--line); display: flex; flex-direction: column;
-    }
+    .rail { width: 216px; flex: none; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; }
     .rail-logo { padding: 20px 20px 16px; display: flex; align-items: center; gap: 10px; }
-    .rail-logo .mark {
-      width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: #fff;
-      display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;
-    }
+    .rail-logo .mark { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
     .rail-logo .name { font-weight: 700; font-size: 15px; }
     .rail-logo .sub { font-size: 11px; color: var(--muted); }
     .rail-project { margin: 0 12px 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); }
@@ -51,196 +32,120 @@
     .rail-project .pmeta { font-size: 11px; color: var(--muted); margin-top: 2px; }
     .rail-nav { flex: 1; padding: 4px 12px; overflow-y: auto; }
     .rail-nav .group-label { font-size: 11px; color: var(--muted); padding: 10px 8px 4px; letter-spacing: .4px; }
-    .rail-nav a {
-      display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin-bottom: 2px;
-      border-radius: 8px; color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500;
-    }
+    .rail-nav a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin-bottom: 2px; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; }
     .rail-nav a svg { width: 16px; height: 16px; flex: none; }
     .rail-nav a:hover { background: var(--accent-soft); color: var(--accent); }
     .rail-nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
     .rail-user { padding: 12px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
-    .rail-user .avatar {
-      width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff;
-      display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;
-    }
+    .rail-user .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
     .rail-user .uname { font-size: 13px; font-weight: 600; }
     .rail-user .urole { font-size: 11px; color: var(--muted); }
-
     .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-    .breadcrumb {
-      height: 48px; flex: none; background: var(--surface); border-bottom: 1px solid var(--line);
-      display: flex; align-items: center; padding: 0 24px; gap: 8px; font-size: 13px; color: var(--muted);
-    }
+    .breadcrumb { height: 48px; flex: none; background: var(--surface); border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 24px; gap: 8px; font-size: 13px; color: var(--muted); }
     .breadcrumb .cur { color: var(--ink); font-weight: 600; }
     .content { flex: 1; overflow-y: auto; padding: 20px 24px 40px; }
 
-    /* ============ 通用组件 ============ */
-    .card {
-      background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
-      box-shadow: 0 1px 2px rgba(26,35,50,.04);
-    }
-    .btn {
-      display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 8px;
-      font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--line);
-      background: var(--surface); color: var(--ink); font-family: var(--font); transition: all .15s;
-    }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 1px 2px rgba(26,35,50,.04); }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-family: var(--font); transition: all .15s; }
     .btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
     .btn:disabled { opacity: .45; cursor: not-allowed; }
     .btn:disabled:hover { border-color: var(--line); color: var(--ink); background: var(--surface); }
     .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
     .btn-primary:hover:not(:disabled) { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
     .btn-danger { color: var(--danger); }
-    .btn-danger:hover { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
     .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
-
-    .badge {
-      display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
-      font-size: 12px; font-weight: 600; line-height: 1.6;
-    }
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1.6; }
     .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
     .badge-running { background: var(--accent-soft); color: var(--accent); }
     .badge-running .dot { animation: pulse 1.2s ease-in-out infinite; }
-    .badge-draft { background: #EEF0F3; color: var(--muted); }
     .badge-pending { background: var(--warn-soft); color: var(--warn); }
     .badge-approved { background: var(--ok-soft); color: var(--ok); }
+    .badge-draft { background: #EEF0F3; color: var(--muted); }
     .badge-published { background: var(--ink); color: #fff; }
     @keyframes pulse { 50% { opacity: .25; } }
-
-    .tag {
-      display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 11px;
-      background: var(--canvas); border: 1px solid var(--line); color: var(--muted); font-family: var(--mono);
-    }
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 11px; background: var(--canvas); border: 1px solid var(--line); color: var(--muted); font-family: var(--mono); }
     .tag.soft { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
     .meta-kv { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--muted); align-items: center; }
     .meta-kv b { color: var(--ink); font-weight: 600; }
     .mono { font-family: var(--mono); font-size: 12px; }
 
-    /* ============ 计划头部 ============ */
     .plan-header { padding: 20px 24px 0; }
     .plan-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
     .plan-title { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .plan-meta { margin-top: 8px; }
     .plan-actions { display: flex; gap: 8px; flex: none; align-items: center; }
-
-    /* 阶段步进条（二级状态） */
-    .stepper {
-      display: flex; align-items: flex-start; margin-top: 16px; padding: 14px 16px;
-      background: var(--canvas); border-radius: 10px; overflow-x: auto;
-    }
+    .stepper { display: flex; align-items: flex-start; margin-top: 16px; padding: 14px 16px; background: var(--canvas); border-radius: 10px; overflow-x: auto; }
     .phase { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: none; min-width: 78px; }
-    .phase .node {
-      width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 700; border: 1.5px solid var(--line); color: var(--muted); background: var(--surface);
-    }
+    .phase .node { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; border: 1.5px solid var(--line); color: var(--muted); background: var(--surface); }
     .phase.done .node { background: var(--ok); border-color: var(--ok); color: #fff; }
     .phase.current .node { background: var(--accent); border-color: var(--accent); color: #fff; }
     .phase .pname { font-size: 12px; color: var(--muted); font-weight: 500; white-space: nowrap; }
     .phase.current .pname { color: var(--accent); font-weight: 700; }
     .phase.done .pname { color: var(--ok); }
-    .phase .sub {
-      font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--surface);
-      border: 1px solid var(--line); color: var(--muted); white-space: nowrap;
-    }
+    .phase .sub { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
     .phase.current .sub { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
     .phase.done .sub { background: var(--ok-soft); color: var(--ok); border-color: var(--ok); }
     .p-line { flex: none; width: 26px; height: 1.5px; background: var(--line); margin: 11px 6px 0; }
     .p-line.done { background: var(--ok); }
 
-    /* ============ Tabs ============ */
-    .tabs {
-      display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--line);
-      padding: 0 24px; background: var(--surface); border-radius: 12px 12px 0 0;
-    }
-    .tab {
-      padding: 12px 14px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer;
-      border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 6px; user-select: none;
-    }
+    .tabs { display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--line); padding: 0 24px; background: var(--surface); border-radius: 12px 12px 0 0; }
+    .tab { padding: 12px 14px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 6px; user-select: none; }
     .tab:hover { color: var(--ink); }
     .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
-    .tab .count {
-      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; font-size: 11px;
-      background: var(--canvas); border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center;
-    }
+    .tab .count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; font-size: 11px; background: var(--canvas); border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
     .tab-body { padding: 20px 24px; }
 
-    /* ============ 文档 Tab ============ */
+    /* 文档 Tab */
     .doc-layout { display: grid; grid-template-columns: 208px 1fr; gap: 20px; align-items: start; }
-
     .toc { position: sticky; top: 0; }
     .toc .toc-title { font-size: 12px; font-weight: 700; letter-spacing: .3px; padding: 2px 4px 8px; color: var(--ink); }
-    .toc .toc-group { font-size: 11px; color: var(--muted); padding: 10px 4px 4px; letter-spacing: .4px; }
-    .toc a {
-      display: block; padding: 5px 8px; border-radius: 6px; font-size: 12.5px; color: var(--muted);
-      text-decoration: none; cursor: pointer; border-left: 2px solid transparent;
-    }
+    .toc a { display: block; padding: 5px 8px; border-radius: 6px; font-size: 12.5px; color: var(--muted); text-decoration: none; cursor: pointer; border-left: 2px solid transparent; }
     .toc a:hover { color: var(--accent); background: var(--accent-soft); }
     .toc a.current { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+    .toc .toc-tag { float: right; font-size: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; margin-top: 1px; }
 
-    /* 文档工具栏：Pretty | Markdown */
-    .doc-toolbar {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      margin-bottom: 16px; padding: 8px 12px; background: var(--surface);
-      border: 1px solid var(--line); border-radius: 10px;
-    }
-    .segmented {
-      display: inline-flex; padding: 3px; background: var(--canvas); border-radius: 8px; gap: 2px;
-    }
-    .segmented button {
-      border: none; background: transparent; font-family: var(--font); font-size: 12.5px; font-weight: 500;
-      padding: 5px 16px; border-radius: 6px; cursor: pointer; color: var(--muted);
-    }
+    .doc-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+    .segmented { display: inline-flex; padding: 3px; background: var(--canvas); border-radius: 8px; gap: 2px; }
+    .segmented button { border: none; background: transparent; font-family: var(--font); font-size: 12.5px; font-weight: 500; padding: 5px 16px; border-radius: 6px; cursor: pointer; color: var(--muted); }
     .segmented button.active { background: var(--surface); color: var(--accent); font-weight: 600; box-shadow: 0 1px 2px rgba(26,35,50,.08); }
     .doc-toolbar .tb-right { display: flex; align-items: center; gap: 10px; }
     .doc-toolbar .rev { font-size: 12px; color: var(--muted); font-family: var(--mono); }
-    .edit-toggle { display: none; }
 
-    /* 文档流 */
     .doc-flow { display: flex; flex-direction: column; gap: 16px; }
     .doc-section { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 22px; }
-    .doc-section h2 {
-      font-size: 15px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
-      display: flex; align-items: center; gap: 8px; scroll-margin-top: 16px;
-    }
+    .doc-section h2 { font-size: 15px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; scroll-margin-top: 16px; }
     .doc-section h2 .edit { margin-left: auto; font-size: 11px; color: var(--muted); cursor: not-allowed; font-weight: 500; }
+    .doc-section h2 .chip { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 1px 8px; border-radius: 999px; border: 1px solid var(--accent); }
     .doc-section .hint { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+    .para { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; line-height: 1.7; }
 
     .mini-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
     .mini-table th, .mini-table td { border-bottom: 1px solid var(--line); padding: 5px 4px; text-align: left; }
     .mini-table th { color: var(--muted); font-weight: 600; font-size: 11.5px; white-space: nowrap; }
     .mini-table td.val { font-family: var(--mono); font-weight: 600; }
     .chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-    .chip {
-      display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px;
-      background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent);
-    }
-    .chip.off { background: var(--canvas); color: var(--muted); border-color: var(--line); }
+    .chipx { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); }
+    .chipx.off { background: var(--canvas); color: var(--muted); border-color: var(--line); }
     .sub-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; margin-top: 8px; }
-    .sub-label:first-of-type { margin-top: 0; }
-    .person-list { font-size: 12.5px; margin-bottom: 8px; }
+    .label-row { display: flex; gap: 8px; font-size: 12.5px; margin-bottom: 6px; }
+    .label-row b { flex: none; font-size: 12px; }
     .window-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
 
     .check-list { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; margin-bottom: 8px; }
     .check-item { display: flex; align-items: center; gap: 8px; }
-    .check-item .box {
-      width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--line);
-      display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; flex: none;
-    }
+    .check-item .box { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--line); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; flex: none; }
     .check-item.pass .box { background: var(--ok); border-color: var(--ok); }
     .check-item .how { font-size: 11px; color: var(--muted); margin-left: auto; }
     .check-item .how.auto { color: var(--accent); }
-    .conclusion-empty {
-      border: 1px dashed var(--line); border-radius: 8px; padding: 12px 14px; text-align: center;
-      color: var(--muted); font-size: 12.5px; margin-bottom: 8px;
-    }
+    .conclusion-empty { border: 1px dashed var(--line); border-radius: 8px; padding: 12px 14px; text-align: center; color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
 
     table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
     table.data th, table.data td { border-bottom: 1px solid var(--line); padding: 9px 10px; text-align: left; vertical-align: top; }
     table.data th { background: var(--canvas); font-weight: 600; font-size: 12px; color: var(--muted); white-space: nowrap; }
     .exec-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
     .exec-status.ok { color: var(--ok); }
-    .exec-status.fail { color: var(--danger); }
     .exec-status.run { color: var(--accent); }
     .exec-status.run .dot { animation: pulse 1.2s ease-in-out infinite; }
     .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
@@ -250,72 +155,41 @@
     .sd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .sd-field .flabel { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
     .sd-field .fvalue { font-size: 13px; line-height: 1.7; }
-    .extend-badge {
-      display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted);
-      border: 1px dashed var(--line); border-radius: 6px; padding: 2px 8px; margin-top: 6px;
-    }
+    .extend-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); border: 1px dashed var(--line); border-radius: 6px; padding: 2px 8px; margin-top: 6px; }
     .preset-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 4px; }
     .preset-table th, .preset-table td { border: 1px solid var(--line); padding: 5px 10px; text-align: left; }
     .preset-table th { background: var(--canvas); font-weight: 600; color: var(--muted); }
 
-    /* Markdown 渲染（叙述章节 & MD 预览共用） */
     .markdown-body { line-height: 1.75; }
     .markdown-body h1 { font-size: 22px; margin: 4px 0 12px; }
-    .markdown-body h2 {
-      font-size: 16px; margin: 26px 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
-      display: flex; align-items: center; gap: 8px; scroll-margin-top: 16px;
-    }
+    .markdown-body h2 { font-size: 16px; margin: 26px 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; scroll-margin-top: 16px; }
     .markdown-body h3 { font-size: 14px; margin: 18px 0 8px; }
     .markdown-body p { margin: 8px 0; }
     .markdown-body ul, .markdown-body ol { padding-left: 22px; margin: 8px 0; }
     .markdown-body li { margin: 4px 0; }
-    .markdown-body code {
-      font-family: var(--mono); font-size: 12.5px; background: var(--canvas);
-      padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line);
-    }
+    .markdown-body code { font-family: var(--mono); font-size: 12.5px; background: var(--canvas); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line); }
     .markdown-body strong { font-weight: 600; }
     .markdown-body table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
     .markdown-body th, .markdown-body td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; }
     .markdown-body th { background: var(--canvas); font-weight: 600; white-space: nowrap; }
     .markdown-body td { background: var(--surface); }
-    .markdown-body blockquote {
-      margin: 10px 0; padding: 8px 14px; border-left: 3px solid var(--accent);
-      background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--muted); font-size: 13px;
-    }
+    .markdown-body blockquote { margin: 10px 0; padding: 8px 14px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--muted); font-size: 13px; }
     .markdown-body .mermaid { margin: 14px 0; text-align: center; }
-
     .backfill-heading { color: var(--accent) !important; border-bottom-color: var(--accent) !important; }
-    .backfill-chip {
-      font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft);
-      padding: 1px 8px; border-radius: 999px; border: 1px solid var(--accent);
-    }
-    .backfill-wrap {
-      border: 1px dashed var(--accent); border-radius: 10px; background: var(--accent-soft);
-      padding: 10px 16px 12px; margin-bottom: 12px;
-    }
+    .backfill-chip { font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 1px 8px; border-radius: 999px; border: 1px solid var(--accent); }
+    .backfill-wrap { border: 1px dashed var(--accent); border-radius: 10px; background: var(--accent-soft); padding: 10px 16px 12px; margin-bottom: 12px; }
     .backfill-wrap h3 { margin-top: 10px; font-size: 13px; }
     .backfill-wrap h3:first-child { margin-top: 4px; }
     .backfill-wrap ul { margin: 4px 0; color: var(--muted); }
-    .backfill-wrap::before {
-      content: "自动追加 · 不可手改 · 条目幂等"; display: block; font-size: 11px;
-      color: var(--accent); font-family: var(--mono); margin-bottom: 4px;
-    }
+    .backfill-wrap::before { content: "自动追加 · 不可手改 · 条目幂等"; display: block; font-size: 11px; color: var(--accent); font-family: var(--mono); margin-bottom: 4px; }
+    .md-editor { width: 100%; min-height: 720px; border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--ink); background: var(--surface); resize: vertical; outline: none; }
 
-    .md-editor {
-      width: 100%; min-height: 720px; border: 1px solid var(--line); border-radius: 10px;
-      padding: 16px 20px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7;
-      color: var(--ink); background: var(--surface); resize: vertical; outline: none;
-    }
-
-    /* ============ 评审 Tab ============ */
+    /* 评审 / 报告 / 发布 */
     .review-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
     .timeline { position: relative; padding-left: 26px; }
     .timeline::before { content: ""; position: absolute; left: 8px; top: 6px; bottom: 6px; width: 2px; background: var(--line); }
     .tl-item { position: relative; margin-bottom: 18px; }
-    .tl-item .dot {
-      position: absolute; left: -26px; top: 4px; width: 18px; height: 18px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center; font-size: 10px;
-    }
+    .tl-item .dot { position: absolute; left: -26px; top: 4px; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; }
     .tl-item.review .dot { background: var(--accent); color: #fff; }
     .tl-item.system .dot { background: var(--canvas); border: 1.5px solid var(--line); color: var(--muted); }
     .tl-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
@@ -325,44 +199,27 @@
     .tl-item.system .tl-body { background: var(--canvas); color: var(--muted); }
     .tl-item .reply-tag { font-size: 11px; color: var(--accent); font-weight: 600; margin-left: 4px; }
     .comment-box { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; }
-    .comment-box textarea {
-      border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-family: var(--font);
-      font-size: 13px; resize: vertical; min-height: 76px; outline: none; color: var(--ink); background: var(--canvas);
-    }
+    .comment-box textarea { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-family: var(--font); font-size: 13px; resize: vertical; min-height: 76px; outline: none; color: var(--ink); background: var(--canvas); }
     .review-side { display: flex; flex-direction: column; gap: 16px; }
     .side-card { padding: 16px 18px; }
-    .side-card h4 {
-      font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
-      margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;
-    }
+    .side-card h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
     .kv { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; }
     .kv .k { color: var(--muted); }
     .kv .v { font-family: var(--mono); font-size: 12px; }
-
-    /* ============ 报告 / 发布 Tab ============ */
     .report-layout, .publish-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
     .skeleton-row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--line); }
     .skeleton-bar { height: 10px; border-radius: 5px; background: var(--canvas); }
     .snapshot { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; }
-    .snapshot .icon {
-      width: 36px; height: 36px; border-radius: 8px; background: var(--ink); color: #fff;
-      display: flex; align-items: center; justify-content: center; font-size: 15px; flex: none;
-    }
+    .snapshot .icon { width: 36px; height: 36px; border-radius: 8px; background: var(--ink); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px; flex: none; }
     .snapshot .sinfo { flex: 1; }
     .snapshot .stitle { font-weight: 600; font-size: 13px; }
     .snapshot .smeta { font-size: 12px; color: var(--muted); margin-top: 2px; }
     .share-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
     .share-row:last-child { border-bottom: none; }
-    .share-link {
-      flex: 1; font-family: var(--mono); font-size: 12px; background: var(--canvas);
-      padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
+    .share-link { flex: 1; font-family: var(--mono); font-size: 12px; background: var(--canvas); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-    /* ============ 冲突三选一（第二屏） ============ */
-    .conflict-note {
-      display: flex; gap: 10px; align-items: flex-start; padding: 12px 16px; border-radius: 10px;
-      background: var(--warn-soft); border: 1px solid var(--warn); font-size: 13px; margin-bottom: 16px;
-    }
+    /* 冲突屏 */
+    .conflict-note { display: flex; gap: 10px; align-items: flex-start; padding: 12px 16px; border-radius: 10px; background: var(--warn-soft); border: 1px solid var(--warn); font-size: 13px; margin-bottom: 16px; }
     .diff-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .diff-col { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
     .diff-head { padding: 10px 16px; background: var(--canvas); border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
@@ -373,26 +230,17 @@
     .conflict-actions { display: flex; gap: 10px; justify-content: center; padding: 18px 0 4px; align-items: center; flex-wrap: wrap; }
     .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); justify-content: center; margin-top: 10px; }
     .legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
-
-    /* ============ 右下角切换器 ============ */
-    .preview-switch {
-      position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; gap: 6px; padding: 6px;
-      border-radius: 10px; background: rgba(26, 35, 50, .92); box-shadow: 0 8px 24px rgba(0,0,0,.18);
-    }
-    .preview-switch button {
-      border: none; background: transparent; color: rgba(255,255,255,.65); font-family: var(--font);
-      font-size: 12px; padding: 6px 12px; border-radius: 7px; cursor: pointer;
-    }
+    .preview-switch { position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; gap: 6px; padding: 6px; border-radius: 10px; background: rgba(26, 35, 50, .92); box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+    .preview-switch button { border: none; background: transparent; color: rgba(255,255,255,.65); font-family: var(--font); font-size: 12px; padding: 6px 12px; border-radius: 7px; cursor: pointer; }
     .preview-switch button.active { background: var(--accent); color: #fff; font-weight: 600; }
-
     .screen { display: none; }
     .screen.active { display: block; }
   </style>
 </head>
 <body>
 
-<!-- ============ 叙述正文（markdown 源，改这里！） ============ -->
-<script type="text/markdown" id="plan-body-md">
+<!-- ================= 压测计划 Markdown 原文（唯一数据源，改这里！） ================= -->
+<script type="text/markdown" id="plan-doc-md">
 ## 一、背景
 
 大促前对信贷核心业务（授信/支用/还款及查询链路）进行容量评估，为上线提供依据。总体口径：核心交易与查询类接口的 TPS 目标见"测试目的与指标"章节，场景级目标以验收指标为准。
@@ -407,9 +255,100 @@ flowchart LR
 
 本次重点验证支用申请 09-01 基线失败后的修复效果，并输出容量拐点与扩容建议。
 
+## 测试目的与指标
+
+获取信贷系统各交易不同场景下的性能指标，为上线提供评估依据。
+
+| 交易 | 指标 | 目标值 | 口径 |
+|------|------|--------|------|
+| 授信申请 | TPS | > 100 t/s | 峰值口径 |
+| 支用申请 | TPS | > 100 t/s | 峰值口径 |
+| 还款申请 | TPS | > 100 t/s | 峰值口径 |
+| 授信结果查询 | TPS | > 1,000 t/s | 查询类 |
+| 还款结果查询 | TPS | > 1,000 t/s | 查询类 |
+| 全链路 | 稳定性 | 8h 无异常 | 成功率 100% |
+
+## 测试范围
+
+**范围内**
+
+| 交易名称 | 交易配比 | 备注 |
+|----------|----------|------|
+| 授信申请 | 负载动态调整 | 核心写 |
+| 支用申请 | 负载动态调整 | 核心写 |
+| 还款申请 | 负载动态调整 | 核心写 |
+| 授信申请结果查询 | 负载动态调整 | 读 |
+| 还款申请结果查询 | 负载动态调整 | 读 |
+
+**范围外**：搜索推荐、对账批处理、第三方接口（挡板）
+
+## 测试资源
+
+**人员**：毛曦云（开发）、王建涛（开发）、关昕（测试）、赵敏（运维支持）
+
+**环境部署信息**
+
+| 地址 | 模块 | 配置/版本 |
+|------|------|-----------|
+| 10.168.3.97 | package-retail-product / user / mdata | 4C/16G |
+| 10.168.3.102 | MySQL | 8.0.33 · 4C/16G |
+| 10.168.3.100 | Redis | 5.0.14 · 4C/16G |
+
+**执行节点**：controller-01 + worker ×4
+**监控目标**：order-svc / mysql / redis
+**时间窗口**：09-05 20:00–23:00（封网窗口）
+
+## 测试约束
+
+**入口准则**
+
+- [x] 指标已定义（自动核验）
+- [x] 场景已配置（自动核验）
+- [x] 脚本已关联（自动核验）
+- [x] 环境就绪（执行前环境检查回填）
+- [x] 数据已准备（人工勾选）
+- [x] 人员到位 / 接口人明确（人工勾选）
+
+**出口准则**
+
+- [x] 高优先级场景均已执行（执行完成后自动核验）
+- [ ] 结果通过评审、指标达标（报告阶段判等 P0-3）
+
 ## 二、测试策略
 
 本次采用四类测试：**基准测试**（单请求平均响应时间基线）、**单交易并发测试**（单接口多并发处理能力与性能拐点）、**组合交易测试**（多交易并发运行验证相互影响）、**稳定性测试**（8 小时持续压力观察内存泄漏与性能衰减）。期间监控各服务器 CPU/内存/带宽与磁盘读写。
+
+## 场景设计
+
+### S1 授信申请 · 单交易并发
+
+场景目的：获取单交易多负载下的并发处理能力与性能拐点。
+
+| 档位 | 用户数 | 持续时长 | 加载方式 | 退出方式 |
+|------|--------|----------|----------|----------|
+| 1 | 30 | 5 分钟 | 同时加载 | 同时退出 |
+| 2 | 50 | 5 分钟 | 同时加载 | 同时退出 |
+| 3 | 80 | 5 分钟 | 同时加载 | 同时退出 |
+
+### S2 支用申请 · 单交易并发
+
+场景目的：验证支用申请接口在 30→80 并发梯度下的处理能力与性能拐点，09-01 基线错误率 1.8% 超标，本次为修复后复测。
+
+| 档位 | 用户数 | 持续时长 | 加载方式 | 退出方式 |
+|------|--------|----------|----------|----------|
+| 1 | 30 | 5 分钟 | 同时加载 | 同时退出 |
+| 2 | 50 | 5 分钟 | 同时加载 | 同时退出 |
+| 3 | 80 | 5 分钟 | 同时加载 | 同时退出 |
+
+### S3 授信结果查询 · 单交易并发
+
+场景目的：查询类接口吞吐能力验证（目标 >1,000 t/s）。
+
+| 档位 | 用户数 | 持续时长 | 加载方式 | 退出方式 |
+|------|--------|----------|----------|----------|
+| 1 | 30 | 5 分钟 | 同时加载 | 同时退出 |
+| 2 | 50 | 5 分钟 | 同时加载 | 同时退出 |
+| 3 | 80 | 5 分钟 | 同时加载 | 同时退出 |
 
 ## 三、风险与预案
 
@@ -443,71 +382,7 @@ flowchart LR
 ### 2026-09-02 10:15 · S2 支用申请 · 30 用户
 - 状态：FAILED
 - 样本 149693 ｜ 吞吐 96.4 TPS ｜ P95 412 ms ｜ 错误率 1.8%
-</script>
 
-<!-- ============ 结构化模块的 Markdown 渲染（Markdown 视图的模块章节，由平台渲染器生成） ============ -->
-<script type="text/markdown" id="modules-md">
-## 测试目的与指标
-
-获取信贷系统各交易不同场景下的性能指标，为上线提供评估依据。
-
-| 交易 | 指标 | 目标值 | 口径 |
-|------|------|--------|------|
-| 授信申请 | TPS | > 100 t/s | 峰值口径 |
-| 支用申请 | TPS | > 100 t/s | 峰值口径 |
-| 还款申请 | TPS | > 100 t/s | 峰值口径 |
-| 授信结果查询 | TPS | > 1,000 t/s | 查询类 |
-| 还款结果查询 | TPS | > 1,000 t/s | 查询类 |
-| 全链路 | 稳定性 | 8h 无异常 | 成功率 100% |
-
-## 测试范围
-
-**范围内**
-
-| 交易名称 | 交易配比 | 备注 |
-|----------|----------|------|
-| 授信申请 | 负载动态调整 | 核心写 |
-| 支用申请 | 负载动态调整 | 核心写 |
-| 还款申请 | 负载动态调整 | 核心写 |
-| 授信申请结果查询 | 负载动态调整 | 读 |
-| 还款申请结果查询 | 负载动态调整 | 读 |
-
-**范围外**：搜索推荐、对账批处理、第三方接口（挡板）
-
-## 测试资源
-
-**人员**：毛曦云（开发）· 王建涛（开发）· 关昕（测试）· 赵敏（运维支持）
-
-| 地址 | 模块 | 配置/版本 |
-|------|------|-----------|
-| 10.168.3.97 | package-retail-product / user / mdata | 4C/16G |
-| 10.168.3.102 | MySQL | 8.0.33 · 4C/16G |
-| 10.168.3.100 | Redis | 5.0.14 · 4C/16G |
-
-执行节点：controller-01 + worker ×4 · 监控目标：order-svc / mysql / redis · 时间窗口：09-05 20:00–23:00（封网）
-
-## 测试约束
-
-**入口准则**：指标已定义 ✓ · 场景已配置 ✓ · 脚本已关联 ✓ · 环境就绪 ✓（执行前环境检查回填）· 数据已准备 ✓ · 人员到位 / 接口人明确 ✓
-
-**出口准则**：高优先级场景均已执行；结果通过评审、指标达标（报告阶段判等 P0-3）
-
-## 场景设计
-
-### S1 授信申请 · 单交易并发
-场景目的：获取单交易多负载下的并发处理能力与性能拐点。
-场景设置：3 档 · 30→50→80 用户 · 5min/档 · 同时加载 · 同时退出
-
-### S2 支用申请 · 单交易并发（复测）
-场景目的：验证修复后处理能力（09-01 基线失败复测）。
-场景设置：3 档 · 30→50→80 用户 · 5min/档 · 同时加载 · 同时退出
-
-### S3 授信结果查询 · 单交易并发
-场景目的：查询类接口吞吐能力验证（目标 >1,000 t/s）。
-场景设置：3 档 · 30→50→80 用户 · 5min/档 · 同时加载 · 同时退出
-</script>
-
-<script type="text/markdown" id="conclusion-md">
 ## 结论
 
 | 指标 | 目标 | 实际结果 | 状态 |
@@ -525,7 +400,6 @@ flowchart LR
 </script>
 
 <div class="shell">
-  <!-- ============ 左侧导航 ============ -->
   <aside class="rail">
     <div class="rail-logo">
       <div class="mark">P</div>
@@ -566,11 +440,8 @@ flowchart LR
     </div>
 
     <div class="content">
-
-      <!-- ================= 屏 1：计划文档页 ================= -->
       <div class="screen active" id="screen-plan">
 
-        <!-- 头部 -->
         <div class="card plan-header">
           <div class="plan-head-row">
             <div>
@@ -591,7 +462,6 @@ flowchart LR
               <button class="btn btn-primary" disabled title="发布前置：报告已生成 + 总体结论确认 + 无活跃执行">发布计划</button>
             </div>
           </div>
-          <!-- 阶段步进条（二级状态） -->
           <div class="stepper">
             <div class="phase done"><div class="node">✓</div><div class="pname">草稿</div><div class="sub">已完成</div></div>
             <div class="p-line done"></div>
@@ -605,7 +475,6 @@ flowchart LR
           </div>
         </div>
 
-        <!-- Tabs -->
         <div class="card" style="margin-top:16px;">
           <div class="tabs">
             <div class="tab active" data-tab="doc">📄 文档</div>
@@ -617,27 +486,12 @@ flowchart LR
           <!-- ===== Tab 文档 ===== -->
           <div class="tab-panel active" data-panel="doc">
             <div class="tab-body doc-layout">
-              <!-- 章节导航 TOC -->
-              <aside class="toc card" style="padding:14px 12px;">
+              <aside class="toc card" style="padding:14px 12px;" id="toc">
                 <div class="toc-title">章节导航</div>
-                <div class="toc-group">结构化章节</div>
-                <a data-mod="goals">测试目的与指标</a>
-                <a data-mod="scope">测试范围</a>
-                <a data-mod="resources">测试资源</a>
-                <a data-mod="criteria">测试约束</a>
-                <a data-mod="scenarios">场景设计</a>
-                <a data-mod="conclusion">结论</a>
-                <div class="toc-group">叙述章节</div>
-                <a data-body="0">一、背景</a>
-                <a data-body="1">二、测试策略</a>
-                <a data-body="2">三、风险与预案</a>
-                <a data-body="3">四、排期与协作</a>
-                <a data-body="4">五、附录</a>
-                <a data-body="5">六、执行记录</a>
+                <div id="toc-links"></div>
               </aside>
 
               <div>
-                <!-- 文档工具栏 -->
                 <div class="doc-toolbar">
                   <div class="segmented">
                     <button class="active" data-seg="pretty">Pretty</button>
@@ -645,196 +499,14 @@ flowchart LR
                   </div>
                   <div class="tb-right">
                     <span class="rev">revision 5 · 已发布 v2</span>
-                    <button class="btn btn-sm edit-toggle" id="edit-toggle">✏ 编辑</button>
+                    <button class="btn btn-sm" id="edit-toggle" style="display:none;">✏ 编辑</button>
                   </div>
                 </div>
 
-                <!-- Pretty：单文档流，模块章节 = 受约束表单，叙述章节 = Markdown 渲染，原位排列 -->
-                <div class="doc-flow" id="doc-flow">
-                  <section class="doc-section" id="p-sec-0">
-                    <h2>🎯 测试目的与指标<span class="edit" title="执行阶段文档不可编辑">编辑</span></h2>
-                    <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">获取信贷系统各交易不同场景下的性能指标，为上线提供评估依据。</div>
-                    <table class="mini-table">
-                      <thead><tr><th>交易</th><th>指标</th><th>目标值</th><th>口径</th></tr></thead>
-                      <tbody>
-                        <tr><td>授信申请</td><td>TPS</td><td class="val">&gt; 100 t/s</td><td>峰值口径</td></tr>
-                        <tr><td>支用申请</td><td>TPS</td><td class="val">&gt; 100 t/s</td><td>峰值口径</td></tr>
-                        <tr><td>还款申请</td><td>TPS</td><td class="val">&gt; 100 t/s</td><td>峰值口径</td></tr>
-                        <tr><td>授信结果查询</td><td>TPS</td><td class="val">&gt; 1,000 t/s</td><td>查询类</td></tr>
-                        <tr><td>还款结果查询</td><td>TPS</td><td class="val">&gt; 1,000 t/s</td><td>查询类</td></tr>
-                        <tr><td>全链路</td><td>稳定性</td><td class="val">8h 无异常</td><td>成功率 100%</td></tr>
-                      </tbody>
-                    </table>
-                  </section>
-                  <section class="doc-section" id="p-sec-1">
-                    <h2>🧭 测试范围<span class="edit" title="执行阶段文档不可编辑">编辑</span></h2>
-                    <table class="mini-table">
-                      <thead><tr><th>交易名称</th><th>交易配比</th><th>备注</th></tr></thead>
-                      <tbody>
-                        <tr><td>授信申请</td><td>负载动态调整</td><td>核心写</td></tr>
-                        <tr><td>支用申请</td><td>负载动态调整</td><td>核心写</td></tr>
-                        <tr><td>还款申请</td><td>负载动态调整</td><td>核心写</td></tr>
-                        <tr><td>授信申请结果查询</td><td>负载动态调整</td><td>读</td></tr>
-                        <tr><td>还款申请结果查询</td><td>负载动态调整</td><td>读</td></tr>
-                      </tbody>
-                    </table>
-                    <div class="sub-label">范围外</div>
-                    <div class="chip-list">
-                      <span class="chip off">搜索推荐</span><span class="chip off">对账批处理</span>
-                      <span class="chip off">第三方接口（挡板）</span>
-                    </div>
-                  </section>
-                  <section class="doc-section" id="p-sec-2">
-                    <h2>🧱 测试资源<span class="edit" title="执行阶段文档不可编辑">编辑</span></h2>
-                    <div class="sub-label">人员</div>
-                    <div class="person-list">毛曦云（开发）· 王建涛（开发）· 关昕（测试）· 赵敏（运维支持）</div>
-                    <div class="sub-label">环境部署信息</div>
-                    <table class="mini-table">
-                      <thead><tr><th>地址</th><th>模块</th><th>配置/版本</th></tr></thead>
-                      <tbody>
-                        <tr><td class="mono">10.168.3.97</td><td>package-retail-product / user / mdata</td><td>4C/16G</td></tr>
-                        <tr><td class="mono">10.168.3.102</td><td>MySQL</td><td>8.0.33 · 4C/16G</td></tr>
-                        <tr><td class="mono">10.168.3.100</td><td>Redis</td><td>5.0.14 · 4C/16G</td></tr>
-                      </tbody>
-                    </table>
-                    <div class="sub-label">执行节点 / 监控目标 / 时间窗口</div>
-                    <div class="chip-list">
-                      <span class="tag">controller-01</span><span class="tag">worker ×4</span>
-                      <span class="tag">order-svc 监控</span><span class="tag">mysql 监控</span>
-                    </div>
-                    <div class="window-row">09-05 20:00 – 23:00 <span class="tag soft">封网窗口</span></div>
-                  </section>
-                  <section class="doc-section" id="p-sec-3">
-                    <h2>🧪 测试约束<span class="edit" title="执行阶段文档不可编辑">编辑</span></h2>
-                    <div class="sub-label">入口准则（结构化清单，不设硬门禁）</div>
-                    <div class="check-list">
-                      <div class="check-item pass"><span class="box">✓</span>指标已定义<span class="how auto">自动核验</span></div>
-                      <div class="check-item pass"><span class="box">✓</span>场景已配置<span class="how auto">自动核验</span></div>
-                      <div class="check-item pass"><span class="box">✓</span>脚本已关联<span class="how auto">自动核验</span></div>
-                      <div class="check-item pass"><span class="box">✓</span>环境就绪<span class="how auto">执行前环境检查回填</span></div>
-                      <div class="check-item pass"><span class="box">✓</span>数据已准备<span class="how">人工勾选</span></div>
-                      <div class="check-item pass"><span class="box">✓</span>人员到位 / 接口人明确<span class="how">人工勾选</span></div>
-                    </div>
-                    <div class="sub-label">出口准则（展示，不门禁）</div>
-                    <div class="check-list">
-                      <div class="check-item"><span class="box">✓</span>高优先级场景均已执行<span class="how">执行完成后自动核验</span></div>
-                      <div class="check-item"><span class="box"></span>结果通过评审、指标达标<span class="how">报告阶段判等（P0-3）</span></div>
-                    </div>
-                    <div class="hint">环境检查不在此体现——它是执行前动作（执行设置），不参与评审。</div>
-                  </section>
-                  <section class="doc-section" id="p-sec-4">
-                    <h2>⚙ 场景设计<span class="edit" title="执行阶段文档不可编辑">编辑</span></h2>
-                    <table class="data">
-                      <thead>
-                        <tr><th>场景</th><th>测试类型</th><th>场景设置</th><th>场景目的</th><th>最新执行</th><th style="text-align:right;">操作</th></tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td><b>S1 授信申请</b></td>
-                          <td><span class="tag">单交易并发</span></td>
-                          <td>3 档 · 30→50→80 用户 · 5min/档 · 同时加载</td>
-                          <td>获取单交易多负载下的并发处理能力与性能拐点</td>
-                          <td><span class="exec-status ok">● SUCCESS</span> 09-01 21:40</td>
-                          <td><div class="row-actions">
-                            <button class="btn btn-sm btn-primary">执行</button>
-                            <button class="btn btn-sm">编辑</button>
-                            <button class="btn btn-sm">执行记录</button>
-                          </div></td>
-                        </tr>
-                        <tr style="background:var(--accent-soft);">
-                          <td><b>S2 支用申请</b> <span class="tag soft">复测</span></td>
-                          <td><span class="tag">单交易并发</span></td>
-                          <td>3 档 · 30→50→80 用户 · 5min/档 · 同时加载</td>
-                          <td>验证支用申请修复后处理能力（09-01 基线失败复测）</td>
-                          <td><span class="exec-status run"><span class="dot" style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>RUNNING 复测中</span></td>
-                          <td><div class="row-actions">
-                            <button class="btn btn-sm" disabled title="运行中不可编辑，请到执行详情操作">编辑</button>
-                            <button class="btn btn-sm">执行记录</button>
-                          </div></td>
-                        </tr>
-                        <tr>
-                          <td><b>S3 授信结果查询</b></td>
-                          <td><span class="tag">单交易并发</span></td>
-                          <td>3 档 · 30→50→80 用户 · 5min/档 · 同时加载</td>
-                          <td>查询类接口吞吐能力验证（目标 &gt;1,000 t/s）</td>
-                          <td><span style="color:var(--muted);font-size:12px;">— 待执行</span></td>
-                          <td><div class="row-actions">
-                            <button class="btn btn-sm btn-primary">执行</button>
-                            <button class="btn btn-sm">编辑</button>
-                            <button class="btn btn-sm">执行记录</button>
-                          </div></td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <div class="hint">场景为业务语言（用户数/时长/加载方式/退出方式），自动翻译 JMeter 线程组；脚本不进计划文档，评审通过后编写并关联（仅展示关联状态）。</div>
-                    <div class="scenario-detail">
-                      <div class="sd-head">
-                        <h3>S2 支用申请 · 场景设计明细</h3>
-                        <span class="badge badge-running"><span class="dot"></span>执行中 · 复测</span>
-                        <span style="margin-left:auto;font-size:12px;color:var(--muted);">测试类型：单交易并发 · 执行就绪：脚本已关联 ✓</span>
-                      </div>
-                      <div class="sd-grid">
-                        <div class="sd-field">
-                          <div class="flabel">场景目的</div>
-                          <div class="fvalue">验证支用申请接口在 30→80 并发梯度下的处理能力与性能拐点；09-01 基线错误率 1.8% 超标，本次为修复后复测。</div>
-                        </div>
-                        <div class="sd-field">
-                          <div class="flabel">交易范围</div>
-                          <div class="fvalue">支用申请（核心写接口，含前置交易数据构造）</div>
-                        </div>
-                        <div class="sd-field">
-                          <div class="flabel">测试方法</div>
-                          <div class="fvalue">逐档加压（30→50→80 用户），每档持续 5 分钟，全程监控服务器 CPU/内存/磁盘；末档保持后统一退出。</div>
-                        </div>
-                        <div class="sd-field">
-                          <div class="flabel">场景设置（业务语言 → 自动翻译线程组）</div>
-                          <table class="preset-table">
-                            <thead><tr><th>档位</th><th>用户数</th><th>持续时长</th><th>加载方式</th><th>退出方式</th></tr></thead>
-                            <tbody>
-                              <tr><td>1</td><td>30</td><td>5 分钟</td><td>同时加载</td><td>同时退出</td></tr>
-                              <tr><td>2</td><td>50</td><td>5 分钟</td><td>同时加载</td><td>同时退出</td></tr>
-                              <tr><td>3</td><td>80</td><td>5 分钟</td><td>同时加载</td><td>同时退出</td></tr>
-                            </tbody>
-                          </table>
-                        </div>
-                        <div class="sd-field">
-                          <div class="flabel">预期指标</div>
-                          <div class="fvalue">目标 TPS &gt; 100 t/s（与计划指标清单一致）</div>
-                          <span class="extend-badge">🔗 验收标准实体 · P0-3 扩展位（阈值挂接与自动判等）</span>
-                        </div>
-                        <div class="sd-field">
-                          <div class="flabel">测试数据</div>
-                          <div class="fvalue">前置交易数据批量构造（授信申请回放数据）</div>
-                          <span class="extend-badge">🔗 CSV 参数文件分发 · P1-5 扩展位</span>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-                  <section class="doc-section" id="p-sec-5"><div class="markdown-body"></div></section>
-                  <section class="doc-section" id="p-sec-6"><div class="markdown-body"></div></section>
-                  <section class="doc-section" id="p-sec-7"><div class="markdown-body"></div></section>
-                  <section class="doc-section" id="p-sec-8"><div class="markdown-body"></div></section>
-                  <section class="doc-section" id="p-sec-9"><div class="markdown-body"></div></section>
-                  <section class="doc-section" id="p-sec-10"><div class="markdown-body"></div></section>
-                  <section class="doc-section" id="p-sec-11">
-                    <h2>📌 结论<span class="edit" title="发布时人工确认">发布时确认</span></h2>
-                    <table class="mini-table" style="margin-bottom:10px;">
-                      <thead><tr><th>指标</th><th>目标</th><th>实际结果</th><th>状态</th></tr></thead>
-                      <tbody>
-                        <tr><td>授信申请 TPS</td><td>&gt; 100 t/s</td><td class="val">260.3 t/s</td><td style="color:var(--muted);">—（判等 P0-3 回填）</td></tr>
-                        <tr><td>支用申请 TPS</td><td>&gt; 100 t/s</td><td class="val">复测中</td><td style="color:var(--muted);">—</td></tr>
-                        <tr><td>还款申请 TPS</td><td>&gt; 100 t/s</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
-                        <tr><td>授信结果查询 TPS</td><td>&gt; 1,000 t/s</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
-                        <tr><td>还款结果查询 TPS</td><td>&gt; 1,000 t/s</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
-                        <tr><td>稳定性（8h）</td><td>无异常</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
-                      </tbody>
-                    </table>
-                    <div class="conclusion-empty">风险与建议：报告生成后回填（缺陷清单 P3-7 / 人工补充）</div>
-                    <div class="conclusion-empty">总体结论：发布时人工确认（P0-3 判等落地后自动预填）</div>
-                  </section>
-                </div>
+                <!-- Pretty：从 Markdown 原文提取受约束章节做格式化展示，按原文顺序原位排列 -->
+                <div class="doc-flow" id="doc-flow"></div>
 
-                <!-- Markdown：预览（默认） / 编辑 -->
+                <!-- Markdown：原文（默认预览 / 编辑） -->
                 <div id="md-preview" style="display:none;">
                   <div class="doc-section" style="padding:24px 28px;">
                     <div class="markdown-body" id="md-full-render"></div>
@@ -843,7 +515,7 @@ flowchart LR
                 <div id="md-editor-wrap" style="display:none;">
                   <div class="doc-section" style="padding:16px 20px;">
                     <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
-                      编辑叙述正文（模块章节回 Pretty 视图编辑）· 保存携带 baseRevision · 冲突将弹出三选一
+                      编辑压测计划 Markdown 原文（含全部章节）· 保存携带 baseRevision · 冲突将弹出三选一
                     </div>
                     <textarea class="md-editor" id="md-editor-ta" spellcheck="false"></textarea>
                   </div>
@@ -966,7 +638,7 @@ flowchart LR
                 <div class="card side-card">
                   <h4>发布</h4>
                   <div class="fvalue" style="font-size:13px;line-height:1.8;margin-bottom:12px;">
-                    发布后计划进入<b>终态 发布·已发布</b>：固化发布快照（结构化模块 + 正文 + 场景 + 结果摘要，供迭代对比），
+                    发布后计划进入<b>终态 发布·已发布</b>：固化发布快照（Markdown 原文 + 场景 + 结果摘要，供迭代对比），
                     文档与场景冻结；继续执行与报告生成不受影响；变更内容走「发起新修订」。
                   </div>
                   <div class="fvalue" style="margin-bottom:12px;">
@@ -981,7 +653,7 @@ flowchart LR
                     <div class="icon">v2</div>
                     <div class="sinfo">
                       <div class="stitle">发布快照 · revision 2</div>
-                      <div class="smeta">2026-08-15 22:10 · 发布人 关昕 · 场景 3 · 模块 + 结果摘要已固化</div>
+                      <div class="smeta">2026-08-15 22:10 · 发布人 关昕 · 场景 3 · 原文 + 结果摘要已固化</div>
                     </div>
                     <button class="btn btn-sm">查看</button>
                   </div>
@@ -1034,43 +706,32 @@ flowchart LR
             期间发生了 <b>1 次评审批注</b> 与 <b>1 次执行摘要自动回填（S2 失败执行）</b>。
             平台不做自动覆盖与行级合并（D5），请选择处理方式。</span>
           </div>
-
           <div class="diff-layout">
             <div class="diff-col">
-              <div class="diff-head">
-                <b>平台当前版</b>
-                <span class="badge badge-approved">revision 5</span>
-              </div>
+              <div class="diff-head"><b>平台当前版</b><span class="badge badge-approved">revision 5</span></div>
               <div class="diff-body">
-                <div class="line">【指标清单】授信申请 TPS</div>
-                <div class="line del">&gt; 100 t/s · 峰值口径</div>
-                <div class="line add">&gt; 100 t/s · 峰值口径 + 拐点输出  ← 评审批注后调整</div>
-                <div class="line">【正文】</div>
+                <div class="line">| 授信申请 | TPS |</div>
+                <div class="line del">| > 100 t/s | 峰值口径 |</div>
+                <div class="line add">| > 100 t/s | 峰值口径 + 拐点输出  ← 评审批注后调整 |</div>
                 <div class="line">## 六、执行记录</div>
                 <div class="line add">### 09-02 10:15 · S2 支用申请 · FAILED（自动回填）</div>
               </div>
             </div>
             <div class="diff-col">
-              <div class="diff-head">
-                <b>本地草稿</b>
-                <span class="badge badge-draft">基于 revision 3</span>
-              </div>
+              <div class="diff-head"><b>本地草稿</b><span class="badge badge-draft">基于 revision 3</span></div>
               <div class="diff-body">
-                <div class="line">【指标清单】授信申请 TPS</div>
-                <div class="line add">&gt; 120 t/s · 峰值口径  ← 你的修改</div>
-                <div class="line">【正文】</div>
+                <div class="line">| 授信申请 | TPS |</div>
+                <div class="line add">| > 120 t/s | 峰值口径  ← 你的修改 |</div>
                 <div class="line">## 三、风险与预案</div>
                 <div class="line add">- 新增：监控告警阈值下调至 80% 水位  ← 你的补充</div>
                 <div class="line">（本地版本中没有 09-02 的执行记录）</div>
               </div>
             </div>
           </div>
-
           <div class="legend">
             <span><span class="swatch" style="background:var(--danger-soft);border:1px solid var(--danger);"></span>平台相对本地的变更</span>
             <span><span class="swatch" style="background:var(--ok-soft);border:1px solid var(--ok);"></span>本地相对平台的变更</span>
           </div>
-
           <div class="conflict-actions">
             <button class="btn">保留平台版（放弃本地修改）</button>
             <button class="btn btn-primary">采纳本地版（以 revision 5 重放）</button>
@@ -1078,7 +739,7 @@ flowchart LR
             <button class="btn" style="border:none;color:var(--muted);">取消</button>
           </div>
           <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:8px;">
-            采纳本地版 = 结构化模块 + 正文整体覆盖（非行级合并），以服务器最新 revision 重新提交；MCP 的 plan_update 返回同样的 409 结构。
+            采纳本地版 = 整篇原文覆盖（非行级合并），以服务器最新 revision 重新提交；MCP 的 plan_update 返回同样的 409 结构。
           </div>
         </div>
       </div>
@@ -1087,19 +748,257 @@ flowchart LR
   </div>
 </div>
 
-<!-- ============ 右下角切换器 ============ -->
 <div class="preview-switch">
   <button class="active" data-screen="screen-plan">① 计划文档页（执行·执行中）</button>
   <button data-screen="screen-conflict">② 编辑冲突 · 三选一</button>
 </div>
 
 <script>
-  // ===== 渲染工具 =====
-  function mdToHtml(src) {
-    if (typeof marked === 'undefined' || typeof marked.parse !== 'function') {
-      return '<pre style="white-space:pre-wrap;font-family:inherit;">' + src + '</pre>';
+  // ================= Markdown 原文 → Pretty 提取视图 =================
+  const src = document.getElementById('plan-doc-md').textContent.trim();
+
+  const KNOWN = {
+    '测试目的与指标': { icon: '🎯', kind: 'goals' },
+    '测试范围': { icon: '🧭', kind: 'scope' },
+    '测试资源': { icon: '🧱', kind: 'resources' },
+    '测试约束': { icon: '🧪', kind: 'criteria' },
+    '场景设计': { icon: '⚙', kind: 'scenarios' },
+    '结论': { icon: '📌', kind: 'conclusion' }
+  };
+
+  // 章节解析（按 ## 切分）
+  function parseSections(md) {
+    const parts = md.split(/^## /m);
+    const out = [];
+    for (let i = 1; i < parts.length; i++) {
+      const lines = parts[i].split('\n');
+      out.push({ title: lines[0].trim(), content: lines.slice(1).join('\n').trim() });
     }
-    return marked.parse(src);
+    return out;
+  }
+
+  // 提取管道表格（可多张，按出现顺序）
+  function tablesIn(content) {
+    const result = [];
+    const lines = content.split('\n');
+    let i = 0;
+    while (i < lines.length) {
+      if (lines[i].trim().startsWith('|')) {
+        const raw = [];
+        let j = i;
+        while (j < lines.length && lines[j].trim().startsWith('|')) { raw.push(lines[j].trim()); j++; }
+        const cells = raw.map(l => l.replace(/^\||\|$/g, '').split('|').map(c => c.trim()))
+          .filter(r => !r.every(c => /^:?-{2,}:?$/.test(c)));
+        result.push(cells);
+        i = j;
+      } else i++;
+    }
+    return result;
+  }
+
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function inline(s) {
+    return esc(s).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  }
+
+  function tableHtml(cells) {
+    const head = cells[0];
+    const valIdx = head.map((h, i) => /目标|实际|配置|版本|TPS/.test(h) ? i : -1).filter(i => i >= 0);
+    return '<table class="mini-table"><thead><tr>' + head.map(h => '<th>' + inline(h) + '</th>').join('') + '</tr></thead><tbody>'
+      + cells.slice(1).map(r => '<tr>' + r.map((c, i) => valIdx.includes(i) ? '<td class="val">' + inline(c) + '</td>' : '<td>' + inline(c) + '</td>').join('') + '</tr>').join('')
+      + '</tbody></table>';
+  }
+
+  // 非表格行（段落 / **标签**：值）
+  function textLines(content) {
+    return content.split('\n').filter(l => l.trim() && !l.trim().startsWith('|') && !l.trim().startsWith('```'));
+  }
+
+  function renderLabels(lines) {
+    let html = '';
+    for (const l of lines) {
+      const m = l.match(/^\*\*([^*]+)\*\*：?(.*)$/);
+      if (m) {
+        html += '<div class="sub-label">' + inline(m[1]) + '</div>';
+        if (m[2].trim()) html += '<div class="label-row"><span>' + inline(m[2].trim()) + '</span></div>';
+      } else {
+        html += '<div class="para">' + inline(l.trim()) + '</div>';
+      }
+    }
+    return html;
+  }
+
+  // 各受约束章节的 Pretty 渲染
+  function renderGoals(sec) {
+    const tables = tablesIn(sec.content);
+    const text = textLines(sec.content);
+    let h = '';
+    if (text.length) h += '<div class="para">' + inline(text.join(' ')) + '</div>';
+    h += tables.map(tableHtml).join('');
+    return h;
+  }
+  function renderScope(sec) {
+    const tables = tablesIn(sec.content);
+    let h = '';
+    const lines = sec.content.split('\n');
+    for (const l of lines) {
+      const t = l.trim();
+      if (!t || t.startsWith('|') || t.startsWith('```')) continue;
+      if (t.startsWith('**范围内**')) { h += '<div class="sub-label">范围内</div>'; continue; }
+      if (t.startsWith('**范围外**')) {
+        const items = t.replace(/^\*\*范围外\*\*：?/, '').split(/[、,，]/).map(x => x.trim()).filter(Boolean);
+        h += '<div class="sub-label">范围外</div><div class="chip-list">' + items.map(x => '<span class="chipx off">' + esc(x) + '</span>').join('') + '</div>';
+        continue;
+      }
+      h += '<div class="para">' + inline(t) + '</div>';
+    }
+    h += tables.map(tableHtml).join('');
+    return h;
+  }
+  function renderResources(sec) {
+    let h = '';
+    let pendingTable = '';
+    const lines = sec.content.split('\n');
+    const tables = tablesIn(sec.content);
+    let ti = 0;
+    for (const l of lines) {
+      const t = l.trim();
+      if (!t || t.startsWith('```')) continue;
+      if (t.startsWith('|')) { if (pendingTable) { h += pendingTable; pendingTable = ''; } ti++; continue; }
+      const m = t.match(/^\*\*([^*]+)\*\*：?(.*)$/);
+      if (m) {
+        const label = m[1], val = m[2].trim();
+        h += '<div class="sub-label">' + inline(label) + '</div>';
+        if (val) {
+          if (/节点|目标/.test(label)) {
+            const items = val.split(/[+＋/·、]/).map(x => x.trim()).filter(Boolean);
+            h += '<div class="chip-list">' + items.map(x => '<span class="tag">' + esc(x) + '</span>').join('') + '</div>';
+          } else if (/窗口/.test(label)) {
+            h += '<div class="window-row">' + inline(val.replace(/（[^）]*）/, '')) + ' <span class="tag soft">' + esc((val.match(/（([^）]*)）/g) || []).join(' ').replace(/[（）]/g, '')) + '</span></div>';
+          } else {
+            h += '<div class="label-row"><span>' + inline(val) + '</span></div>';
+          }
+        } else {
+          pendingTable = ''; // 下一个表格归该标签
+        }
+        continue;
+      }
+      h += '<div class="para">' + inline(t) + '</div>';
+    }
+    // 表格：按标签顺序插入（简化：环境部署信息表跟在标签后）
+    h = h.replace('</div><div class="para">', '</div>');
+    // 将剩余表格插入"环境部署信息"标签之后
+    const afterDeploy = tables.map(tableHtml).join('');
+    if (h.includes('环境部署信息')) {
+      h = h.replace(/(<div class="sub-label">环境部署信息<\/div>)/, '$1' + afterDeploy);
+    } else {
+      h += afterDeploy;
+    }
+    return h;
+  }
+  function renderCriteria(sec) {
+    let h = '';
+    const lines = sec.content.split('\n');
+    for (const l of lines) {
+      const t = l.trim();
+      if (!t) continue;
+      if (t.startsWith('**') && t.endsWith('**')) { h += '<div class="sub-label">' + inline(t.replace(/\*\*/g, '')) + '</div>'; continue; }
+      const m = t.match(/^- \[(x| )\] (.*)$/);
+      if (m) {
+        const done = m[1] === 'x';
+        const howM = m[2].match(/（([^）]*)）$/);
+        const label = howM ? m[2].slice(0, howM.index).trim() : m[2];
+        const how = howM ? howM[1] : '';
+        const auto = /自动/.test(how);
+        h += '<div class="check-item' + (done ? ' pass' : '') + '"><span class="box">' + (done ? '✓' : '') + '</span>' + inline(label)
+          + (how ? '<span class="how' + (auto ? ' auto' : '') + '">' + esc(how) + '</span>' : '') + '</div>';
+        continue;
+      }
+      h += '<div class="para">' + inline(t) + '</div>';
+    }
+    h += '<div class="hint">环境检查不在此体现——它是执行前动作（执行设置），不参与评审。</div>';
+    return h;
+  }
+  function renderScenarios(sec) {
+    const blocks = [];
+    const parts = sec.content.split(/^### /m).slice(1);
+    for (const p of parts) {
+      const lines = p.split('\n');
+      const title = lines[0].trim();
+      const body = lines.slice(1).join('\n');
+      const tables = tablesIn(body);
+      const purposeM = body.match(/场景目的：([^\n]*)/);
+      blocks.push({ title, purpose: purposeM ? purposeM[1].trim() : '', table: tables[0] || null });
+    }
+    const RUNTIME = {
+      'S1': { status: 'ok', text: 'SUCCESS 09-01 21:40', tag: '' },
+      'S2': { status: 'run', text: 'RUNNING 复测中', tag: '<span class="tag soft">复测</span>' },
+      'S3': { status: 'none', text: '— 待执行', tag: '' }
+    };
+    function settingsCell(t) {
+      if (!t || t.length < 2) return '—';
+      const rows = t.slice(1);
+      const users = rows.map(r => r[1]);
+      return rows.length + ' 档 · ' + users[0] + '→' + users[users.length - 1] + ' 用户 · ' + rows[0][2] + '/档 · ' + rows[0][3];
+    }
+    let h = '<table class="data"><thead><tr><th>场景</th><th>测试类型</th><th>场景设置</th><th>场景目的</th><th>最新执行</th><th style="text-align:right;">操作</th></tr></thead><tbody>';
+    for (const b of blocks) {
+      const idM = b.title.match(/^(S\d+)/);
+      const id = idM ? idM[1] : '';
+      const rt = RUNTIME[id] || { status: 'none', text: '—', tag: '' };
+      const typeM = b.title.match(/·\s*([^·（]+)/);
+      const type = typeM ? typeM[1].trim() : '';
+      h += '<tr><td><b>' + esc(b.title.replace(/（[^）]*）/, '')) + '</b> ' + rt.tag + '</td>'
+        + '<td><span class="tag">' + esc(type) + '</span></td>'
+        + '<td>' + esc(settingsCell(b.table)) + '</td>'
+        + '<td>' + esc(b.purpose) + '</td>'
+        + '<td>' + (rt.status === 'ok' ? '<span class="exec-status ok">● ' + rt.text + '</span>' : rt.status === 'run' ? '<span class="exec-status run"><span class="dot" style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>' + rt.text + '</span>' : '<span style="color:var(--muted);font-size:12px;">' + rt.text + '</span>') + '</td>'
+        + '<td><div class="row-actions">'
+        + (rt.status === 'run' ? '' : '<button class="btn btn-sm btn-primary">执行</button>')
+        + '<button class="btn btn-sm"' + (rt.status === 'run' ? ' disabled title="运行中不可编辑"' : '') + '>编辑</button>'
+        + '<button class="btn btn-sm">执行记录</button></div></td></tr>';
+    }
+    h += '</tbody></table>';
+    h += '<div class="hint">场景为业务语言（用户数/时长/加载方式/退出方式），自动翻译 JMeter 线程组；脚本不进计划文档，评审通过后编写并关联（仅展示关联状态）。</div>';
+    // S2 明细卡（执行中的场景展开）
+    const s2 = blocks.find(b => b.title.startsWith('S2'));
+    if (s2) {
+      h += '<div class="scenario-detail"><div class="sd-head"><h3>S2 支用申请 · 场景设计明细</h3>'
+        + '<span class="badge badge-running"><span class="dot"></span>执行中 · 复测</span>'
+        + '<span style="margin-left:auto;font-size:12px;color:var(--muted);">测试类型：单交易并发 · 执行就绪：脚本已关联 ✓</span></div>'
+        + '<div class="sd-grid">'
+        + '<div class="sd-field"><div class="flabel">场景目的</div><div class="fvalue">' + esc(s2.purpose) + '</div></div>'
+        + '<div class="sd-field"><div class="flabel">交易范围</div><div class="fvalue">支用申请（核心写接口，含前置交易数据构造）</div></div>'
+        + '<div class="sd-field"><div class="flabel">测试方法</div><div class="fvalue">逐档加压（30→50→80 用户），每档持续 5 分钟，全程监控服务器 CPU/内存/磁盘；末档保持后统一退出。</div></div>'
+        + '<div class="sd-field"><div class="flabel">场景设置（业务语言 → 自动翻译线程组）</div>' + tableHtml(s2.table).replace('mini-table', 'preset-table') + '</div>'
+        + '<div class="sd-field"><div class="flabel">预期指标</div><div class="fvalue">目标 TPS &gt; 100 t/s（与计划指标清单一致）</div><span class="extend-badge">🔗 验收标准实体 · P0-3 扩展位（阈值挂接与自动判等）</span></div>'
+        + '<div class="sd-field"><div class="flabel">测试数据</div><div class="fvalue">前置交易数据批量构造（授信申请回放数据）</div><span class="extend-badge">🔗 CSV 参数文件分发 · P1-5 扩展位</span></div>'
+        + '</div></div>';
+    }
+    return h;
+  }
+  function renderConclusion(sec) {
+    const tables = tablesIn(sec.content);
+    let h = tables.map(tableHtml).join('');
+    const lines = textLines(sec.content);
+    const risks = lines.find(l => l.startsWith('**风险与建议**'));
+    const summary = lines.find(l => l.startsWith('**总体结论**'));
+    h += '<div style="margin-top:10px;">' +
+      '<div class="conclusion-empty">' + (risks ? esc(risks.replace(/^\*\*风险与建议\*\*：?/, '')) : '风险与建议：报告生成后回填') + '</div>' +
+      '<div class="conclusion-empty">' + (summary ? esc(summary.replace(/^\*\*总体结论\*\*：?/, '')) : '总体结论：发布时人工确认') + '</div></div>';
+    return h;
+  }
+
+  const RENDERERS = {
+    goals: renderGoals, scope: renderScope, resources: renderResources,
+    criteria: renderCriteria, scenarios: renderScenarios, conclusion: renderConclusion
+  };
+
+  function mdToHtml(mdSrc) {
+    if (typeof marked === 'undefined' || typeof marked.parse !== 'function') {
+      return '<pre style="white-space:pre-wrap;font-family:inherit;">' + mdSrc + '</pre>';
+    }
+    return marked.parse(mdSrc);
   }
   function convertMermaidBlocks(root) {
     root.querySelectorAll('pre code.language-mermaid').forEach(block => {
@@ -1129,46 +1028,57 @@ flowchart LR
       }
     });
   }
-
-  const bodySrc = document.getElementById('plan-body-md').textContent;
-  const modulesSrc = document.getElementById('modules-md').textContent;
-  const conclusionSrc = document.getElementById('conclusion-md').textContent;
-
-  // Pretty 视图：叙述正文按章节拆进文档流（p-sec-5..p-sec-10）
-  const bodySections = bodySrc.split(/^## /m).filter(s => s.trim()).map(s => '## ' + s.trim());
-  for (let i = 0; i < 6; i++) {
-    const host = document.querySelector('#p-sec-' + (5 + i) + ' .markdown-body');
-    if (host && bodySections[i]) {
-      host.innerHTML = mdToHtml(bodySections[i]);
-      convertMermaidBlocks(host);
-      styleBackfillSection(host);
-    }
-  }
-
-  // Markdown 预览：模块章节 + 叙述正文 + 结论 拼成完整文档
-  const fullSrc = modulesSrc + '\n\n' + bodySrc + '\n\n' + conclusionSrc;
-  const mdFull = document.getElementById('md-full-render');
-  mdFull.innerHTML = mdToHtml(fullSrc);
-  convertMermaidBlocks(mdFull);
-  styleBackfillSection(mdFull);
-  mdFull.querySelectorAll('h2').forEach((h, i) => { h.id = 'md-sec-' + i; });
-
-  // mermaid 渲染（一次跑全部）
-  if (typeof mermaid !== 'undefined') {
+  function runMermaid() {
+    if (typeof mermaid === 'undefined') return;
     try {
       mermaid.initialize({ startOnLoad: false, theme: 'neutral', fontFamily: 'IBM Plex Sans, PingFang SC, sans-serif' });
       mermaid.run({ querySelector: '.markdown-body .mermaid' });
     } catch (e) { /* 保留纯代码块 */ }
   }
 
-  // MD 编辑 textarea
-  const editorTa = document.getElementById('md-editor-ta');
-  editorTa.value = bodySrc.trim();
+  // ================= 构建（Pretty 提取视图 + Markdown 预览 + TOC） =================
+  function buildAll(mdText) {
+    const sections = parseSections(mdText);
 
-  const MOD_ORDER = { goals: 0, scope: 1, resources: 2, criteria: 3, scenarios: 4, conclusion: 11 };
+    // TOC（按原文顺序）
+    const tocLinks = document.getElementById('toc-links');
+    tocLinks.innerHTML = sections.map((s, i) => {
+      const known = KNOWN[s.title];
+      return '<a data-idx="' + i + '">' + esc(s.title) + (known ? '<span class="toc-tag">提取</span>' : '') + '</a>';
+    }).join('');
 
-  // ===== 视图切换（Pretty | Markdown + 编辑按钮） =====
-  let docMode = 'pretty';   // pretty | md-preview | md-edit
+    // Pretty 文档流（原位顺序：受约束章节提取格式化，叙述章节渲染 Markdown）
+    const flow = document.getElementById('doc-flow');
+    flow.innerHTML = sections.map((s, i) => {
+      const known = KNOWN[s.title];
+      if (known) {
+        return '<section class="doc-section" id="p-sec-' + i + '"><h2>' + known.icon + ' ' + esc(s.title)
+          + '<span class="edit" title="执行阶段文档不可编辑">编辑（写回原文区块）</span></h2>'
+          + RENDERERS[known.kind](s) + '</section>';
+      }
+      return '<section class="doc-section" id="p-sec-' + i + '"><div class="markdown-body">'
+        + mdToHtml('## ' + s.title + '\n\n' + s.content) + '</div></section>';
+    }).join('');
+    flow.querySelectorAll('.markdown-body').forEach(el => {
+      convertMermaidBlocks(el);
+      styleBackfillSection(el);
+    });
+
+    // Markdown 预览（原文渲染）
+    const mdFull = document.getElementById('md-full-render');
+    mdFull.innerHTML = mdToHtml(mdText);
+    convertMermaidBlocks(mdFull);
+    styleBackfillSection(mdFull);
+    mdFull.querySelectorAll('h2').forEach((h, i) => { h.id = 'md-sec-' + i; });
+
+    runMermaid();
+  }
+
+  buildAll(src);
+  document.getElementById('md-editor-ta').value = src;
+
+  // ================= 视图切换（Pretty | Markdown + 编辑按钮） =================
+  let docMode = 'pretty'; // pretty | md-preview | md-edit
   const flow = document.getElementById('doc-flow');
   const mdPreview = document.getElementById('md-preview');
   const mdEditorWrap = document.getElementById('md-editor-wrap');
@@ -1194,42 +1104,30 @@ flowchart LR
   });
   editToggle.addEventListener('click', () => {
     if (docMode === 'md-edit') {
-      // 编辑 → 预览：用当前编辑内容重渲染预览
-      const edited = modulesSrc + '\n\n' + editorTa.value.trim() + '\n\n' + conclusionSrc;
-      mdFull.innerHTML = mdToHtml(edited);
-      convertMermaidBlocks(mdFull);
-      styleBackfillSection(mdFull);
-      mdFull.querySelectorAll('h2').forEach((h, i) => { h.id = 'md-sec-' + i; });
-      if (typeof mermaid !== 'undefined') {
-        try { mermaid.run({ querySelector: '#md-full-render .mermaid' }); } catch (e) {}
-      }
+      buildAll(document.getElementById('md-editor-ta').value.trim()); // 编辑内容重渲染（预览 + Pretty 同步）
       docMode = 'md-preview';
     } else {
+      document.getElementById('md-editor-ta').value = src; // 重置为当前原文
       docMode = 'md-edit';
     }
     applyMode();
   });
 
-  // ===== 章节导航 TOC =====
-  document.querySelectorAll('.toc a').forEach(a => {
-    a.addEventListener('click', () => {
-      if (docMode === 'md-edit') { docMode = 'md-preview'; applyMode(); }
-      let target;
-      if (docMode === 'md-preview') {
-        const idx = a.dataset.mod !== undefined ? MOD_ORDER[a.dataset.mod] : 5 + Number(a.dataset.body);
-        target = document.getElementById('md-sec-' + idx);
-      } else {
-        target = a.dataset.mod !== undefined
-          ? document.getElementById('p-sec-' + MOD_ORDER[a.dataset.mod])
-          : document.getElementById('p-sec-' + (5 + Number(a.dataset.body)));
-      }
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      document.querySelectorAll('.toc a').forEach(x => x.classList.remove('current'));
-      a.classList.add('current');
-    });
+  // ================= TOC 跳转 =================
+  document.getElementById('toc-links').addEventListener('click', (e) => {
+    const a = e.target.closest('a');
+    if (!a) return;
+    if (docMode === 'md-edit') { docMode = 'md-preview'; applyMode(); }
+    const idx = a.dataset.idx;
+    const target = docMode === 'md-preview'
+      ? document.getElementById('md-sec-' + idx)
+      : document.getElementById('p-sec-' + idx);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelectorAll('.toc a').forEach(x => x.classList.remove('current'));
+    a.classList.add('current');
   });
 
-  // ===== Tabs =====
+  // ================= Tabs / 屏幕切换 =================
   document.querySelectorAll('.tab').forEach(t => {
     t.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
@@ -1238,8 +1136,6 @@ flowchart LR
       document.querySelector(`[data-panel="${t.dataset.tab}"]`).classList.add('active');
     });
   });
-
-  // ===== 屏幕切换 =====
   document.querySelectorAll('.preview-switch button').forEach(b => {
     b.addEventListener('click', () => {
       document.querySelectorAll('.preview-switch button').forEach(x => x.classList.remove('active'));
