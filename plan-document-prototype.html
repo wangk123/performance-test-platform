@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>压测计划文档 · 改版效果图（P0-1 · 二级状态）</title>
+  <title>压测计划文档 · 改版效果图（P0-1 · 一稿走到头）</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -127,7 +127,7 @@
       display: flex; align-items: flex-start; margin-top: 16px; padding: 14px 16px;
       background: var(--canvas); border-radius: 10px; overflow-x: auto;
     }
-    .phase { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: none; min-width: 74px; }
+    .phase { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: none; min-width: 78px; }
     .phase .node {
       width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
       font-size: 11px; font-weight: 700; border: 1.5px solid var(--line); color: var(--muted); background: var(--surface);
@@ -168,27 +168,45 @@
     /* ============ 文档 Tab ============ */
     .modules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
     .module-card { padding: 16px 18px; }
+    .module-card.full { grid-column: 1 / -1; }
     .module-card h4 {
       font-size: 12px; font-weight: 700; letter-spacing: .3px; margin-bottom: 10px;
       display: flex; align-items: center; justify-content: space-between;
     }
     .module-card h4 .edit { font-size: 11px; color: var(--muted); cursor: not-allowed; font-weight: 500; }
-    .goal-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-    .goal-table th, .goal-table td { border-bottom: 1px solid var(--line); padding: 5px 4px; text-align: left; }
-    .goal-table th { color: var(--muted); font-weight: 600; font-size: 11.5px; }
-    .goal-table td.val { font-family: var(--mono); font-weight: 600; }
+    .mini-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .mini-table th, .mini-table td { border-bottom: 1px solid var(--line); padding: 5px 4px; text-align: left; }
+    .mini-table th { color: var(--muted); font-weight: 600; font-size: 11.5px; white-space: nowrap; }
+    .mini-table td.val { font-family: var(--mono); font-weight: 600; }
     .chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
     .chip {
       display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px;
       background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent);
     }
     .chip.off { background: var(--canvas); color: var(--muted); border-color: var(--line); }
-    .sub-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
-    .person-list { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+    .sub-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; margin-top: 8px; }
+    .sub-label:first-of-type { margin-top: 0; }
+    .person-list { font-size: 12.5px; margin-bottom: 8px; }
     .window-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+
+    /* 入口准则清单 */
+    .check-list { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; margin-bottom: 10px; }
+    .check-item { display: flex; align-items: center; gap: 8px; }
+    .check-item .box {
+      width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--line);
+      display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; flex: none;
+    }
+    .check-item.pass .box { background: var(--ok); border-color: var(--ok); }
+    .check-item .how { font-size: 11px; color: var(--muted); margin-left: auto; }
+    .check-item .how.auto { color: var(--accent); }
+    .precheck-box {
+      border: 1px dashed var(--accent); border-radius: 8px; background: var(--accent-soft);
+      padding: 10px 12px; font-size: 12.5px; margin-bottom: 10px;
+    }
+    .precheck-box .pc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .conclusion-empty {
-      border: 1px dashed var(--line); border-radius: 8px; padding: 14px; text-align: center;
-      color: var(--muted); font-size: 12.5px;
+      border: 1px dashed var(--line); border-radius: 8px; padding: 12px 14px; text-align: center;
+      color: var(--muted); font-size: 12.5px; margin-bottom: 8px;
     }
 
     /* Markdown 正文 */
@@ -291,22 +309,10 @@
     .preset-table th, .preset-table td { border: 1px solid var(--line); padding: 5px 10px; text-align: left; }
     .preset-table th { background: var(--canvas); font-weight: 600; color: var(--muted); }
 
-    /* ============ 报告 Tab ============ */
-    .report-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
-    .check-list { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
-    .check-item { display: flex; align-items: center; gap: 8px; }
-    .check-item .box {
-      width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--line);
-      display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; flex: none;
-    }
-    .check-item.pass .box { background: var(--ok); border-color: var(--ok); }
-    .check-item.fail .box { background: var(--canvas); color: var(--muted); }
-    .check-item .why { font-size: 11px; color: var(--muted); margin-left: auto; }
+    /* ============ 报告 / 发布 Tab ============ */
+    .report-layout, .publish-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
     .skeleton-row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--line); }
     .skeleton-bar { height: 10px; border-radius: 5px; background: var(--canvas); }
-
-    /* ============ 发布 Tab ============ */
-    .publish-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
     .snapshot { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; }
     .snapshot .icon {
       width: 36px; height: 36px; border-radius: 8px; background: var(--ink); color: #fff;
@@ -357,51 +363,56 @@
 
 <!-- ============ 计划正文（markdown 源，改这里！） ============ -->
 <script type="text/markdown" id="plan-doc-md">
-## 一、背景与目标
+## 一、背景
 
-大促前对电商核心链路（下单 → 支付 → 库存）进行容量评估。总体口径：链路峰值 **1500 TPS** 下单并发；场景级目标见上方"测试目标"模块与验收指标（P0-3 判等）。
+大促前对信贷核心业务（授信/支用/还款及查询链路）进行容量评估，为上线提供依据。总体口径：核心交易与查询类接口的 TPS 目标见上方"测试目的与指标"模块，场景级目标以验收指标为准。
 
 ```mermaid
 flowchart LR
-    B[压测节点 ×5] -->|HTTP| GW[nginx 网关] --> APP[order-svc ×8]
-    APP --> DB[(MySQL 主从)]
-    APP --> RD[(Redis 集群)]
-    APP --> KF[Kafka]
+    B[压测节点] -->|HTTP| GW[fast-gateway] --> APP[package-retail-product]
+    APP --> DB[(MySQL 8.0)]
+    APP --> RD[(Redis 5.0)]
+    APP --> MQ[RocketMQ 4.9]
 ```
 
-本次重点验证 09-01 支付回调基线失败后的修复效果（回调签名参数化），并输出容量拐点与扩容建议。
+本次重点验证支用申请 09-01 基线失败后的修复效果，并输出容量拐点与扩容建议。
 
-## 二、风险与预案
+## 二、测试策略
 
-- 压测期间与线上发布窗口冲突 → 已申请封网窗口（09-05 20:00–23:00）
+本次采用四类测试：**基准测试**（单请求平均响应时间基线）、**单交易并发测试**（单接口多并发处理能力与性能拐点）、**组合交易测试**（多交易并发运行验证相互影响）、**稳定性测试**（8 小时持续压力观察内存泄漏与性能衰减）。期间监控各服务器 CPU/内存/带宽与磁盘读写。
+
+## 三、风险与预案
+
+- 压测窗口与线上发布冲突 → 已申请封网窗口（09-05 20:00–23:00）
 - 大事务导致主从延迟 → 延迟超过 5s 自动停止并告警
-- 数据污染 → 使用隔离影子库 + 造数工厂快照，结束后校验清理
-- 支付回调复测仍失败 → 回滚至 v12，缺陷登记台账，计划延期发布
+- 数据污染 → 使用隔离影子库 + 造数快照，结束后校验清理
+- 支用申请复测仍失败 → 回滚配置，缺陷登记台账，计划延期发布
 
-## 三、排期与协作
+## 四、排期与协作
 
 | 环节 | 时间 | 负责人 |
 |------|------|--------|
-| 计划评审 | 08-28 ~ 08-29 | 张伟 / 李婷 / 王强 |
-| 基线执行 | 09-01 | 张伟 |
-| 修复复测 | 09-02 | 张伟 |
-| 全量梯度压测 | 09-05 封网窗口 | 张伟 + 运维 赵敏 |
-| 报告与发布 | 09-06 | 张伟 |
+| 计划评审 | 08-28 ~ 08-29 | 关昕 / 张伟 |
+| 脚本编写与关联 | 08-30 ~ 09-01 | 关昕 |
+| 基线执行 | 09-01 | 关昕 |
+| 修复复测 | 09-02 | 关昕 |
+| 全量梯度 + 稳定性 | 09-05 封网窗口 | 关昕 + 运维 |
+| 报告与发布 | 09-06 | 关昕 |
 
-## 四、附录
+## 五、附录
 
-- 术语：TPS = 每秒事务数；P95 = 95 分位响应时间；场景级口径以验收指标为准
-- 参考：上期发布快照 v2（2026-08-15）、线上监控大盘链接、JMeter 脚本仓库地址
+- 术语：TPS = 每秒事务数；ART = 平均响应时间
+- 参考：上期发布快照 v2（2026-08-15）、线上监控大盘
 
-## 五、执行记录
+## 六、执行记录
 
-### 2026-09-01 21:40 · S1 下单接口 · 基线梯度 200 并发
+### 2026-09-01 21:40 · S1 授信申请 · 30 用户基线
 - 状态：SUCCESS
-- 样本 86400 ｜ 吞吐 198.6 TPS ｜ P95 142 ms ｜ 错误率 0.02%
+- 样本 78137 ｜ 吞吐 260.3 TPS ｜ P95 114 ms ｜ 错误率 0%
 
-### 2026-09-02 10:15 · S2 支付回调 · 梯度 200 并发
+### 2026-09-02 10:15 · S2 支用申请 · 30 用户
 - 状态：FAILED
-- 样本 31200 ｜ 吞吐 96.4 TPS ｜ P95 412 ms ｜ 错误率 1.8%
+- 样本 149693 ｜ 吞吐 96.4 TPS ｜ P95 412 ms ｜ 错误率 1.8%
 </script>
 
 <div class="shell">
@@ -415,7 +426,7 @@ flowchart LR
       </div>
     </div>
     <div class="rail-project">
-      <div class="pname">电商核心链路</div>
+      <div class="pname">零售金融产品 3.1</div>
       <div class="pmeta">项目成员 6 人 · 负责人 赵敏</div>
     </div>
     <nav class="rail-nav">
@@ -431,18 +442,18 @@ flowchart LR
       <a href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v1.8M8 12.7v1.8M1.5 8h1.8M12.7 8h1.8M3.4 3.4l1.3 1.3M11.3 11.3l1.3 1.3M12.6 3.4l-1.3 1.3M4.7 11.3l-1.3 1.3"/></svg>设置</a>
     </nav>
     <div class="rail-user">
-      <div class="avatar">张</div>
+      <div class="avatar">关</div>
       <div>
-        <div class="uname">张伟</div>
-        <div class="urole">计划负责人</div>
+        <div class="uname">关昕</div>
+        <div class="urole">测试人员 · 计划负责人</div>
       </div>
     </div>
   </aside>
 
   <div class="main">
     <div class="breadcrumb">
-      <span>电商核心链路</span><span>/</span><span>任务计划</span><span>/</span>
-      <span class="cur">电商核心链路容量评估压测计划</span>
+      <span>零售金融产品 3.1</span><span>/</span><span>任务计划</span><span>/</span>
+      <span class="cur">零售金融产品 3.1 容量评估压测计划</span>
     </div>
 
     <div class="content">
@@ -455,11 +466,11 @@ flowchart LR
           <div class="plan-head-row">
             <div>
               <div class="plan-title">
-                电商核心链路容量评估压测计划
+                零售金融产品 3.1 容量评估压测计划
                 <span class="badge badge-running"><span class="dot"></span>执行 · 执行中</span>
               </div>
               <div class="plan-meta meta-kv">
-                <span>负责人 <b>张伟</b></span>
+                <span>负责人 <b>关昕</b></span>
                 <span>阶段 <b>执行</b> · 子状态 <b>执行中</b></span>
                 <span>文档 <b class="mono">revision 5</b></span>
                 <span>更新于 <b>2026-09-02 10:15</b></span>
@@ -467,7 +478,7 @@ flowchart LR
             </div>
             <div class="plan-actions">
               <button class="btn" disabled title="执行中不可生成报告，待本轮执行完成">生成报告</button>
-              <button class="btn btn-primary" disabled title="发布前置：报告已生成 + 结论确认 + 无活跃执行">发布计划</button>
+              <button class="btn btn-primary" disabled title="发布前置：报告已生成 + 总体结论确认 + 无活跃执行">发布计划</button>
             </div>
           </div>
           <!-- 阶段步进条（二级状态） -->
@@ -500,54 +511,101 @@ flowchart LR
               <!-- 结构化模块 -->
               <div class="modules-grid">
                 <div class="card module-card">
-                  <h4>🎯 测试目标 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
-                  <table class="goal-table">
-                    <thead><tr><th>指标</th><th>目标值</th><th>口径 / 说明</th></tr></thead>
+                  <h4>🎯 测试目的与指标 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
+                  <div class="fvalue" style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">获取信贷系统各交易不同场景下的性能指标，为上线提供评估依据。</div>
+                  <table class="mini-table">
+                    <thead><tr><th>交易</th><th>指标</th><th>目标值</th><th>口径</th></tr></thead>
                     <tbody>
-                      <tr><td>链路总吞吐</td><td class="val">1500 TPS</td><td>下单并发峰值口径</td></tr>
-                      <tr><td>响应时间 P95</td><td class="val">≤ 200 ms</td><td>核心写接口</td></tr>
-                      <tr><td>错误率</td><td class="val">≤ 0.1%</td><td>排除挡板模拟链路</td></tr>
-                      <tr><td>稳定性</td><td class="val">30 min</td><td>无内存泄漏 / 无连接池耗尽</td></tr>
-                      <tr><td>容量水位</td><td class="val">确认拐点</td><td>MySQL / Redis 水位与瓶颈定位</td></tr>
+                      <tr><td>授信申请</td><td>TPS</td><td class="val">&gt; 100 t/s</td><td>峰值口径</td></tr>
+                      <tr><td>支用申请</td><td>TPS</td><td class="val">&gt; 100 t/s</td><td>峰值口径</td></tr>
+                      <tr><td>还款申请</td><td>TPS</td><td class="val">&gt; 100 t/s</td><td>峰值口径</td></tr>
+                      <tr><td>授信结果查询</td><td>TPS</td><td class="val">&gt; 1,000 t/s</td><td>查询类</td></tr>
+                      <tr><td>还款结果查询</td><td>TPS</td><td class="val">&gt; 1,000 t/s</td><td>查询类</td></tr>
+                      <tr><td>全链路</td><td>稳定性</td><td class="val">8h 无异常</td><td>成功率 100%</td></tr>
                     </tbody>
                   </table>
                 </div>
                 <div class="card module-card">
                   <h4>🧭 测试范围 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
-                  <div class="sub-label">范围内</div>
-                  <div class="chip-list">
-                    <span class="chip">订单创建</span><span class="chip">支付回调</span>
-                    <span class="chip">库存扣减</span><span class="chip">优惠券核销</span>
-                  </div>
+                  <table class="mini-table">
+                    <thead><tr><th>交易名称</th><th>交易配比</th><th>备注</th></tr></thead>
+                    <tbody>
+                      <tr><td>授信申请</td><td>负载动态调整</td><td>核心写</td></tr>
+                      <tr><td>支用申请</td><td>负载动态调整</td><td>核心写</td></tr>
+                      <tr><td>还款申请</td><td>负载动态调整</td><td>核心写</td></tr>
+                      <tr><td>授信申请结果查询</td><td>负载动态调整</td><td>读</td></tr>
+                      <tr><td>还款申请结果查询</td><td>负载动态调整</td><td>读</td></tr>
+                    </tbody>
+                  </table>
                   <div class="sub-label">范围外</div>
                   <div class="chip-list">
                     <span class="chip off">搜索推荐</span><span class="chip off">对账批处理</span>
-                    <span class="chip off">第三方物流（挡板）</span>
+                    <span class="chip off">第三方接口（挡板）</span>
                   </div>
                 </div>
                 <div class="card module-card">
                   <h4>🧱 测试资源 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
-                  <div class="sub-label">执行节点</div>
+                  <div class="sub-label">人员</div>
+                  <div class="person-list">毛曦云（开发）· 王建涛（开发）· 关昕（测试）· 赵敏（运维支持）</div>
+                  <div class="sub-label">环境部署信息</div>
+                  <table class="mini-table">
+                    <thead><tr><th>地址</th><th>模块</th><th>配置/版本</th></tr></thead>
+                    <tbody>
+                      <tr><td class="mono">10.168.3.97</td><td>package-retail-product / user / mdata</td><td>4C/16G</td></tr>
+                      <tr><td class="mono">10.168.3.102</td><td>MySQL</td><td>8.0.33 · 4C/16G</td></tr>
+                      <tr><td class="mono">10.168.3.100</td><td>Redis</td><td>5.0.14 · 4C/16G</td></tr>
+                    </tbody>
+                  </table>
+                  <div class="sub-label">执行节点 / 监控目标 / 时间窗口</div>
                   <div class="chip-list">
-                    <span class="tag">controller-01</span><span class="tag">worker-01</span>
-                    <span class="tag">worker-02</span><span class="tag">worker-03</span><span class="tag">worker-04</span>
+                    <span class="tag">controller-01</span><span class="tag">worker ×4</span>
+                    <span class="tag">order-svc 监控</span><span class="tag">mysql 监控</span>
                   </div>
-                  <div class="sub-label">监控目标</div>
-                  <div class="chip-list">
-                    <span class="tag">order-svc</span><span class="tag">mysql</span><span class="tag">redis</span>
-                  </div>
-                  <div class="sub-label">人力</div>
-                  <div class="person-list" style="margin-bottom:8px;">
-                    <span>张伟（计划负责人） · 李婷（评审） · 王强（评审） · 赵敏（运维支持）</span>
-                  </div>
-                  <div class="sub-label">时间窗口</div>
                   <div class="window-row">09-05 20:00 – 23:00 <span class="tag soft">封网窗口</span></div>
                 </div>
                 <div class="card module-card">
-                  <h4>📌 结论 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
-                  <div class="conclusion-empty">
-                    待报告生成后确认（P0-3 判等落地后由判等结果自动预填，发布前人工确认）
+                  <h4>🧪 测试约束与环境检查 <span class="edit" title="执行阶段文档不可编辑">编辑</span></h4>
+                  <div class="sub-label">入口准则（结构化清单，不设硬门禁）</div>
+                  <div class="check-list">
+                    <div class="check-item pass"><span class="box">✓</span>指标已定义<span class="how auto">自动核验</span></div>
+                    <div class="check-item pass"><span class="box">✓</span>场景已配置<span class="how auto">自动核验</span></div>
+                    <div class="check-item pass"><span class="box">✓</span>脚本已关联<span class="how auto">自动核验</span></div>
+                    <div class="check-item pass"><span class="box">✓</span>环境就绪<span class="how auto">环境检查</span></div>
+                    <div class="check-item pass"><span class="box">✓</span>数据已准备<span class="how">人工勾选</span></div>
+                    <div class="check-item pass"><span class="box">✓</span>人员到位 / 接口人明确<span class="how">人工勾选</span></div>
                   </div>
+                  <div class="precheck-box">
+                    <div class="pc-head">
+                      <b>执行前环境检查 <span class="tag soft">已启用</span></b>
+                      <span class="badge badge-approved">首执行已运行 · 通过</span>
+                    </div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:6px;">
+                      2026-09-01 20:58 首次执行时自动运行（复用执行预检 seam）· 结果三态：本身 OK<br/>
+                      复测不自动重跑 · <button class="btn btn-sm" style="margin-top:6px;">手动触发预检</button>
+                      <button class="btn btn-sm" style="margin-top:6px;">跳过检查继续执行</button>
+                    </div>
+                  </div>
+                  <div class="sub-label">出口准则（展示，不门禁）</div>
+                  <div class="check-list">
+                    <div class="check-item"><span class="box">✓</span>高优先级场景均已执行<span class="how">执行完成后自动核验</span></div>
+                    <div class="check-item"><span class="box"></span>结果通过评审、指标达标<span class="how">报告阶段判等（P0-3）</span></div>
+                  </div>
+                </div>
+                <div class="card module-card full">
+                  <h4>📌 结论 <span class="edit" title="发布时人工确认">发布时确认</span></h4>
+                  <table class="mini-table" style="margin-bottom:10px;">
+                    <thead><tr><th>指标</th><th>目标</th><th>实际结果</th><th>状态</th></tr></thead>
+                    <tbody>
+                      <tr><td>授信申请 TPS</td><td>&gt; 100 t/s</td><td class="val">260.3 t/s</td><td style="color:var(--muted);">—（判等 P0-3 回填）</td></tr>
+                      <tr><td>支用申请 TPS</td><td>&gt; 100 t/s</td><td class="val">复测中</td><td style="color:var(--muted);">—</td></tr>
+                      <tr><td>还款申请 TPS</td><td>&gt; 100 t/s</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
+                      <tr><td>授信结果查询 TPS</td><td>&gt; 1,000 t/s</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
+                      <tr><td>还款结果查询 TPS</td><td>&gt; 1,000 t/s</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
+                      <tr><td>稳定性（8h）</td><td>无异常</td><td class="val">—</td><td style="color:var(--muted);">—</td></tr>
+                    </tbody>
+                  </table>
+                  <div class="conclusion-empty">风险与建议：报告生成后回填（缺陷清单 P3-7 / 人工补充）</div>
+                  <div class="conclusion-empty">总体结论：发布时人工确认（P0-3 判等落地后自动预填）</div>
                 </div>
               </div>
               <!-- Markdown 正文 -->
@@ -564,38 +622,38 @@ flowchart LR
                 <div class="timeline" id="review-timeline">
                   <div class="tl-item system">
                     <div class="dot">◌</div>
-                    <div class="tl-head"><span class="author">张伟</span>提交评审 · 草稿 → 评审·待评审<span style="margin-left:auto">2026-08-28 18:02</span></div>
+                    <div class="tl-head"><span class="author">关昕</span>提交评审 · 草稿 → 评审·待评审<span style="margin-left:auto">2026-08-28 18:02</span></div>
                     <div class="tl-body">提交评审，请项目成员批注。</div>
                   </div>
                   <div class="tl-item system">
                     <div class="dot">◌</div>
-                    <div class="tl-head"><span class="author">李婷</span>开始评审 · 待评审 → 评审中<span style="margin-left:auto">2026-08-29 09:14</span></div>
+                    <div class="tl-head"><span class="author">张伟</span>开始评审 · 待评审 → 评审中<span style="margin-left:auto">2026-08-29 09:14</span></div>
                     <div class="tl-body">评审中，批注请直接在此追加。</div>
                   </div>
                   <div class="tl-item review">
                     <div class="dot">💬</div>
-                    <div class="tl-head"><span class="author">李婷</span><span class="tag">成员</span><span style="margin-left:auto">2026-08-29 09:20</span></div>
-                    <div class="tl-body">"1500 TPS"是链路总体峰值口径，场景级目标应以测试目标模块与验收指标表为准——口径已补充，无异议。</div>
+                    <div class="tl-head"><span class="author">张伟</span><span class="tag">成员</span><span style="margin-left:auto">2026-08-29 09:20</span></div>
+                    <div class="tl-body">指标口径 OK：核心交易 &gt;100 t/s、查询类 &gt;1,000 t/s 与上期口径一致；建议组合场景配比参考上期 6:3:1。</div>
                   </div>
                   <div class="tl-item review">
                     <div class="dot">💬</div>
-                    <div class="tl-head"><span class="author">王强</span><span class="tag">成员</span><span style="margin-left:auto">2026-08-29 10:41</span></div>
-                    <div class="tl-body">S2 支付回调签名参数化确认在 v13 完成；混合场景 6:3:1 是并发分配比例。资源与时间窗口无异议。</div>
+                    <div class="tl-head"><span class="author">赵敏</span><span class="tag">成员</span><span style="margin-left:auto">2026-08-29 10:41</span></div>
+                    <div class="tl-body">环境部署信息表 10.168.3.97 还部署了 easyflow-dispatcher，建议补上；封网窗口已确认。</div>
                   </div>
                   <div class="tl-item review">
                     <div class="dot">💬</div>
-                    <div class="tl-head"><span class="author">张伟</span><span class="tag">负责人</span><span class="reply-tag">回复</span><span style="margin-left:auto">2026-08-29 11:05</span></div>
-                    <div class="tl-body">已确认。今晚更新 v13 绑定，09-01 开始基线执行。</div>
+                    <div class="tl-head"><span class="author">关昕</span><span class="tag">负责人</span><span class="reply-tag">回复</span><span style="margin-left:auto">2026-08-29 11:05</span></div>
+                    <div class="tl-body">已补充部署信息；配比采用 6:3:1。评审通过后开始编写脚本并关联。</div>
                   </div>
                   <div class="tl-item system">
                     <div class="dot">◌</div>
-                    <div class="tl-head"><span class="author">李婷</span>评审通过 · 评审中 → 评审通过<span style="margin-left:auto">2026-08-29 15:30</span></div>
-                    <div class="tl-body">评审结论：通过（3/3 无未决批注）。</div>
+                    <div class="tl-head"><span class="author">张伟</span>评审通过 · 评审中 → 评审通过<span style="margin-left:auto">2026-08-29 15:30</span></div>
+                    <div class="tl-body">评审结论：通过（任意成员可点通过，审批人已记录）。</div>
                   </div>
                   <div class="tl-item system">
                     <div class="dot">◌</div>
-                    <div class="tl-head"><span class="author">张伟</span>进入执行 · 评审通过 → 执行·待执行<span style="margin-left:auto">2026-09-01 20:00</span></div>
-                    <div class="tl-body">开始执行阶段：S1 基线梯度（200 → 500 → 800 → 1000）。</div>
+                    <div class="tl-head"><span class="author">关昕</span>进入执行 · 评审通过 → 执行·待执行<span style="margin-left:auto">2026-09-01 20:00</span></div>
+                    <div class="tl-body">脚本已编写并关联（评审通过后产生，不进文档）；开始执行阶段，首执行自动运行环境检查。</div>
                   </div>
                 </div>
                 <div class="card comment-box" style="margin-top:16px;">
@@ -607,7 +665,7 @@ flowchart LR
                 <div class="card side-card">
                   <h4>评审信息</h4>
                   <div class="kv"><span class="k">评审人</span><span class="v">项目成员</span></div>
-                  <div class="kv"><span class="k">评审结论</span><span class="v">通过（李婷）</span></div>
+                  <div class="kv"><span class="k">评审结论</span><span class="v">通过（张伟）</span></div>
                   <div class="kv"><span class="k">通过权限</span><span class="v">任意项目成员</span></div>
                   <div class="kv"><span class="k">发布权限</span><span class="v">负责人 / OWNER / 管理员</span></div>
                 </div>
@@ -617,7 +675,8 @@ flowchart LR
                     阶段：草稿 → 评审 → 执行 → 报告 → 发布<br/>
                     评审：待评审 / 评审中 / 评审通过<br/>
                     执行：待执行 / 执行中 / 执行完成<br/>
-                    报告：待生成 / 生成中 / 已生成
+                    报告：待生成 / 生成中 / 已生成<br/>
+                    环境检查 = 计划可选项（非状态）
                   </div>
                 </div>
               </div>
@@ -630,14 +689,14 @@ flowchart LR
               <div class="card" style="overflow:hidden;">
                 <table class="data">
                   <thead>
-                    <tr><th>场景</th><th>脚本版本</th><th>并发模型</th><th>场景目的</th><th>最新执行</th><th style="text-align:right;">操作</th></tr>
+                    <tr><th>场景</th><th>测试类型</th><th>场景设置</th><th>场景目的</th><th>最新执行</th><th style="text-align:right;">操作</th></tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td><b>S1 下单接口</b></td>
-                      <td><span class="tag">order-create.jmx v13</span></td>
-                      <td>梯度 5 档 · 200→1000</td>
-                      <td>定位下单链路容量拐点与 DB 水位</td>
+                      <td><b>S1 授信申请</b></td>
+                      <td><span class="tag">单交易并发</span></td>
+                      <td>3 档 · 30→50→80 用户 · 5min/档 · 同时加载</td>
+                      <td>获取单交易多负载下的并发处理能力与性能拐点</td>
                       <td><span class="exec-status ok">● SUCCESS</span> 09-01 21:40</td>
                       <td><div class="row-actions">
                         <button class="btn btn-sm btn-primary">执行</button>
@@ -646,21 +705,21 @@ flowchart LR
                       </div></td>
                     </tr>
                     <tr style="background:var(--accent-soft);">
-                      <td><b>S2 支付回调</b> <span class="tag soft">复测</span></td>
-                      <td><span class="tag">pay-callback.jmx v13</span></td>
-                      <td>梯度 3 档 · 200→600</td>
-                      <td>验证回调签名参数化修复（09-01 失败复测）</td>
+                      <td><b>S2 支用申请</b> <span class="tag soft">复测</span></td>
+                      <td><span class="tag">单交易并发</span></td>
+                      <td>3 档 · 30→50→80 用户 · 5min/档 · 同时加载</td>
+                      <td>验证支用申请修复后处理能力（09-01 基线失败复测）</td>
                       <td><span class="exec-status run"><span class="dot" style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>RUNNING 复测中</span></td>
                       <td><div class="row-actions">
-                        <button class="btn btn-sm" disabled title="运行中不可编辑/停止，请到执行详情操作">编辑</button>
+                        <button class="btn btn-sm" disabled title="运行中不可编辑，请到执行详情操作">编辑</button>
                         <button class="btn btn-sm">执行记录</button>
                       </div></td>
                     </tr>
                     <tr>
-                      <td><b>S3 混合场景</b></td>
-                      <td><span class="tag">mix-3in1.jmx v8</span></td>
-                      <td>梯度 3 档 · 100→500</td>
-                      <td>全链路混合（并发比 6:3:1）容量验证</td>
+                      <td><b>S3 授信结果查询</b></td>
+                      <td><span class="tag">单交易并发</span></td>
+                      <td>3 档 · 30→50→80 用户 · 5min/档 · 同时加载</td>
+                      <td>查询类接口吞吐能力验证（目标 &gt;1,000 t/s）</td>
                       <td><span style="color:var(--muted);font-size:12px;">— 待执行</span></td>
                       <td><div class="row-actions">
                         <button class="btn btn-sm btn-primary">执行</button>
@@ -670,41 +729,50 @@ flowchart LR
                     </tr>
                   </tbody>
                 </table>
+                <div style="padding:12px 16px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);">
+                  场景为业务语言（用户数/时长/加载方式/退出方式），自动翻译 JMeter 线程组；脚本不进计划文档，评审通过后编写并关联（仅展示关联状态）。
+                </div>
               </div>
 
               <!-- 场景设计明细（S2 展开示例） -->
               <div class="card scenario-detail">
                 <div class="sd-head">
-                  <h3>S2 支付回调 · 场景设计</h3>
+                  <h3>S2 支用申请 · 场景设计</h3>
                   <span class="badge badge-running"><span class="dot"></span>执行中 · 复测</span>
-                  <span style="margin-left:auto;font-size:12px;color:var(--muted);">脚本 pay-callback.jmx v13 · 节点：计划默认</span>
+                  <span style="margin-left:auto;font-size:12px;color:var(--muted);">测试类型：单交易并发 · 执行就绪：脚本已关联 ✓</span>
                 </div>
                 <div class="sd-grid">
                   <div class="sd-field">
                     <div class="flabel">场景目的</div>
-                    <div class="fvalue">验证支付回调签名参数化修复后，回调接口在 200→600 并发梯度下的处理能力、P95 与错误率是否达标（09-01 基线 1.8% 错误率超标）。</div>
+                    <div class="fvalue">验证支用申请接口在 30→80 并发梯度下的处理能力与性能拐点；09-01 基线错误率 1.8% 超标，本次为修复后复测。</div>
                   </div>
                   <div class="sd-field">
-                    <div class="flabel">并发模型</div>
-                    <div class="fvalue">梯度加压 3 档，每档持续 10 分钟，末档保持 5 分钟再回收；由线程组预设驱动。</div>
+                    <div class="flabel">交易范围</div>
+                    <div class="fvalue">支用申请（核心写接口，含前置交易数据构造）</div>
                   </div>
                   <div class="sd-field">
-                    <div class="flabel">线程组预设</div>
+                    <div class="flabel">测试方法</div>
+                    <div class="fvalue">逐档加压（30→50→80 用户），每档持续 5 分钟，全程监控服务器 CPU/内存/磁盘；末档保持后统一退出。</div>
+                  </div>
+                  <div class="sd-field">
+                    <div class="flabel">场景设置（业务语言 → 自动翻译线程组）</div>
                     <table class="preset-table">
-                      <thead><tr><th>档位</th><th>线程数</th><th>Ramp-Up</th><th>时长</th></tr></thead>
+                      <thead><tr><th>档位</th><th>用户数</th><th>持续时长</th><th>加载方式</th><th>退出方式</th></tr></thead>
                       <tbody>
-                        <tr><td>1</td><td>200</td><td>60 s</td><td>10 min</td></tr>
-                        <tr><td>2</td><td>400</td><td>120 s</td><td>10 min</td></tr>
-                        <tr><td>3</td><td>600</td><td>180 s</td><td>15 min</td></tr>
+                        <tr><td>1</td><td>30</td><td>5 分钟</td><td>同时加载</td><td>同时退出</td></tr>
+                        <tr><td>2</td><td>50</td><td>5 分钟</td><td>同时加载</td><td>同时退出</td></tr>
+                        <tr><td>3</td><td>80</td><td>5 分钟</td><td>同时加载</td><td>同时退出</td></tr>
                       </tbody>
                     </table>
                   </div>
                   <div class="sd-field">
                     <div class="flabel">预期指标</div>
-                    <div class="fvalue">目标 TPS 500 · P95 ≤ 300 ms · 错误率 ≤ 0.1%</div>
-                    <span class="extend-badge">🔗 验收标准实体 · P0-3 扩展位（场景级指标挂接与自动判等）</span>
-                    <div class="flabel" style="margin-top:10px;">测试数据</div>
-                    <div class="fvalue">回调签名参数文件 v3（参数化引用，密钥不落明文）</div>
+                    <div class="fvalue">目标 TPS &gt; 100 t/s（与计划指标清单一致）</div>
+                    <span class="extend-badge">🔗 验收标准实体 · P0-3 扩展位（阈值挂接与自动判等）</span>
+                  </div>
+                  <div class="sd-field">
+                    <div class="flabel">测试数据</div>
+                    <div class="fvalue">前置交易数据批量构造（授信申请回放数据）</div>
                     <span class="extend-badge">🔗 CSV 参数文件分发 · P1-5 扩展位</span>
                   </div>
                 </div>
@@ -720,30 +788,31 @@ flowchart LR
                   <h4>报告阶段 <span class="badge badge-pending">待生成</span></h4>
                   <div class="fvalue" style="font-size:13px;line-height:1.8;margin-bottom:12px;">
                     当前阶段 <b>执行 · 执行中</b>：S2 复测进行中。全部执行结束后进入"执行完成"，
-                    随后可进入报告阶段生成报告（聚合摘要 + 验收判等）。发布前需报告已生成。
+                    随后可进入报告阶段生成报告——聚合摘要先行填充结论章节的"指标达成表·实际"列（判等状态 P0-3 起回填），
+                    同一份文档从计划走到报告。
                   </div>
                   <button class="btn btn-primary" disabled title="执行中不可生成报告，待本轮执行全部结束">生成报告（执行完成 → 报告·已生成）</button>
                 </div>
                 <div class="card side-card" style="margin-top:16px;">
                   <h4>报告内容预览（占位）</h4>
-                  <div class="skeleton-row"><div class="skeleton-bar" style="width:120px;"></div><span style="font-size:12px;color:var(--muted);">聚合摘要：吞吐 / P95 / 错误率（按场景+线程组档位）</span></div>
-                  <div class="skeleton-row"><div class="skeleton-bar" style="width:120px;"></div><span style="font-size:12px;color:var(--muted);">验收判等：过 / 不过 + 超标明细（P0-3 落地后启用）</span></div>
-                  <div class="skeleton-row" style="border-bottom:none;"><div class="skeleton-bar" style="width:120px;"></div><span style="font-size:12px;color:var(--muted);">执行明细与回填记录</span></div>
+                  <div class="skeleton-row"><div class="skeleton-bar" style="width:120px;"></div><span style="font-size:12px;color:var(--muted);">指标达成表：实际列（聚合）· 状态列（判等 P0-3）</span></div>
+                  <div class="skeleton-row"><div class="skeleton-bar" style="width:120px;"></div><span style="font-size:12px;color:var(--muted);">执行明细与回填记录</span></div>
+                  <div class="skeleton-row" style="border-bottom:none;"><div class="skeleton-bar" style="width:120px;"></div><span style="font-size:12px;color:var(--muted);">风险与建议（缺陷清单 P3-7 / 人工补充）</span></div>
                 </div>
               </div>
               <div class="review-side">
                 <div class="card side-card">
                   <h4>发布前置条件</h4>
-                  <div class="check-list">
+                  <div class="check-list" style="font-size:13px;">
                     <div class="check-item fail"><span class="box">✗</span>报告已生成<span class="why">待执行完成</span></div>
-                    <div class="check-item fail"><span class="box">✗</span>结论已确认<span class="why">发布时人工确认</span></div>
+                    <div class="check-item fail"><span class="box">✗</span>总体结论已确认<span class="why">发布时人工确认</span></div>
                     <div class="check-item fail"><span class="box">✗</span>无活跃执行<span class="why">S2 运行中</span></div>
                   </div>
                 </div>
                 <div class="card side-card" style="background:var(--accent-soft);border-color:var(--accent);">
-                  <h4 style="color:var(--accent);">报告阶段说明</h4>
+                  <h4 style="color:var(--accent);">一稿走到头</h4>
                   <div class="fvalue" style="font-size:12.5px;line-height:1.8;">
-                    待生成 → 生成中 → 已生成。新执行启动会自动作废旧报告（回到待生成），保证发布前报告反映最新执行。
+                    报告不是独立文档：执行结果回填同一份文档的执行记录与结论章节，发布时这份文档就是报告。新执行启动作废旧报告（回到待生成）。
                   </div>
                 </div>
               </div>
@@ -757,14 +826,14 @@ flowchart LR
                 <div class="card side-card">
                   <h4>发布</h4>
                   <div class="fvalue" style="font-size:13px;line-height:1.8;margin-bottom:12px;">
-                    发布后计划进入<b>终态 发布·已发布</b>：固化发布快照（结构化模块 + 正文 + 场景/脚本版本 + 结果摘要，供迭代对比），
+                    发布后计划进入<b>终态 发布·已发布</b>：固化发布快照（结构化模块 + 正文 + 场景 + 结果摘要，供迭代对比），
                     文档与场景冻结；继续执行与报告生成不受影响；变更内容走「发起新修订」。
                   </div>
                   <div class="fvalue" style="margin-bottom:12px;">
-                    <div class="flabel" style="font-size:12px;color:var(--muted);margin-bottom:4px;">结论（发布时人工确认，P0-3 起判等预填）</div>
-                    <textarea disabled style="width:100%;min-height:64px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:var(--font);font-size:13px;background:var(--canvas);" placeholder="待报告生成后填写结论……"></textarea>
+                    <div class="flabel" style="font-size:12px;color:var(--muted);margin-bottom:4px;">总体结论（发布时人工确认，P0-3 起判等预填）</div>
+                    <textarea disabled style="width:100%;min-height:64px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:var(--font);font-size:13px;background:var(--canvas);" placeholder="待报告生成后填写总体结论……"></textarea>
                   </div>
-                  <button class="btn btn-primary" disabled title="发布前置：报告已生成 + 结论确认 + 无活跃执行">发布计划（报告·已生成 → 发布·已发布）</button>
+                  <button class="btn btn-primary" disabled title="发布前置：报告已生成 + 总体结论确认 + 无活跃执行">发布计划（报告·已生成 → 发布·已发布）</button>
                 </div>
                 <div class="card side-card" style="margin-top:16px;">
                   <h4>发布历史（快照）</h4>
@@ -772,7 +841,7 @@ flowchart LR
                     <div class="icon">v2</div>
                     <div class="sinfo">
                       <div class="stitle">发布快照 · revision 2</div>
-                      <div class="smeta">2026-08-15 22:10 · 发布人 张伟 · 场景 3 · 结构化模块 + 结果摘要已固化</div>
+                      <div class="smeta">2026-08-15 22:10 · 发布人 关昕 · 场景 3 · 模块 + 结果摘要已固化</div>
                     </div>
                     <button class="btn btn-sm">查看</button>
                   </div>
@@ -780,7 +849,7 @@ flowchart LR
                     <div class="icon" style="background:var(--accent);">v1</div>
                     <div class="sinfo">
                       <div class="stitle">发布快照 · revision 1</div>
-                      <div class="smeta">2026-08-08 20:31 · 发布人 张伟 · 场景 2 · 结果摘要已固化</div>
+                      <div class="smeta">2026-08-08 20:31 · 发布人 关昕 · 场景 2 · 结果摘要已固化</div>
                     </div>
                     <button class="btn btn-sm">查看</button>
                   </div>
@@ -833,12 +902,12 @@ flowchart LR
                 <span class="badge badge-approved">revision 5</span>
               </div>
               <div class="diff-body">
-                <div class="line">【测试目标模块】链路总吞吐</div>
-                <div class="line del">1500 TPS · 下单并发峰值口径</div>
-                <div class="line add">1500 TPS · 峰值口径 + 梯度拐点输出  ← 评审批注后调整</div>
+                <div class="line">【指标清单】授信申请 TPS</div>
+                <div class="line del">&gt; 100 t/s · 峰值口径</div>
+                <div class="line add">&gt; 100 t/s · 峰值口径 + 拐点输出  ← 评审批注后调整</div>
                 <div class="line">【正文】</div>
-                <div class="line">## 五、执行记录</div>
-                <div class="line add">### 09-02 10:15 · S2 支付回调 · FAILED（自动回填）</div>
+                <div class="line">## 六、执行记录</div>
+                <div class="line add">### 09-02 10:15 · S2 支用申请 · FAILED（自动回填）</div>
               </div>
             </div>
             <div class="diff-col">
@@ -847,10 +916,10 @@ flowchart LR
                 <span class="badge badge-draft">基于 revision 3</span>
               </div>
               <div class="diff-body">
-                <div class="line">【测试目标模块】链路总吞吐</div>
-                <div class="line add">1600 TPS · 下单并发峰值口径  ← 你的修改</div>
+                <div class="line">【指标清单】授信申请 TPS</div>
+                <div class="line add">&gt; 120 t/s · 峰值口径  ← 你的修改</div>
                 <div class="line">【正文】</div>
-                <div class="line">## 二、风险与预案</div>
+                <div class="line">## 三、风险与预案</div>
                 <div class="line add">- 新增：监控告警阈值下调至 80% 水位  ← 你的补充</div>
                 <div class="line">（本地版本中没有 09-02 的执行记录）</div>
               </div>
