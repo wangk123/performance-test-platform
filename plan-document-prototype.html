@@ -182,7 +182,8 @@
     .backfill-wrap h3:first-child { margin-top: 4px; }
     .backfill-wrap ul { margin: 4px 0; color: var(--muted); }
     .backfill-wrap::before { content: "自动追加 · 不可手改 · 条目幂等"; display: block; font-size: 11px; color: var(--accent); font-family: var(--mono); margin-bottom: 4px; }
-    .md-editor { width: 100%; min-height: 720px; border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--ink); background: var(--surface); resize: vertical; outline: none; }
+    .mermaid-fallback { margin: 14px 0; padding: 12px 14px; border: 1px dashed var(--accent); border-radius: 8px; background: var(--accent-soft); font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: pre; overflow-x: auto; }
+.md-editor { width: 100%; min-height: 720px; border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--ink); background: var(--surface); resize: vertical; outline: none; }
 
     /* 评审 / 报告 / 发布 */
     .review-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
@@ -243,7 +244,7 @@
 <script type="text/markdown" id="plan-doc-md">
 ## 一、背景
 
-大促前对信贷核心业务（授信/支用/还款及查询链路）进行容量评估，为上线提供依据。总体口径：核心交易与查询类接口的 TPS 目标见"测试目的与指标"章节，场景级目标以验收指标为准。
+大促前对信贷核心业务（授信/支用/还款及查询链路）进行容量评估，为上线提供依据。
 
 ```mermaid
 flowchart LR
@@ -357,7 +358,7 @@ flowchart LR
 - 数据污染 → 使用隔离影子库 + 造数快照，结束后校验清理
 - 支用申请复测仍失败 → 回滚配置，缺陷登记台账，计划延期发布
 
-## 四、排期与协作
+## 排期与协作
 
 | 环节 | 时间 | 负责人 |
 |------|------|--------|
@@ -368,12 +369,12 @@ flowchart LR
 | 全量梯度 + 稳定性 | 09-05 封网窗口 | 关昕 + 运维 |
 | 报告与发布 | 09-06 | 关昕 |
 
-## 五、附录
+## 四、附录
 
 - 术语：TPS = 每秒事务数；ART = 平均响应时间
 - 参考：上期发布快照 v2（2026-08-15）、线上监控大盘
 
-## 六、执行记录
+## 五、执行记录
 
 ### 2026-09-01 21:40 · S1 授信申请 · 30 用户基线
 - 状态：SUCCESS
@@ -713,7 +714,7 @@ flowchart LR
                 <div class="line">| 授信申请 | TPS |</div>
                 <div class="line del">| > 100 t/s | 峰值口径 |</div>
                 <div class="line add">| > 100 t/s | 峰值口径 + 拐点输出  ← 评审批注后调整 |</div>
-                <div class="line">## 六、执行记录</div>
+                <div class="line">## 五、执行记录</div>
                 <div class="line add">### 09-02 10:15 · S2 支用申请 · FAILED（自动回填）</div>
               </div>
             </div>
@@ -763,7 +764,7 @@ flowchart LR
     '测试资源': { icon: '🧱', kind: 'resources' },
     '测试约束': { icon: '🧪', kind: 'criteria' },
     '场景设计': { icon: '⚙', kind: 'scenarios' },
-    '结论': { icon: '📌', kind: 'conclusion' }
+    '排期与协作': { icon: '📅', kind: 'schedule' }
   };
 
   // 章节解析（按 ## 切分）
@@ -919,6 +920,10 @@ flowchart LR
     h += '<div class="hint">环境检查不在此体现——它是执行前动作（执行设置），不参与评审。</div>';
     return h;
   }
+  function renderSchedule(sec) {
+    const tables = tablesIn(sec.content);
+    return tables.map(tableHtml).join('');
+  }
   function renderScenarios(sec) {
     const blocks = [];
     const parts = sec.content.split(/^### /m).slice(1);
@@ -991,14 +996,48 @@ flowchart LR
 
   const RENDERERS = {
     goals: renderGoals, scope: renderScope, resources: renderResources,
-    criteria: renderCriteria, scenarios: renderScenarios, conclusion: renderConclusion
+    criteria: renderCriteria, scenarios: renderScenarios, schedule: renderSchedule
   };
 
-  function mdToHtml(mdSrc) {
-    if (typeof marked === 'undefined' || typeof marked.parse !== 'function') {
-      return '<pre style="white-space:pre-wrap;font-family:inherit;">' + mdSrc + '</pre>';
+  function miniMd(mdSrc) {
+    // 内置降级渲染：标题 / 表格 / 列表 / 粗体 / 代码块（无外部依赖，保证章节结构）
+    const lines = mdSrc.split('\n');
+    let html = '', i = 0;
+    while (i < lines.length) {
+      const t = lines[i].trim();
+      if (t.startsWith('```')) {
+        const buf = []; i++;
+        while (i < lines.length && !lines[i].trim().startsWith('```')) { buf.push(lines[i]); i++; }
+        i++;
+        html += '<pre class="mermaid-fallback">' + esc(buf.join('\n')) + '</pre>';
+        continue;
+      }
+      if (t.startsWith('|')) {
+        const raw = [];
+        while (i < lines.length && lines[i].trim().startsWith('|')) { raw.push(lines[i].trim()); i++; }
+        const cells = raw.map(l => l.replace(/^\||\|$/g, '').split('|').map(c => c.trim()))
+          .filter(r => !r.every(c => /^:?-{2,}:?$/.test(c)));
+        html += tableHtml(cells);
+        continue;
+      }
+      if (!t) { i++; continue; }
+      if (t.startsWith('### ')) { html += '<h3>' + inline(t.slice(4)) + '</h3>'; i++; continue; }
+      if (t.startsWith('## ')) { html += '<h2>' + inline(t.slice(3)) + '</h2>'; i++; continue; }
+      if (t.startsWith('- ')) {
+        const items = [];
+        while (i < lines.length && lines[i].trim().startsWith('- ')) { items.push(lines[i].trim().slice(2)); i++; }
+        html += '<ul>' + items.map(x => '<li>' + inline(x) + '</li>').join('') + '</ul>';
+        continue;
+      }
+      const buf = [lines[i]]; i++;
+      while (i < lines.length && lines[i].trim() && !/^(#{1,3} |\||- |```)/.test(lines[i].trim())) { buf.push(lines[i]); i++; }
+      html += '<p>' + inline(buf.join(' ').trim()) + '</p>';
     }
-    return marked.parse(mdSrc);
+    return html;
+  }
+  function mdToHtml(mdSrc) {
+    if (typeof marked !== 'undefined' && typeof marked.parse === 'function') return marked.parse(mdSrc);
+    return miniMd(mdSrc);
   }
   function convertMermaidBlocks(root) {
     root.querySelectorAll('pre code.language-mermaid').forEach(block => {
@@ -1044,20 +1083,18 @@ flowchart LR
     const tocLinks = document.getElementById('toc-links');
     tocLinks.innerHTML = sections.map((s, i) => {
       const known = KNOWN[s.title];
-      return '<a data-idx="' + i + '">' + esc(s.title) + (known ? '<span class="toc-tag">提取</span>' : '') + '</a>';
+      return '<a data-idx="' + i + '"' + (known ? ' data-known="1"' : '') + '>' + esc(s.title) + (known ? '<span class="toc-tag">提取</span>' : '') + '</a>';
     }).join('');
 
     // Pretty 文档流（原位顺序：受约束章节提取格式化，叙述章节渲染 Markdown）
     const flow = document.getElementById('doc-flow');
+    // Pretty = 只提取关键受约束章节（叙述章节仅在 Markdown 原文中）
     flow.innerHTML = sections.map((s, i) => {
       const known = KNOWN[s.title];
-      if (known) {
-        return '<section class="doc-section" id="p-sec-' + i + '"><h2>' + known.icon + ' ' + esc(s.title)
-          + '<span class="edit" title="执行阶段文档不可编辑">编辑（写回原文区块）</span></h2>'
-          + RENDERERS[known.kind](s) + '</section>';
-      }
-      return '<section class="doc-section" id="p-sec-' + i + '"><div class="markdown-body">'
-        + mdToHtml('## ' + s.title + '\n\n' + s.content) + '</div></section>';
+      if (!known) return '';
+      return '<section class="doc-section" id="p-sec-' + i + '"><h2>' + known.icon + ' ' + esc(s.title)
+        + '<span class="edit" title="执行阶段文档不可编辑">编辑（写回原文区块）</span></h2>'
+        + RENDERERS[known.kind](s) + '</section>';
     }).join('');
     flow.querySelectorAll('.markdown-body').forEach(el => {
       convertMermaidBlocks(el);
@@ -1088,6 +1125,9 @@ flowchart LR
     flow.style.display = docMode === 'pretty' ? '' : 'none';
     mdPreview.style.display = docMode === 'md-preview' ? '' : 'none';
     mdEditorWrap.style.display = docMode === 'md-edit' ? '' : 'none';
+    document.querySelectorAll('#toc-links a').forEach(a => {
+      a.style.display = (docMode === 'pretty' && !a.dataset.known) ? 'none' : '';
+    });
     editToggle.style.display = docMode.startsWith('md') ? '' : 'none';
     editToggle.textContent = docMode === 'md-edit' ? '👁 预览' : '✏ 编辑';
     document.querySelectorAll('.segmented button').forEach(x => {
