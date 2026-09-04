@@ -9,7 +9,7 @@ import java.util.Map;
 public record TaskScenario(
         long id,
         long planId,
-        long scriptVersionId,
+        Long scriptVersionId,
         String name,
         int sortOrder,
         int threads,
@@ -24,6 +24,8 @@ public record TaskScenario(
         ExecutionStatus latestExecutionStatus,
         Instant latestExecutionAt,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        String purpose,
+        TestType testType
 ) {
 }

@@ -9,6 +9,7 @@ import com.yr.perftest.platform.task.TaskPlanService;
 import com.yr.perftest.platform.task.ScenarioThreadGroupConfig;
 import com.yr.perftest.platform.task.TaskScenario;
 import com.yr.perftest.platform.task.TaskScenarioService;
+import com.yr.perftest.platform.task.TestType;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.TaskMetricSeries;
 import com.yr.perftest.platform.execution.TaskSamplePage;
@@ -120,6 +121,8 @@ public class TaskPlanController {
                 planId,
                 request.scriptVersionId(),
                 request.name(),
+                request.purpose(),
+                request.testType(),
                 request.jmeterProperties(),
                 request.threadGroupConfigs(),
                 request.overridePlanDefaults() ? request.controllerNodeId() : null,
@@ -144,6 +147,8 @@ public class TaskPlanController {
                 scenarioId,
                 request.name(),
                 request.scriptVersionId(),
+                request.purpose(),
+                request.testType(),
                 request.jmeterProperties(),
                 request.threadGroupConfigs(),
                 request.controllerNodeId(),
@@ -151,6 +156,11 @@ public class TaskPlanController {
                 request.monitorTargetIds(),
                 request.overridePlanDefaults()
         );
+    }
+
+    @PostMapping("/scenarios/{scenarioId}/script")
+    public TaskScenario bindScript(@PathVariable long scenarioId, @Valid @RequestBody BindScriptRequest request) {
+        return scenarioService.bindScript(scenarioId, request.scriptVersionId());
     }
 
     @DeleteMapping("/scenarios/{scenarioId}")
@@ -289,8 +299,10 @@ public class TaskPlanController {
     }
 
     public record CreateScenarioRequest(
-            @NotNull Long scriptVersionId,
+            Long scriptVersionId,
             @NotBlank String name,
+            String purpose,
+            TestType testType,
             Map<String, String> jmeterProperties,
             List<ScenarioThreadGroupConfig> threadGroupConfigs,
             boolean overridePlanDefaults,
@@ -303,12 +315,19 @@ public class TaskPlanController {
     public record UpdateScenarioRequest(
             @NotBlank String name,
             Long scriptVersionId,
+            String purpose,
+            TestType testType,
             Map<String, String> jmeterProperties,
             List<ScenarioThreadGroupConfig> threadGroupConfigs,
             boolean overridePlanDefaults,
             Long controllerNodeId,
             List<Long> workerNodeIds,
             List<Long> monitorTargetIds
+    ) {
+    }
+
+    public record BindScriptRequest(
+            @NotNull Long scriptVersionId
     ) {
     }
 

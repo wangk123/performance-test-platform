@@ -7,6 +7,10 @@ import com.yr.perftest.platform.execution.aggregate.AggregateReportService;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
 import com.yr.perftest.platform.script.ScriptStepDefinition;
+import com.yr.perftest.platform.task.plandoc.PlanPhase;
+import com.yr.perftest.platform.task.plandoc.PlanScenarioDocSync;
+import com.yr.perftest.platform.task.plandoc.PlanStateException;
+import com.yr.perftest.platform.task.plandoc.PlanStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +28,7 @@ public class TaskScenarioService {
     private final TaskJsonSupport taskJson;
     private final ScenarioThreadGroupConfigSupport configSupport;
     private final AggregateReportService aggregateReportService;
+    private final PlanScenarioDocSync docSync;
 
     public TaskScenarioService(
             PersistentTaskPlanRepository planRepository,
@@ -32,7 +37,8 @@ public class TaskScenarioService {
             PersistentScriptVersionRepository scriptVersionRepository,
             TaskJsonSupport taskJson,
             ScenarioThreadGroupConfigSupport configSupport,
-            AggregateReportService aggregateReportService
+            AggregateReportService aggregateReportService,
+            PlanScenarioDocSync docSync
     ) {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
@@ -41,13 +47,16 @@ public class TaskScenarioService {
         this.taskJson = taskJson;
         this.configSupport = configSupport;
         this.aggregateReportService = aggregateReportService;
+        this.docSync = docSync;
     }
 
     @Transactional
     public TaskScenario createScenario(
             long planId,
-            long scriptVersionId,
+            Long scriptVersionId,
             String name,
+            String purpose,
+            TestType testType,
             Map<String, String> jmeterProperties,
             List<ScenarioThreadGroupConfig> threadGroupConfigs,
             Long controllerNodeId,
@@ -55,7 +64,9 @@ public class TaskScenarioService {
             List<Long> monitorTargetIds
     ) {
         PersistentTaskPlanRecord plan = requirePlan(planId);
-        PersistentScriptVersionRecord script = validateScript(plan.getProjectId(), scriptVersionId);
+        if (scriptVersionId != null) {
+            validateScript(plan.getProjectId(), scriptVersionId);
+        }
         validateName(name);
         int sortOrder = (int) scenarioRepository.countByPlanId(planId);
         PersistentTaskScenarioRecord scenario = scenarioRepository.save(new PersistentTaskScenarioRecord(
@@ -75,6 +86,8 @@ public class TaskScenarioService {
                 workerNodeIds,
                 monitorTargetIds
         );
+        scenario.updateBusinessFields(purpose, testType);
+        docSync.syncPlanScenarios(planId);
         return toScenario(scenario);
     }
 
@@ -83,6 +96,8 @@ public class TaskScenarioService {
             long scenarioId,
             String name,
             Long scriptVersionId,
+            String purpose,
+            TestType testType,
             Map<String, String> jmeterProperties,
             List<ScenarioThreadGroupConfig> threadGroupConfigs,
             Long controllerNodeId,
@@ -92,7 +107,8 @@ public class TaskScenarioService {
     ) {
         PersistentTaskScenarioRecord scenario = requireScenario(scenarioId);
         PersistentTaskPlanRecord plan = requirePlan(scenario.getPlanId());
-        long resolvedScriptVersionId = scriptVersionId != null ? scriptVersionId : scenario.getScriptVersionId();
+        String oldName = scenario.getName();
+        Long resolvedScriptVersionId = scriptVersionId != null ? scriptVersionId : scenario.getScriptVersionId();
         if (scriptVersionId != null) {
             validateScript(plan.getProjectId(), scriptVersionId);
         }
@@ -102,9 +118,11 @@ public class TaskScenarioService {
         String resolvedMonitors = overridePlanDefaults && monitorTargetIds != null
                 ? taskJson.writeLongList(monitorTargetIds) : null;
         List<ScenarioThreadGroupConfig> resolvedConfigs = threadGroupConfigs;
-        if (resolvedConfigs != null) {
+        if (resolvedConfigs != null && resolvedScriptVersionId != null) {
             PersistentScriptVersionRecord script = scriptVersionRepository.findById(resolvedScriptVersionId).orElseThrow();
             resolvedConfigs = configSupport.normalize(Path.of(script.getStoredPath()), resolvedConfigs);
+        } else if (resolvedConfigs != null) {
+            resolvedConfigs = List.of(); // 无脚本则无线程组档位（档位 stepId 依赖脚本）
         }
         scenario.updateProfile(
                 name,
@@ -115,6 +133,11 @@ public class TaskScenarioService {
                 resolvedMonitors,
                 resolvedConfigs != null ? configSupport.writeStored(resolvedConfigs) : null
         );
+        scenario.updateBusinessFields(purpose, testType);
+        if (!oldName.equals(scenario.getName())) {
+            docSync.onScenarioDeleted(scenario.getPlanId(), oldName);
+        }
+        docSync.syncPlanScenarios(scenario.getPlanId());
         return toScenario(scenario);
     }
 
@@ -141,8 +164,31 @@ public class TaskScenarioService {
                 throw new ExecutionValidationException("running scenario cannot be deleted");
             }
         });
+        long planId = scenario.getPlanId();
+        String scenarioName = scenario.getName();
         executionRepository.deleteAllByScenarioId(scenario.getId());
         scenarioRepository.delete(scenario);
+        docSync.onScenarioDeleted(planId, scenarioName);
+    }
+
+    /** 评审通过后才允许关联脚本：REVIEW/APPROVED 或 EXECUTION|REPORT 且非 RUNNING（设计 §3.4/§4.5）。 */
+    @Transactional
+    public TaskScenario bindScript(long scenarioId, long scriptVersionId) {
+        PersistentTaskScenarioRecord scenario = requireScenario(scenarioId);
+        PersistentTaskPlanRecord plan = requirePlan(scenario.getPlanId());
+        boolean afterApproval = (plan.getPhase() == PlanPhase.REVIEW
+                && plan.getStatus() == PlanStatus.APPROVED)
+                || ((plan.getPhase() == PlanPhase.EXECUTION
+                || plan.getPhase() == PlanPhase.REPORT)
+                && plan.getStatus() != PlanStatus.RUNNING);
+        if (!afterApproval) {
+            throw new PlanStateException(
+                    "PLAN_STATE：评审通过后才可关联脚本（当前 " + plan.getPhase() + "/" + plan.getStatus() + "）",
+                    plan.getPhase(), plan.getStatus(), List.of("APPROVE", "START_EXECUTION"));
+        }
+        validateScript(plan.getProjectId(), scriptVersionId);
+        scenario.bindScript(scriptVersionId);
+        return toScenario(scenario);
     }
 
     PersistentTaskScenarioRecord requireScenario(long scenarioId) {
@@ -161,12 +207,15 @@ public class TaskScenarioService {
             List<Long> workerNodeIds,
             List<Long> monitorTargetIds
     ) {
-        long resolvedScriptVersionId = scriptVersionId != null ? scriptVersionId : scenario.getScriptVersionId();
-        PersistentScriptVersionRecord script = validateScript(projectId, resolvedScriptVersionId);
-        List<ScenarioThreadGroupConfig> normalized = configSupport.normalize(
-                Path.of(script.getStoredPath()),
-                threadGroupConfigs == null ? List.of() : threadGroupConfigs
-        );
+        Long resolvedScriptVersionId = scriptVersionId != null ? scriptVersionId : scenario.getScriptVersionId();
+        List<ScenarioThreadGroupConfig> normalized = List.of();
+        if (resolvedScriptVersionId != null) {
+            PersistentScriptVersionRecord script = validateScript(projectId, resolvedScriptVersionId);
+            normalized = configSupport.normalize(
+                    Path.of(script.getStoredPath()),
+                    threadGroupConfigs == null ? List.of() : threadGroupConfigs
+            );
+        }
         scenario.updateProfile(
                 name,
                 scriptVersionId,
@@ -202,7 +251,9 @@ public class TaskScenarioService {
                 latest != null ? latest.getStatus() : null,
                 latest != null ? (latest.getStartTime() != null ? latest.getStartTime() : latest.getCreatedAt()) : null,
                 scenario.getCreatedAt(),
-                scenario.getUpdatedAt()
+                scenario.getUpdatedAt(),
+                scenario.getPurpose(),
+                scenario.getTestType()
         );
     }
 
@@ -215,7 +266,9 @@ public class TaskScenarioService {
         }
         List<ScriptStepDefinition> scriptSteps = List.of();
         try {
-            PersistentScriptVersionRecord script = scriptVersionRepository.findById(scenario.getScriptVersionId()).orElse(null);
+            PersistentScriptVersionRecord script = scenario.getScriptVersionId() != null
+                    ? scriptVersionRepository.findById(scenario.getScriptVersionId()).orElse(null)
+                    : null;
             if (script != null) {
                 scriptSteps = configSupport.loadScriptSteps(Path.of(script.getStoredPath()));
             }
