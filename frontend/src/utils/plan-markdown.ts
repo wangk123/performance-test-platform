@@ -27,6 +27,8 @@ export interface ScenarioBlock {
   name: string;
   testType: string;
   purpose: string;
+  /** **场景设置** 标记行（含）至 #### 执行记录（不含）或块尾的原始行；无标记时为 ''。 */
+  settings: string;
   records: string[];
 }
 
@@ -142,10 +144,13 @@ export function parseScenarioBlocks(body: string | null | undefined): ScenarioBl
   return blocks;
 }
 
+const SETTINGS_MARKER = '**场景设置**';
+
 function toBlock(raw: { heading: string; lines: string[] }): ScenarioBlock {
   const parts = raw.heading.split(' · ');
   const body = raw.lines.join('\n');
   const purpose = body.match(/\*\*场景目的\*\*：(.*)/)?.[1]?.trim() ?? '';
+  const settings = extractSettings(body);
   const records = body
     .split('\n')
     .filter((line) => line.trim().startsWith('- ') && !line.trim().startsWith('- ['))
@@ -155,8 +160,23 @@ function toBlock(raw: { heading: string; lines: string[] }): ScenarioBlock {
     name: (parts[0] ?? '').replace(/^S\d+\s*/, '').trim(),
     testType: parts[1] ?? '',
     purpose,
+    settings,
     records,
   };
+}
+
+function extractSettings(body: string): string {
+  const lines = body.split('\n');
+  const start = lines.findIndex((line) => line.trim().startsWith(SETTINGS_MARKER));
+  if (start < 0) return '';
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (lines[i].trim().startsWith(EXECUTION_RECORD_HEADING)) {
+      end = i;
+      break;
+    }
+  }
+  return lines.slice(start, end).join('\n');
 }
 
 export function parseExecutionRecords(body: string | null | undefined, scenarioName: string): string[] {

@@ -37,7 +37,7 @@
           {{ shareState(record) }}
         </template>
         <template v-else-if="column.key === 'actions'">
-          <a-button v-if="!record.revokedAt" type="link" danger size="small" @click="revoke(record)">撤销</a-button>
+          <a-button v-if="can('SHARE') && !record.revokedAt" type="link" danger size="small" @click="revoke(record)">撤销</a-button>
         </template>
       </template>
     </a-table>
@@ -90,17 +90,25 @@ async function publish() {
 async function createShare() {
   const planId = props.doc.plan.value?.id;
   if (!planId) return;
-  await createShareApi(planId);
-  await reload();
-  message.success('分享链接已创建');
+  try {
+    await createShareApi(planId);
+    await reload();
+    message.success('分享链接已创建');
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '创建分享链接失败');
+  }
 }
 
 async function revoke(record: PlanShareTokenView) {
   const planId = props.doc.plan.value?.id;
   if (!planId) return;
-  await revokeShareApi(planId, record.id);
-  await reload();
-  message.success('已撤销');
+  try {
+    await revokeShareApi(planId, record.id);
+    await reload();
+    message.success('已撤销');
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '撤销失败');
+  }
 }
 
 function shareUrl(token: string) {

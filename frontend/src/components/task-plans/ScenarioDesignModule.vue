@@ -14,6 +14,7 @@
         <span v-else class="scenario-latest none">未执行</span>
       </div>
       <p class="scenario-purpose">目的：{{ block.purpose || '（待填写）' }}</p>
+      <MdPreview v-if="block.settings" class="scenario-settings" :model-value="block.settings" language="zh-CN" />
       <div class="scenario-actions">
         <a-button size="small" @click="requestEdit(block.name)" :disabled="!scenarioOf(block.name)">编辑</a-button>
         <a-button
@@ -39,6 +40,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { message } from 'ant-design-vue';
+import { MdPreview } from 'md-editor-v3';
+import 'md-editor-v3/lib/style.css';
 import { useRouter } from 'vue-router';
 import type { TaskPlan, TaskScenario } from '../../types';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
@@ -125,6 +128,9 @@ async function run(name: string) {
 .scenario-latest { font-size: 12px; color: var(--muted); }
 .scenario-latest.none { color: var(--muted); opacity: 0.7; }
 .scenario-purpose { margin: 6px 0; color: var(--muted); }
+.scenario-settings { font-size: 13px; }
+.scenario-settings :deep(.md-editor-preview) { padding: 0; font-size: 13px; }
+.scenario-settings :deep(.md-editor-previewWrapper) { padding: 0; }
 .scenario-actions { display: flex; gap: 8px; margin: 6px 0; }
 .scenario-records summary { cursor: pointer; font-size: 13px; }
 .scenario-empty { color: var(--muted); }
