@@ -36,6 +36,7 @@ const mainNavPaths: Record<MainNav, string> = {
   home: '/',
   projects: '/projects',
   executionNodes: '/execution-nodes',
+  mcpTools: '/mcp-tools',
   settings: '/settings',
   llmConfig: '/llm-config/providers',
 };
@@ -51,6 +52,9 @@ export function useNavigation() {
     }
     if (route.path.startsWith('/settings')) {
       return 'settings';
+    }
+    if (route.path.startsWith('/mcp-tools')) {
+      return 'mcpTools';
     }
     if (route.path.startsWith('/execution-nodes')) {
       return 'executionNodes';

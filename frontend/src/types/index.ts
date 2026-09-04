@@ -9,7 +9,7 @@ export type ProjectRole = 'OWNER' | 'MEMBER';
 export type ParseStatus = 'PARSED' | 'PARSE_FAILED';
 export type StatusFilter = 'ALL' | ProjectStatus;
 export type ProjectTab = 'overview' | 'scripts' | 'task-plans' | 'monitoring' | 'reports' | 'data' | 'functions' | 'members';
-export type MainNav = 'home' | 'projects' | 'executionNodes' | 'settings' | 'llmConfig';
+export type MainNav = 'home' | 'projects' | 'executionNodes' | 'mcpTools' | 'settings' | 'llmConfig';
 export type ConfigTab = 'users' | 'roles' | 'permissions' | 'agent-api-keys';
 export type LlmConfigTab = 'llm-providers' | 'llm-models' | 'llm-call-records';
 
@@ -544,5 +544,24 @@ export type TaskSummary = {
   p95: number;
   errorRate: number;
   accuracy?: 'final' | 'final_partial' | 'live' | null;
+};
+
+export type McpToolStatus = 'ENABLED' | 'DISABLED';
+
+export type McpToolSummary = {
+  name: string;
+  title: string;
+  stage: string;
+  requiresWriteScope: boolean;
+  status: McpToolStatus;
+  description: string;
+  usageExample: string;
+  inputSchema: Record<string, unknown>;
+};
+
+export type McpDirectory = {
+  server: { name: string; endpoint: string; toolCount: number };
+  stages: string[];
+  tools: McpToolSummary[];
 };
 

@@ -8,6 +8,7 @@ import ProjectDetail from '../components/views/ProjectDetail.vue';
 import SettingsView from '../components/views/SettingsView.vue';
 import LlmConfigView from '../components/views/LlmConfigView.vue';
 import ExecutionNodeView from '../components/views/ExecutionNodeView.vue';
+import McpToolDirectoryPage from '../components/mcp/McpToolDirectoryPage.vue';
 import ScriptEditorPage from '../views/ScriptEditorPage.vue';
 import ReportPreviewPage from '../views/ReportPreviewPage.vue';
 
@@ -22,6 +23,7 @@ export const router = createRouter({
         { path: '', name: 'home', component: HomeView },
         { path: 'projects', name: 'projects', component: ProjectListView },
         { path: 'execution-nodes', name: 'execution-nodes', component: ExecutionNodeView },
+        { path: 'mcp-tools', name: 'mcp-tools', component: McpToolDirectoryPage },
         { path: 'settings', name: 'settings', component: SettingsView },
         { path: 'llm-config', redirect: '/llm-config/providers' },
         { path: 'llm-config/providers', name: 'llm-config-providers', component: LlmConfigView },
