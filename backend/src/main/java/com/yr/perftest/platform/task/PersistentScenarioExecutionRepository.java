@@ -8,6 +8,8 @@ import java.util.Optional;
 public interface PersistentScenarioExecutionRepository extends JpaRepository<PersistentScenarioExecutionRecord, Long> {
     List<PersistentScenarioExecutionRecord> findAllByScenarioIdOrderByIdDesc(Long scenarioId);
 
+    boolean existsByScenarioId(Long scenarioId);
+
     Optional<PersistentScenarioExecutionRecord> findFirstByScenarioIdOrderByIdDesc(Long scenarioId);
 
     void deleteAllByScenarioId(Long scenarioId);
