@@ -133,7 +133,10 @@ public class TaskScenarioService {
                 resolvedMonitors,
                 resolvedConfigs != null ? configSupport.writeStored(resolvedConfigs) : null
         );
-        scenario.updateBusinessFields(purpose, testType);
+        // null = 保留现值（与 scriptVersionId 口径一致）；显式空串仍会清空（文档侧渲染为（待填写））
+        String effectivePurpose = purpose != null ? purpose : scenario.getPurpose();
+        TestType effectiveTestType = testType != null ? testType : scenario.getTestType();
+        scenario.updateBusinessFields(effectivePurpose, effectiveTestType);
         if (!oldName.equals(scenario.getName())) {
             docSync.onScenarioDeleted(scenario.getPlanId(), oldName);
         }

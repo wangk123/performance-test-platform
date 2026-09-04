@@ -6,6 +6,7 @@ import com.yr.perftest.platform.task.PersistentTaskScenarioRecord;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRepository;
 import com.yr.perftest.platform.task.ScenarioThreadGroupConfig;
 import com.yr.perftest.platform.task.ScenarioThreadGroupConfigSupport;
+import com.yr.perftest.platform.task.TaskScenarioService;
 import com.yr.perftest.platform.task.TestType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,8 @@ class PlanScenarioDocSyncTest {
     private PersistentTaskScenarioRepository scenarioRepository;
     @Autowired
     private ScenarioThreadGroupConfigSupport configSupport;
+    @Autowired
+    private TaskScenarioService scenarioService;
 
     private long planId;
 
@@ -100,5 +103,22 @@ class PlanScenarioDocSyncTest {
         String body = planRepository.findById(planId).orElseThrow().getBody();
         assertThat(body).doesNotContain("### S1 登录");
         assertThat(body).contains("S1 新登录");
+    }
+
+    @Test
+    void updateScenarioKeepsPurposeAndTestTypeWhenOmitted() {
+        PersistentTaskScenarioRecord scenario = addScenario("登录", 0, 10, 0, 60);
+        scenario.updateBusinessFields("原始目的", TestType.SINGLE_TXN);
+        scenarioRepository.save(scenario);
+        docSync.syncPlanScenarios(planId);
+        // 局部 PUT：仅改名，purpose/testType 缺省（null）不应清空既有业务字段
+        scenarioService.updateScenario(scenario.getId(), "登录改", null, null, null,
+                null, null, null, null, null, false);
+        PersistentTaskScenarioRecord updated = scenarioRepository.findById(scenario.getId()).orElseThrow();
+        assertThat(updated.getPurpose()).isEqualTo("原始目的");
+        assertThat(updated.getTestType()).isEqualTo(TestType.SINGLE_TXN);
+        String body = planRepository.findById(planId).orElseThrow().getBody();
+        assertThat(body).contains("### S1 登录改 · SINGLE_TXN");
+        assertThat(body).contains("**场景目的**：原始目的");
     }
 }
