@@ -13,4 +13,7 @@ public interface PersistentScenarioExecutionRepository extends JpaRepository<Per
     void deleteAllByScenarioId(Long scenarioId);
 
     long countByStatusIn(java.util.List<com.yr.perftest.platform.execution.ExecutionStatus> statuses);
+
+    long countByScenarioIdInAndStatusIn(java.util.List<Long> scenarioIds,
+            java.util.List<com.yr.perftest.platform.execution.ExecutionStatus> statuses);
 }
