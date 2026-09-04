@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>效果图 - MCP 工具目录 /mcp-tools（P0-2）</title>
+<style>
+  /* ===== 平台设计令牌（取自 frontend/src/styles/base.css :root） ===== */
+  :root{
+    --canvas:#f4f6f8; --surface:#ffffff; --surface-soft:#f7fafb;
+    --ink:#1a2332; --muted:#5c6b7a;
+    --line:#e2e8ee; --line-strong:#c8d3dc;
+    --accent:#0b7f8a; --accent-dark:#086670; --accent-soft:#e6f5f6; --accent-strong:#d2eef0;
+    --ok:#2f9b6a; --ok-soft:#e8f6ef;
+    --warn:#c9850a; --warning-soft:#fff6e5; --warning-border:#efd2a0;
+    --danger:#d14343; --danger-soft:#fdecec;
+    --sidebar-bg:#121a22; --sidebar-line:#1c2732; --sidebar-ink:#9eb0bf;
+    --radius:8px; --radius-sm:6px;
+    --shadow:0 1px 2px rgba(26,35,50,.04);
+    --shadow-pop:0 8px 24px rgba(26,35,50,.10),0 2px 6px rgba(26,35,50,.06);
+    --font-ui:"IBM Plex Sans","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,sans-serif;
+    --font-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --rail-w:52px; --topbar-h:48px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{font-family:var(--font-ui);background:var(--canvas);color:var(--ink);line-height:1.6;font-size:14px}
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  a{color:var(--accent-dark);text-decoration:none}
+  a:hover{text-decoration:underline}
+  ::selection{background:rgba(11,127,138,.2)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+  svg.ic{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ===== 外壳：全局导航栏 + 顶栏 ===== */
+  .app{display:grid;grid-template-columns:var(--rail-w) 1fr;min-height:100vh}
+  .rail{background:var(--sidebar-bg);border-right:1px solid var(--sidebar-line);color:var(--sidebar-ink);
+    display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0;position:sticky;top:0;height:100vh}
+  .rail-brand{width:34px;height:34px;margin-bottom:12px;border-radius:8px;background:var(--accent);color:#fff;
+    font-size:12px;font-weight:700;line-height:34px;text-align:center}
+  .rail-btn{width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    color:var(--sidebar-ink);transition:background .18s,color .18s}
+  .rail-btn:hover{background:rgba(255,255,255,.06);color:#e6eef4}
+  .rail-btn.active{background:var(--accent);color:#fff}
+  .rail-btn .ic{width:18px;height:18px}
+  .rail-spacer{flex:1}
+  .rail-note{writing-mode:vertical-rl;font-size:10px;letter-spacing:2px;opacity:.35;margin:8px 0}
+
+  .main{min-width:0;display:flex;flex-direction:column}
+  .topbar{height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:40}
+  .crumb{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .crumb b{color:var(--ink);font-weight:600}
+  .topbar-right{display:flex;align-items:center;gap:12px}
+  .user-chip{display:flex;align-items:center;gap:8px;font-size:13px}
+  .avatar{width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent-dark);
+    font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center}
+
+  .content{width:100%;padding:24px 32px 64px}
+
+  /* ===== 页头 ===== */
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+  .page-head h1{font-size:22px;font-weight:700;letter-spacing:.2px}
+  .page-head .sub{margin-top:4px;font-size:13px;color:var(--muted)}
+  .head-chips{display:flex;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;border:1px solid}
+  .chip .dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .chip-ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+  .chip-ok .dot{background:var(--ok);box-shadow:0 0 0 3px rgba(47,155,106,.15);animation:pulse 2.4s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(47,155,106,.15)}50%{box-shadow:0 0 0 5px rgba(47,155,106,.05)}}
+  .chip-neutral{background:var(--surface);color:var(--muted);border-color:var(--line)}
+
+  /* ===== 接入指引横幅 ===== */
+  .access{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+    margin-bottom:20px;overflow:hidden}
+  .access-hd{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .access-hd .ic{color:var(--accent-dark)}
+  .access-hd h2{font-size:15px;font-weight:600}
+  .access-hd .hint{margin-left:auto;font-size:12px;color:var(--muted)}
+  .access-bd{display:grid;grid-template-columns:1fr 1.35fr;gap:0}
+  .steps{padding:18px 20px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:14px}
+  .step{display:flex;gap:12px}
+  .step-no{width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent-dark);
+    font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;margin-top:2px}
+  .step b{font-size:13px;font-weight:600;display:block;margin-bottom:2px}
+  .step p{font-size:12.5px;color:var(--muted)}
+  .step .link-btn{display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:12.5px;font-weight:600;
+    color:var(--accent-dark)}
+  .step .link-btn:hover{text-decoration:underline}
+  .config{padding:18px 20px;background:var(--surface-soft)}
+  .config-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:2px}
+  .seg button{padding:4px 12px;border-radius:4px;font-size:12.5px;font-weight:500;color:var(--muted);transition:all .18s}
+  .seg button.on{background:var(--accent);color:#fff}
+  .endpoint{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);
+    font-size:12px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);
+    padding:4px 10px}
+  .endpoint .method{color:var(--accent-dark);font-weight:700}
+  .codebox{position:relative}
+  .codebox pre{background:#0e1720;color:#d7e3ec;border-radius:var(--radius-sm);padding:14px 16px;overflow:auto;
+    font-family:var(--font-mono);font-size:12.5px;line-height:1.7;max-height:218px}
+  .codebox .tok-key{color:#7fd4dc}.codebox .tok-str{color:#a7d8a0}.codebox .tok-cmt{color:#5c7080;font-style:italic}
+  .copy-btn{position:absolute;top:8px;right:8px;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;
+    border-radius:var(--radius-sm);background:rgba(255,255,255,.08);color:#c9d7e2;font-size:12px;
+    transition:background .18s}
+  .copy-btn:hover{background:rgba(255,255,255,.16)}
+  .copy-btn.done{color:#a7d8a0}
+  .scope-note{margin-top:10px;font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:flex-start}
+  .scope-note .ic{margin-top:2px;color:var(--warn);width:14px;height:14px}
+
+  /* ===== 工具栏：阶段筛选 + 搜索 ===== */
+  .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .tab{padding:6px 13px;border-radius:16px;border:1px solid var(--line);background:var(--surface);font-size:12.5px;
+    font-weight:500;color:var(--muted);display:inline-flex;align-items:center;gap:6px;transition:all .18s}
+  .tab:hover{border-color:var(--line-strong);color:var(--ink)}
+  .tab.on{background:var(--accent-soft);border-color:var(--accent-strong);color:var(--accent-dark);font-weight:600}
+  .tab .n{font-family:var(--font-mono);font-size:11px;background:rgba(26,35,50,.06);border-radius:9px;padding:0 6px;line-height:17px}
+  .tab.on .n{background:rgba(11,127,138,.14)}
+  .search{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius-sm);padding:7px 12px;width:250px;transition:border-color .18s}
+  .search:focus-within{border-color:var(--accent)}
+  .search .ic{color:var(--muted);width:15px;height:15px}
+  .search input{border:none;outline:none;font:inherit;font-size:13px;width:100%;background:transparent;color:var(--ink)}
+  .search input::placeholder{color:#9aa8b5}
+  .result-count{font-size:12.5px;color:var(--muted);white-space:nowrap}
+
+  /* ===== 工具卡片网格 ===== */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:16px 18px 14px;display:flex;flex-direction:column;gap:8px;text-align:left;position:relative;
+    transition:box-shadow .18s,border-color .18s,transform .18s}
+  .card:hover{box-shadow:var(--shadow-pop);border-color:var(--line-strong);transform:translateY(-1px)}
+  .card.off{opacity:.6;background:var(--surface-soft)}
+  .card.off:hover{opacity:1}
+  .card-top{display:flex;align-items:flex-start;gap:10px}
+  .tool-name{font-family:var(--font-mono);font-size:14.5px;font-weight:600;word-break:break-all}
+  .card-top .stage{margin-left:auto}
+  .tool-title{font-size:13px;font-weight:600;color:var(--ink)}
+  .tool-desc{font-size:12.5px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:40px}
+  .badges{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:8px}
+  .card-foot{display:flex;align-items:center;justify-content:space-between;border-top:1px dashed var(--line);
+    padding-top:9px;margin-top:2px;font-size:12px;color:var(--muted)}
+  .detail-hint{display:inline-flex;align-items:center;gap:4px;color:var(--accent-dark);font-weight:500}
+  .detail-hint .ic{width:13px;height:13px;transition:transform .18s}
+  .card:hover .detail-hint .ic{transform:translateX(2px)}
+
+  /* 徽标体系 */
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:11px;font-size:11.5px;
+    font-weight:600;letter-spacing:.2px;white-space:nowrap}
+  .badge .dot{width:6px;height:6px;border-radius:50%;flex:none}
+  .st-PLAN{background:var(--accent-soft);color:var(--accent-dark)}
+  .st-NAVIGATE{background:#e8effd;color:#2563eb}
+  .st-DESIGN{background:#f1eafd;color:#7c3aed}
+  .st-OBSERVE{background:#eef2f6;color:#475569}
+  .st-DIAGNOSE{background:var(--warning-soft);color:var(--warn)}
+  .st-VERIFY{background:var(--ok-soft);color:var(--ok)}
+  .st-CAPTURE{background:#fdeaf3;color:#be185d}
+  .b-write{background:var(--warning-soft);border:1px solid var(--warning-border);color:var(--warn)}
+  .b-read{background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+  /* 状态图标：可用 / 不可用（两态，不用文字） */
+  .st-ic{display:inline-flex;align-items:center;justify-content:center;flex:none}
+  .st-ic .ic{width:15px;height:15px}
+  .st-ic.ok{color:var(--ok)}
+  .st-ic.off{color:#8aa0b0}
+  .legend{display:inline-flex;align-items:center;gap:8px;padding-left:2px}
+  /* 页脚：收尾底部留白 */
+  .page-ft{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);display:flex;
+    align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+  .page-ft .ft-left{display:inline-flex;align-items:center;gap:7px}
+  .page-ft .ft-left .ic{width:14px;height:14px;color:var(--accent-dark)}
+  .page-ft .ft-right{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.5px}
+
+  /* ===== 空状态 ===== */
+  .empty{display:none;text-align:center;padding:64px 0;color:var(--muted)}
+  .empty .ic{width:34px;height:34px;margin:0 auto 12px;color:var(--line-strong)}
+  .empty p{font-size:13.5px}
+  .empty button{margin-top:12px;font-size:13px;color:var(--accent-dark);font-weight:600}
+  .empty button:hover{text-decoration:underline}
+
+  /* ===== 详情抽屉（接口文档式） ===== */
+  .backdrop{position:fixed;inset:0;background:rgba(18,26,34,.44);opacity:0;pointer-events:none;transition:opacity .2s;z-index:90}
+  .backdrop.show{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;bottom:0;width:520px;max-width:92vw;background:var(--surface);
+    box-shadow:-12px 0 32px rgba(26,35,50,.14);z-index:100;transform:translateX(102%);transition:transform .24s cubic-bezier(.32,.72,.35,1);
+    display:flex;flex-direction:column}
+  .drawer.show{transform:translateX(0)}
+  .drawer-hd{padding:18px 22px 14px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
+  .drawer-hd .titles{min-width:0}
+  .drawer-hd .tool-name{font-size:16px}
+  .drawer-hd .tool-title{margin-top:2px}
+  .drawer-hd .badges{margin-top:8px}
+  .drawer-close{margin-left:auto;width:30px;height:30px;border-radius:var(--radius-sm);display:flex;
+    align-items:center;justify-content:center;color:var(--muted);transition:all .18s;flex:none}
+  .drawer-close:hover{background:var(--surface-soft);color:var(--ink)}
+  .drawer-bd{overflow-y:auto;padding:20px 22px 28px;display:flex;flex-direction:column;gap:22px}
+  .sec h3{font-size:12px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;
+    display:flex;align-items:center;gap:7px}
+  .sec h3 .ic{width:14px;height:14px;color:var(--accent-dark)}
+  .sec .desc{font-size:13.5px}
+  table.params{width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden}
+  table.params th{background:var(--surface-soft);text-align:left;font-weight:600;color:var(--muted);
+    padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px}
+  table.params td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.params tr:last-child td{border-bottom:none}
+  td.p-name{font-family:var(--font-mono);font-size:12px;white-space:nowrap}
+  td.p-type{font-family:var(--font-mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
+  .req{color:var(--danger);font-weight:700}
+  .opt{color:var(--muted)}
+  .callout{border:1px solid var(--warning-border);background:var(--warning-soft);border-radius:var(--radius-sm);
+    padding:12px 14px;font-size:12.5px;display:flex;gap:9px}
+  .callout .ic{color:var(--warn);margin-top:2px;width:15px;height:15px;flex:none}
+  .callout b{font-weight:600}
+  .drawer-ft{border-top:1px solid var(--line);padding:14px 24px;background:var(--surface-soft);font-size:12.5px;
+    color:var(--muted);display:flex;align-items:center;gap:9px}
+  .drawer-ft .ic{color:var(--accent-dark);width:15px;height:15px}
+  .drawer-ft a{font-weight:600}
+
+  /* ===== Toast ===== */
+  .toast{position:fixed;bottom:28px;left:50%;transform:translate(-50%,16px);background:var(--ink);color:#fff;
+    border-radius:var(--radius-sm);padding:9px 18px;font-size:13px;display:flex;align-items:center;gap:8px;
+    opacity:0;pointer-events:none;transition:all .22s;z-index:200;box-shadow:var(--shadow-pop)}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast .ic{color:#7fd4dc;width:15px;height:15px}
+
+  /* ===== 响应式 & 动效偏好 ===== */
+  @media (max-width:1080px){.access-bd{grid-template-columns:1fr}.steps{border-right:none;border-bottom:1px solid var(--line)}}
+  @media (max-width:720px){
+    .content{padding:16px 14px 48px}
+    .search{width:100%;margin-left:0}
+    .drawer{width:100vw;max-width:100vw}
+    .grid{grid-template-columns:1fr}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<!-- SVG 图标精灵（描边风格，无 emoji） -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.7V21h5v-6h4v6h5V9.7"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h9M17 18h3"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><path d="M4 17l6-5-6-5"/><path d="M12 19h8"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4"/><path d="m10.5 12.5 9-9M17 4l3 3M14 7l2.5 2.5"/></symbol>
+  <symbol id="i-arrow-r" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14 21 3"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4.5M12 16h.01"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v6M15 3v6"/><path d="M7 9h10v3a5 5 0 0 1-10 0z"/><path d="M12 17v4"/></symbol>
+  <symbol id="i-ok-c" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor" stroke="none"/><path d="m8.3 12.4 2.6 2.6 4.9-5.4" stroke="#fff" stroke-width="2"/></symbol>
+  <symbol id="i-off-c" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M6.4 6.4 17.6 17.6"/></symbol>
+</svg>
+
+<div class="app">
+  <!-- 全局导航栏（新增「MCP 工具」入口，激活态） -->
+  <aside class="rail" aria-label="全局导航">
+    <div class="rail-brand" title="性能测试平台">PT</div>
+    <button class="rail-btn" title="首页" aria-label="首页"><svg class="ic"><use href="#i-home"/></svg></button>
+    <button class="rail-btn" title="项目管理" aria-label="项目管理"><svg class="ic"><use href="#i-folder"/></svg></button>
+    <button class="rail-btn" title="执行器配置" aria-label="执行器配置"><svg class="ic"><use href="#i-server"/></svg></button>
+    <button class="rail-btn active" title="MCP 工具" aria-label="MCP 工具（当前页）" aria-current="page"><svg class="ic"><use href="#i-terminal"/></svg></button>
+    <button class="rail-btn" title="系统配置" aria-label="系统配置"><svg class="ic"><use href="#i-sliders"/></svg></button>
+    <button class="rail-btn" title="模型配置" aria-label="模型配置"><svg class="ic"><use href="#i-chip"/></svg></button>
+    <div class="rail-spacer"></div>
+    <div class="rail-note">PERF&nbsp;TEST</div>
+  </aside>
+
+  <div class="main">
+    <!-- 顶栏 -->
+    <header class="topbar">
+      <nav class="crumb" aria-label="面包屑">平台 <svg class="ic" style="width:12px;height:12px"><use href="#i-arrow-r"/></svg> <b>MCP 工具目录</b></nav>
+      <div class="topbar-right">
+        <div class="user-chip"><span class="avatar">王</span>王工 · 普通成员</div>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- 页头 -->
+      <div class="page-head">
+        <div>
+          <h1>MCP 工具目录</h1>
+          <p class="sub">平台全部已注册 MCP 工具的能力清单——本地 Agent（Claude Code / DSH）接入后即可调用。工具随版本发布自动上下线，本页无需配置。</p>
+        </div>
+        <div class="head-chips">
+          <span class="chip chip-ok"><span class="dot"></span>MCP 服务在线</span>
+          <span class="chip chip-neutral">13 个工具 · 7 个阶段</span>
+        </div>
+      </div>
+
+      <!-- 接入指引横幅 -->
+      <section class="access" aria-label="接入指引">
+        <div class="access-hd">
+          <svg class="ic"><use href="#i-plug"/></svg>
+          <h2>本地 Agent 接入指引</h2>
+          <span class="hint">三步完成，全程无需找人</span>
+        </div>
+        <div class="access-bd">
+          <div class="steps">
+            <div class="step">
+              <span class="step-no">1</span>
+              <div>
+                <b>申请 Agent API Key</b>
+                <p>由管理员在「系统配置 → Agent API Key」签发；只读演练用 <code>readonly</code> scope，含写操作的全流程用普通 scope。</p>
+                <a class="link-btn" href="javascript:void(0)">前往系统配置申请 <svg class="ic" style="width:13px;height:13px"><use href="#i-ext"/></svg></a>
+              </div>
+            </div>
+            <div class="step">
+              <span class="step-no">2</span>
+              <div>
+                <b>复制 Agent 配置片段</b>
+                <p>粘贴到本地 Agent 的 MCP 配置文件，地址与鉴权头已按当前环境填好。</p>
+              </div>
+            </div>
+            <div class="step">
+              <span class="step-no">3</span>
+              <div>
+                <b>开箱即用</b>
+                <p>Agent 重启后自动发现下方全部工具；写权限工具需非只读 API Key 调用。</p>
+              </div>
+            </div>
+          </div>
+          <div class="config">
+            <div class="config-top">
+              <div class="seg" role="tablist" aria-label="选择 Agent 类型">
+                <button class="on" role="tab" aria-selected="true" data-cfg="cc">Claude Code</button>
+                <button role="tab" aria-selected="false" data-cfg="dsh">DSH</button>
+              </div>
+              <span class="endpoint"><span class="method">POST</span> http://localhost:8080/mcp</span>
+            </div>
+            <div class="codebox">
+              <pre id="cfg-code"></pre>
+              <button class="copy-btn" id="cfg-copy"><svg class="ic" style="width:13px;height:13px"><use href="#i-copy"/></svg>复制配置</button>
+            </div>
+            <p class="scope-note"><svg class="ic"><use href="#i-info"/></svg>认证方式为请求头 <code>X-API-Key</code>；平台仅接受机器身份访问 MCP，Web 账号不能直连。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 工具栏 -->
+      <div class="toolbar">
+        <div class="tabs" id="tabs" role="tablist" aria-label="按阶段筛选"></div>
+        <label class="search">
+          <svg class="ic"><use href="#i-search"/></svg>
+          <input id="search" type="search" placeholder="搜索工具名称 / 说明…" aria-label="搜索工具">
+        </label>
+        <span class="result-count" id="result-count"></span>
+        <span class="legend" aria-label="状态图例">
+          <span class="st-ic ok" role="img" aria-label="可用" title="可用"><svg class="ic"><use href="#i-ok-c"/></svg></span>
+          <span class="st-ic off" role="img" aria-label="不可用" title="不可用"><svg class="ic"><use href="#i-off-c"/></svg></span>
+        </span>
+      </div>
+
+      <!-- 卡片区：单一平铺网格，阶段组织由上方筛选标签承载 -->
+      <div id="grid-area"></div>
+
+      <!-- 空状态 -->
+      <div class="empty" id="empty">
+        <svg class="ic"><use href="#i-search"/></svg>
+        <p>未找到匹配「<span id="empty-kw"></span>」的工具</p>
+        <button id="empty-clear">清除搜索</button>
+      </div>
+
+      <footer class="page-ft">
+        <span class="ft-left"><svg class="ic"><use href="#i-info"/></svg>工具清单由服务注册表实时生成，随版本发布自动上下线，本页无需任何配置</span>
+        <span class="ft-right">performance-test-platform · MCP</span>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<!-- 详情抽屉 -->
+<div class="backdrop" id="backdrop"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="工具详情"></aside>
+
+<!-- Toast -->
+<div class="toast" id="toast" role="status"><svg class="ic"><use href="#i-check"/></svg><span id="toast-text">已复制</span></div>
+
+<script>
+/* ============ 数据：与 McpToolRegistry 注册表同构 ============ */
+const STAGE_ORDER = ["PLAN","NAVIGATE","DESIGN","OBSERVE","DIAGNOSE","VERIFY","CAPTURE"];
+const STAGE_LABEL = {PLAN:"计划",NAVIGATE:"导航",DESIGN:"设计",OBSERVE:"观察",DIAGNOSE:"诊断",VERIFY:"验证",CAPTURE:"取证"};
+
+const TOOLS = [
+  /* ---- 5 个计划阶段（PLAN）工具 · P0-2 契约见设计文档 §6 ---- */
+  {name:"plan_templates",title:"列出计划模板",stage:"PLAN",write:false,
+   desc:"获取压测计划模板清单（内置通用 + 项目自定义），返回章节结构与占位符列表，供本地 Agent 渲染生成计划初稿。",
+   params:[
+     {n:"projectId",t:"string",r:false,d:"项目 ID；缺省返回内置模板与调用方可访问的全部项目模板"}],
+   example:`# 拉取项目模板与占位符清单
+plan_templates({ "projectId": "proj-2026-q3" })
+
+→ { "templates": [
+     { "id": "tpl-ecom-core", "scope": "PROJECT",
+       "sections": ["测试目的","核心指标","测试范围","测试资源","测试约束","结论"],
+       "placeholders": ["{{system}}","{{peak_tps}}","{{env_entry}}"] } ] }`},
+  {name:"plan_create",title:"创建压测计划",stage:"PLAN",write:true,
+   desc:"用渲染完成的 Markdown 全文在平台创建草稿计划（阶段=草稿），返回计划 ID 与初始 revision，随后引导用户进平台走评审。",
+   params:[
+     {n:"projectId",t:"string",r:true,d:"所属项目 ID"},
+     {n:"title",t:"string",r:true,d:"计划标题，如「电商核心链路 2026-Q3 容量验证」"},
+     {n:"markdown",t:"string",r:true,d:"模板渲染后的计划全文（一稿走到头文档）"},
+     {n:"templateId",t:"string",r:false,d:"来源模板 ID，用于追溯"}],
+   example:`# 从模板初稿创建草稿计划
+plan_create({
+  "projectId": "proj-2026-q3",
+  "title": "电商核心链路 2026-Q3 容量验证",
+  "markdown": "# 电商核心链路…（全文）",
+  "templateId": "tpl-ecom-core"
+})
+
+→ { "planId": "plan-0042", "revision": 1, "stage": "草稿" }`},
+  {name:"plan_get",title:"读取计划文档",stage:"PLAN",write:false,
+   desc:"读取计划当前全文与结构化模块摘要（指标清单/范围/资源/约束/结论）、关联场景与 revision，供本地 Agent 展示或继续编辑。",
+   params:[
+     {n:"planId",t:"string",r:true,d:"计划 ID"}],
+   example:`plan_get({ "planId": "plan-0042" })
+
+→ { "planId": "plan-0042", "revision": 7, "stage": "评审",
+    "subStatus": "评审中", "markdown": "# 电商核心链路…",
+    "structuredModules": ["基本信息","核心指标","测试范围","测试资源","测试约束"],
+    "scenarioSummaries": ["登录 → 下单 → 支付 (70%)", "搜索浏览 (30%)"] }`},
+  {name:"plan_update",title:"更新计划文档",stage:"PLAN",write:true,
+   desc:"以乐观并发更新计划全文：携带 baseRevision 提交；revision 不匹配时返回冲突与双版全文，由调用方按三选一处理。",
+   params:[
+     {n:"planId",t:"string",r:true,d:"计划 ID"},
+     {n:"markdown",t:"string",r:true,d:"更新后的计划全文"},
+     {n:"baseRevision",t:"number",r:true,d:"基于的版本号（plan_get 返回的 revision）"}],
+   conflict:true,
+   example:`# 带版本号更新
+plan_update({
+  "planId": "plan-0042",
+  "markdown": "# 电商核心链路…（修改后全文）",
+  "baseRevision": 7
+})
+
+→ { "planId": "plan-0042", "revision": 8 }`},
+  {name:"plan_query",title:"查询计划列表",stage:"PLAN",write:false,
+   desc:"按项目 / 阶段 / 关键词分页查询计划列表，返回计划 ID、标题、阶段与子状态、更新时间。",
+   params:[
+     {n:"projectId",t:"string",r:true,d:"项目 ID"},
+     {n:"stage",t:"string",r:false,d:"阶段过滤：草稿 / 评审 / 执行 / 报告 / 发布"},
+     {n:"keyword",t:"string",r:false,d:"标题关键词模糊匹配"},
+     {n:"page",t:"number",r:false,d:"页码，默认 1"},
+     {n:"pageSize",t:"number",r:false,d:"每页条数，默认 20"}],
+   example:`plan_query({ "projectId": "proj-2026-q3", "stage": "评审" })
+
+→ { "plans": [ { "planId": "plan-0042", "title": "电商核心链路…",
+                 "stage": "评审", "subStatus": "评审中",
+                 "updatedAt": "2026-09-04 10:22" } ],
+    "total": 3 }`},
+
+  /* ---- 当前已注册的 8 个工具（stage 对齐 skill-pack README） ---- */
+  {name:"list_projects",title:"列出可访问项目",stage:"NAVIGATE",write:false,
+   desc:"返回当前 API Key 可访问的项目清单（ID、名称、角色），是本地 Agent 的第一个落脚点。",
+   params:[{n:"-",t:"void",r:false,d:"无入参"}],
+   example:`list_projects()
+
+→ { "projects": [ { "id": "proj-2026-q3", "name": "电商核心链路", "role": "MEMBER" } ] }`},
+  {name:"start_execution",title:"启动压测执行",stage:"DESIGN",write:true,
+   desc:"按场景与执行配置启动一次压测（单机或多节点），返回执行 ID 供后续观察与诊断。",
+   params:[
+     {n:"scenarioId",t:"string",r:true,d:"场景 ID"},
+     {n:"executionConfig",t:"object",r:true,d:"执行配置：并发模型、时长、加压曲线"},
+     {n:"nodeIds",t:"string[]",r:false,d:"指定执行节点；缺省由平台分配"}],
+   example:`start_execution({
+  "scenarioId": "scn-login-order",
+  "executionConfig": { "threads": 500, "duration": "10m", "rampUp": "2m" }
+})
+
+→ { "executionId": "exec-0311", "state": "RUNNING" }`},
+  {name:"inspect_execution",title:"查看执行详情",stage:"OBSERVE",write:false,
+   desc:"查看执行的实时进度、聚合指标（TPS / P95 / P99 / 错误率）与节点分布。",
+   params:[
+     {n:"executionId",t:"string",r:true,d:"执行 ID"},
+     {n:"include",t:"string[]",r:false,d:"附加数据：metrics / samples / nodes"}],
+   example:`inspect_execution({ "executionId": "exec-0311" })
+
+→ { "state": "RUNNING", "elapsed": "06:12",
+    "tps": 4820, "p95": 312, "p99": 486, "errorRate": 0.004 }`},
+  {name:"analyze_execution",title:"确定性分析",stage:"DIAGNOSE",write:false,
+   desc:"对执行结果做确定性归因分析（拐点 / 资源饱和 / 错误聚集），输出事实与三态判定，不下根因结论。",
+   params:[
+     {n:"executionId",t:"string",r:true,d:"执行 ID"},
+     {n:"focus",t:"string",r:false,d:"分析侧重：throughput / latency / errors"}],
+   example:`analyze_execution({ "executionId": "exec-0311" })
+
+→ { "findings": [ { "type": "SATURATION", "component": "db-conn-pool",
+    "evidence": "active=98/max=100 @ 06:40, TPS 停止上升", "verdict": "SUSPECTED" } ] }`},
+  {name:"collect_evidence",title:"收集证据链",stage:"DIAGNOSE",write:false,
+   desc:"按证据规范收集执行关联证据（指标切片 / 慢请求样本 / 日志片段），形成可追溯的证据链。",
+   params:[
+     {n:"executionId",t:"string",r:true,d:"执行 ID"},
+     {n:"evidenceTypes",t:"string[]",r:true,d:"证据类型清单"}],
+   example:`collect_evidence({
+  "executionId": "exec-0311",
+  "evidenceTypes": ["slow-requests-top100", "metric-slice"]
+})
+
+→ { "evidenceId": "evd-0087", "items": 2 }`},
+  {name:"register_change",title:"登记被测侧变更",stage:"VERIFY",write:true,
+   desc:"登记两次执行之间被测系统侧的代码 / 配置变更，作为迭代对比的归因依据。",
+   params:[
+     {n:"projectId",t:"string",r:true,d:"项目 ID"},
+     {n:"changes",t:"object[]",r:true,d:"变更清单：类型 / 范围 / 关联提交"}],
+   example:`register_change({
+  "projectId": "proj-2026-q3",
+  "changes": [ { "type": "CODE", "scope": "order-service", "ref": "PR#812" } ]
+})
+
+→ { "changeId": "chg-0155" }`},
+  {name:"verify_change",title:"验证优化效果",stage:"VERIFY",write:false,
+   desc:"对比优化前后两次执行的指标差异，输出事实性三态判定（改善 / 无变化 / 劣化）。",
+   params:[
+     {n:"baselineExecutionId",t:"string",r:true,d:"基线执行 ID"},
+     {n:"candidateExecutionId",t:"string",r:true,d:"优化后执行 ID"}],
+   example:`verify_change({
+  "baselineExecutionId": "exec-0298",
+  "candidateExecutionId": "exec-0311"
+})
+
+→ { "verdict": "IMPROVED", "deltas": { "p95": "-18.4%", "tps": "+9.2%" } }`},
+  {name:"request_evidence_capture",title:"申请补充取证",stage:"CAPTURE",write:true,enabled:false,
+   desc:"发起一次补充取证申请，须声明目的 / 影响 / 成本，经人工审批后由平台执行。",
+   params:[
+     {n:"executionId",t:"string",r:true,d:"执行 ID"},
+     {n:"purpose",t:"string",r:true,d:"取证目的"},
+     {n:"impact",t:"string",r:true,d:"对被测系统的影响说明"},
+     {n:"cost",t:"string",r:true,d:"预估成本（时长 / 资源）"}],
+   example:`request_evidence_capture({
+  "executionId": "exec-0311",
+  "purpose": "复现连接池耗尽瞬间线程栈",
+  "impact": "jstack 暂停 ~200ms",
+  "cost": "单次抓取，约 1 分钟"
+})
+
+→ { "requestId": "cap-0031", "state": "PENDING_APPROVAL" }`}
+];
+
+/* ============ Agent 配置片段（与 skill-pack/README.md 范本一致） ============ */
+const ENDPOINT = "http://localhost:8080/mcp";
+const CFG = {
+  cc:{
+    label:"Claude Code",
+    text:`~/.claude.json — mcpServers 配置：
+{
+  "mcpServers": {
+    "perf-platform": {
+      "type": "http",
+      "url": "${ENDPOINT}",
+      "headers": { "X-API-Key": "<agent-api-key>" }
+    }
+  }
+}`,
+    html:`<span class="tok-cmt">// ~/.claude.json — mcpServers 配置</span>
+{
+  <span class="tok-key">"mcpServers"</span>: {
+    <span class="tok-key">"perf-platform"</span>: {
+      <span class="tok-key">"type"</span>: <span class="tok-str">"http"</span>,
+      <span class="tok-key">"url"</span>: <span class="tok-str">"${ENDPOINT}"</span>,
+      <span class="tok-key">"headers"</span>: { <span class="tok-key">"X-API-Key"</span>: <span class="tok-str">"&lt;agent-api-key&gt;"</span> }
+    }
+  }
+}`
+  },
+  dsh:{
+    label:"DSH",
+    text:`DSH MCP 接入配置（Streamable HTTP）：
+endpoint: ${ENDPOINT}
+headers:
+  X-API-Key: <agent-api-key>`,
+    html:`<span class="tok-cmt"># DSH MCP 接入配置（Streamable HTTP）</span>
+<span class="tok-key">endpoint:</span> <span class="tok-str">${ENDPOINT}</span>
+<span class="tok-key">headers:</span>
+  <span class="tok-key">X-API-Key:</span> <span class="tok-str">&lt;agent-api-key&gt;</span>`
+  }
+};
+
+/* ============ 渲染 ============ */
+const $=s=>document.querySelector(s);
+const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const STAGE_TABS=["全部",...STAGE_ORDER];
+let curStage="全部", curKw="";
+
+function badge(kind,extra=""){return `<span class="badge ${kind} ${extra}"></span>`}
+
+function cardHtml(t){
+  const off=t.enabled===false;
+  return `<button class="card ${off?"off":""}" data-name="${t.name}" aria-haspopup="dialog">
+    <div class="card-top">
+      <span class="tool-name">${t.name}</span>
+      <span class="badge st-${t.stage} stage">${STAGE_LABEL[t.stage]}</span>
+    </div>
+    <div class="tool-title">${t.title}</div>
+    <p class="tool-desc">${t.desc}</p>
+    <div class="badges">
+      ${t.write?`<span class="badge b-write"><svg class="ic" style="width:11px;height:11px"><use href="#i-key"/></svg>需写权限</span>`
+               :`<span class="badge b-read">只读</span>`}
+    </div>
+    <div class="card-foot">
+      <span style="display:inline-flex;align-items:center;gap:6px">
+        <span class="st-ic ${off?"off":"ok"}" role="img" aria-label="${off?"不可用":"可用"}" title="${off?"不可用":"可用"}"><svg class="ic"><use href="#${off?"i-off-c":"i-ok-c"}"/></svg></span>阶段：${STAGE_LABEL[t.stage]}
+      </span>
+      <span class="detail-hint">查看详情 <svg class="ic"><use href="#i-arrow-r"/></svg></span>
+    </div>
+  </button>`;
+}
+
+function renderTabs(){
+  $("#tabs").innerHTML=STAGE_TABS.map(s=>{
+    const n=s==="全部"?TOOLS.length:TOOLS.filter(t=>t.stage===s).length;
+    const label=s==="全部"?"全部":STAGE_LABEL[s];
+    return `<button class="tab ${curStage===s?"on":""}" role="tab" aria-selected="${curStage===s}" data-stage="${s}">${label}<span class="n">${n}</span></button>`;
+  }).join("");
+}
+
+function gridHtml(list){
+  return `<div class="grid">${list.map(cardHtml).join("")}</div>`;
+}
+
+function renderGrid(){
+  const kw=curKw.trim().toLowerCase();
+  const list=TOOLS.filter(t=>(curStage==="全部"||t.stage===curStage)
+    &&(!kw||(t.name+t.title+t.desc+t.stage).toLowerCase().includes(kw)));
+  $("#grid-area").innerHTML=gridHtml(list);
+  $("#result-count").textContent=`${list.length} / ${TOOLS.length} 个工具`;
+  $("#empty").style.display=list.length?"none":"block";
+  $("#empty-kw").textContent=curKw.trim();
+}
+
+function paramRow(p){
+  const reqHtml=p.n==="-"?`<span class="opt">—</span>`:(p.r?`<span class="req">必填</span>`:`<span class="opt">可选</span>`);
+  return `<tr><td class="p-name">${p.n}</td><td class="p-type">${p.t}</td><td>${reqHtml}</td><td>${p.d}</td></tr>`;
+}
+
+function drawerHtml(t){
+  return `
+  <div class="drawer-hd">
+    <div class="titles">
+      <div class="tool-name">${t.name}</div>
+      <div class="tool-title">${t.title}</div>
+      <div class="badges">
+        <span class="badge st-${t.stage}">${STAGE_LABEL[t.stage]} · ${t.stage}</span>
+        ${t.write?`<span class="badge b-write"><svg class="ic" style="width:11px;height:11px"><use href="#i-key"/></svg>需写权限</span>`
+                 :`<span class="badge b-read">只读</span>`}
+        <span class="st-ic ${t.enabled===false?"off":"ok"}" role="img" aria-label="${t.enabled===false?"不可用":"可用"}" title="${t.enabled===false?"不可用":"可用"}"><svg class="ic"><use href="#${t.enabled===false?"i-off-c":"i-ok-c"}"/></svg></span>
+      </div>
+    </div>
+    <button class="drawer-close" id="drawer-close" aria-label="关闭详情"><svg class="ic"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="drawer-bd">
+    <section class="sec">
+      <h3><svg class="ic"><use href="#i-book"/></svg>功能说明</h3>
+      <p class="desc">${t.desc}</p>
+    </section>
+    <section class="sec">
+      <h3><svg class="ic"><use href="#i-sliders"/></svg>入参</h3>
+      <table class="params">
+        <thead><tr><th style="width:26%">参数</th><th style="width:14%">类型</th><th style="width:12%">必填</th><th>说明</th></tr></thead>
+        <tbody>${t.params.map(paramRow).join("")}</tbody>
+      </table>
+    </section>
+    ${t.conflict?`
+    <section class="sec">
+      <h3><svg class="ic"><use href="#i-alert"/></svg>冲突语义</h3>
+      <div class="callout"><svg class="ic"><use href="#i-alert"/></svg>
+        <div><b>REVISION_CONFLICT（对应平台 409）</b>：当 <code>baseRevision</code> 与平台当前版本不一致时返回，
+        负载含 <code>currentRevision</code> 与服务端 / 客户端两版全文。调用方自行对比差异后三选一：
+        保留平台版 / 采纳本地版 / 手工合并后以新 revision 重提（D5）。</div>
+      </div>
+    </section>`:""}
+    <section class="sec">
+      <h3><svg class="ic"><use href="#i-terminal"/></svg>使用示例</h3>
+      <div class="codebox"><pre>${esc(t.example)}</pre>
+        <button class="copy-btn" id="ex-copy"><svg class="ic" style="width:13px;height:13px"><use href="#i-copy"/></svg>复制示例</button>
+      </div>
+    </section>
+  </div>
+  <div class="drawer-ft">
+    <svg class="ic"><use href="#i-key"/></svg>
+    调用本工具需 Agent API Key${t.write?"（写权限工具需非只读 scope）":""} ·
+    <a href="javascript:void(0)">前往系统配置申请</a>
+  </div>`;
+}
+
+/* ============ 交互 ============ */
+function toast(msg){
+  $("#toast-text").textContent=msg;
+  const el=$("#toast");el.classList.add("show");
+  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove("show"),1600);
+}
+function copyText(text,btn){
+  const done=()=>{btn.classList.add("done");btn.lastChild.textContent="已复制";
+    toast("已复制到剪贴板");
+    setTimeout(()=>{btn.classList.remove("done");btn.lastChild.textContent=btn.dataset.label;},1800);};
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>fallback());
+  }else fallback();
+  function fallback(){
+    const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);
+    ta.select();document.execCommand("copy");ta.remove();done();
+  }
+}
+function openDrawer(t){
+  $("#drawer").innerHTML=drawerHtml(t);
+  requestAnimationFrame(()=>{
+    $("#drawer").classList.add("show");$("#backdrop").classList.add("show");
+  });
+  $("#drawer-close").onclick=closeDrawer;
+  $("#ex-copy").dataset.label="复制示例";
+  $("#ex-copy").onclick=e=>copyText(t.example,e.currentTarget);
+}
+function closeDrawer(){
+  $("#drawer").classList.remove("show");$("#backdrop").classList.remove("show");
+}
+
+$("#tabs").addEventListener("click",e=>{
+  const b=e.target.closest(".tab");if(!b)return;
+  curStage=b.dataset.stage;renderTabs();renderGrid();
+});
+$("#search").addEventListener("input",e=>{curKw=e.target.value;renderGrid();});
+$("#empty-clear").addEventListener("click",()=>{curKw="";$("#search").value="";renderGrid();});
+$("#grid-area").addEventListener("click",e=>{
+  const c=e.target.closest(".card");if(!c)return;
+  const t=TOOLS.find(x=>x.name===c.dataset.name);if(t)openDrawer(t);
+});
+$("#backdrop").addEventListener("click",closeDrawer);
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer();});
+
+/* 配置片段 tab 切换 */
+let curCfg="cc";
+function renderCfg(){
+  $("#cfg-code").innerHTML=CFG[curCfg].html;
+  $("#cfg-copy").dataset.label="复制配置";
+}
+document.querySelectorAll(".seg [data-cfg]").forEach(b=>{
+  b.addEventListener("click",()=>{
+    document.querySelectorAll(".seg [data-cfg]").forEach(x=>{x.classList.remove("on");x.setAttribute("aria-selected","false");});
+    b.classList.add("on");b.setAttribute("aria-selected","true");
+    curCfg=b.dataset.cfg;renderCfg();
+  });
+});
+$("#cfg-copy").addEventListener("click",e=>copyText(CFG[curCfg].text,e.currentTarget));
+
+renderTabs();renderGrid();renderCfg();
+</script>
+</body>
+</html>

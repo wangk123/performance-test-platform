@@ -119,6 +119,7 @@ default String usageExample() { return ""; }
 
 - 顶级路由 `/mcp-tools`（`frontend/src/router/index.ts` 新增），`MainLayout` 导航新增「MCP 工具」入口。
 - **不放 Settings 下**：Settings 是管理员语境（Agent API Key 签发），目录页面向全体项目成员。
+- **布局流式铺满**：内容区不限宽居中，占满可用宽度；卡片网格随窗口自动增减列数，宽屏下不留两侧成片空白。（2026-09-04 效果图评审确认）
 
 ### 5.2 页头接入指引（横幅）
 
@@ -132,7 +133,9 @@ default String usageExample() { return ""; }
 
 ### 5.3 工具卡片与详情
 
-- **卡片网格**：名称（等宽字体）、`title`、stage 徽标、「需写权限」标记（`requiresWriteScope=true` 时）、状态、`description`。
+- **列表形态**：**单一连续平铺网格，不做阶段分组渲染**——阶段的组织方式只由上方筛选标签承载。理由：分组网格在稀疏组（单工具阶段）下 `auto-fill` 空轨道不折叠且被 1fr 拉伸占位，右侧出现成片空白；末行的自然剩余为卡片列表正常形态。（2026-09-04 效果图评审反馈）
+- **卡片网格**：名称（等宽字体）、`title`、stage 徽标、「需写权限」标记（`requiresWriteScope=true` 时）、**状态图标（可用/不可用两态，纯图标）**、`description`。
+- **页脚**：列表下方收尾条——左侧「工具清单由服务注册表实时生成，随版本发布自动上下线」、右侧平台标识；为内容结束后的底部留白提供视觉终点。
 - **点开卡片（抽屉/展开）= 接口文档式详情**：
   - 参数表格：从 `inputSchema.properties` 渲染——参数名 / 类型 / 是否必填（`required` 数组）/ 说明（`description` 字段）；
   - `usageExample` 代码块（等宽 + 复制按钮）；
@@ -144,7 +147,8 @@ default String usageExample() { return ""; }
 
 - `frontend/src/api/mcp-directory.ts`（新建，调用 `GET /api/mcp/tools`）；
 - `frontend/src/components/mcp/McpToolDirectoryPage.vue`（新建）+ 详情抽屉子组件；
-- `types/index.ts` 补 `McpToolSummary` / `McpDirectory` 类型。
+- `types/index.ts` 补 `McpToolSummary` / `McpDirectory` 类型；
+- **视觉基准**：仓库根 `mcp-directory-prototype.html`（2026-09-04 可交互效果图，布局/两态状态图标/平铺列表/页脚/抽屉均按评审定稿，实施时对照还原）。
 
 ## 6. ①：计划 MCP 工具契约（定稿；实现待 P0-1）
 
@@ -183,7 +187,7 @@ SKILL.md 流程骨架：
 - [ ] `plan_update` REVISION_CONFLICT 错误码与负载格式：对齐 `McpToolSupport.failure` 与 T4 稳定错误码体系（HTTP 409 语义映射）
 - [ ] 五条 `usageExample` 编写（含一条冲突处理示例）
 - [ ] `plan_templates` 与 P0-1 模板体系（§7 of P0-1 设计）的字段对齐复核
-- [ ] `stage=PLAN` 注册与目录页分组联测
+- [ ] `stage=PLAN` 注册与目录页筛选联测
 - [ ] `skill-pack/perf-plan/SKILL.md` 编写 + `skill-pack/README.md` 组件表补行
 - [ ] D3 措辞同步（`skills/perf-plan/` → `skill-pack/perf-plan/`）——待用户评审确认后改 roadmap §2
 
@@ -198,12 +202,13 @@ SKILL.md 流程骨架：
 | 5 | skill 放 `skill-pack/perf-plan/`，同步 D3 措辞 | 本设计推荐，随文档评审确认 |
 | 6 | 状态两态 `ENABLED`/`DISABLED`，纯图标呈现；不设"规划中"第三态；启停为注册表未来能力，端点透传、页面自动跟随 | 已确认（2026-09-04 用户反馈修订） |
 | 7 | ① 服务层细节 + ③ skill 编写延后至 P0-1 落地（§8 清单跟踪） | 已确认（2026-09-04） |
+| 8 | 目录页列表 = 单一平铺网格，不做阶段分组渲染（阶段仅由筛选 tabs 承载）；内容区流式铺满；页脚收尾；视觉基准 = 仓库根 `mcp-directory-prototype.html` | 已确认（2026-09-04 效果图评审反馈） |
 
 ## 10. 测试与验收
 
 - **后端（②，先行）**：
   - `McpDirectoryControllerTest`：返回与 `registry.all()` 严格一致（数量/字段/stage 集合含 PLAN 排序）；未登录 401；`usageExample` 默认空串不影响现有 8 工具（全量回归）。
-- **前端（②）**：手测清单——阶段筛选、搜索、两个配置片段复制、API Key 申请入口链接可达；字段与端点响应对齐。
+- **前端（②）**：手测清单——阶段筛选、搜索、两个配置片段复制、API Key 申请入口链接可达；宽屏铺满无成片空白、平铺无分组头、状态图标两态、页脚渲染；字段与端点响应对齐（对照 `mcp-directory-prototype.html` 视觉基准）。
 - **①（延后）**：五工具单测（含 `plan_update` REVISION_CONFLICT 路径）；`McpServerApiTest` 扩展计划工具冒烟；readonly scope 不可见写工具回归。
 - **③（延后）**：按验收口径人工走查"梳理→生成→同步→再修改"全流程；skill-pack 冒烟脚本扩展计划工具只读调用。
 - 总验收 = roadmap P0-2 行两条口径。
