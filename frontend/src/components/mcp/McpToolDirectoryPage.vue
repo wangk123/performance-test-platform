@@ -102,6 +102,125 @@
       </div>
     </section>
 
+    <div v-if="directory" class="toolbar">
+      <div class="tabs" role="tablist" aria-label="按阶段筛选">
+        <button
+          v-for="tab in stageTabs"
+          :key="tab.stage"
+          type="button"
+          role="tab"
+          class="tab"
+          :class="{ on: currentStage === tab.stage }"
+          :aria-selected="currentStage === tab.stage"
+          @click="currentStage = tab.stage"
+        >{{ tab.label }}<span class="n">{{ tab.count }}</span></button>
+      </div>
+      <label class="search">
+        <svg
+          class="ic"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        ><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input
+          v-model="keyword"
+          type="search"
+          placeholder="搜索工具名称 / 说明…"
+          aria-label="搜索工具"
+        />
+      </label>
+      <span class="result-count">{{ filteredTools.length }} / {{ tools.length }} 个工具</span>
+      <span class="legend" aria-label="状态图例">
+        <span class="st-ic ok" role="img" aria-label="可用" title="可用">
+          <svg
+            class="ic"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          ><circle cx="12" cy="12" r="9" fill="currentColor" stroke="none"/><path d="m8.3 12.4 2.6 2.6 4.9-5.4" stroke="#fff" stroke-width="2"/></svg>
+        </span>
+        <span class="st-ic off" role="img" aria-label="不可用" title="不可用">
+          <svg
+            class="ic"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          ><circle cx="12" cy="12" r="8.4"/><path d="M6.4 6.4 17.6 17.6"/></svg>
+        </span>
+      </span>
+    </div>
+
+    <div v-if="directory" class="grid-area">
+      <div v-if="filteredTools.length" class="grid">
+        <button
+          v-for="tool in filteredTools"
+          :key="tool.name"
+          type="button"
+          class="card"
+          :class="{ off: tool.status === 'DISABLED' }"
+          aria-haspopup="dialog"
+          @click="openTool(tool)"
+        >
+          <div class="card-top">
+            <span class="tool-name">{{ tool.name }}</span>
+            <span class="badge stage" :class="`st-${tool.stage}`">{{ mcpStageLabel(tool.stage) }}</span>
+          </div>
+          <div class="tool-title">{{ tool.title }}</div>
+          <p class="tool-desc">{{ tool.description }}</p>
+          <div class="badges">
+            <span v-if="tool.requiresWriteScope" class="badge b-write">
+              <svg
+                class="ic xs"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              ><circle cx="7.5" cy="15.5" r="4"/><path d="m10.5 12.5 9-9M17 4l3 3M14 7l2.5 2.5"/></svg>
+              需写权限
+            </span>
+            <span v-else class="badge b-read">只读</span>
+          </div>
+          <div class="card-foot">
+            <span class="card-stage">
+              <span
+                class="st-ic"
+                :class="tool.status === 'DISABLED' ? 'off' : 'ok'"
+                role="img"
+                :aria-label="tool.status === 'DISABLED' ? '不可用' : '可用'"
+                :title="tool.status === 'DISABLED' ? '不可用' : '可用'"
+              >
+                <svg
+                  v-if="tool.status !== 'DISABLED'"
+                  class="ic"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                ><circle cx="12" cy="12" r="9" fill="currentColor" stroke="none"/><path d="m8.3 12.4 2.6 2.6 4.9-5.4" stroke="#fff" stroke-width="2"/></svg>
+                <svg
+                  v-else
+                  class="ic"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                ><circle cx="12" cy="12" r="8.4"/><path d="M6.4 6.4 17.6 17.6"/></svg>
+              </span>
+              阶段：{{ mcpStageLabel(tool.stage) }}
+            </span>
+            <span class="detail-hint">
+              查看详情
+              <svg
+                class="ic xs"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              ><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+            </span>
+          </div>
+        </button>
+      </div>
+      <div v-else class="empty">
+        <svg
+          class="ic lg"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        ><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <p>未找到匹配「{{ keyword.trim() }}」的工具</p>
+        <button type="button" @click="clearSearch">清除搜索</button>
+      </div>
+    </div>
+
     <div v-if="loading" class="state-note">正在加载工具清单…</div>
     <div v-else-if="error" class="state-note error">
       {{ error }}
@@ -134,12 +253,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { fetchMcpDirectoryApi } from '../../api/mcp-directory';
-import type { McpDirectory } from '../../types';
+import type { McpDirectory, McpToolSummary } from '../../types';
 import { copyToClipboard } from '../../utils/clipboard';
+import { mcpStageLabel } from '../../utils/format';
 
 const directory = ref<McpDirectory | null>(null);
 const loading = ref(false);
 const error = ref('');
+const currentStage = ref('全部');
+const keyword = ref('');
+const selectedTool = ref<McpToolSummary | null>(null);
 const agentKind = ref<'cc' | 'dsh'>('cc');
 const configCopied = ref(false);
 const toastVisible = ref(false);
@@ -147,6 +270,33 @@ const toastText = ref('');
 let toastTimer: number | undefined;
 
 const mcpEndpoint = computed(() => `${window.location.origin}/mcp`);
+
+const tools = computed(() => directory.value?.tools ?? []);
+
+const stageTabs = computed(() => {
+  const tabs = [{ stage: '全部', label: '全部', count: tools.value.length }];
+  for (const stage of directory.value?.stages ?? []) {
+    tabs.push({
+      stage,
+      label: mcpStageLabel(stage),
+      count: tools.value.filter((tool) => tool.stage === stage).length,
+    });
+  }
+  return tabs;
+});
+
+const filteredTools = computed(() => {
+  const kw = keyword.value.trim().toLowerCase();
+  return tools.value.filter((tool) => {
+    if (currentStage.value !== '全部' && tool.stage !== currentStage.value) {
+      return false;
+    }
+    if (!kw) {
+      return true;
+    }
+    return `${tool.name}\n${tool.title}\n${tool.description}\n${tool.stage}`.toLowerCase().includes(kw);
+  });
+});
 
 const configText = computed(() =>
   agentKind.value === 'cc' ? claudeCodeConfig(mcpEndpoint.value) : dshConfig(mcpEndpoint.value),
@@ -221,6 +371,24 @@ async function copyConfig() {
   }
 }
 
+function clearSearch() {
+  keyword.value = '';
+}
+
+function openTool(tool: McpToolSummary) {
+  selectedTool.value = tool;
+}
+
+function closeDrawer() {
+  selectedTool.value = null;
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    closeDrawer();
+  }
+}
+
 async function load() {
   loading.value = true;
   error.value = '';
@@ -235,9 +403,11 @@ async function load() {
 
 onMounted(() => {
   void load();
+  document.addEventListener('keydown', onKeydown);
 });
 
 onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKeydown);
   if (toastTimer !== undefined) clearTimeout(toastTimer);
 });
 </script>
@@ -550,10 +720,237 @@ onBeforeUnmount(() => {
 
 .mcp-directory .toast .ic { color: #7fd4dc; width: 15px; height: 15px; }
 
+/* ===== 工具栏 ===== */
+.mcp-directory .toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.mcp-directory .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.mcp-directory .tab {
+  padding: 6px 13px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.18s;
+  cursor: pointer;
+}
+
+.mcp-directory .tab:hover { border-color: var(--line-strong); color: var(--ink); }
+
+.mcp-directory .tab.on {
+  background: var(--accent-soft);
+  border-color: var(--active-bg-strong);
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.mcp-directory .tab .n {
+  font-family: var(--font-data);
+  font-size: 11px;
+  background: rgba(26, 35, 50, 0.06);
+  border-radius: 9px;
+  padding: 0 6px;
+  line-height: 17px;
+}
+
+.mcp-directory .tab.on .n { background: rgba(11, 127, 138, 0.14); }
+
+.mcp-directory .search {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  width: 250px;
+  transition: border-color 0.18s;
+}
+
+.mcp-directory .search:focus-within { border-color: var(--accent); }
+
+.mcp-directory .search .ic { color: var(--muted); width: 15px; height: 15px; }
+
+.mcp-directory .search input {
+  border: none;
+  outline: none;
+  font: inherit;
+  font-size: 13px;
+  width: 100%;
+  background: transparent;
+  color: var(--ink);
+}
+
+.mcp-directory .result-count { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+
+/* ===== 徽标体系 ===== */
+.mcp-directory .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.mcp-directory .st-PLAN { background: var(--accent-soft); color: var(--primary-dark); }
+.mcp-directory .st-NAVIGATE { background: #e8effd; color: #2563eb; }
+.mcp-directory .st-DESIGN { background: #f1eafd; color: #7c3aed; }
+.mcp-directory .st-OBSERVE { background: #eef2f6; color: #475569; }
+.mcp-directory .st-DIAGNOSE { background: var(--warning-soft); color: var(--warn); }
+.mcp-directory .st-VERIFY { background: var(--ok-soft); color: var(--ok); }
+.mcp-directory .st-CAPTURE { background: #fdeaf3; color: #be185d; }
+
+.mcp-directory .b-write {
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-border);
+  color: var(--warn);
+}
+
+.mcp-directory .b-read { background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+
+/* 状态图标：两态纯图标（可用 / 不可用） */
+.mcp-directory .st-ic { display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.mcp-directory .st-ic .ic { width: 15px; height: 15px; }
+.mcp-directory .st-ic.ok { color: var(--ok); }
+.mcp-directory .st-ic.off { color: #8aa0b0; }
+.mcp-directory .legend { display: inline-flex; align-items: center; gap: 8px; padding-left: 2px; }
+
+/* ===== 卡片网格：单一平铺，不做阶段分组 ===== */
+.mcp-directory .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 14px;
+}
+
+.mcp-directory .card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  position: relative;
+  transition: box-shadow 0.18s, border-color 0.18s, transform 0.18s;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.mcp-directory .card:hover {
+  box-shadow: var(--shadow-pop);
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
+}
+
+.mcp-directory .card.off { opacity: 0.6; background: var(--surface-soft); }
+.mcp-directory .card.off:hover { opacity: 1; }
+
+.mcp-directory .card-top { display: flex; align-items: flex-start; gap: 10px; }
+
+.mcp-directory .tool-name {
+  font-family: var(--font-data);
+  font-size: 14.5px;
+  font-weight: 600;
+  word-break: break-all;
+  color: var(--ink);
+}
+
+.mcp-directory .card-top .stage { margin-left: auto; }
+
+.mcp-directory .tool-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+
+.mcp-directory .tool-desc {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 40px;
+}
+
+.mcp-directory .badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.mcp-directory .card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px dashed var(--line);
+  padding-top: 9px;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mcp-directory .card-stage { display: inline-flex; align-items: center; gap: 6px; }
+
+.mcp-directory .detail-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary-dark);
+  font-weight: 500;
+}
+
+.mcp-directory .detail-hint .ic { width: 13px; height: 13px; transition: transform 0.18s; }
+
+.mcp-directory .card:hover .detail-hint .ic { transform: translateX(2px); }
+
+/* ===== 空状态 ===== */
+.mcp-directory .empty { text-align: center; padding: 64px 0; color: var(--muted); }
+
+.mcp-directory .empty .ic { width: 34px; height: 34px; margin: 0 auto 12px; color: var(--line-strong); display: block; }
+
+.mcp-directory .empty p { margin: 0; font-size: 13.5px; }
+
+.mcp-directory .empty button {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--primary-dark);
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.mcp-directory .empty button:hover { text-decoration: underline; }
+
 /* ===== 响应式 & 动效偏好 ===== */
 @media (max-width: 1080px) {
   .mcp-directory .access-bd { grid-template-columns: 1fr; }
   .mcp-directory .steps { border-right: none; border-bottom: 1px solid var(--line); }
+}
+
+@media (max-width: 720px) {
+  .mcp-directory .search { width: 100%; margin-left: 0; }
+  .mcp-directory .grid { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
