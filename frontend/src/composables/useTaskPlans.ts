@@ -247,7 +247,8 @@ export function useTaskPlans() {
     if (refreshTimer !== null) window.clearTimeout(refreshTimer);
   });
 
-  function scriptById(scriptId: number) {
+  function scriptById(scriptId: number | null) {
+    if (scriptId === null) return null;
     return currentProjectScripts.value.find((script) => script.id === scriptId) ?? null;
   }
 

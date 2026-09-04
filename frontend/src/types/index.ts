@@ -415,6 +415,68 @@ export type ExecutionConfig = {
   stepName?: string | null;
 };
 
+export type PlanPhase = 'DRAFT' | 'REVIEW' | 'EXECUTION' | 'REPORT' | 'PUBLISH';
+export type PlanStatus =
+  | 'DRAFT' | 'PENDING' | 'IN_REVIEW' | 'APPROVED'
+  | 'RUNNING' | 'DONE' | 'GENERATING' | 'PUBLISHED';
+export type PlanCommentKind = 'REVIEW' | 'SYSTEM';
+
+export interface PlanComment {
+  id: number;
+  planId: number;
+  author: string;
+  content: string;
+  kind: PlanCommentKind;
+  createdAt: string;
+}
+
+export interface PlanTemplate {
+  id: number;
+  projectId: number | null;
+  name: string;
+  description: string | null;
+  content: string;
+  builtin: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanShareTokenView {
+  id: number;
+  planId: number;
+  token: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface PlanSnapshotView {
+  id: number;
+  revision: number;
+  publishedBy: string;
+  publishedAt: string;
+}
+
+export interface PrecheckSettings {
+  enabled: boolean;
+  items: string[];
+}
+
+export type PlanPermissions = Record<string, boolean>;
+
+export interface PlanDocumentResponse {
+  plan: TaskPlan;
+  permissions: PlanPermissions;
+}
+
+export interface PrecheckRunReport {
+  ok: boolean;
+  failures: string[];
+  autoPassed: string[];
+}
+
 export type TaskPlan = {
   id: number;
   projectId: number;
@@ -427,13 +489,22 @@ export type TaskPlan = {
   defaultWorkerNodeIds: number[];
   defaultMonitorTargetIds: number[];
   scenarioCount: number;
+  phase: PlanPhase;
+  status: PlanStatus;
+  body: string | null;
+  revision: number;
+  publishedAt: string | null;
+  precheckJson: string | null;
+  precheckExecutedAt: string | null;
 };
 
 export type TaskScenario = {
   id: number;
   planId: number;
-  scriptVersionId: number;
+  scriptVersionId: number | null;
   name: string;
+  purpose: string | null;
+  testType: string | null;
   sortOrder: number;
   threads: number;
   rampUp: number;
