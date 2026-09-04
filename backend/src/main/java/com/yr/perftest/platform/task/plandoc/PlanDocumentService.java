@@ -45,7 +45,9 @@ public class PlanDocumentService {
 
     @Transactional
     public TaskPlan updateMarkdown(long planId, long baseRevision, String markdown, HumanPrincipal actor) {
-        PersistentTaskPlanRecord plan = requirePlan(planId);
+        // 悲观行锁持有至事务提交：并发同 baseRevision 的编辑串行化，后到者读到已 bump 的 revision 得 409（设计 §5.2）。
+        PersistentTaskPlanRecord plan = planRepository.findWithLockingById(planId)
+                .orElseThrow(() -> new PlanValidationException("PLAN_INVALID：task plan does not exist"));
         requireEditAllowed(plan, actor);
         if (plan.getRevision() != baseRevision) {
             throw new PlanRevisionConflictException(
