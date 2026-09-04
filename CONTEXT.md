@@ -6,7 +6,10 @@
 
 - **Project（项目）**：平台资产归属入口。脚本、计划、场景、执行、报告、监控目标、造数资产都挂靠项目；归档不物理删除。
 - **Script / ScriptVersion（脚本/脚本版本）**：JMeter JMX 可执行资产；版本不可变，`storage/scripts/{projectId}/` 存储。`ScriptDefinition` 是解析后的步骤树视图。
-- **TaskPlan（测试计划）**：场景容器，含默认控制器/工作节点/监控目标。
+- **TaskPlan（压测计划文档）**：一稿走到头——同一份 Markdown 原文经历 计划（评审）→ 执行（回填）→ 报告 → 发布；`body` 是唯一数据源（11 章节中文序号），Pretty 视图 = 受约束章节提取展示。二级状态：phase（草稿/评审/执行/报告/发布）+ status。
+- **PlanComment / PlanTemplate / PlanPublishSnapshot / PlanShareToken**：评审批注（REVIEW/SYSTEM 两类，全文档级）/ 计划模板（内置+项目自定义）/ 发布快照（P1-4 消费）/ 只读分享令牌。
+- **revision 与冲突**：任何原文变化 revision+1；更新带 baseRevision，不一致 409 + serverMarkdown，三选一解决（保留平台版/采纳本地版/手改），不做自动合并。
+- **环境检查（precheck）**：计划执行设置（precheck_json），非文档内容；评审通过后首次执行自动运行、可跳过（系统批注留痕）。
 - **TaskScenario（测试场景）**：绑定脚本版本 + 线程组参数（预设行）的执行配置。
 - **ScenarioExecution（执行记录）**：一次压测运行；配置 JSON 快照固化；状态机 QUEUED → RUNNING → SUCCESS/FAILED/INTERRUPTED，RUNNING → STOPPING → CANCELLED。
 - **ThreadGroupConfig / Preset（线程组配置/预设）**：场景内可复用的线程组参数行（threads/rampUp/duration/sortOrder）。
@@ -29,6 +32,7 @@
 | `script/JmeterScriptParser·Renderer·Patcher` | JMX 解析/渲染/补丁，各自为深模块 | 编排语义在 Assembler 一处 |
 | `facade/FacadeGuard` | agent 面主体校验 | 审计在控制模块内（C5） |
 | `governance` | 脱敏/限流/请求审计/执行审计 | AuditFacade 走有界查询（C5） |
+| `task/plandoc/PlanWorkflowService` | 计划文档域：状态机/批注/模板/分享/发布快照/precheck 门禁 | 执行门禁挂 ExecutionControlService seam（P0-1） |
 
 ## 关键决策记录（非正式 ADR）
 

@@ -123,3 +123,38 @@
 8. 新增 `CONTEXT.md`：领域词汇 + 模块地图 + 关键 seam 决策记录。
 
 验证：新增 `UiExecutionControlApiTest`（UI 幂等/审计/409）、`ExecutionScriptAssemblerTest`；`gradle :backend:test` 全量通过；`npm run build` 通过。
+
+## 2026-09-04（P0-1 计划文档模块重构：TaskPlan 升级为压测计划文档）
+
+已完成：
+
+1. TaskPlan 升级为压测计划文档并"一稿走到头"（计划→执行回填→报告→发布）：实体二级状态（phase/status）与 revision、计划域权限矩阵与 8 动作状态机、文档服务（409 冲突体 + 系统回填幂等 + 行级锁）、批注（REVIEW/SYSTEM）、模板体系（内置 11 章节 + 项目自定义）、业务化场景（脚本后置关联 + purpose/testType 回写）、执行门禁与 precheck（挂 ExecutionControlService 唯一 seam、可跳过留痕）、报告生成与发布快照、只读分享令牌、REST 面与前端五阶段详情页/文档 Tab/批注时间线/场景设计/发布分享页（Task1~Task17）。
+
+提交：
+
+1. `3ab06b7` feat：P0-1 Task1 计划/场景实体扩展——二级状态列、文档正文与 revision、脚本可空与业务字段
+2. `8867f1e` feat：P0-1 Task2 PlanMarkdownSupport——章节切分/替换、场景块执行记录幂等回填、清单解析
+3. `137351e` feat：P0-1 Task3 计划域角色解析与 17 动作权限矩阵
+4. `37076ce` feat：P0-1 Task4 文档服务——原文读写/409 冲突体/系统回填幂等/执行态惰性纠偏 + 批注实体
+5. `8b5594d` fix：P0-1 Task4 updateMarkdown 行级锁防并发丢更新（409 契约）
+6. `c781926` feat：P0-1 Task5 状态机流转与批注——8 个流转动作、权限与非法状态 409、SYSTEM 批注留痕
+7. `1d4dfda` feat：P0-1 Task6 模板体系——内置 11 章节模板 seed、项目模板 CRUD、创建计划渲染正文与默认执行设置
+8. `ee36d6c` fix：P0-1 Task6 precheck 默认清单只取入口准则 + 模板项目归属校验
+9. `d497ace` feat：P0-1 Task7 业务化场景——脚本可空后置关联、purpose/testType、场景事实回写文档保留自由文本
+10. `fae4ab8` fix：P0-1 Task7 updateScenario 对 purpose/testType 做 null 跳过合并（防局部 PUT 清空）
+11. `7541cc1` feat：P0-1 Task8 执行门禁与环境检查挂唯一 seam——阶段/脚本校验、首执行自动 precheck、跳过留痕、报告作废
+12. `c80b23f` feat：P0-1 Task9 执行终态联动——事件驱动回填场景块与 DONE 判定、快捷执行单事务四步
+13. `453a059` feat：P0-1 Task10 发布快照与只读分享——token 实体、创建/撤销/过期判定、/api/share/** 放行
+14. `b79cdc8` feat：P0-1 Task11 报告生成与发布终态——结果总览回填、达成表实际列、发布快照、新修订重置
+15. `35be82b` fix：P0-1 Task11 publish 缺结论章节时不再拼入 null 字面量
+16. `582cc6b` feat：P0-1 Task12 REST 面——文档/流转/批注/模板/分享/快捷执行端点与错误码映射、级联删除
+17. `a84c129` feat：P0-1 Task13 前端地基——md-editor-v3/diff 依赖、plan 域类型与 API、markdown 章节工具
+18. `b2de85e` feat：P0-1 Task14 计划详情壳——五阶段步进条、四 Tab、usePlanDoc 状态与冲突感知保存
+19. `7c92e54` feat：P0-1 Task15 文档 Tab——Pretty|Markdown 分段控件、TOC、章节级写回、冲突三选一、执行设置抽屉
+20. `b8442aa` feat：P0-1 Task16 评审/报告/发布 Tab 与场景设计模块——批注时间线、结论回填预览、发布快照分享、业务化场景卡
+21. `a0d80e1` fix：P0-1 Task16 撤销按钮 SHARE 权限显隐 + 场景卡渲染设置表（解析器扩展 settings）
+22. `31b73a8` feat：P0-1 Task17 列表阶段徽标、模板选择、场景业务字段、precheck 跳过、分享公开页与快捷执行单请求化
+
+验证：
+
+1. 验收口径核对：`gradle :backend:test --rerun` 全量通过（108 个测试类 / 392 用例，0 失败 0 错误）；前端 `npm run build` 0 错误。人工验收走查（路线图 P0-1 口径五条）由控制器后续执行，结果另行记录。
