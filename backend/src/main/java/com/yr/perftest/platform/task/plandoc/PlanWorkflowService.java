@@ -500,8 +500,9 @@ public class PlanWorkflowService {
             int end = body.indexOf('\n', start);
             body = end < 0 ? body.substring(0, start) + line : body.substring(0, start) + line + body.substring(end);
         } else {
+            String conclusionSection = PlanMarkdownSupport.extractSection(body, "十一、结论");
             body = PlanMarkdownSupport.ensureSection(body, "十一、结论",
-                    PlanMarkdownSupport.extractSection(body, "十一、结论") + "\n" + line + "\n");
+                    (conclusionSection == null ? "" : conclusionSection) + "\n" + line + "\n");
         }
         plan.updateBody(body);
         Instant now = Instant.now();

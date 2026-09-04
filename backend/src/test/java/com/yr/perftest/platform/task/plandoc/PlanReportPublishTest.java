@@ -109,6 +109,24 @@ class PlanReportPublishTest {
     }
 
     @Test
+    void publishWithoutConclusionSectionDoesNotWriteNullLiteral() {
+        PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
+        plan.updateBody("## 一、背景\n\n内容\n"); // 无「十一、结论」章节
+        plan.forceState(PlanPhase.REPORT, PlanStatus.DONE);
+        planRepository.save(plan);
+
+        TaskPlan published = workflow.publish(planId, OWNER, "结论文本");
+        assertThat(published.phase()).isEqualTo(PlanPhase.PUBLISH);
+        String body = planRepository.findById(planId).orElseThrow().getBody();
+        assertThat(body).contains("**总体结论**：结论文本");
+        assertThat(body).contains("## 十一、结论");
+        assertThat(body).doesNotContain("null");
+        var snapshot = snapshotRepository.findAllByPlanIdOrderByRevisionDesc(planId).get(0);
+        assertThat(snapshot.getDocJson()).contains("总体结论");
+        assertThat(snapshot.getDocJson()).doesNotContain("null");
+    }
+
+    @Test
     void newRevisionResetsToDraftAndBumps() {
         workflow.generateReport(planId, OWNER);
         TaskPlan published = workflow.publish(planId, OWNER, "结论");
