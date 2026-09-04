@@ -307,17 +307,21 @@ const filteredTools = computed(() => {
   });
 });
 
+// 复制负载必须是可直接粘贴的纯 JSON / 纯配置文本；说明行仅用于展示
 const configText = computed(() =>
   agentKind.value === 'cc' ? claudeCodeConfig(mcpEndpoint.value) : dshConfig(mcpEndpoint.value),
 );
 
+const configDisplay = computed(() =>
+  agentKind.value === 'cc' ? `~/.claude.json — mcpServers 配置：\n${configText.value}` : configText.value,
+);
+
 const highlightedConfig = computed(() =>
-  agentKind.value === 'cc' ? highlightClaudeCode(configText.value) : highlightDsh(configText.value),
+  agentKind.value === 'cc' ? highlightClaudeCode(configDisplay.value) : highlightDsh(configDisplay.value),
 );
 
 function claudeCodeConfig(endpoint: string): string {
   return [
-    '~/.claude.json — mcpServers 配置：',
     '{',
     '  "mcpServers": {',
     '    "perf-platform": {',
