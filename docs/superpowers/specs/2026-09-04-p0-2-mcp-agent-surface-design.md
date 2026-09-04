@@ -80,7 +80,7 @@ GET /api/mcp/tools        登录用户可读（Web 会话身份），只读
       "title": "列出项目",
       "stage": "NAVIGATE",
       "requiresWriteScope": false,
-      "status": "REGISTERED",
+      "status": "ENABLED",
       "description": "...",
       "usageExample": "...",
       "inputSchema": { "...": "原样透传工具的 JSON Schema" }
@@ -105,8 +105,8 @@ default String usageExample() { return ""; }
 
 ### 4.3 状态字段口径（D18）
 
-- 注册表目前**没有启停概念**，端点返回 `status: "REGISTERED"`（前端显示「已注册 · 可用」）。
-- D18"启停与可见性由注册表 stage/scope 决定"的解释：**页面不做运行时启停/注册**；未来若注册表引入 `enabled` 标志，本端点透传该字段、页面自动跟随，无需改版（单一事实源的好处）。
+- 状态**只有两态**：`ENABLED`（可用）/ `DISABLED`（不可用），前端**纯图标呈现**（绿圈带勾 = 可用；灰圈带斜杠 = 不可用），不用文字标识。
+- D18"启停与可见性由注册表 stage/scope 决定"的解释：**页面不做运行时启停/注册**；注册表 v1 无启停标志（全部 `ENABLED`），未来引入 `enabled` 后本端点透传、页面自动跟随，无需改版（单一事实源的好处）。（2026-09-04 用户确认：不引入"规划中"等第三态，路线图状态不进运行时 UI）
 
 ### 4.4 stage 新增 `PLAN`
 
@@ -196,7 +196,7 @@ SKILL.md 流程骨架：
 | 3 | stage 新增 `PLAN`，计划工具挂 PLAN | 本设计推荐，随文档评审确认 |
 | 4 | 目录页顶级路由 `/mcp-tools`，不放 Settings | 本设计推荐，随文档评审确认 |
 | 5 | skill 放 `skill-pack/perf-plan/`，同步 D3 措辞 | 本设计推荐，随文档评审确认 |
-| 6 | 页面状态字段 v1 = `REGISTERED`；启停为注册表未来能力，端点透传、页面自动跟随 | 本设计推荐，随文档评审确认 |
+| 6 | 状态两态 `ENABLED`/`DISABLED`，纯图标呈现；不设"规划中"第三态；启停为注册表未来能力，端点透传、页面自动跟随 | 已确认（2026-09-04 用户反馈修订） |
 | 7 | ① 服务层细节 + ③ skill 编写延后至 P0-1 落地（§8 清单跟踪） | 已确认（2026-09-04） |
 
 ## 10. 测试与验收
