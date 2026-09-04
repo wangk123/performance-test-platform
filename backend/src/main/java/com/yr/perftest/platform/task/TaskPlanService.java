@@ -67,7 +67,7 @@ public class TaskPlanService {
         PersistentTaskPlanRecord plan = planRepository.save(new PersistentTaskPlanRecord(projectId, name.trim(), remark, createdBy));
         plan.updateProfile(name, remark, defaultControllerNodeId,
                 taskJson.writeLongList(defaultWorkerNodeIds), taskJson.writeLongList(defaultMonitorTargetIds));
-        String body = renderInitialBody(templateId, name.trim());
+        String body = renderInitialBody(projectId, templateId, name.trim());
         if (body != null) {
             plan.initializeBody(body); // 创建语境初始化：不 bump revision（首版 revision=1）
             plan.initializePrecheck(defaultPrecheckJson(body));
@@ -75,27 +75,51 @@ public class TaskPlanService {
         return toPlan(planRepository.save(plan));
     }
 
-    /** 模板渲染初始正文；无模板返回 null（存量计划兼容）。 */
-    public String renderInitialBody(Long templateId, String planName) {
+    /** 模板渲染初始正文；模板缺失或非本项目模板（内置除外）→ null（存量计划兼容；模板项目归属见设计 §7.1）。 */
+    private String renderInitialBody(Long projectId, Long templateId, String planName) {
         PersistentPlanTemplateRecord template = templateId != null
                 ? templateRepository.findById(templateId).orElse(null)
                 : templateRepository.findFirstByBuiltinTrueOrderByIdAsc().orElse(null);
         if (template == null) {
             return null;
         }
+        if (template.getProjectId() != null && !template.getProjectId().equals(projectId)) {
+            return null; // 他项目私有模板视同不存在
+        }
         return PlanMarkdownSupport.renderTemplate(template.getContent(), planName);
     }
 
-    /** 从渲染后的正文解析入口准则条目 → 默认 precheck 设置（disabled）。 */
-    public String defaultPrecheckJson(String body) {
-        List<String> items = PlanMarkdownSupport.parseChecklistItems(
-                PlanMarkdownSupport.extractSection(body == null ? "" : body, "五、测试约束"));
+    /** 从渲染后的正文解析入口准则条目 → 默认 precheck 设置（disabled；设计 §10.2 只取入口准则）。 */
+    private String defaultPrecheckJson(String body) {
+        List<String> items = PlanMarkdownSupport.parseChecklistItems(entryCriteriaRegion(
+                PlanMarkdownSupport.extractSection(body == null ? "" : body, "五、测试约束")));
         List<String> effective = items.isEmpty() ? PrecheckSettings.DEFAULT_ITEMS : items;
         try {
             return objectMapper.writeValueAsString(new PrecheckSettings(false, effective));
         } catch (Exception exception) {
             throw new PlanValidationException("PLAN_INVALID：precheck 设置序列化失败");
         }
+    }
+
+    /** 五、测试约束章节内的 ### 入口准则 小节（到下一 ### 小节或章节末尾）；缺失返回 null。 */
+    private String entryCriteriaRegion(String sectionContent) {
+        if (sectionContent == null) {
+            return null;
+        }
+        String[] lines = sectionContent.split("\n", -1);
+        int start = -1;
+        int end = lines.length;
+        for (int i = 0; i < lines.length; i++) {
+            if (start < 0) {
+                if (lines[i].startsWith("### 入口准则")) {
+                    start = i;
+                }
+            } else if (lines[i].startsWith("### ")) {
+                end = i;
+                break;
+            }
+        }
+        return start < 0 ? null : String.join("\n", java.util.Arrays.copyOfRange(lines, start, end));
     }
 
     @Transactional

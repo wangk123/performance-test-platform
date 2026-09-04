@@ -91,4 +91,36 @@ class PlanTemplateTest {
         assertThat(raw.getPrecheckJson()).contains("\"enabled\":false");
         assertThat(raw.getPrecheckJson()).contains("指标已定义");
     }
+
+    @Test
+    void precheckDefaultItemsContainEntryCriteriaOnly() {
+        Long templateId = workflow.listTemplates(projectId).stream()
+                .filter(t -> t.getName().equals("通用压测计划")).findFirst().orElseThrow().getId();
+        TaskPlan plan = planService.createPlan(projectId, "入口准则校验", null, null, null, null, "owner", templateId);
+        String precheckJson = planRepository.findById(plan.id()).orElseThrow().getPrecheckJson();
+        // 入口准则条目在（含人工环境类），出口准则条目一律不在（设计 §10.2：默认取入口准则）
+        assertThat(precheckJson).contains("环境就绪");
+        assertThat(precheckJson).doesNotContain("全部场景按计划执行完成");
+        assertThat(precheckJson).doesNotContain("指标达成表已确认");
+        assertThat(precheckJson).doesNotContain("风险与建议已记录");
+    }
+
+    @Test
+    void crossProjectTemplateIsRejected() {
+        PersistentProjectRecord projectA = projectRepository.save(
+                new PersistentProjectRecord("PA", "项目甲", "", "owner-a"));
+        memberRepository.save(new PersistentProjectMemberRecord(projectA.getId(), "owner-a", ProjectRole.OWNER));
+        PersistentPlanTemplateRecord templateA = workflow.createTemplate(
+                projectA.getId(), new HumanPrincipal("owner-a", Set.of(SystemRole.PROJECT_MEMBER)),
+                "甲项目私有模板", null, "# 甲项目专属 MARKER-PA\n");
+        // P1 内创建计划却传甲项目私有模板 id → 视同无模板（§7.1 模板项目归属）
+        TaskPlan plan = planService.createPlan(projectId, "越权模板计划", null, null, null, null, "owner", templateA.getId());
+        assertThat(plan.body()).isNull();
+        assertThat(planRepository.findById(plan.id()).orElseThrow().getPrecheckJson()).isNull();
+        // 内置模板（projectId=null）仍可从任意项目渲染
+        Long builtinId = workflow.listTemplates(projectId).stream()
+                .filter(PersistentPlanTemplateRecord::isBuiltin).findFirst().orElseThrow().getId();
+        TaskPlan builtinPlan = planService.createPlan(projectId, "内置模板计划", null, null, null, null, "owner", builtinId);
+        assertThat(builtinPlan.body()).contains("性能测试计划");
+    }
 }
