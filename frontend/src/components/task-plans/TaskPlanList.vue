@@ -40,7 +40,10 @@
         :locale="{ emptyText: '暂无任务计划。' }"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'name'">
+          <template v-if="column.key === 'phase'">
+            <a-tag :color="phaseColor(record.phase)">{{ phaseText(record.phase) }} · {{ statusLabel(record.phase, record.status) }}</a-tag>
+          </template>
+          <template v-else-if="column.key === 'name'">
             <strong>{{ record.name }}</strong>
           </template>
           <template v-else-if="column.key === 'scenarios'">{{ record.scenarioCount }} 个场景</template>
@@ -65,6 +68,7 @@ import type { TableColumnsType } from 'ant-design-vue';
 import type { TaskPlan } from '../../types';
 import { formatDate } from '../../utils/format';
 import { useTaskPlans } from '../../composables/useTaskPlans';
+import { statusLabel } from '../../composables/usePlanDoc';
 import TaskPlanDialog from './TaskPlanDialog.vue';
 import TaskPlanDetail from './TaskPlanDetail.vue';
 import ExecutionDetailView from './ExecutionDetailView.vue';
@@ -90,10 +94,26 @@ const {
 
 const columns: TableColumnsType<TaskPlan> = [
   { title: '计划名称', key: 'name', minWidth: 220 },
+  { title: '阶段', key: 'phase', width: 140 },
   { title: '场景数', key: 'scenarios', width: 100 },
   { title: '更新时间', key: 'updatedAt', width: 160 },
   { title: '操作', key: 'actions', width: 200 },
 ];
+
+const PHASE_TEXT: Record<string, string> = {
+  DRAFT: '草稿', REVIEW: '评审', EXECUTION: '执行', REPORT: '报告', PUBLISH: '发布',
+};
+const PHASE_COLOR: Record<string, string> = {
+  DRAFT: 'default', REVIEW: 'processing', EXECUTION: 'warning', REPORT: 'cyan', PUBLISH: 'success',
+};
+
+function phaseText(phase: string) {
+  return PHASE_TEXT[phase] ?? phase;
+}
+
+function phaseColor(phase: string) {
+  return PHASE_COLOR[phase] ?? 'default';
+}
 
 function openCreatePlan() {
   editingPlan.value = null;

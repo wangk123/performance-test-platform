@@ -34,6 +34,7 @@ export function createTaskPlanApi(
     controllerNodeId?: number | null;
     workerNodeIds?: number[];
     monitorTargetIds?: number[];
+    templateId?: number | null;
   },
   username: string,
 ) {
@@ -76,8 +77,10 @@ export function getScenarioApi(scenarioId: number) {
 export function createScenarioApi(
   planId: number,
   payload: {
-    scriptVersionId: number;
+    scriptVersionId?: number | null;
     name: string;
+    purpose?: string;
+    testType?: string | null;
     jmeterProperties?: Record<string, string>;
     threadGroupConfigs?: ScenarioThreadGroupConfig[];
     overridePlanDefaults?: boolean;
@@ -97,7 +100,9 @@ export function updateScenarioApi(
   scenarioId: number,
   payload: {
     name: string;
-    scriptVersionId?: number;
+    scriptVersionId?: number | null;
+    purpose?: string;
+    testType?: string | null;
     jmeterProperties?: Record<string, string>;
     threadGroupConfigs?: ScenarioThreadGroupConfig[];
     overridePlanDefaults?: boolean;

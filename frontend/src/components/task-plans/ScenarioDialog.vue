@@ -4,6 +4,17 @@
       <a-form-item :label="isEditing ? '场景名称' : '场景名称前缀'">
         <a-input v-model:value="form.name" :placeholder="isEditing ? '' : '留空则使用脚本名称'" />
       </a-form-item>
+      <a-form-item label="测试类型" name="testType">
+        <a-select v-model:value="form.testType" allow-clear placeholder="选择测试类型">
+          <a-option value="BENCHMARK">基准</a-option>
+          <a-option value="SINGLE_TXN">单交易并发</a-option>
+          <a-option value="COMPOSITE">组合交易</a-option>
+          <a-option value="STABILITY">稳定性</a-option>
+        </a-select>
+      </a-form-item>
+      <a-form-item label="场景目的" name="purpose">
+        <a-textarea v-model:value="form.purpose" :rows="2" placeholder="业务目的，写入计划文档场景章节" />
+      </a-form-item>
       <a-form-item label="选择脚本">
         <div class="script-list">
           <div class="script-list-head">
@@ -132,6 +143,8 @@ const saving = ref(false);
 const form = reactive({
   id: undefined as number | undefined,
   name: '',
+  purpose: '',
+  testType: null as string | null,
   selectedScriptIds: [] as number[],
   overridePlanDefaults: false,
   controllerNodeId: null as number | null,
@@ -146,7 +159,7 @@ const activeScriptVersionId = computed(() => (
 
 const selectableMonitorTargets = computed(() => monitorTargets.value.filter((t) => t.enabled));
 const selectedCount = computed(() => form.selectedScriptIds.length);
-const canSave = computed(() => form.selectedScriptIds.length > 0);
+const canSave = computed(() => form.selectedScriptIds.length > 0 || form.name.trim().length > 0);
 
 function isScriptSelected(scriptId: number) {
   return form.selectedScriptIds.includes(scriptId);
@@ -174,6 +187,8 @@ watch(() => [props.modelValue, props.editingScenario, props.plan] as const, asyn
     const script = currentProjectScripts.value.find((s) => s.id === props.editingScenario?.scriptVersionId);
     form.id = props.editingScenario.id;
     form.name = props.editingScenario.name;
+    form.purpose = props.editingScenario.purpose ?? '';
+    form.testType = props.editingScenario.testType ?? null;
     form.selectedScriptIds = props.editingScenario.scriptVersionId ? [props.editingScenario.scriptVersionId] : [];
     form.overridePlanDefaults = props.editingScenario.controllerNodeId != null
       || (props.editingScenario.workerNodeIds?.length ?? 0) > 0
@@ -185,6 +200,8 @@ watch(() => [props.modelValue, props.editingScenario, props.plan] as const, asyn
   } else {
     form.id = undefined;
     form.name = '';
+    form.purpose = '';
+    form.testType = null;
     form.selectedScriptIds = [];
     form.overridePlanDefaults = false;
     form.controllerNodeId = props.plan.defaultControllerNodeId;
@@ -200,9 +217,25 @@ function openScriptEditor(scriptId: number) {
 }
 
 async function onSave() {
-  if (form.selectedScriptIds.length === 0) return;
+  if (!canSave.value) return;
   saving.value = true;
   try {
+    if (form.selectedScriptIds.length === 0) {
+      const success = await saveScenario(props.plan.id, {
+        id: isEditing.value ? form.id : undefined,
+        name: form.name.trim() || '未命名场景',
+        scriptVersionId: null,
+        purpose: form.purpose,
+        testType: form.testType,
+        threadGroupConfigs: form.threadGroupConfigs,
+        overridePlanDefaults: form.overridePlanDefaults,
+        controllerNodeId: form.overridePlanDefaults ? form.controllerNodeId : undefined,
+        workerNodeIds: form.overridePlanDefaults ? form.workerNodeIds : undefined,
+        monitorTargetIds: form.overridePlanDefaults ? form.monitorTargetIds : undefined,
+      });
+      if (success) visible.value = false;
+      return;
+    }
     for (const scriptId of form.selectedScriptIds) {
       const script = currentProjectScripts.value.find((s) => s.id === scriptId);
       const scenarioName = isEditing.value
@@ -212,6 +245,8 @@ async function onSave() {
         id: isEditing.value ? form.id : undefined,
         name: scenarioName,
         scriptVersionId: scriptId,
+        purpose: form.purpose,
+        testType: form.testType,
         threadGroupConfigs: isEditing.value || scriptId === form.selectedScriptIds[0]
           ? form.threadGroupConfigs
           : [],

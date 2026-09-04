@@ -10,6 +10,7 @@ import LlmConfigView from '../components/views/LlmConfigView.vue';
 import ExecutionNodeView from '../components/views/ExecutionNodeView.vue';
 import ScriptEditorPage from '../views/ScriptEditorPage.vue';
 import ReportPreviewPage from '../views/ReportPreviewPage.vue';
+import SharePlanPage from '../views/SharePlanPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -54,10 +55,16 @@ export const router = createRouter({
       name: 'report-preview',
       component: ReportPreviewPage,
     },
+    {
+      path: '/share/plans/:token',
+      name: 'share-plan',
+      component: SharePlanPage,
+    },
   ],
 });
 
 router.beforeEach((to) => {
+  if (to.name === 'share-plan') return true;
   const { currentUser } = useAuth();
   if (!currentUser.value && to.name !== 'login') {
     return { path: '/login', query: { redirect: to.fullPath } };

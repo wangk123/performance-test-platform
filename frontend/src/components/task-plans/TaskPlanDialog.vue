@@ -1,6 +1,13 @@
 <template>
   <a-modal v-model:open="visible" :title="editingPlan ? '编辑任务计划' : '新建任务计划'" width="640px" destroy-on-close>
     <a-form layout="vertical">
+      <a-form-item v-if="!editingPlan" label="计划模板">
+        <a-select v-model:value="templateId" placeholder="通用压测计划（默认）" allow-clear>
+          <a-option v-for="template in templates" :key="template.id" :value="template.id">
+            {{ template.builtin ? '内置 · ' : '' }}{{ template.name }}
+          </a-option>
+        </a-select>
+      </a-form-item>
       <a-form-item label="计划名称"><a-input v-model:value="form.name" /></a-form-item>
       <a-form-item label="备注"><a-input v-model:value="form.remark" /></a-form-item>
       <a-form-item label="默认 Controller">
@@ -29,12 +36,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue';
-import type { TaskPlan } from '../../types';
+import { computed, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import type { TaskPlan, PlanTemplate } from '../../types';
 import { useWorkspace } from '../../composables/useWorkspace';
 import { useTaskPlans } from '../../composables/useTaskPlans';
 import { useExecutionNodes } from '../../composables/useExecutionNodes';
 import { useMonitoring } from '../../composables/useMonitoring';
+import { listPlanTemplatesApi } from '../../api/plan-doc';
 
 const props = defineProps<{ modelValue: boolean; editingPlan: TaskPlan | null }>();
 const emit = defineEmits<{ (e: 'update:modelValue', value: boolean): void }>();
@@ -43,6 +52,17 @@ const { currentProject } = useWorkspace();
 const { savePlan } = useTaskPlans();
 const { controllerNodes, workerNodes, loading, loadNodes } = useExecutionNodes();
 const { monitorTargets, loadingMonitorTargets, loadMonitorTargets } = useMonitoring();
+
+const route = useRoute();
+const templateId = ref<number | null>(null);
+const templates = ref<PlanTemplate[]>([]);
+
+watch(() => props.modelValue, async (open) => {
+  if (open && !props.editingPlan && templates.value.length === 0) {
+    const projectId = Number(route.params.projectId);
+    if (projectId) templates.value = await listPlanTemplatesApi(projectId).catch(() => []);
+  }
+});
 
 const visible = computed({
   get: () => props.modelValue,
@@ -76,6 +96,6 @@ watch(() => [props.modelValue, props.editingPlan] as const, async () => {
 }, { immediate: true });
 
 async function onSave() {
-  if (await savePlan({ ...form })) visible.value = false;
+  if (await savePlan({ ...form, templateId: templateId.value ?? undefined })) visible.value = false;
 }
 </script>

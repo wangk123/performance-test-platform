@@ -39,6 +39,7 @@ import {
   updateTaskPlanApi,
 } from '../api/task-plans';
 import { confirmAction } from '../utils/feedback';
+import { quickExecuteApi } from '../api/plan-doc';
 
 const plans = ref<TaskPlan[]>([]);
 const scenarios = ref<TaskScenario[]>([]);
@@ -284,6 +285,7 @@ export function useTaskPlans() {
     controllerNodeId: number | null;
     workerNodeIds: number[];
     monitorTargetIds: number[];
+    templateId?: number | null;
   }) {
     if (!currentProject.value) return false;
     const { currentUser } = useAuth();
@@ -409,29 +411,19 @@ export function useTaskPlans() {
 
   async function runScriptAsset(script: ScriptAsset) {
     if (!currentProject.value) return false;
-    const { currentUser } = useAuth();
     try {
       await confirmAction({
         title: '执行脚本',
         content: `确认执行脚本「${script.name}」？将创建任务计划并立即执行。`,
         okText: '执行',
       });
-      const plan = await createTaskPlanApi(
-        currentProject.value.id,
-        { name: `${script.name} / 即时执行`, remark: '从脚本列表直接执行' },
-        currentUser.value?.username ?? 'admin',
-      );
-      const scenario = await createScenarioApi(plan.id, {
-        scriptVersionId: script.id,
-        name: script.name,
-      });
-      const execution = await triggerExecutionApi(scenario.id);
-      plans.value = [plan, ...plans.value];
-      openExecution(execution);
+      const result = await quickExecuteApi(script.id);
+      await loadPlans();
+      void router.push(`/projects/${currentProject.value.id}/executions/${result.executionId}`);
       message.success('已创建计划并提交执行');
       return true;
     } catch (error) {
-      if (error instanceof Error) message.error(error.message);
+      message.error(error instanceof Error ? error.message : '执行失败');
       return false;
     }
   }
