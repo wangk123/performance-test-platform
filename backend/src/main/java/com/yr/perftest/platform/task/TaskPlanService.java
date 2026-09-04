@@ -1,8 +1,14 @@
 package com.yr.perftest.platform.task;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
 import com.yr.perftest.platform.project.PersistentProjectRepository;
 import com.yr.perftest.platform.project.ProjectValidationException;
+import com.yr.perftest.platform.task.plandoc.PersistentPlanTemplateRecord;
+import com.yr.perftest.platform.task.plandoc.PersistentPlanTemplateRepository;
+import com.yr.perftest.platform.task.plandoc.PlanMarkdownSupport;
+import com.yr.perftest.platform.task.plandoc.PlanValidationException;
+import com.yr.perftest.platform.task.plandoc.PrecheckSettings;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,19 +21,25 @@ public class TaskPlanService {
     private final PersistentTaskScenarioRepository scenarioRepository;
     private final PersistentScenarioExecutionRepository executionRepository;
     private final TaskJsonSupport taskJson;
+    private final PersistentPlanTemplateRepository templateRepository;
+    private final ObjectMapper objectMapper;
 
     public TaskPlanService(
             PersistentProjectRepository projectRepository,
             PersistentTaskPlanRepository planRepository,
             PersistentTaskScenarioRepository scenarioRepository,
             PersistentScenarioExecutionRepository executionRepository,
-            TaskJsonSupport taskJson
+            TaskJsonSupport taskJson,
+            PersistentPlanTemplateRepository templateRepository,
+            ObjectMapper objectMapper
     ) {
         this.projectRepository = projectRepository;
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
         this.executionRepository = executionRepository;
         this.taskJson = taskJson;
+        this.templateRepository = templateRepository;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -40,17 +52,50 @@ public class TaskPlanService {
             List<Long> defaultMonitorTargetIds,
             String createdBy
     ) {
+        return createPlan(projectId, name, remark, defaultControllerNodeId, defaultWorkerNodeIds,
+                defaultMonitorTargetIds, createdBy, null);
+    }
+
+    @Transactional
+    public TaskPlan createPlan(
+            long projectId, String name, String remark,
+            Long defaultControllerNodeId, List<Long> defaultWorkerNodeIds, List<Long> defaultMonitorTargetIds,
+            String createdBy, Long templateId
+    ) {
         validateProject(projectId);
         validateName(name);
         PersistentTaskPlanRecord plan = planRepository.save(new PersistentTaskPlanRecord(projectId, name.trim(), remark, createdBy));
-        plan.updateProfile(
-                name,
-                remark,
-                defaultControllerNodeId,
-                taskJson.writeLongList(defaultWorkerNodeIds),
-                taskJson.writeLongList(defaultMonitorTargetIds)
-        );
-        return toPlan(plan);
+        plan.updateProfile(name, remark, defaultControllerNodeId,
+                taskJson.writeLongList(defaultWorkerNodeIds), taskJson.writeLongList(defaultMonitorTargetIds));
+        String body = renderInitialBody(templateId, name.trim());
+        if (body != null) {
+            plan.initializeBody(body); // 创建语境初始化：不 bump revision（首版 revision=1）
+            plan.initializePrecheck(defaultPrecheckJson(body));
+        }
+        return toPlan(planRepository.save(plan));
+    }
+
+    /** 模板渲染初始正文；无模板返回 null（存量计划兼容）。 */
+    public String renderInitialBody(Long templateId, String planName) {
+        PersistentPlanTemplateRecord template = templateId != null
+                ? templateRepository.findById(templateId).orElse(null)
+                : templateRepository.findFirstByBuiltinTrueOrderByIdAsc().orElse(null);
+        if (template == null) {
+            return null;
+        }
+        return PlanMarkdownSupport.renderTemplate(template.getContent(), planName);
+    }
+
+    /** 从渲染后的正文解析入口准则条目 → 默认 precheck 设置（disabled）。 */
+    public String defaultPrecheckJson(String body) {
+        List<String> items = PlanMarkdownSupport.parseChecklistItems(
+                PlanMarkdownSupport.extractSection(body == null ? "" : body, "五、测试约束"));
+        List<String> effective = items.isEmpty() ? PrecheckSettings.DEFAULT_ITEMS : items;
+        try {
+            return objectMapper.writeValueAsString(new PrecheckSettings(false, effective));
+        } catch (Exception exception) {
+            throw new PlanValidationException("PLAN_INVALID：precheck 设置序列化失败");
+        }
     }
 
     @Transactional

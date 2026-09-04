@@ -120,6 +120,25 @@ CREATE TABLE `task_scenarios` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测试场景表';
 
 -- ============================================================
+-- 06a. 计划模板
+-- 说明: 计划文档模板；project_id 为 NULL 表示内置模板
+-- ============================================================
+DROP TABLE IF EXISTS `plan_templates`;
+CREATE TABLE `plan_templates` (
+    `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `project_id`  BIGINT                COMMENT '所属项目ID（NULL=内置）',
+    `name`        VARCHAR(160) NOT NULL COMMENT '模板名称',
+    `description` VARCHAR(1000)         COMMENT '模板描述',
+    `content`     LONGTEXT     NOT NULL COMMENT '模板 Markdown 全文',
+    `builtin`     TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '是否内置',
+    `created_by`  VARCHAR(80)  NOT NULL COMMENT '创建者',
+    `created_at`  DATETIME(3)  NOT NULL COMMENT '创建时间',
+    `updated_at`  DATETIME(3)  NOT NULL COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_plan_templates_project` (`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='计划模板表';
+
+-- ============================================================
 -- 07. 场景执行记录
 -- 说明: 每次执行测试场景的历史记录
 -- ============================================================

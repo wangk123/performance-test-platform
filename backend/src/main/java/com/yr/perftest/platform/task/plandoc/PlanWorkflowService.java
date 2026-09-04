@@ -1,5 +1,6 @@
 package com.yr.perftest.platform.task.plandoc;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.identity.HumanPrincipal;
 import com.yr.perftest.platform.project.ProjectAccessResolver;
 import com.yr.perftest.platform.task.PersistentScenarioExecutionRepository;
@@ -12,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 
-/** 计划状态机流转与批注（设计 §4/§6）。报告/发布/模板/分享/预检分任务追加。 */
+/** 计划状态机流转与批注（设计 §4/§6）。报告/发布/分享/预检分任务追加；模板 CRUD 自本任务起。 */
 @Service
 public class PlanWorkflowService {
 
@@ -24,19 +25,25 @@ public class PlanWorkflowService {
     private final PersistentScenarioExecutionRepository executionRepository;
     private final PersistentPlanCommentRepository commentRepository;
     private final ProjectAccessResolver accessResolver;
+    private final PersistentPlanTemplateRepository templateRepository;
+    private final ObjectMapper objectMapper;
 
     public PlanWorkflowService(
             PersistentTaskPlanRepository planRepository,
             PersistentTaskScenarioRepository scenarioRepository,
             PersistentScenarioExecutionRepository executionRepository,
             PersistentPlanCommentRepository commentRepository,
-            ProjectAccessResolver accessResolver
+            ProjectAccessResolver accessResolver,
+            PersistentPlanTemplateRepository templateRepository,
+            ObjectMapper objectMapper
     ) {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
         this.executionRepository = executionRepository;
         this.commentRepository = commentRepository;
         this.accessResolver = accessResolver;
+        this.templateRepository = templateRepository;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -150,6 +157,55 @@ public class PlanWorkflowService {
     @Transactional
     public void systemComment(long planId, String content) {
         commentRepository.save(new PersistentPlanCommentRecord(planId, "system", content, PlanCommentKind.SYSTEM));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PersistentPlanTemplateRecord> listTemplates(long projectId) {
+        return templateRepository.findAllVisible(projectId);
+    }
+
+    @Transactional
+    public PersistentPlanTemplateRecord createTemplate(long projectId, HumanPrincipal actor, String name, String description, String content) {
+        requireTemplateManager(projectId, actor);
+        if (name == null || name.isBlank() || content == null || content.isBlank()) {
+            throw new PlanValidationException("PLAN_INVALID：模板名称与内容不能为空");
+        }
+        return templateRepository.save(new PersistentPlanTemplateRecord(projectId, name.trim(), description, content, false, actor.username()));
+    }
+
+    @Transactional
+    public PersistentPlanTemplateRecord updateTemplate(long templateId, HumanPrincipal actor, String name, String description, String content) {
+        PersistentPlanTemplateRecord template = templateRepository.findById(templateId)
+                .orElseThrow(() -> new PlanValidationException("PLAN_INVALID：模板不存在"));
+        if (template.isBuiltin()) {
+            throw new PlanValidationException("PLAN_INVALID：内置模板不可编辑");
+        }
+        requireTemplateManager(template.getProjectId(), actor);
+        template.update(name.trim(), description, content);
+        return template;
+    }
+
+    @Transactional
+    public void deleteTemplate(long templateId, HumanPrincipal actor) {
+        PersistentPlanTemplateRecord template = templateRepository.findById(templateId)
+                .orElseThrow(() -> new PlanValidationException("PLAN_INVALID：模板不存在"));
+        if (template.isBuiltin()) {
+            throw new PlanValidationException("PLAN_INVALID：内置模板不可删除");
+        }
+        requireTemplateManager(template.getProjectId(), actor);
+        templateRepository.delete(template);
+    }
+
+    /** 模板管理仅项目 OWNER/系统 ADMIN（设计 §7.1）；内置模板（projectId=null）不可在此管理。 */
+    private void requireTemplateManager(Long projectId, HumanPrincipal actor) {
+        if (projectId == null || actor == null) {
+            throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：仅项目 OWNER/系统管理员可管理模板");
+        }
+        ProjectAccessResolver.PlanActorRole role = accessResolver.resolve(projectId, actor, null);
+        if (role != ProjectAccessResolver.PlanActorRole.PROJECT_OWNER
+                && role != ProjectAccessResolver.PlanActorRole.SYSTEM_ADMIN) {
+            throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：仅项目 OWNER/系统管理员可管理模板");
+        }
     }
 
     public boolean hasAnyExecution(long planId) {

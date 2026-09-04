@@ -162,6 +162,16 @@ public class PersistentTaskPlanRecord {
         this.updatedAt = Instant.now();
     }
 
+    /** 仅创建时初始化正文：不 bump revision（首版 revision=1）。 */
+    public void initializeBody(String body) {
+        this.body = body;
+    }
+
+    /** 仅创建时初始化环境检查设置：不 bump revision。 */
+    public void initializePrecheck(String precheckJson) {
+        this.precheckJson = precheckJson;
+    }
+
     public void applyPublish(Instant publishedAt) {
         this.phase = PlanPhase.PUBLISH;
         this.status = PlanStatus.PUBLISHED;

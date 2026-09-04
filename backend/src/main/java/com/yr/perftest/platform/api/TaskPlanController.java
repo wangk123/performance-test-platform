@@ -80,7 +80,8 @@ public class TaskPlanController {
                 request.controllerNodeId(),
                 request.workerNodeIds(),
                 request.monitorTargetIds(),
-                createdBy
+                createdBy,
+                request.templateId()
         );
     }
 
@@ -273,7 +274,8 @@ public class TaskPlanController {
             String remark,
             Long controllerNodeId,
             List<Long> workerNodeIds,
-            List<Long> monitorTargetIds
+            List<Long> monitorTargetIds,
+            Long templateId
     ) {
     }
 
