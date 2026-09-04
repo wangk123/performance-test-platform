@@ -123,3 +123,16 @@
 8. 新增 `CONTEXT.md`：领域词汇 + 模块地图 + 关键 seam 决策记录。
 
 验证：新增 `UiExecutionControlApiTest`（UI 幂等/审计/409）、`ExecutionScriptAssemblerTest`；`gradle :backend:test` 全量通过；`npm run build` 通过。
+
+## 2026-09-04（P0-2 ② MCP 工具目录页）
+
+已完成：
+
+1. 后端 `GET /api/mcp/tools`（`api/McpDirectoryController`）：直接映射内存 `McpToolRegistry` 单一事实源，固定规范 stage 序列（PLAN→NAVIGATE→DESIGN→OBSERVE→DIAGNOSE→VERIFY→CAPTURE）排序，登录可读；`McpTool` 契约补 `default usageExample()`（存量 8 工具零改动）。
+2. 前端 `/mcp-tools` 顶级路由 + 全局导航「MCP 工具」入口：接入指引横幅（Claude Code / DSH 配置片段一键复制、API Key 申请入口），阶段筛选 tabs + 本地搜索 + 单一平铺卡片网格（两态状态图标、写权限徽标），接口文档式详情抽屉（inputSchema 参数表 + 使用示例），页脚收尾；对照 `mcp-directory-prototype.html` 视觉基准实现。
+3. ① 计划工具 ×5 与 ③ perf-plan skill 依赖 P0-1（未开发），按 spec §8 保持延后跟踪。
+
+验证：
+
+1. `McpDirectoryControllerTest`（401 / 与 registry 严格一致 / 序列排序 / 字段口径）+ `McpServerApiTest` 回归全绿；`gradle :backend:test` 全量通过。
+2. `npm run build`（vue-tsc + vite）零错误；bootRun + curl 端到端冒烟（登录读取目录、匿名 401）通过。
