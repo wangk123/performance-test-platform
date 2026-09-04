@@ -6,6 +6,7 @@ import com.yr.perftest.platform.project.ProjectAccessResolver;
 import com.yr.perftest.platform.task.PersistentScenarioExecutionRepository;
 import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
 import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
+import com.yr.perftest.platform.task.PersistentTaskScenarioRecord;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ public class PlanWorkflowService {
     private final ProjectAccessResolver accessResolver;
     private final PersistentPlanTemplateRepository templateRepository;
     private final ObjectMapper objectMapper;
+    private final PlanDocumentService documentService;
 
     public PlanWorkflowService(
             PersistentTaskPlanRepository planRepository,
@@ -35,7 +37,8 @@ public class PlanWorkflowService {
             PersistentPlanCommentRepository commentRepository,
             ProjectAccessResolver accessResolver,
             PersistentPlanTemplateRepository templateRepository,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            PlanDocumentService documentService
     ) {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
@@ -44,6 +47,7 @@ public class PlanWorkflowService {
         this.accessResolver = accessResolver;
         this.templateRepository = templateRepository;
         this.objectMapper = objectMapper;
+        this.documentService = documentService;
     }
 
     @Transactional
@@ -115,6 +119,142 @@ public class PlanWorkflowService {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "TO_REPORT");
         plan.transitionTo(PlanPhase.REPORT, PlanStatus.PENDING);
         systemComment(planId, actor.username() + " 进入报告阶段");
+    }
+
+    public record PrecheckReport(boolean ok, List<String> failures, List<String> autoPassed) {
+    }
+
+    /** 执行门禁（设计 §10.1）：阶段 + 脚本 + 首执行环境检查。返回 planId。 */
+    @Transactional
+    public long assertExecutionAllowed(long scenarioId) {
+        PersistentTaskScenarioRecord scenario = scenarioRepository.findById(scenarioId)
+                .orElseThrow(() -> new PlanValidationException("PLAN_INVALID：scenario does not exist"));
+        PersistentTaskPlanRecord plan = requirePlan(scenario.getPlanId());
+        boolean phaseOk = plan.getPhase() == PlanPhase.EXECUTION
+                || (plan.getPhase() == PlanPhase.REPORT && plan.getStatus() != PlanStatus.GENERATING);
+        if (!phaseOk) {
+            throw new PlanStateException("PLAN_STATE：请先通过评审并进入执行阶段（当前 "
+                    + plan.getPhase() + "/" + plan.getStatus() + "）",
+                    plan.getPhase(), plan.getStatus(), List.of("SUBMIT", "START_REVIEW", "APPROVE", "START_EXECUTION"));
+        }
+        if (scenario.getScriptVersionId() == null) {
+            throw new PlanValidationException("PLAN_INVALID：场景「" + scenario.getName() + "」未关联脚本，无法执行");
+        }
+        PrecheckSettings settings = getPrecheckSettings(plan.getId());
+        if (settings.enabled() && plan.getPrecheckExecutedAt() == null) {
+            PrecheckReport report = runPrecheck(plan.getId(), true);
+            if (!report.ok()) {
+                throw new PlanPrecheckFailedException("PLAN_PRECHECK_FAILED：环境检查未通过——"
+                        + String.join("；", report.failures()), report.failures());
+            }
+            plan.markPrecheckExecuted(Instant.now());
+        }
+        return plan.getId();
+    }
+
+    @Transactional
+    public void onExecutionStarted(long planId) {
+        PersistentTaskPlanRecord plan = requirePlan(planId);
+        if (plan.getPhase() == PlanPhase.REPORT) {
+            plan.transitionTo(PlanPhase.EXECUTION, PlanStatus.RUNNING); // 报告作废（设计 §4.3）
+        } else if (plan.getPhase() == PlanPhase.EXECUTION
+                && (plan.getStatus() == PlanStatus.PENDING || plan.getStatus() == PlanStatus.DONE)) {
+            plan.transitionTo(PlanPhase.EXECUTION, PlanStatus.RUNNING);
+        }
+    }
+
+    /** 评估检测清单：自动项核验；人工项视为未确认=失败项（设计 §10.3）。 */
+    @Transactional
+    public PrecheckReport runPrecheck(long planId, boolean writeBackChecklist) {
+        PersistentTaskPlanRecord plan = requirePlan(planId);
+        PrecheckSettings settings = getPrecheckSettings(planId);
+        List<String> failures = new java.util.ArrayList<>();
+        List<String> autoPassed = new java.util.ArrayList<>();
+        String body = plan.getBody() == null ? "" : plan.getBody();
+        List<PersistentTaskScenarioRecord> scenarios = scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(planId);
+        for (String item : settings.items()) {
+            String plain = item.replaceAll("（.*?）$", "").trim();
+            boolean auto;
+            boolean pass;
+            switch (plain) {
+                case "指标已定义" -> {
+                    auto = true;
+                    pass = PlanMarkdownSupport.extractSection(body, "二、测试目的与指标") != null
+                            && PlanMarkdownSupport.extractSection(body, "二、测试目的与指标").contains("|---");
+                }
+                case "场景已配置" -> {
+                    auto = true;
+                    pass = !scenarios.isEmpty();
+                }
+                case "脚本已关联" -> {
+                    auto = true;
+                    pass = scenarios.stream().allMatch(s -> s.getScriptVersionId() != null);
+                }
+                default -> {
+                    auto = false;
+                    pass = false;
+                }
+            }
+            if (auto && pass) {
+                autoPassed.add(plain);
+            } else {
+                failures.add(auto ? plain + "（自动核验未通过）" : plain + "（待人工确认）");
+            }
+        }
+        if (writeBackChecklist && !autoPassed.isEmpty()) {
+            writeBackEntryChecklist(plan, body, autoPassed);
+        }
+        return new PrecheckReport(failures.isEmpty(), List.copyOf(failures), List.copyOf(autoPassed));
+    }
+
+    /** 自动通过项回写入口准则勾选（系统回填：revision+1）。 */
+    private void writeBackEntryChecklist(PersistentTaskPlanRecord plan, String body, List<String> autoPassed) {
+        String constraints = PlanMarkdownSupport.extractSection(body, "五、测试约束");
+        if (constraints == null) {
+            return;
+        }
+        String updated = constraints;
+        for (String item : autoPassed) {
+            updated = updated.replace("- [ ] " + item + "（自动）", "- [x] " + item + "（自动）");
+        }
+        if (!updated.equals(constraints)) {
+            plan.updateBody(PlanMarkdownSupport.replaceSection(body, "五、测试约束", updated));
+        }
+    }
+
+    @Transactional
+    public void precheckSkip(long planId, HumanPrincipal actor) {
+        PersistentTaskPlanRecord plan = requirePlan(planId);
+        plan.markPrecheckExecuted(Instant.now());
+        systemComment(planId, "跳过环境检查继续执行（操作人：" + (actor == null ? "?" : actor.username()) + "）");
+    }
+
+    @Transactional(readOnly = true)
+    public PrecheckSettings getPrecheckSettings(long planId) {
+        PersistentTaskPlanRecord plan = requirePlan(planId);
+        if (plan.getPrecheckJson() == null || plan.getPrecheckJson().isBlank()) {
+            return PrecheckSettings.disabled();
+        }
+        try {
+            PrecheckSettings parsed = objectMapper.readValue(plan.getPrecheckJson(), PrecheckSettings.class);
+            return parsed.items() == null ? new PrecheckSettings(parsed.enabled(), PrecheckSettings.DEFAULT_ITEMS) : parsed;
+        } catch (Exception exception) {
+            return PrecheckSettings.disabled();
+        }
+    }
+
+    @Transactional
+    public void updatePrecheckSettings(long planId, HumanPrincipal actor, PrecheckSettings settings) {
+        PersistentTaskPlanRecord plan = requirePlan(planId);
+        requireActor(planId, actor, "PRECHECK_RUN"); // 成员级动作，沿用权限矩阵
+        if (settings == null || settings.items() == null) {
+            throw new PlanValidationException("PLAN_INVALID：precheck 设置不合法");
+        }
+        try {
+            plan.updatePrecheckJson(objectMapper.writeValueAsString(settings));
+        } catch (Exception exception) {
+            throw new PlanValidationException("PLAN_INVALID：precheck 设置序列化失败");
+        }
     }
 
     @Transactional(readOnly = true)

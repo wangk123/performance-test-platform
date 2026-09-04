@@ -152,6 +152,9 @@ class AgentGovernanceApiTest {
     @Test
     void executionStartAndCancelAreAudited() throws Exception {
         PersistentTaskPlanRecord plan = planRepository.save(new PersistentTaskPlanRecord(1L, "plan-a", null, "admin"));
+        plan.forceState(com.yr.perftest.platform.task.plandoc.PlanPhase.EXECUTION,
+                com.yr.perftest.platform.task.plandoc.PlanStatus.PENDING);
+        planRepository.save(plan);
         PersistentTaskScenarioRecord scenario = scenarioRepository.save(
                 new PersistentTaskScenarioRecord(plan.getId(), 1L, "scenario-a", 0));
         scenario.updateProfile("scenario-a", 1L, "{}", 1L, null, null, null);

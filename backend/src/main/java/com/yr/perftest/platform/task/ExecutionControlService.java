@@ -23,6 +23,7 @@ public class ExecutionControlService {
     private final ScenarioExecutionRuntime executionRuntime;
     private final IdempotencyService idempotencyService;
     private final ExecutionAuditService executionAuditService;
+    private final com.yr.perftest.platform.task.plandoc.PlanWorkflowService planWorkflowService;
 
     public ExecutionControlService(
             ScenarioExecutionService scenarioExecutionService,
@@ -31,7 +32,8 @@ public class ExecutionControlService {
             PersistentScenarioExecutionRepository executionRepository,
             ScenarioExecutionRuntime executionRuntime,
             IdempotencyService idempotencyService,
-            ExecutionAuditService executionAuditService
+            ExecutionAuditService executionAuditService,
+            com.yr.perftest.platform.task.plandoc.PlanWorkflowService planWorkflowService
     ) {
         this.scenarioExecutionService = scenarioExecutionService;
         this.executionQueryService = executionQueryService;
@@ -40,10 +42,12 @@ public class ExecutionControlService {
         this.executionRuntime = executionRuntime;
         this.idempotencyService = idempotencyService;
         this.executionAuditService = executionAuditService;
+        this.planWorkflowService = planWorkflowService;
     }
 
     @Transactional
     public StartOutcome start(StartCommand command, String idempotencyKey) {
+        long planId = planWorkflowService.assertExecutionAllowed(command.scenarioId()); // 门禁+首执行环境检查（设计 §10.1/§10.2）
         String requestHash = RequestHashing.sha256(
                 hashField(command.scenarioId())
                         + hashField(command.executionName())
@@ -60,6 +64,7 @@ public class ExecutionControlService {
                 )
         );
         ScenarioExecution execution = executionQueryService.getExecution(result.executionId());
+        planWorkflowService.onExecutionStarted(planId); // 置 EXECUTION/RUNNING + 报告作废
         audit(result.executionId(), "START", result.replayed());
         return new StartOutcome(execution.id(), execution.status(), result.replayed());
     }

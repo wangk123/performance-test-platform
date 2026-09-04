@@ -172,6 +172,12 @@ public class PersistentTaskPlanRecord {
         this.precheckJson = precheckJson;
     }
 
+    /** 环境检查设置变更（非文档内容）：只改 precheckJson+updatedAt，不 bump revision（设计 §10.2）。 */
+    public void updatePrecheckJson(String precheckJson) {
+        this.precheckJson = precheckJson;
+        this.updatedAt = Instant.now();
+    }
+
     public void applyPublish(Instant publishedAt) {
         this.phase = PlanPhase.PUBLISH;
         this.status = PlanStatus.PUBLISHED;
