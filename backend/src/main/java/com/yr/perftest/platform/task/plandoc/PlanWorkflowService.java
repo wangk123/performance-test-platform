@@ -10,6 +10,9 @@ import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
 import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRecord;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRepository;
+import com.yr.perftest.platform.task.ScenarioThreadGroupConfigSupport;
+import com.yr.perftest.platform.task.TaskPlan;
+import com.yr.perftest.platform.task.TaskPlanService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +36,9 @@ public class PlanWorkflowService {
     private final PlanDocumentService documentService;
     private final ExecutionQueryService executionQueryService;
     private final PersistentPlanShareTokenRepository shareTokenRepository;
+    private final PersistentPlanPublishSnapshotRepository snapshotRepository;
+    private final TaskPlanService planService;
+    private final ScenarioThreadGroupConfigSupport configSupport;
 
     public PlanWorkflowService(
             PersistentTaskPlanRepository planRepository,
@@ -44,7 +50,10 @@ public class PlanWorkflowService {
             ObjectMapper objectMapper,
             PlanDocumentService documentService,
             ExecutionQueryService executionQueryService,
-            PersistentPlanShareTokenRepository shareTokenRepository
+            PersistentPlanShareTokenRepository shareTokenRepository,
+            PersistentPlanPublishSnapshotRepository snapshotRepository,
+            TaskPlanService planService,
+            ScenarioThreadGroupConfigSupport configSupport
     ) {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
@@ -56,6 +65,9 @@ public class PlanWorkflowService {
         this.documentService = documentService;
         this.executionQueryService = executionQueryService;
         this.shareTokenRepository = shareTokenRepository;
+        this.snapshotRepository = snapshotRepository;
+        this.planService = planService;
+        this.configSupport = configSupport;
     }
 
     @Transactional
@@ -453,6 +465,188 @@ public class PlanWorkflowService {
     private ShareView toShareView(PersistentPlanShareTokenRecord record) {
         return new ShareView(record.getId(), record.getPlanId(), record.getToken(),
                 record.getExpiresAt(), record.getRevokedAt(), record.getCreatedBy(), record.getCreatedAt());
+    }
+
+    public record SnapshotView(long id, int revision, String publishedBy, Instant publishedAt) {
+    }
+
+    @Transactional
+    public TaskPlan generateReport(long planId, HumanPrincipal actor) {
+        PersistentTaskPlanRecord plan = requireActor(planId, actor, "GENERATE_REPORT");
+        plan.transitionTo(PlanPhase.REPORT, PlanStatus.GENERATING); // 瞬态（设计 §4.1）
+        String body = plan.getBody() == null ? "" : plan.getBody();
+        body = upsertReportOverview(body, buildScenarioOverviews(planId));
+        body = fillConclusionActualColumn(body, latestScenarioSummaries(planId));
+        plan.updateBody(body);
+        plan.transitionTo(PlanPhase.REPORT, PlanStatus.DONE);
+        systemComment(planId, "生成报告（revision=" + plan.getRevision() + "）");
+        return planService.getPlan(planId);
+    }
+
+    @Transactional
+    public TaskPlan publish(long planId, HumanPrincipal actor, String conclusion) {
+        PersistentTaskPlanRecord plan = requireActor(planId, actor, "PUBLISH");
+        if (conclusion == null || conclusion.isBlank()) {
+            throw new PlanValidationException("PLAN_INVALID：发布必须填写总体结论");
+        }
+        if (documentService.hasActiveExecution(planId)) {
+            throw new PlanStateException("PLAN_STATE：存在活跃执行，不可发布",
+                    plan.getPhase(), plan.getStatus(), List.of("GENERATE_REPORT"));
+        }
+        String body = plan.getBody() == null ? "" : plan.getBody();
+        String line = "**总体结论**：" + conclusion.trim();
+        if (body.contains("**总体结论**：")) {
+            int start = body.indexOf("**总体结论**：");
+            int end = body.indexOf('\n', start);
+            body = end < 0 ? body.substring(0, start) + line : body.substring(0, start) + line + body.substring(end);
+        } else {
+            body = PlanMarkdownSupport.ensureSection(body, "十一、结论",
+                    PlanMarkdownSupport.extractSection(body, "十一、结论") + "\n" + line + "\n");
+        }
+        plan.updateBody(body);
+        Instant now = Instant.now();
+        buildPublishSnapshot(plan, actor.username(), now);
+        plan.applyPublish(now);
+        systemComment(planId, "已发布（revision=" + plan.getRevision() + "，发布人：" + actor.username() + "）");
+        return planService.getPlan(planId);
+    }
+
+    @Transactional
+    public TaskPlan newRevision(long planId, HumanPrincipal actor) {
+        PersistentTaskPlanRecord plan = requireActor(planId, actor, "NEW_REVISION");
+        plan.applyNewRevision();
+        systemComment(planId, actor.username() + " 发起新修订（revision=" + plan.getRevision() + "）");
+        return planService.getPlan(planId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SnapshotView> listSnapshots(long planId, HumanPrincipal actor) {
+        requireActor(planId, actor, "SHARE"); // 发布域只读，沿用 owner 级动作门槛
+        return snapshotRepository.findAllByPlanIdOrderByRevisionDesc(planId).stream()
+                .map(s -> new SnapshotView(s.getId(), s.getRevision(), s.getPublishedBy(), s.getPublishedAt()))
+                .toList();
+    }
+
+    @Transactional
+    public PersistentPlanPublishSnapshotRecord buildPublishSnapshot(PersistentTaskPlanRecord plan, String publishedBy, Instant at) {
+        List<PersistentTaskScenarioRecord> scenarios = scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(plan.getId());
+        String scenarioJson = writeJsonOrEmpty(scenarios.stream().map(s -> java.util.Map.of(
+                "id", s.getId(),
+                "name", s.getName(),
+                "testType", s.getTestType() == null ? "" : s.getTestType().name(),
+                "purpose", s.getPurpose() == null ? "" : s.getPurpose(),
+                "scriptVersionId", s.getScriptVersionId() == null ? 0L : s.getScriptVersionId(),
+                "threadGroupConfigs", configSupport.readStored(s.getThreadGroupConfigsJson())
+        )).toList());
+        String summaryJson = writeJsonOrEmpty(latestScenarioSummaries(plan.getId()));
+        return snapshotRepository.save(new PersistentPlanPublishSnapshotRecord(
+                plan.getId(), plan.getRevision(), publishedBy, at,
+                writeJsonOrEmpty(java.util.Map.of("body", plan.getBody() == null ? "" : plan.getBody())),
+                scenarioJson, summaryJson));
+    }
+
+    /** 每场景最近一次终态执行的摘要行（发布快照 summaryJson 与达成表填充共用）。 */
+    private List<java.util.Map<String, String>> latestScenarioSummaries(long planId) {
+        List<java.util.Map<String, String>> result = new java.util.ArrayList<>();
+        for (PersistentTaskScenarioRecord scenario : scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(planId)) {
+            executionRepository.findFirstByScenarioIdOrderByIdDesc(scenario.getId()).ifPresent(execution -> {
+                String line = buildEntryLine(execution);
+                result.add(java.util.Map.of(
+                        "scenarioName", scenario.getName(),
+                        "status", execution.getStatus().name(),
+                        "summary", line.substring(2)));
+            });
+        }
+        return result;
+    }
+
+    private String buildScenarioOverviews(long planId) {
+        StringBuilder block = new StringBuilder();
+        for (java.util.Map<String, String> summary : latestScenarioSummaries(planId)) {
+            block.append("- ").append(summary.get("scenarioName")).append(" · ")
+                    .append(summary.get("status")).append(" · ").append(summary.get("summary")).append('\n');
+        }
+        if (block.isEmpty()) {
+            block.append("- （暂无执行记录）\n");
+        }
+        return block.toString();
+    }
+
+    /**
+     * 幂等替换报告总览块（设计 §8 不变量）：标记 `<!-- backfill:report -->` 之前的内容不动；
+     * 从标记行整块替换到块尾——块自身的 `#### 执行结果总览` 标题行与其后条目行均属块内，
+     * 块尾 = 其后第一个其他标题行（`## `/`### `/`#### `）或 `**总体结论**` 行之前；其后内容不动。
+     */
+    private String upsertReportOverview(String body, String overviewLines) {
+        String timestamp = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                .withZone(java.time.ZoneId.systemDefault()).format(Instant.now());
+        String block = "<!-- backfill:report -->\n#### 执行结果总览（生成于 " + timestamp + "）\n" + overviewLines;
+        int marker = body.indexOf("<!-- backfill:report -->");
+        if (marker < 0) {
+            String conclusion = PlanMarkdownSupport.extractSection(body, "十一、结论");
+            if (conclusion == null) {
+                return PlanMarkdownSupport.ensureSection(body, "十一、结论", "\n" + block);
+            }
+            return PlanMarkdownSupport.replaceSection(body, "十一、结论", conclusion + block);
+        }
+        int end = body.length();
+        int offset = marker;
+        for (String line : body.substring(marker).split("\n", -1)) {
+            if (offset > marker && (line.startsWith("#") || line.startsWith("**总体结论**"))
+                    && !line.startsWith("#### 执行结果总览")) {
+                end = offset;
+                break;
+            }
+            offset += line.length() + 1;
+        }
+        return body.substring(0, marker) + block + body.substring(Math.min(end, body.length()));
+    }
+
+    /** 达成表"实际结果"列：指标列包含场景名的行填入该场景最近摘要；无执行填"暂无执行"。 */
+    private String fillConclusionActualColumn(String body, List<java.util.Map<String, String>> summaries) {
+        String conclusion = PlanMarkdownSupport.extractSection(body, "十一、结论");
+        if (conclusion == null) {
+            return body;
+        }
+        StringBuilder updated = new StringBuilder();
+        java.util.Set<String> knownScenarios = new java.util.HashSet<>();
+        for (java.util.Map<String, String> summary : summaries) {
+            knownScenarios.add(summary.get("scenarioName"));
+        }
+        for (String line : conclusion.split("\n", -1)) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("|") && !trimmed.startsWith("|---") && !trimmed.contains("实际结果")) {
+                String firstCell = trimmed.substring(1, trimmed.indexOf('|', 1)).trim();
+                String matched = knownScenarios.stream().filter(firstCell::contains).findFirst().orElse(null);
+                if (matched != null) {
+                    String summary = summaries.stream()
+                            .filter(s -> s.get("scenarioName").equals(matched)).findFirst().orElseThrow().get("summary");
+                    line = replaceTableRowCell(line, 2, summary);
+                }
+            }
+            updated.append(line).append('\n');
+        }
+        return PlanMarkdownSupport.replaceSection(body, "十一、结论", updated.toString());
+    }
+
+    /** 替换 Markdown 表格行第 index 个数据单元格（0 基）。 */
+    private String replaceTableRowCell(String row, int cellIndex, String newValue) {
+        String[] cells = row.split("\\|", -1);
+        // cells[0] 为行首 | 前的空串；数据单元格从 cells[1] 开始
+        int target = cellIndex + 1;
+        if (target >= cells.length - 1) {
+            return row;
+        }
+        cells[target] = " " + newValue + " ";
+        return String.join("|", cells);
+    }
+
+    private String writeJsonOrEmpty(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception exception) {
+            return "{}";
+        }
     }
 
     public boolean hasAnyExecution(long planId) {
