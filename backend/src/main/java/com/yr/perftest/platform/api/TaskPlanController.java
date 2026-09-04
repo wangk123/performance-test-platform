@@ -13,6 +13,7 @@ import com.yr.perftest.platform.task.TestType;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.TaskMetricSeries;
 import com.yr.perftest.platform.execution.TaskSamplePage;
+import com.yr.perftest.platform.identity.HumanPrincipal;
 import com.yr.perftest.platform.monitoring.ExecutionMonitorBindingService;
 import com.yr.perftest.platform.monitoring.MetricKind;
 import com.yr.perftest.platform.monitoring.TargetMetricsQueryResult;
@@ -23,6 +24,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -74,44 +77,19 @@ public class TaskPlanController {
             @Valid @RequestBody CreateTaskPlanRequest request,
             @RequestHeader(name = "X-User", defaultValue = "admin") String createdBy
     ) {
-        return planService.createPlan(
-                projectId,
-                request.name(),
-                request.remark(),
-                request.controllerNodeId(),
-                request.workerNodeIds(),
-                request.monitorTargetIds(),
-                createdBy,
-                request.templateId()
-        );
+        String actor = createdBy;
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof HumanPrincipal human) {
+            actor = human.username();
+        }
+        return planService.createPlan(projectId, request.name(), request.remark(),
+                request.controllerNodeId(), request.workerNodeIds(), request.monitorTargetIds(),
+                actor, request.templateId());
     }
 
     @GetMapping("/projects/{projectId}/task-plans")
     public List<TaskPlan> listPlans(@PathVariable long projectId) {
         return planService.listPlans(projectId);
-    }
-
-    @GetMapping("/task-plans/{planId}")
-    public TaskPlan getPlan(@PathVariable long planId) {
-        return planService.getPlan(planId);
-    }
-
-    @PutMapping("/task-plans/{planId}")
-    public TaskPlan updatePlan(@PathVariable long planId, @Valid @RequestBody UpdateTaskPlanRequest request) {
-        return planService.updatePlan(
-                planId,
-                request.name(),
-                request.remark(),
-                request.controllerNodeId(),
-                request.workerNodeIds(),
-                request.monitorTargetIds()
-        );
-    }
-
-    @DeleteMapping("/task-plans/{planId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deletePlan(@PathVariable long planId) {
-        planService.deletePlan(planId);
     }
 
     @PostMapping("/task-plans/{planId}/scenarios")
@@ -286,15 +264,6 @@ public class TaskPlanController {
             List<Long> workerNodeIds,
             List<Long> monitorTargetIds,
             Long templateId
-    ) {
-    }
-
-    public record UpdateTaskPlanRequest(
-            @NotBlank String name,
-            String remark,
-            Long controllerNodeId,
-            List<Long> workerNodeIds,
-            List<Long> monitorTargetIds
     ) {
     }
 

@@ -86,4 +86,37 @@ public class PlatformExceptionHandler {
                 .orElse("request validation failed");
         return ResponseEntity.badRequest().body(new ApiError("REQUEST_VALIDATION_FAILED", message));
     }
+
+    @ExceptionHandler(com.yr.perftest.platform.task.plandoc.PlanStateException.class)
+    public ResponseEntity<PlanErrorBody> handlePlanState(com.yr.perftest.platform.task.plandoc.PlanStateException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new PlanErrorBody(
+                "PLAN_STATE", exception.getMessage(), null, null,
+                exception.getPhase().name(), exception.getStatus().name(), exception.getAllowedActions()));
+    }
+
+    @ExceptionHandler(com.yr.perftest.platform.task.plandoc.PlanRevisionConflictException.class)
+    public ResponseEntity<PlanErrorBody> handlePlanRevisionConflict(com.yr.perftest.platform.task.plandoc.PlanRevisionConflictException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new PlanErrorBody(
+                "PLAN_REVISION_CONFLICT", exception.getMessage(),
+                exception.getCurrentRevision(), exception.getServerMarkdown(), null, null, null));
+    }
+
+    @ExceptionHandler(com.yr.perftest.platform.task.plandoc.PlanPrecheckFailedException.class)
+    public ResponseEntity<PlanErrorBody> handlePlanPrecheck(com.yr.perftest.platform.task.plandoc.PlanPrecheckFailedException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(PlanErrorBody.of("PLAN_PRECHECK_FAILED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(com.yr.perftest.platform.task.plandoc.PlanAccessDeniedException.class)
+    public ResponseEntity<PlanErrorBody> handlePlanAccessDenied(com.yr.perftest.platform.task.plandoc.PlanAccessDeniedException exception) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(PlanErrorBody.of("PLAN_ACCESS_DENIED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(com.yr.perftest.platform.task.plandoc.PlanValidationException.class)
+    public ResponseEntity<PlanErrorBody> handlePlanValidation(com.yr.perftest.platform.task.plandoc.PlanValidationException exception) {
+        String message = exception.getMessage() == null ? "" : exception.getMessage();
+        if (message.startsWith("SHARE_NOT_FOUND")) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(PlanErrorBody.of("SHARE_NOT_FOUND", message));
+        }
+        return ResponseEntity.badRequest().body(PlanErrorBody.of("PLAN_INVALID", message));
+    }
 }

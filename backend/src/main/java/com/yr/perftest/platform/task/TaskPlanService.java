@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
 import com.yr.perftest.platform.project.PersistentProjectRepository;
 import com.yr.perftest.platform.project.ProjectValidationException;
+import com.yr.perftest.platform.task.plandoc.PersistentPlanCommentRepository;
+import com.yr.perftest.platform.task.plandoc.PersistentPlanPublishSnapshotRepository;
+import com.yr.perftest.platform.task.plandoc.PersistentPlanShareTokenRepository;
 import com.yr.perftest.platform.task.plandoc.PersistentPlanTemplateRecord;
 import com.yr.perftest.platform.task.plandoc.PersistentPlanTemplateRepository;
 import com.yr.perftest.platform.task.plandoc.PlanMarkdownSupport;
@@ -22,6 +25,9 @@ public class TaskPlanService {
     private final PersistentScenarioExecutionRepository executionRepository;
     private final TaskJsonSupport taskJson;
     private final PersistentPlanTemplateRepository templateRepository;
+    private final PersistentPlanCommentRepository commentRepository;
+    private final PersistentPlanPublishSnapshotRepository snapshotRepository;
+    private final PersistentPlanShareTokenRepository shareTokenRepository;
     private final ObjectMapper objectMapper;
 
     public TaskPlanService(
@@ -31,6 +37,9 @@ public class TaskPlanService {
             PersistentScenarioExecutionRepository executionRepository,
             TaskJsonSupport taskJson,
             PersistentPlanTemplateRepository templateRepository,
+            PersistentPlanCommentRepository commentRepository,
+            PersistentPlanPublishSnapshotRepository snapshotRepository,
+            PersistentPlanShareTokenRepository shareTokenRepository,
             ObjectMapper objectMapper
     ) {
         this.projectRepository = projectRepository;
@@ -39,6 +48,9 @@ public class TaskPlanService {
         this.executionRepository = executionRepository;
         this.taskJson = taskJson;
         this.templateRepository = templateRepository;
+        this.commentRepository = commentRepository;
+        this.snapshotRepository = snapshotRepository;
+        this.shareTokenRepository = shareTokenRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -133,6 +145,11 @@ public class TaskPlanService {
     ) {
         PersistentTaskPlanRecord plan = planRepository.findById(planId)
                 .orElseThrow(() -> new ExecutionValidationException("task plan does not exist"));
+        if (plan.getPhase() != com.yr.perftest.platform.task.plandoc.PlanPhase.DRAFT) {
+            throw new com.yr.perftest.platform.task.plandoc.PlanStateException(
+                    "PLAN_STATE：默认执行配置仅草稿阶段可修改（当前 " + plan.getPhase() + "/" + plan.getStatus() + "）",
+                    plan.getPhase(), plan.getStatus(), java.util.List.of("WITHDRAW", "BACK_TO_DRAFT"));
+        }
         plan.updateProfile(
                 name,
                 remark,
@@ -164,6 +181,9 @@ public class TaskPlanService {
         scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(plan.getId()).forEach(scenario ->
                 executionRepository.deleteAllByScenarioId(scenario.getId()));
         scenarioRepository.deleteAllByPlanId(plan.getId());
+        commentRepository.deleteAllByPlanId(plan.getId());
+        snapshotRepository.deleteAllByPlanId(plan.getId());
+        shareTokenRepository.deleteAllByPlanId(plan.getId());
         planRepository.delete(plan);
     }
 
