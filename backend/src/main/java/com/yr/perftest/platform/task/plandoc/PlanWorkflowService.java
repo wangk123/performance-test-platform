@@ -32,6 +32,7 @@ public class PlanWorkflowService {
     private final ObjectMapper objectMapper;
     private final PlanDocumentService documentService;
     private final ExecutionQueryService executionQueryService;
+    private final PersistentPlanShareTokenRepository shareTokenRepository;
 
     public PlanWorkflowService(
             PersistentTaskPlanRepository planRepository,
@@ -42,7 +43,8 @@ public class PlanWorkflowService {
             PersistentPlanTemplateRepository templateRepository,
             ObjectMapper objectMapper,
             PlanDocumentService documentService,
-            ExecutionQueryService executionQueryService
+            ExecutionQueryService executionQueryService,
+            PersistentPlanShareTokenRepository shareTokenRepository
     ) {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
@@ -53,6 +55,7 @@ public class PlanWorkflowService {
         this.objectMapper = objectMapper;
         this.documentService = documentService;
         this.executionQueryService = executionQueryService;
+        this.shareTokenRepository = shareTokenRepository;
     }
 
     @Transactional
@@ -399,6 +402,57 @@ public class PlanWorkflowService {
                 && role != ProjectAccessResolver.PlanActorRole.SYSTEM_ADMIN) {
             throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：仅项目 OWNER/系统管理员可管理模板");
         }
+    }
+
+    public record ShareView(long id, long planId, String token, Instant expiresAt, Instant revokedAt, String createdBy, Instant createdAt) {
+    }
+
+    public record SharedPlanView(String name, String body, Instant publishedAt) {
+    }
+
+    @Transactional
+    public ShareView createShare(long planId, HumanPrincipal actor, Integer expiresInDays) {
+        PersistentTaskPlanRecord plan = requireActor(planId, actor, "SHARE");
+        int days = expiresInDays == null || expiresInDays <= 0 ? 30 : expiresInDays;
+        PersistentPlanShareTokenRecord saved = shareTokenRepository.save(new PersistentPlanShareTokenRecord(
+                planId, java.util.UUID.randomUUID().toString(),
+                Instant.now().plus(java.time.Duration.ofDays(days)), actor.username()));
+        return toShareView(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ShareView> listShares(long planId, HumanPrincipal actor) {
+        requireActor(planId, actor, "SHARE");
+        return shareTokenRepository.findAllByPlanIdOrderByIdDesc(planId).stream().map(this::toShareView).toList();
+    }
+
+    @Transactional
+    public void revokeShare(long planId, long tokenId, HumanPrincipal actor) {
+        requireActor(planId, actor, "SHARE");
+        PersistentPlanShareTokenRecord token = shareTokenRepository.findById(tokenId)
+                .filter(t -> t.getPlanId() == planId)
+                .orElseThrow(() -> new PlanValidationException("SHARE_NOT_FOUND：分享链接不存在"));
+        token.revoke();
+    }
+
+    @Transactional(readOnly = true)
+    public SharedPlanView getSharedPlan(String token) {
+        PersistentPlanShareTokenRecord record = shareTokenRepository.findByToken(token == null ? "" : token)
+                .orElseThrow(() -> new PlanValidationException("SHARE_NOT_FOUND：分享链接不存在"));
+        if (record.getRevokedAt() != null
+                || (record.getExpiresAt() != null && record.getExpiresAt().isBefore(Instant.now()))) {
+            throw new PlanValidationException("SHARE_NOT_FOUND：分享链接不存在");
+        }
+        PersistentTaskPlanRecord plan = requirePlan(record.getPlanId());
+        if (plan.getPhase() != PlanPhase.PUBLISH) {
+            throw new PlanValidationException("SHARE_NOT_FOUND：分享链接不存在");
+        }
+        return new SharedPlanView(plan.getName(), plan.getBody(), plan.getPublishedAt());
+    }
+
+    private ShareView toShareView(PersistentPlanShareTokenRecord record) {
+        return new ShareView(record.getId(), record.getPlanId(), record.getToken(),
+                record.getExpiresAt(), record.getRevokedAt(), record.getCreatedBy(), record.getCreatedAt());
     }
 
     public boolean hasAnyExecution(long planId) {

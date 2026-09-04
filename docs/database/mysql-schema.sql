@@ -139,6 +139,37 @@ CREATE TABLE `plan_templates` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='计划模板表';
 
 -- ============================================================
+-- 06b. 计划发布快照 / 计划分享链接
+-- ============================================================
+DROP TABLE IF EXISTS `plan_publish_snapshots`;
+CREATE TABLE `plan_publish_snapshots` (
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `plan_id`       BIGINT       NOT NULL COMMENT '计划ID',
+    `revision`      INT          NOT NULL COMMENT '发布时修订号',
+    `published_by`  VARCHAR(80)  NOT NULL COMMENT '发布人',
+    `published_at`  DATETIME(3)  NOT NULL COMMENT '发布时间',
+    `doc_json`      LONGTEXT     NOT NULL COMMENT '发布时文档全文',
+    `scenario_json` LONGTEXT     NOT NULL COMMENT '发布时场景列表（类型/设置/脚本版本）',
+    `summary_json`  LONGTEXT              COMMENT '各场景最近成功执行摘要',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_plan_snapshot` (`plan_id`, `revision`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='计划发布快照表';
+
+DROP TABLE IF EXISTS `plan_share_tokens`;
+CREATE TABLE `plan_share_tokens` (
+    `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `plan_id`     BIGINT       NOT NULL COMMENT '计划ID',
+    `token`       VARCHAR(64)  NOT NULL COMMENT '分享令牌',
+    `expires_at`  DATETIME(3)           COMMENT '过期时间（空=永久）',
+    `revoked_at`  DATETIME(3)           COMMENT '撤销时间',
+    `created_by`  VARCHAR(80)  NOT NULL COMMENT '创建人',
+    `created_at`  DATETIME(3)  NOT NULL COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_share_token` (`token`),
+    KEY `idx_share_plan` (`plan_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='计划分享链接表';
+
+-- ============================================================
 -- 07. 场景执行记录
 -- 说明: 每次执行测试场景的历史记录
 -- ============================================================
