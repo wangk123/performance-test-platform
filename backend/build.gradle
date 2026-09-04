@@ -43,6 +43,8 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // 全量套件含 40+ 个 @SpringBootTest 上下文，默认 512m 堆会 OOM（P0-1 基线实测 39 例连锁失败）
+    maxHeapSize = '2g'
 }
 
 tasks.named('processResources') {
