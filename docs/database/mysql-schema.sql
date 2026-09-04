@@ -83,6 +83,13 @@ CREATE TABLE `task_plans` (
     `created_by`                    VARCHAR(80)  NOT NULL COMMENT '创建者用户名',
     `created_at`                    DATETIME(3)  NOT NULL COMMENT '创建时间',
     `updated_at`                    DATETIME(3)  NOT NULL COMMENT '最后更新时间',
+    `phase`                         VARCHAR(20)  NOT NULL DEFAULT 'DRAFT' COMMENT '计划阶段（DRAFT/REVIEW/EXECUTION/REPORT/PUBLISH）',
+    `status`                        VARCHAR(20)  NOT NULL DEFAULT 'DRAFT' COMMENT '阶段内子状态（见 PlanStatus）',
+    `body`                          LONGTEXT              COMMENT 'Markdown 原文（唯一数据源，含全部章节）',
+    `revision`                      INT          NOT NULL DEFAULT 1 COMMENT '文档修订号',
+    `published_at`                  DATETIME(3)           COMMENT '发布时间',
+    `precheck_json`                 LONGTEXT              COMMENT '环境检查执行设置 {enabled, items:[]}',
+    `precheck_executed_at`          DATETIME(3)           COMMENT '首次执行环境检查运行时间（newRevision 重置）',
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测试计划表';
 
@@ -94,7 +101,7 @@ DROP TABLE IF EXISTS `task_scenarios`;
 CREATE TABLE `task_scenarios` (
     `id`                       BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `plan_id`                  BIGINT       NOT NULL COMMENT '所属测试计划ID',
-    `script_version_id`        BIGINT       NOT NULL COMMENT '关联脚本版本ID',
+    `script_version_id`        BIGINT                COMMENT '关联脚本版本ID',
     `name`                     VARCHAR(160) NOT NULL COMMENT '场景名称',
     `sort_order`               INT          NOT NULL DEFAULT 0 COMMENT '排序序号',
     `threads`                  INT          NOT NULL DEFAULT 1 COMMENT '并发线程数',
@@ -105,6 +112,8 @@ CREATE TABLE `task_scenarios` (
     `controller_node_id`       BIGINT                COMMENT '指定控制节点ID（覆盖计划默认值）',
     `worker_node_ids_json`     LONGTEXT              COMMENT '指定工作节点ID列表（JSON数组，覆盖计划默认值）',
     `monitor_target_ids_json`  LONGTEXT              COMMENT '指定监控目标ID列表（JSON数组，覆盖计划默认值）',
+    `purpose`                        TEXT                  COMMENT '场景目的',
+    `test_type`                      VARCHAR(20)           COMMENT '测试类型（BENCHMARK/SINGLE_TXN/COMPOSITE/STABILITY）',
     `created_at`               DATETIME(3)  NOT NULL COMMENT '创建时间',
     `updated_at`               DATETIME(3)  NOT NULL COMMENT '最后更新时间',
     PRIMARY KEY (`id`)

@@ -2,6 +2,8 @@ package com.yr.perftest.platform.task;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -20,7 +22,6 @@ public class PersistentTaskScenarioRecord {
     @Column(nullable = false)
     private Long planId;
 
-    @Column(nullable = false)
     private Long scriptVersionId;
 
     @Column(nullable = false, length = 160)
@@ -56,6 +57,13 @@ public class PersistentTaskScenarioRecord {
     @Lob
     @Column(nullable = true)
     private String threadGroupConfigsJson;
+
+    @Lob
+    private String purpose;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private TestType testType;
 
     @Column(nullable = false)
     private Instant createdAt;
@@ -137,6 +145,9 @@ public class PersistentTaskScenarioRecord {
         return threadGroupConfigsJson;
     }
 
+    public String getPurpose() { return purpose; }
+    public TestType getTestType() { return testType; }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
@@ -167,6 +178,17 @@ public class PersistentTaskScenarioRecord {
         if (threadGroupConfigsJson != null) {
             this.threadGroupConfigsJson = threadGroupConfigsJson;
         }
+        this.updatedAt = Instant.now();
+    }
+
+    public void updateBusinessFields(String purpose, TestType testType) {
+        this.purpose = purpose;
+        this.testType = testType;
+        this.updatedAt = Instant.now();
+    }
+
+    public void bindScript(long scriptVersionId) {
+        this.scriptVersionId = scriptVersionId;
         this.updatedAt = Instant.now();
     }
 }

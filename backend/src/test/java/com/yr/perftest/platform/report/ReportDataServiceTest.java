@@ -59,7 +59,7 @@ class ReportDataServiceTest {
 
   @Test
   void aggregateByPlanReturnsEmptyPresetsWhenScenarioHasNoThreadGroupConfigs() throws Exception {
-    TaskPlan plan = new TaskPlan(1L, 10L, "plan-a", "", null, null, null, null, null, null, 0);
+    TaskPlan plan = new TaskPlan(1L, 10L, "plan-a", "", null, null, null, null, null, null, 0, null, null, null, 0, null, null, null);
     PersistentTaskScenarioRecord scenario = new PersistentTaskScenarioRecord(1L, 99L, "scenario-a", 0);
     setScenarioId(scenario, 1L);
 
@@ -74,7 +74,7 @@ class ReportDataServiceTest {
 
   @Test
   void aggregateByPlanBuildsPresetRowsForMultiThreadGroupConfig() throws Exception {
-    TaskPlan plan = new TaskPlan(1L, 10L, "plan-a", "", null, null, null, null, null, null, 0);
+    TaskPlan plan = new TaskPlan(1L, 10L, "plan-a", "", null, null, null, null, null, null, 0, null, null, null, 0, null, null, null);
     PersistentTaskScenarioRecord scenario = new PersistentTaskScenarioRecord(1L, 99L, "scenario-a", 0);
     setScenarioId(scenario, 1L);
     scenario.updateProfile(

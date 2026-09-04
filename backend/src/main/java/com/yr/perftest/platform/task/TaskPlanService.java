@@ -115,7 +115,14 @@ public class TaskPlanService {
                 plan.getDefaultControllerNodeId(),
                 taskJson.readLongList(plan.getDefaultWorkerNodeIdsJson()),
                 taskJson.readLongList(plan.getDefaultMonitorTargetIdsJson()),
-                scenarioRepository.countByPlanId(plan.getId())
+                scenarioRepository.countByPlanId(plan.getId()),
+                plan.getPhase(),
+                plan.getStatus(),
+                plan.getBody(),
+                plan.getRevision(),
+                plan.getPublishedAt(),
+                plan.getPrecheckJson(),
+                plan.getPrecheckExecutedAt()
         );
     }
 
