@@ -239,6 +239,14 @@
       <span class="ft-right">performance-test-platform · MCP</span>
     </footer>
 
+    <div class="backdrop" :class="{ show: selectedTool }" @click="closeDrawer"></div>
+    <McpToolDetailDrawer
+      v-if="selectedTool"
+      :tool="selectedTool"
+      @close="closeDrawer"
+      @copied="showToast"
+    />
+
     <div class="toast" :class="{ show: toastVisible }" role="status">
       <svg
         class="ic sm"
@@ -252,6 +260,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import McpToolDetailDrawer from './McpToolDetailDrawer.vue';
 import { fetchMcpDirectoryApi } from '../../api/mcp-directory';
 import type { McpDirectory, McpToolSummary } from '../../types';
 import { copyToClipboard } from '../../utils/clipboard';
@@ -694,6 +703,19 @@ onBeforeUnmount(() => {
 .mcp-directory .page-ft .ft-left .ic { color: var(--primary-dark); width: 14px; height: 14px; }
 
 .mcp-directory .page-ft .ft-right { font-family: var(--font-data); font-size: 11.5px; letter-spacing: 0.5px; }
+
+/* ===== 详情抽屉背板 ===== */
+.mcp-directory .backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 26, 34, 0.44);
+  z-index: 90;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.mcp-directory .backdrop.show { opacity: 1; pointer-events: auto; }
 
 /* ===== Toast ===== */
 .mcp-directory .toast {
