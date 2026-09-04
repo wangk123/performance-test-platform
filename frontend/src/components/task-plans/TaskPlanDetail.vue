@@ -20,7 +20,14 @@
 
     <a-tabs v-model:active-key="activeTab">
       <a-tab-pane key="document" tab="文档">
-        <PlanDetailDocument :doc="doc" :plan="doc.plan.value ?? plan" :scenarios="scenarios" @changed="doc.refresh" />
+        <PlanDetailDocument
+          :doc="doc"
+          :plan="doc.plan.value ?? plan"
+          :scenarios="scenarios"
+          @changed="doc.refresh"
+          @request-add="openAddScenario"
+          @request-edit="openEditScenario"
+        />
       </a-tab-pane>
       <a-tab-pane key="review" tab="评审">
         <PlanDetailReview :doc="doc" />
@@ -34,7 +41,7 @@
     </a-tabs>
 
     <TaskPlanDialog v-model="planDialogVisible" :editing-plan="plan" />
-    <ScenarioDialog v-model="scenarioDialogVisible" :plan="doc.plan.value ?? plan" :editing-scenario="null" />
+    <ScenarioDialog v-model="scenarioDialogVisible" :plan="doc.plan.value ?? plan" :editing-scenario="editingScenario" />
   </section>
 </template>
 
@@ -58,6 +65,7 @@ const doc = usePlanDoc();
 const activeTab = ref('document');
 const planDialogVisible = ref(false);
 const scenarioDialogVisible = ref(false);
+const editingScenario = ref<TaskScenario | null>(null);
 
 onMounted(() => void doc.load(props.plan.id));
 watch(() => props.plan.id, (id) => void doc.load(id));
@@ -68,6 +76,16 @@ function can(action: string) {
 
 function openPlanConfig() {
   planDialogVisible.value = true;
+}
+
+function openAddScenario() {
+  editingScenario.value = null;
+  scenarioDialogVisible.value = true;
+}
+
+function openEditScenario(scenario: TaskScenario) {
+  editingScenario.value = scenario;
+  scenarioDialogVisible.value = true;
 }
 
 async function submitForReview() {

@@ -42,6 +42,8 @@
               :plan="plan"
               :scenarios="scenarios"
               @changed="emit('changed')"
+              @request-add="emit('request-add')"
+              @request-edit="(scenario) => emit('request-edit', scenario)"
             />
             <MdPreview v-else :model-value="section.content || '（空）'" language="zh-CN" />
           </div>
@@ -100,7 +102,11 @@ import ChecklistView from './ChecklistView.vue';
 import ScenarioDesignModule from './ScenarioDesignModule.vue';
 
 const props = defineProps<{ doc: ReturnType<typeof usePlanDoc>; plan: TaskPlan; scenarios: TaskScenario[] }>();
-const emit = defineEmits<{ (e: 'changed'): void }>();
+const emit = defineEmits<{
+  (e: 'changed'): void;
+  (e: 'request-add'): void;
+  (e: 'request-edit', scenario: TaskScenario): void;
+}>();
 
 const CONSTRAINED = ['二、测试目的与指标', '三、测试范围', '四、测试资源', '五、测试约束', '七、场景设计', '九、排期与协作'];
 
