@@ -93,6 +93,7 @@ watch(() => [props.modelValue, props.editingPlan] as const, async () => {
   form.controllerNodeId = props.editingPlan?.defaultControllerNodeId ?? null;
   form.workerNodeIds = [...(props.editingPlan?.defaultWorkerNodeIds ?? [])];
   form.monitorTargetIds = [...(props.editingPlan?.defaultMonitorTargetIds ?? [])];
+  templateId.value = null; // 每次打开重置模板选择，避免上次残留带入新计划
 }, { immediate: true });
 
 async function onSave() {

@@ -64,6 +64,7 @@ public class TaskScenarioService {
             List<Long> monitorTargetIds
     ) {
         PersistentTaskPlanRecord plan = requirePlan(planId);
+        requireScenarioMutationAllowed(plan);
         if (scriptVersionId != null) {
             validateScript(plan.getProjectId(), scriptVersionId);
         }
@@ -107,6 +108,7 @@ public class TaskScenarioService {
     ) {
         PersistentTaskScenarioRecord scenario = requireScenario(scenarioId);
         PersistentTaskPlanRecord plan = requirePlan(scenario.getPlanId());
+        requireScenarioMutationAllowed(plan);
         String oldName = scenario.getName();
         Long resolvedScriptVersionId = scriptVersionId != null ? scriptVersionId : scenario.getScriptVersionId();
         if (scriptVersionId != null) {
@@ -160,6 +162,8 @@ public class TaskScenarioService {
     @Transactional
     public void deleteScenario(long scenarioId) {
         PersistentTaskScenarioRecord scenario = requireScenario(scenarioId);
+        PersistentTaskPlanRecord plan = requirePlan(scenario.getPlanId());
+        requireScenarioMutationAllowed(plan);
         executionRepository.findAllByScenarioIdOrderByIdDesc(scenario.getId()).forEach(execution -> {
             if (execution.getStatus() == com.yr.perftest.platform.execution.ExecutionStatus.RUNNING
                     || execution.getStatus() == com.yr.perftest.platform.execution.ExecutionStatus.STOPPING
@@ -192,6 +196,18 @@ public class TaskScenarioService {
         validateScript(plan.getProjectId(), scriptVersionId);
         scenario.bindScript(scriptVersionId);
         return toScenario(scenario);
+    }
+
+    /** 场景增删改阶段门禁（设计 §4.5）：PUBLISH 与 EXECUTION/RUNNING 冻结；其余阶段放行。 */
+    private void requireScenarioMutationAllowed(PersistentTaskPlanRecord plan) {
+        boolean frozen = plan.getPhase() == com.yr.perftest.platform.task.plandoc.PlanPhase.PUBLISH
+                || (plan.getPhase() == com.yr.perftest.platform.task.plandoc.PlanPhase.EXECUTION
+                    && plan.getStatus() == com.yr.perftest.platform.task.plandoc.PlanStatus.RUNNING);
+        if (frozen) {
+            throw new com.yr.perftest.platform.task.plandoc.PlanStateException(
+                    "PLAN_STATE：场景在执行中/已发布阶段禁止增删改（当前 " + plan.getPhase() + "/" + plan.getStatus() + "）",
+                    plan.getPhase(), plan.getStatus(), java.util.List.of("TO_REPORT", "GENERATE_REPORT", "NEW_REVISION"));
+        }
     }
 
     PersistentTaskScenarioRecord requireScenario(long scenarioId) {

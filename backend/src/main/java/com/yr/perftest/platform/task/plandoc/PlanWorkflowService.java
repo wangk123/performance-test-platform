@@ -389,6 +389,9 @@ public class PlanWorkflowService {
             throw new PlanValidationException("PLAN_INVALID：内置模板不可编辑");
         }
         requireTemplateManager(template.getProjectId(), actor);
+        if (name == null || name.isBlank() || content == null || content.isBlank()) {
+            throw new PlanValidationException("PLAN_INVALID：模板名称与内容不能为空");
+        }
         template.update(name.trim(), description, content);
         return template;
     }

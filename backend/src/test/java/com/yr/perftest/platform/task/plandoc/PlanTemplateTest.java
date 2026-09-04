@@ -71,6 +71,12 @@ class PlanTemplateTest {
                 .isInstanceOf(PlanAccessDeniedException.class);
         var created = workflow.createTemplate(projectId, OWNER, "项目模板", "描述", "## 一、背景\n\n{{planName}}\n");
         assertThat(workflow.listTemplates(projectId)).anyMatch(t -> t.getName().equals("项目模板"));
+        // 更新同样校验名称/内容非空（与 createTemplate 同口径）
+        assertThatThrownBy(() -> workflow.updateTemplate(created.getId(), OWNER, null, null, "## 内容\n"))
+                .isInstanceOf(PlanValidationException.class)
+                .hasMessageContaining("模板名称与内容不能为空");
+        assertThatThrownBy(() -> workflow.updateTemplate(created.getId(), OWNER, "名", null, " "))
+                .isInstanceOf(PlanValidationException.class);
         workflow.updateTemplate(created.getId(), OWNER, "项目模板2", null, "## 一、背景\n\n改\n");
         workflow.deleteTemplate(created.getId(), OWNER);
         assertThat(workflow.listTemplates(projectId)).noneMatch(t -> t.getName().equals("项目模板2"));

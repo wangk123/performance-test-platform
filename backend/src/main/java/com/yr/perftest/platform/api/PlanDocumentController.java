@@ -8,12 +8,15 @@ import com.yr.perftest.platform.report.ReportDataService;
 import com.yr.perftest.platform.task.TaskPlan;
 import com.yr.perftest.platform.task.TaskPlanService;
 import com.yr.perftest.platform.task.plandoc.PlanAccess;
+import com.yr.perftest.platform.task.plandoc.PlanAccessDeniedException;
 import com.yr.perftest.platform.task.plandoc.PlanDocumentService;
 import com.yr.perftest.platform.task.plandoc.PlanQuickExecuteService;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService.CommentView;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService.PrecheckReport;
 import com.yr.perftest.platform.task.plandoc.PrecheckSettings;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -52,6 +55,7 @@ public class PlanDocumentController {
     @GetMapping("/task-plans/{planId}")
     public PlanResponse getPlan(@PathVariable long planId) {
         TaskPlan plan = documentService.getDocument(planId);
+        requireMember(plan);
         return new PlanResponse(plan, permissionsOf(plan));
     }
 
@@ -61,7 +65,9 @@ public class PlanDocumentController {
     }
 
     @PutMapping("/task-plans/{planId}")
-    public TaskPlan updateDefaultConfig(@PathVariable long planId, @RequestBody UpdatePlanConfigRequest request) {
+    public TaskPlan updateDefaultConfig(@PathVariable long planId, @Valid @RequestBody UpdatePlanConfigRequest request) {
+        TaskPlan plan = planService.getPlan(planId);
+        requirePlanOwnerLike(plan);
         return planService.updatePlan(planId, request.name(), request.remark(),
                 request.controllerNodeId(), request.workerNodeIds(), request.monitorTargetIds());
     }
@@ -163,7 +169,7 @@ public class PlanDocumentController {
 
     @GetMapping("/task-plans/{planId}/comments")
     public List<CommentView> listComments(@PathVariable long planId) {
-        requireHuman();
+        requireMember(planService.getPlan(planId));
         return workflowService.listComments(planId);
     }
 
@@ -186,6 +192,7 @@ public class PlanDocumentController {
 
     @GetMapping("/task-plans/{planId}/report")
     public PlanReportResponse report(@PathVariable long planId) {
+        requireMember(planService.getPlan(planId));
         return reportDataService.aggregateByPlan(planId);
     }
 
@@ -220,7 +227,7 @@ public class PlanDocumentController {
 
     @GetMapping("/projects/{projectId}/plan-templates")
     public List<com.yr.perftest.platform.task.plandoc.PersistentPlanTemplateRecord> listTemplates(@PathVariable long projectId) {
-        requireHuman();
+        requireProjectMember(projectId);
         return workflowService.listTemplates(projectId);
     }
 
@@ -254,6 +261,37 @@ public class PlanDocumentController {
         return PlanAccess.compute(role, plan.phase(), plan.status(), workflowService.hasAnyExecution(plan.id()));
     }
 
+    /** 计划域读门禁（设计 §13.1）：未登录 401；登录但非项目成员（NONE）403。 */
+    private void requireMember(TaskPlan plan) {
+        HumanPrincipal principal = requireHuman();
+        ProjectAccessResolver.PlanActorRole role =
+                accessResolver.resolve(plan.projectId(), principal, plan.createdBy());
+        if (role == ProjectAccessResolver.PlanActorRole.NONE) {
+            throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：非项目成员");
+        }
+    }
+
+    /** 项目域读门禁：模板列表按项目归属收紧（与计划域同口径）。 */
+    private void requireProjectMember(long projectId) {
+        HumanPrincipal principal = requireHuman();
+        ProjectAccessResolver.PlanActorRole role = accessResolver.resolve(projectId, principal, null);
+        if (role == ProjectAccessResolver.PlanActorRole.NONE) {
+            throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：非项目成员");
+        }
+    }
+
+    /** 默认执行配置属 owner 级改动（与 DELETE 同级）：负责人/项目 OWNER/系统 ADMIN。 */
+    private void requirePlanOwnerLike(TaskPlan plan) {
+        HumanPrincipal principal = requireHuman();
+        ProjectAccessResolver.PlanActorRole role =
+                accessResolver.resolve(plan.projectId(), principal, plan.createdBy());
+        if (role != ProjectAccessResolver.PlanActorRole.SYSTEM_ADMIN
+                && role != ProjectAccessResolver.PlanActorRole.PROJECT_OWNER
+                && role != ProjectAccessResolver.PlanActorRole.PLAN_OWNER) {
+            throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：仅负责人/项目 OWNER/系统管理员可修改默认执行配置");
+        }
+    }
+
     private HumanPrincipal requireHuman() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof HumanPrincipal human) {
@@ -265,8 +303,12 @@ public class PlanDocumentController {
     public record UpdateDocumentRequest(long baseRevision, String markdown) {
     }
 
-    public record UpdatePlanConfigRequest(String name, String remark, Long controllerNodeId,
-                                          List<Long> workerNodeIds, List<Long> monitorTargetIds) {
+    public record UpdatePlanConfigRequest(
+            @NotBlank String name,
+            String remark,
+            Long controllerNodeId,
+            List<Long> workerNodeIds,
+            List<Long> monitorTargetIds) {
     }
 
     public record CommentRequest(String comment) {

@@ -1,5 +1,9 @@
 package com.yr.perftest.platform.task.plandoc;
 
+import com.yr.perftest.platform.execution.distributed.ExecutionNodeRole;
+import com.yr.perftest.platform.execution.distributed.ExecutionNodeStatus;
+import com.yr.perftest.platform.execution.distributed.PersistentExecutionNodeRecord;
+import com.yr.perftest.platform.execution.distributed.PersistentExecutionNodeRepository;
 import com.yr.perftest.platform.identity.HumanPrincipal;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
@@ -19,6 +23,7 @@ public class PlanQuickExecuteService {
     }
 
     private final PersistentScriptVersionRepository scriptVersionRepository;
+    private final PersistentExecutionNodeRepository executionNodeRepository;
     private final PersistentTaskPlanRepository planRepository;
     private final TaskPlanService planService;
     private final TaskScenarioService scenarioService;
@@ -27,6 +32,7 @@ public class PlanQuickExecuteService {
 
     public PlanQuickExecuteService(
             PersistentScriptVersionRepository scriptVersionRepository,
+            PersistentExecutionNodeRepository executionNodeRepository,
             PersistentTaskPlanRepository planRepository,
             TaskPlanService planService,
             TaskScenarioService scenarioService,
@@ -34,6 +40,7 @@ public class PlanQuickExecuteService {
             PlanWorkflowService workflowService
     ) {
         this.scriptVersionRepository = scriptVersionRepository;
+        this.executionNodeRepository = executionNodeRepository;
         this.planRepository = planRepository;
         this.planService = planService;
         this.scenarioService = scenarioService;
@@ -48,7 +55,8 @@ public class PlanQuickExecuteService {
         String username = actor == null ? "admin" : actor.username();
         String planName = scriptDisplayName(script) + " / 即时执行";
         com.yr.perftest.platform.task.TaskPlan plan = planService.createPlan(
-                script.getProjectId(), planName, "从脚本列表直接执行", null, null, null, username, null);
+                script.getProjectId(), planName, "从脚本列表直接执行", firstAvailableControllerNodeId(),
+                null, null, username, null);
         PersistentTaskPlanRecord raw = planRepository.findById(plan.id()).orElseThrow();
         raw.forceState(PlanPhase.EXECUTION, PlanStatus.PENDING);
         planRepository.save(raw);
@@ -58,6 +66,20 @@ public class PlanQuickExecuteService {
         ExecutionControlService.StartOutcome outcome = executionControlService.start(
                 new ExecutionControlService.StartCommand(scenario.id(), null, null, null), null);
         return new QuickExecuteResult(plan.id(), scenario.id(), outcome.executionId());
+    }
+
+    /**
+     * 快捷执行无 UI 选节点环节，计划默认 Controller 取节点池中 id 最小的 AVAILABLE 控制节点；
+     * 无可用节点则保持空，由执行链路以既有「controller node is required」同步报错。
+     */
+    private Long firstAvailableControllerNodeId() {
+        return executionNodeRepository.findAllByOrderByIdDesc().stream()
+                .filter(node -> node.getStatus() == ExecutionNodeStatus.AVAILABLE)
+                .filter(node -> node.getRole() == ExecutionNodeRole.CONTROLLER
+                        || node.getRole() == ExecutionNodeRole.BOTH)
+                .min(java.util.Comparator.comparingLong(PersistentExecutionNodeRecord::getId))
+                .map(PersistentExecutionNodeRecord::getId)
+                .orElse(null);
     }
 
     private String scriptDisplayName(PersistentScriptVersionRecord script) {

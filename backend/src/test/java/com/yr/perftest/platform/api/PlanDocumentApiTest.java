@@ -154,4 +154,49 @@ class PlanDocumentApiTest {
         mockMvc.perform(get("/api/share/plans/not-a-token"))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void nonMemberPlanReadsRejectedOverRest() throws Exception {
+        String outsider = AuthTestSupport.loginToken(mockMvc, objectMapper, "tester", "tester123");
+        mockMvc.perform(get("/api/task-plans/" + planId).header("Authorization", "Bearer " + outsider))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("PLAN_ACCESS_DENIED"));
+        mockMvc.perform(get("/api/task-plans/" + planId + "/comments").header("Authorization", "Bearer " + outsider))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/task-plans/" + planId + "/report").header("Authorization", "Bearer " + outsider))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/projects/1/plan-templates").header("Authorization", "Bearer " + outsider))
+                .andExpect(status().isForbidden());
+        // 成员读门禁不影响管理员既有路径
+        mockMvc.perform(get("/api/task-plans/" + planId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void anonymousPlanReadRejectedOverRest() throws Exception {
+        mockMvc.perform(get("/api/task-plans/" + planId))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateDefaultConfigGuardsBlankNameAndNonOwner() throws Exception {
+        String outsider = AuthTestSupport.loginToken(mockMvc, objectMapper, "tester", "tester123");
+        mockMvc.perform(put("/api/task-plans/" + planId)
+                        .header("Authorization", "Bearer " + outsider)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"改名\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("PLAN_ACCESS_DENIED"));
+        mockMvc.perform(put("/api/task-plans/" + planId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\" \"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/task-plans/" + planId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"改名后\",\"remark\":\"r\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("改名后"));
+    }
 }

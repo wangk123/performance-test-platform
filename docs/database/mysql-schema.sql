@@ -139,7 +139,23 @@ CREATE TABLE `plan_templates` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='计划模板表';
 
 -- ============================================================
--- 06b. 计划发布快照 / 计划分享链接
+-- 06b. 计划批注
+-- 说明: 计划文档全文档级批注；kind = REVIEW（人工）/ SYSTEM（流转记录）
+-- ============================================================
+DROP TABLE IF EXISTS `plan_comments`;
+CREATE TABLE `plan_comments` (
+    `id`         BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `plan_id`    BIGINT       NOT NULL COMMENT '所属测试计划ID',
+    `author`     VARCHAR(80)  NOT NULL COMMENT '批注作者（SYSTEM 批注固定为 system）',
+    `content`    LONGTEXT     NOT NULL COMMENT '批注内容（实体为 @Lob，与 doc_json 等列对齐取 LONGTEXT）',
+    `kind`       VARCHAR(20)  NOT NULL COMMENT '批注类型（REVIEW=人工批注/SYSTEM=系统流转记录）',
+    `created_at` DATETIME(3)  NOT NULL COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_plan_comments_plan` (`plan_id`, `id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='计划批注表';
+
+-- ============================================================
+-- 06c. 计划发布快照 / 计划分享链接
 -- ============================================================
 DROP TABLE IF EXISTS `plan_publish_snapshots`;
 CREATE TABLE `plan_publish_snapshots` (

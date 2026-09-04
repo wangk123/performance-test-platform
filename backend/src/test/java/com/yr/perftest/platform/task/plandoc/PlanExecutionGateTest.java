@@ -125,7 +125,9 @@ class PlanExecutionGateTest {
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
         assertThat(plan.getPhase()).isEqualTo(PlanPhase.EXECUTION);
         assertThat(plan.getStatus()).isEqualTo(PlanStatus.RUNNING);
-        planRepository.save(plan).forceState(PlanPhase.EXECUTION, PlanStatus.DONE);
+        // 先改 detached 实体再 save，确保 DONE 真正落库（save 返回值上调 forceState 不会写库）
+        plan.forceState(PlanPhase.EXECUTION, PlanStatus.DONE);
+        planRepository.save(plan);
         workflow.onExecutionStarted(planId);
         assertThat(planRepository.findById(planId).orElseThrow().getStatus()).isEqualTo(PlanStatus.RUNNING);
     }
