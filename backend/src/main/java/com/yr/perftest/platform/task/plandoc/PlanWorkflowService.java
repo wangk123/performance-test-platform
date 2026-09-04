@@ -3,6 +3,8 @@ package com.yr.perftest.platform.task.plandoc;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.identity.HumanPrincipal;
 import com.yr.perftest.platform.project.ProjectAccessResolver;
+import com.yr.perftest.platform.task.ExecutionQueryService;
+import com.yr.perftest.platform.task.PersistentScenarioExecutionRecord;
 import com.yr.perftest.platform.task.PersistentScenarioExecutionRepository;
 import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
 import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
@@ -29,6 +31,7 @@ public class PlanWorkflowService {
     private final PersistentPlanTemplateRepository templateRepository;
     private final ObjectMapper objectMapper;
     private final PlanDocumentService documentService;
+    private final ExecutionQueryService executionQueryService;
 
     public PlanWorkflowService(
             PersistentTaskPlanRepository planRepository,
@@ -38,7 +41,8 @@ public class PlanWorkflowService {
             ProjectAccessResolver accessResolver,
             PersistentPlanTemplateRepository templateRepository,
             ObjectMapper objectMapper,
-            PlanDocumentService documentService
+            PlanDocumentService documentService,
+            ExecutionQueryService executionQueryService
     ) {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
@@ -48,6 +52,7 @@ public class PlanWorkflowService {
         this.templateRepository = templateRepository;
         this.objectMapper = objectMapper;
         this.documentService = documentService;
+        this.executionQueryService = executionQueryService;
     }
 
     @Transactional
@@ -161,6 +166,54 @@ public class PlanWorkflowService {
                 && (plan.getStatus() == PlanStatus.PENDING || plan.getStatus() == PlanStatus.DONE)) {
             plan.transitionTo(PlanPhase.EXECUTION, PlanStatus.RUNNING);
         }
+    }
+
+    /** 终态联动：回填执行摘要 + 全部结束时置 DONE（设计 §4.3/§8）。 */
+    @Transactional
+    public void onExecutionTerminal(long executionId) {
+        PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId).orElse(null);
+        if (execution == null) {
+            return;
+        }
+        PersistentTaskScenarioRecord scenario = scenarioRepository.findById(execution.getScenarioId()).orElse(null);
+        if (scenario == null) {
+            return;
+        }
+        PersistentTaskPlanRecord plan = requirePlan(scenario.getPlanId());
+        String entryLine = buildEntryLine(execution);
+        documentService.backfillExecutionRecord(plan.getId(), scenario.getName(), executionId, entryLine);
+        if (plan.getPhase() == PlanPhase.EXECUTION && plan.getStatus() == PlanStatus.RUNNING
+                && !documentService.hasActiveExecution(plan.getId())) {
+            plan.transitionTo(PlanPhase.EXECUTION, PlanStatus.DONE);
+        }
+    }
+
+    private String buildEntryLine(PersistentScenarioExecutionRecord execution) {
+        int threads = 0;
+        try {
+            com.fasterxml.jackson.databind.JsonNode config = objectMapper.readTree(execution.getConfigJson());
+            threads = config.path("threads").asInt(0);
+        } catch (Exception ignored) {
+        }
+        long p95 = 0;
+        double throughput = 0d;
+        double errorRate = 0d;
+        try {
+            com.yr.perftest.platform.execution.TaskExecutionResult.Summary summary =
+                    executionQueryService.getResult(execution.getId()).summary();
+            if (summary != null) {
+                p95 = summary.p95();
+                throughput = summary.throughput();
+                errorRate = summary.errorRate();
+            }
+        } catch (Exception ignored) {
+        }
+        String endedAt = execution.getEndTime() == null ? "-"
+                : java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                .withZone(java.time.ZoneId.systemDefault()).format(execution.getEndTime());
+        return String.format(java.util.Locale.ROOT,
+                "- %s · %d 并发 · %s · 吞吐 %.1f TPS · P95 %d ms · 错误率 %.2f%%",
+                endedAt, threads, execution.getStatus(), throughput, p95, errorRate);
     }
 
     /** 评估检测清单：自动项核验；人工项视为未确认=失败项（设计 §10.3）。 */

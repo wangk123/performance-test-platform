@@ -68,6 +68,7 @@ public class DistributedJmeterExecutionRunner {
     private final Duration tailInterval;
     private final Duration fetchInterval;
     private final ExecutorService executorService;
+    private final org.springframework.context.ApplicationEventPublisher applicationEventPublisher;
 
     public DistributedJmeterExecutionRunner(
             PersistentTaskPlanRepository planRepository,
@@ -88,6 +89,7 @@ public class DistributedJmeterExecutionRunner {
             TransactionTemplate transactionTemplate,
             ObjectMapper objectMapper,
             ResourcePatternResolver resourcePatternResolver,
+            org.springframework.context.ApplicationEventPublisher applicationEventPublisher,
             @Value("${platform.storage.root:./storage}") String storageRoot,
             @Value("${platform.execution.max-concurrent-tasks:1}") int maxConcurrentTasks,
             @Value("${platform.distributed.runner.idle-timeout-seconds:300}") long idleTimeoutSeconds,
@@ -112,6 +114,7 @@ public class DistributedJmeterExecutionRunner {
         this.transactionTemplate = transactionTemplate;
         this.objectMapper = objectMapper;
         this.resourcePatternResolver = resourcePatternResolver;
+        this.applicationEventPublisher = applicationEventPublisher;
         this.storageRoot = Path.of(storageRoot);
         this.idleTimeout = Duration.ofSeconds(idleTimeoutSeconds);
         this.pollInterval = Duration.ofSeconds(pollIntervalSeconds);
@@ -418,6 +421,8 @@ public class DistributedJmeterExecutionRunner {
             monitorBindingService.markEnd(executionId, execution.getEndTime());
             scheduleAuxPostScripts(executionId);
         });
+        applicationEventPublisher.publishEvent(new com.yr.perftest.platform.task.ExecutionLifecycleEvent(
+                executionId, ExecutionStatus.SUCCESS));
     }
 
     private void markFailed(long executionId, Integer exitCode, String message) {
@@ -433,6 +438,8 @@ public class DistributedJmeterExecutionRunner {
             monitorBindingService.markEnd(executionId, execution.getEndTime());
             scheduleAuxPostScripts(executionId);
         });
+        applicationEventPublisher.publishEvent(new com.yr.perftest.platform.task.ExecutionLifecycleEvent(
+                executionId, ExecutionStatus.FAILED));
     }
 
     private void markInterrupted(long executionId, Integer exitCode, String message) {
@@ -448,6 +455,8 @@ public class DistributedJmeterExecutionRunner {
             monitorBindingService.markEnd(executionId, execution.getEndTime());
             scheduleAuxPostScripts(executionId);
         });
+        applicationEventPublisher.publishEvent(new com.yr.perftest.platform.task.ExecutionLifecycleEvent(
+                executionId, ExecutionStatus.INTERRUPTED));
     }
 
     static boolean isTerminalStatus(ExecutionStatus status) {

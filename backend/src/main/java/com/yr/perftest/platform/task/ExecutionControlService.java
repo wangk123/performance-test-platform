@@ -24,6 +24,7 @@ public class ExecutionControlService {
     private final IdempotencyService idempotencyService;
     private final ExecutionAuditService executionAuditService;
     private final com.yr.perftest.platform.task.plandoc.PlanWorkflowService planWorkflowService;
+    private final org.springframework.context.ApplicationEventPublisher applicationEventPublisher;
 
     public ExecutionControlService(
             ScenarioExecutionService scenarioExecutionService,
@@ -33,7 +34,8 @@ public class ExecutionControlService {
             ScenarioExecutionRuntime executionRuntime,
             IdempotencyService idempotencyService,
             ExecutionAuditService executionAuditService,
-            com.yr.perftest.platform.task.plandoc.PlanWorkflowService planWorkflowService
+            com.yr.perftest.platform.task.plandoc.PlanWorkflowService planWorkflowService,
+            org.springframework.context.ApplicationEventPublisher applicationEventPublisher
     ) {
         this.scenarioExecutionService = scenarioExecutionService;
         this.executionQueryService = executionQueryService;
@@ -43,6 +45,7 @@ public class ExecutionControlService {
         this.idempotencyService = idempotencyService;
         this.executionAuditService = executionAuditService;
         this.planWorkflowService = planWorkflowService;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Transactional
@@ -96,6 +99,8 @@ public class ExecutionControlService {
                     @Override
                     public void afterCommit() {
                         auxScriptLifecycle.afterExecutionFinished(executionId);
+                        applicationEventPublisher.publishEvent(new com.yr.perftest.platform.task.ExecutionLifecycleEvent(
+                                executionId, ExecutionStatus.CANCELLED));
                     }
                 });
     }
