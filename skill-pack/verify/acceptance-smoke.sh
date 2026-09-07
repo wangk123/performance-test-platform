@@ -50,7 +50,8 @@ echo "session: ${SESSION_ID:-<stateless>}"
 step "tools/list"
 LIST=$(rpc "tools/list" "{}")
 for tool in list_projects start_execution inspect_execution analyze_execution collect_evidence \
-            request_evidence_capture register_change verify_change; do
+            request_evidence_capture register_change verify_change \
+            plan_templates plan_create plan_get plan_update plan_query; do
   if echo "$LIST" | grep -q "\"name\":\"$tool\""; then ok "工具可见: $tool"; else fail "工具缺失: $tool"; fi
 done
 
@@ -59,6 +60,12 @@ step "tools/call list_projects"
 CALL=$(rpc "tools/call" '{"name":"list_projects","arguments":{}}')
 if echo "$CALL" | grep -q '"isError":false'; then ok "list_projects 调用成功"; else fail "list_projects 失败: $CALL"; fi
 if echo "$CALL" | grep -q '"items"'; then ok "结果含 items"; else fail "结果缺少 items"; fi
+
+# 4b. 计划工具只读调用（plan_templates：内置模板随平台 seed，恒可读）
+step "tools/call plan_templates"
+TPL=$(rpc "tools/call" '{"name":"plan_templates","arguments":{}}')
+if echo "$TPL" | grep -q '"isError":false'; then ok "plan_templates 调用成功"; else fail "plan_templates 失败: $TPL"; fi
+if echo "$TPL" | grep -q '通用压测计划'; then ok "内置模板在列"; else fail "内置模板缺失"; fi
 
 # 5. 审计轨迹校验：本次调用应出现在请求审计中
 step "审计轨迹校验"

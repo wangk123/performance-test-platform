@@ -7,6 +7,7 @@
 
 | 技能 | 阶段 | 主要 MCP 工具 |
 |------|------|--------------|
+| `perf-platform-plan` | 计划 | `plan_templates`、`plan_create`、`plan_get`、`plan_update`、`plan_query` |
 | `perf-platform-navigate` | 导航 | `list_projects` |
 | `perf-platform-design` | 设计/执行 | `start_execution`、`inspect_execution` |
 | `perf-platform-observe` | 观察 | `inspect_execution` |
