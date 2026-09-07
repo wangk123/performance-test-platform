@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.execution.distributed.ExecutionNodeRole;
 import com.yr.perftest.platform.execution.distributed.PersistentExecutionNodeRecord;
 import com.yr.perftest.platform.execution.distributed.PersistentExecutionNodeRepository;
+import com.yr.perftest.platform.project.PersistentProjectRecord;
+import com.yr.perftest.platform.project.PersistentProjectRepository;
 import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
 import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRecord;
@@ -63,6 +65,9 @@ class McpServerApiTest {
     @Autowired
     private PersistentExecutionNodeRepository nodeRepository;
 
+    @Autowired
+    private PersistentProjectRepository projectRepository;
+
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private String opsApiKey;
     private String readonlyApiKey;
@@ -104,7 +109,12 @@ class McpServerApiTest {
                 "collect_evidence",
                 "request_evidence_capture",
                 "register_change",
-                "verify_change"
+                "verify_change",
+                "plan_templates",
+                "plan_create",
+                "plan_get",
+                "plan_update",
+                "plan_query"
         );
     }
 
@@ -170,6 +180,87 @@ class McpServerApiTest {
                 .isFalse();
         JsonNode payload = objectMapper.readTree(body.at("/result/content/0/text").asText());
         assertThat(payload.at("/data/items").isArray()).isTrue();
+    }
+
+    @Test
+    void readonlyScopeCannotInvokePlanWriteTools() throws Exception {
+        RpcSession session = initialize(readonlyApiKey);
+
+        HttpResponse<String> createDenied = rpc("tools/call",
+                "{\"name\":\"plan_create\",\"arguments\":{\"projectId\":1,\"title\":\"t\"}}",
+                readonlyApiKey, session.sessionId());
+        assertThat(createDenied.statusCode()).isEqualTo(200);
+        JsonNode createBody = parseRpc(createDenied.body());
+        assertThat(createBody.at("/result/isError").asBoolean()).isTrue();
+        assertThat(createBody.at("/result/content/0/text").asText()).contains("ACCESS_DENIED");
+
+        HttpResponse<String> updateDenied = rpc("tools/call",
+                "{\"name\":\"plan_update\",\"arguments\":{\"planId\":1,\"markdown\":\"m\",\"baseRevision\":1}}",
+                readonlyApiKey, session.sessionId());
+        assertThat(updateDenied.statusCode()).isEqualTo(200);
+        JsonNode updateBody = parseRpc(updateDenied.body());
+        assertThat(updateBody.at("/result/isError").asBoolean()).isTrue();
+        assertThat(updateBody.at("/result/content/0/text").asText()).contains("ACCESS_DENIED");
+    }
+
+    @Test
+    void planToolsEndToEndOverStreamableHttp() throws Exception {
+        long projectId = projectRepository
+                .save(new PersistentProjectRecord("P9", "计划项目", "", "owner")).getId();
+        RpcSession session = initialize(opsApiKey);
+
+        // create（markdown 初始正文）
+        HttpResponse<String> created = rpc("tools/call",
+                "{\"name\":\"plan_create\",\"arguments\":{\"projectId\":" + projectId
+                        + ",\"title\":\"电商容量\",\"markdown\":\"# 一、背景\\n全文\"}}",
+                opsApiKey, session.sessionId());
+        JsonNode createdPayload = payloadOf(created);
+        long planId = createdPayload.at("/data/planId").asLong();
+        assertThat(planId).isPositive();
+        assertThat(createdPayload.at("/data/revision").asInt()).isEqualTo(1);
+        assertThat(createdPayload.at("/data/phase").asText()).isEqualTo("DRAFT");
+
+        // get 全文回读
+        HttpResponse<String> got = rpc("tools/call",
+                "{\"name\":\"plan_get\",\"arguments\":{\"planId\":" + planId + "}}",
+                opsApiKey, session.sessionId());
+        assertThat(payloadOf(got).at("/data/markdown").asText()).isEqualTo("# 一、背景\n全文");
+
+        // 成功更新 → revision 2
+        HttpResponse<String> updated = rpc("tools/call",
+                "{\"name\":\"plan_update\",\"arguments\":{\"planId\":" + planId
+                        + ",\"markdown\":\"# 一、背景\\nv2\",\"baseRevision\":1}}",
+                opsApiKey, session.sessionId());
+        assertThat(payloadOf(updated).at("/data/revision").asInt()).isEqualTo(2);
+
+        // 过期 base → PLAN_REVISION_CONFLICT + details（isError=true，不用 payloadOf）
+        HttpResponse<String> conflict = rpc("tools/call",
+                "{\"name\":\"plan_update\",\"arguments\":{\"planId\":" + planId
+                        + ",\"markdown\":\"# 一、背景\\nlost\",\"baseRevision\":1}}",
+                opsApiKey, session.sessionId());
+        JsonNode conflictBody = parseRpc(conflict.body());
+        assertThat(conflictBody.at("/result/isError").asBoolean()).isTrue();
+        JsonNode conflictPayload = objectMapper.readTree(conflictBody.at("/result/content/0/text").asText());
+        assertThat(conflictPayload.at("/error/code").asText()).isEqualTo("PLAN_REVISION_CONFLICT");
+        assertThat(conflictPayload.at("/error/details/currentRevision").asInt()).isEqualTo(2);
+        assertThat(conflictPayload.at("/error/details/serverMarkdown").asText()).isEqualTo("# 一、背景\nv2");
+
+        // query 命中
+        HttpResponse<String> queried = rpc("tools/call",
+                "{\"name\":\"plan_query\",\"arguments\":{\"projectId\":" + projectId
+                        + ",\"keyword\":\"容量\"}}",
+                opsApiKey, session.sessionId());
+        JsonNode queryPayload = payloadOf(queried);
+        assertThat(queryPayload.at("/data/total").asInt()).isEqualTo(1);
+        assertThat(queryPayload.at("/data/plans/0/planId").asLong()).isEqualTo(planId);
+    }
+
+    private JsonNode payloadOf(HttpResponse<String> response) throws Exception {
+        JsonNode body = parseRpc(response.body());
+        assertThat(body.at("/result/isError").asBoolean())
+                .as("tool call response: " + response.body())
+                .isFalse();
+        return objectMapper.readTree(body.at("/result/content/0/text").asText());
     }
 
     private RpcSession initialize(String apiKey) throws Exception {
