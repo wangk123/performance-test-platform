@@ -66,6 +66,12 @@ export function useBreadcrumb() {
       return segments;
     }
 
+    // MCP 工具目录
+    if (route.path.startsWith('/mcp-tools')) {
+      segments.push({ label: 'MCP 工具目录' });
+      return segments;
+    }
+
     // 项目列表
     if (routeName === 'projects') {
       segments.push({ label: '项目列表' });

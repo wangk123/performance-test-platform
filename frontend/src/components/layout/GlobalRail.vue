@@ -31,6 +31,15 @@
     </button>
     <button
       class="global-rail-btn"
+      :class="{ active: activeMainNav === 'mcpTools' }"
+      type="button"
+      title="MCP 工具"
+      @click="selectMainNav('mcpTools')"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l6-5-6-5"/><path d="M12 19h8"/></svg>
+    </button>
+    <button
+      class="global-rail-btn"
       :class="{ active: activeMainNav === 'settings' }"
       type="button"
       title="系统配置"

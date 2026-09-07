@@ -15,13 +15,18 @@ public interface McpTool {
 
     String description();
 
-    /** 阶段：NAVIGATE / DESIGN / OBSERVE / DIAGNOSE / VERIFY / CAPTURE */
+    /** 阶段：PLAN / NAVIGATE / DESIGN / OBSERVE / DIAGNOSE / VERIFY / CAPTURE */
     String stage();
 
     /** 写操作工具需要非只读 scope 才能调用 */
     boolean requiresWriteScope();
 
     Map<String, Object> inputSchema();
+
+    /** 使用示例（D18：说明文案与使用示例作为工具元数据随平台发布维护）；新工具必须提供，存量工具默认空串。 */
+    default String usageExample() {
+        return "";
+    }
 
     Object call(Map<String, Object> args, Principal principal);
 }

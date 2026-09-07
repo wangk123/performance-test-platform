@@ -104,3 +104,17 @@ export function stepTypeLabel(type: ScriptStepType) {
 export function stepTypeHint(type: ScriptStepType) {
   return stepTypeMeta[type]?.hint ?? '';
 }
+
+const MCP_STAGE_LABELS: Record<string, string> = {
+  PLAN: '计划',
+  NAVIGATE: '导航',
+  DESIGN: '设计',
+  OBSERVE: '观察',
+  DIAGNOSE: '诊断',
+  VERIFY: '验证',
+  CAPTURE: '取证',
+};
+
+export function mcpStageLabel(stage: string): string {
+  return MCP_STAGE_LABELS[stage] ?? stage;
+}
