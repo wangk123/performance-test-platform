@@ -172,3 +172,17 @@
 1. `McpDirectoryControllerTest`（401 / 与 registry 严格一致 / 序列排序 / 字段口径）+ `McpServerApiTest` 回归全绿；`gradle :backend:test` 全量通过。
 2. `npm run build`（vue-tsc + vite）零错误；bootRun + curl 端到端冒烟（登录读取目录、匿名 401）通过。
 
+## 2026-09-07（P0-2 ①③ 计划工具集与 skill）
+
+已完成：
+
+1. ① 五个计划 MCP 工具（`mcp/plan/`）：`plan_templates`（派生 sections/placeholders/scope）、`plan_create`（markdown 初始正文 revision=1，模板可见性校验）、`plan_get`（全文回读）、`plan_update`（乐观并发）、`plan_query`（phase/keyword 过滤 + 内存分页）；stage=PLAN，目录页零改动自动呈现（13 工具）。
+2. 错误通道：`McpToolSupport` 增 `details` 负载与 `PLAN_REVISION_CONFLICT`/`PLAN_STATE`/`PLAN_INVALID`/`PLAN_ACCESS_DENIED`/NOT_FOUND 映射（词表同 REST PlanErrorBody）；机器身份合成 `HumanPrincipal("agent", ADMIN)` 进入 plandoc 服务。
+3. `TaskPlanService` 增 9 参 `createPlan` 重载（initialMarkdown 初始正文不加版）。
+4. ③ `skill-pack/perf-platform-plan/SKILL.md`（梳理→模板→渲染→同步→再修改，冲突三选一与停止条件）+ README 组件表 + 冒烟脚本扩 13 工具与计划只读调用。
+
+验证：
+
+1. `McpToolSupportPlanErrorTest`/`PlanInitialMarkdownCreateTest`/`PlanToolsTest` 直调 + `McpServerApiTest` 协议级（13 工具、readonly 不可见写工具、端到端含冲突 details）+ 目录 PLAN 排序断言全绿；`gradle :backend:test` 全量通过。
+2. bootRun + acceptance-smoke.sh 实跑通过（13 工具可见、内置模板在列）；目录端点 toolCount=13。
+

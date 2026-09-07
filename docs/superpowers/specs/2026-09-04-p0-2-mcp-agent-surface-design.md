@@ -158,12 +158,12 @@ default String usageExample() { return ""; }
 | 工具 | 写 | 入参 | 返回 / 语义 |
 |------|----|------|-------------|
 | `plan_templates` | 否 | `projectId?`（缺省 `1` 行为同 REST：内置 + 该项目模板） | `{ templates: [{ id, name, scope: "BUILTIN"\|"PROJECT", description, sections[], placeholders[] }] }`——`sections` 由 `PlanMarkdownSupport.splitSections(content)` 派生（模板含的规范章节标题）、`placeholders` 由 `{{...}}` 正则提取（当前仅 `{{planName}}`，机制可扩展）、`scope` 由 `projectId==null` 派生 |
-| `plan_create` | 是 | `projectId, title, markdown, templateId?, remark?` | 创建草稿计划 → `{ planId, revision: 1, phase: "DRAFT", status: "DRAFT", title }`；`markdown` 非空时作为初始正文（revision=1 不加版，同模板渲染语义）；`markdown` 缺省时须给 `templateId`（工具校验模板可见性，未知/跨项目模板 → `PLAN_INVALID`），由模板渲染正文 |
+| `plan_create` | 是 | `projectId, title, markdown, templateId?, remark?` | 创建草稿计划 → `{ planId, revision: 1, phase: "DRAFT", status: "DRAFT", title }`；`markdown` 非空时作为初始正文（revision=1 不加版，同模板渲染语义）；`markdown` 缺省时按 `templateId` 渲染（缺省 templateId 用内置模板，既有服务语义）；`templateId` 给定但不可见（非内置且非本项目）→ `PLAN_INVALID`（工具层校验，杜绝服务端静默空正文） |
 | `plan_get` | 否 | `planId` | `{ planId, projectId, title, markdown, revision, phase, status, scenarioCount, updatedAt, createdBy }`——正文即唯一数据源（一稿走到头），不另设"结构化模块摘要"提取层 |
 | `plan_update` | 是 | `planId, markdown, baseRevision` | 成功 → `{ planId, revision: n+1, updatedAt }`；revision 不匹配 → 错误码 **`PLAN_REVISION_CONFLICT`**，`error.details` 含 `currentRevision` + `serverMarkdown`（服务端全文；调用方本地已有自己那版，差异自算，D5）；非 DRAFT 阶段 → `PLAN_STATE`（details 含 `phase/status/allowedActions`） |
 | `plan_query` | 否 | `projectId, phase?, keyword?, page?, pageSize?` | `{ plans: [{ planId, title, phase, status, revision, updatedAt }], total, page, pageSize }`——`phase` 过滤取 `PlanPhase.name()`（大小写不敏感）、`keyword` 对 title 不区分大小写包含匹配、分页在 `listPlans` 结果（id 倒序）上内存切片（计划量级小，无后端分页需求） |
 
-- 五个工具 `stage()` 返回 `PLAN`；`plan_create` / `plan_update` `requiresWriteScope()=true`（readonly scope 主体不可见，复用 `McpToolRegistry.visible`）。
+- 五个工具 `stage()` 返回 `PLAN`；`plan_create` / `plan_update` `requiresWriteScope()=true`（readonly scope 主体调用写工具被拒，复用 `McpToolRegistry.visible` 调用期拦截）。
 - **白名单（D12，不进 MCP）**：publish 终态、删除类、分享创建、评审 approve、批注增删、状态流转（submit/withdraw/backToDraft/startExecution/toReport/generateReport/newRevision/precheck）——本地 Agent 引导用户回平台操作。MCP 面 = 模板读 + 文档 CRUD + 列表查询，共 5 工具。
 - 冲突处理姿势（供 ③ skill 与实现共用）：调用方拿 `plan_get` 的 `revision` 作 `baseRevision` 更新；遇 `PLAN_REVISION_CONFLICT` 自行 diff 两版全文，按 D5 三选一（保留平台版/采纳本地版/手改合并后以新 revision 重提）。
 - **与 2026-09-04 原契据的差异**（P0-1 落地后对齐）：`plan_create` 增加 `remark?`、返回 phase/status 枚举名而非中文；`plan_get` 以 markdown 全文替代"structuredModules 摘要 + scenarioSummaries"（P0-1 修订 5 已取消结构化 JSON 列，全文即内容）；`plan_update` 错误码从 `REVISION_CONFLICT` 定名 `PLAN_REVISION_CONFLICT`（与 REST `PlanErrorBody` 同词表）。
