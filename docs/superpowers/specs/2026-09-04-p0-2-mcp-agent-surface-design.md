@@ -157,7 +157,7 @@ default String usageExample() { return ""; }
 
 | 工具 | 写 | 入参 | 返回 / 语义 |
 |------|----|------|-------------|
-| `plan_templates` | 否 | `projectId?`（缺省 `1` 行为同 REST：内置 + 该项目模板） | `{ templates: [{ id, name, scope: "BUILTIN"\|"PROJECT", description, sections[], placeholders[] }] }`——`sections` 由 `PlanMarkdownSupport.splitSections(content)` 派生（模板含的规范章节标题）、`placeholders` 由 `{{...}}` 正则提取（当前仅 `{{planName}}`，机制可扩展）、`scope` 由 `projectId==null` 派生 |
+| `plan_templates` | 否 | `projectId?`（缺省仅返回内置模板） | `{ templates: [{ id, name, scope: "BUILTIN"\|"PROJECT", description, sections[], placeholders[] }] }`——`sections` 由 `PlanMarkdownSupport.splitSections(content)` 派生（模板含的规范章节标题）、`placeholders` 由 `{{...}}` 正则提取（当前仅 `{{planName}}`，机制可扩展）、`scope` 由 `projectId==null` 派生 |
 | `plan_create` | 是 | `projectId, title, markdown, templateId?, remark?` | 创建草稿计划 → `{ planId, revision: 1, phase: "DRAFT", status: "DRAFT", title }`；`markdown` 非空时作为初始正文（revision=1 不加版，同模板渲染语义）；`markdown` 缺省时按 `templateId` 渲染（缺省 templateId 用内置模板，既有服务语义）；`templateId` 给定但不可见（非内置且非本项目）→ `PLAN_INVALID`（工具层校验，杜绝服务端静默空正文） |
 | `plan_get` | 否 | `planId` | `{ planId, projectId, title, markdown, revision, phase, status, scenarioCount, updatedAt, createdBy }`——正文即唯一数据源（一稿走到头），不另设"结构化模块摘要"提取层 |
 | `plan_update` | 是 | `planId, markdown, baseRevision` | 成功 → `{ planId, revision: n+1, updatedAt }`；revision 不匹配 → 错误码 **`PLAN_REVISION_CONFLICT`**，`error.details` 含 `currentRevision` + `serverMarkdown`（服务端全文；调用方本地已有自己那版，差异自算，D5）；非 DRAFT 阶段 → `PLAN_STATE`（details 含 `phase/status/allowedActions`） |
@@ -166,7 +166,7 @@ default String usageExample() { return ""; }
 - 五个工具 `stage()` 返回 `PLAN`；`plan_create` / `plan_update` `requiresWriteScope()=true`（readonly scope 主体调用写工具被拒，复用 `McpToolRegistry.visible` 调用期拦截）。
 - **白名单（D12，不进 MCP）**：publish 终态、删除类、分享创建、评审 approve、批注增删、状态流转（submit/withdraw/backToDraft/startExecution/toReport/generateReport/newRevision/precheck）——本地 Agent 引导用户回平台操作。MCP 面 = 模板读 + 文档 CRUD + 列表查询，共 5 工具。
 - 冲突处理姿势（供 ③ skill 与实现共用）：调用方拿 `plan_get` 的 `revision` 作 `baseRevision` 更新；遇 `PLAN_REVISION_CONFLICT` 自行 diff 两版全文，按 D5 三选一（保留平台版/采纳本地版/手改合并后以新 revision 重提）。
-- **与 2026-09-04 原契据的差异**（P0-1 落地后对齐）：`plan_create` 增加 `remark?`、返回 phase/status 枚举名而非中文；`plan_get` 以 markdown 全文替代"structuredModules 摘要 + scenarioSummaries"（P0-1 修订 5 已取消结构化 JSON 列，全文即内容）；`plan_update` 错误码从 `REVISION_CONFLICT` 定名 `PLAN_REVISION_CONFLICT`（与 REST `PlanErrorBody` 同词表）。
+- **与 2026-09-04 原契据的差异**（P0-1 落地后对齐）：`plan_create` 增加 `remark?`、返回 phase/status 枚举名而非中文；`plan_get` 以 markdown 全文替代"structuredModules 摘要 + scenarioSummaries"（P0-1 修订 5 已取消结构化 JSON 列，全文即内容）；`plan_update` 错误码从 `REVISION_CONFLICT` 定名 `PLAN_REVISION_CONFLICT`（与 REST `PlanErrorBody` 同词表）；`plan_templates` 缺省语义定稿为仅返回内置模板（REST 无缺省概念，不入 MCP 契约）。
 
 ### 6.1 服务层调用细节（按 P0-1 实际代码定稿）
 
@@ -182,10 +182,10 @@ default String usageExample() { return ""; }
 
 **机器身份映射（关键决策）**：plandoc 服务签名要求 `HumanPrincipal`，而 MCP 主体是 `MachinePrincipal(apiKeyId, scope)`（无 username）。映射策略：`PlanToolsSupport.agentActor()` 合成 `new HumanPrincipal("agent", Set.of(SystemRole.ADMIN))`。理由：与既有 agent 面哲学一致——机器 Key 由管理员签发即受信操作者，授权边界 = API Key scope（readonly 不可见写工具）+ 治理层（审计/限流），不做按项目成员判定（`list_projects`/`start_execution` 同样不查项目成员）；D12 白名单限定 MCP 可触达的动作集。代价：非只读 Key 可经 MCP 编辑任意项目计划文档——与 `start_execution` 既有爆炸半径相同，审计可溯（apiKeyId 落审计）。`plan_create` 的 `createdBy` 记 `"agent"`，人工接手靠项目 OWNER/系统 ADMIN 权限（编辑/流转/删除矩阵均覆盖）。
 
-**错误码与负载映射**（`McpToolSupport` 扩展 + `PlanToolsSupport` 捕获）：
+**错误码与负载映射**（`McpToolSupport` 统一装配）：
 
 - `McpToolSupport` 新增 `error(objectMapper, code, message, details)` 重载——`error` 对象可携带 `details` 字段（Map 透传）；`codeOf` 补四个分支：`PlanRevisionConflictException → "PLAN_REVISION_CONFLICT"`、`PlanStateException → "PLAN_STATE"`、`PlanAccessDeniedException → "PLAN_ACCESS_DENIED"`、`PlanValidationException → "PLAN_INVALID"`（与 REST `PlanErrorBody` 同词表；`AgentErrorCode` 枚举不动——它是 `/api/agent/**` REST 封套词表，MCP 错误码本就是字符串）。
-- `PlanToolsSupport.callSafely(mapper, supplier)`：先捕 `PlanRevisionConflictException`（details: `currentRevision`/`serverMarkdown`）与 `PlanStateException`（details: `phase`/`status`/`allowedActions`），再落 `McpToolSupport.failure`。冲突负载经此透传，满足"负载含 currentRevision + 全文"。
+- `McpToolSupport.failure` 统一装配 details（`detailsOf`：`PlanRevisionConflictException` → `currentRevision`/`serverMarkdown`；`PlanStateException` → `phase`/`status`/`allowedActions`），`McpServerConfiguration.handleCall` 是唯一分发点，`PLAN_*` details 对全部工具生效（不止计划工具）；`PlanToolsSupport` 不参与错误装配。
 
 **目录页联动**：五工具以 `stage()="PLAN"` 注册进 `McpToolRegistry`，目录端点与 `/mcp-tools` 页零改动自动呈现（13 工具/PLAN 计数 5）——方案 A 单一事实源的直接收益。
 
@@ -209,9 +209,9 @@ SKILL.md 流程骨架：
 - [x] ~~`plan_update` REVISION_CONFLICT 错误码与负载格式~~ → 定名 `PLAN_REVISION_CONFLICT`，`error.details` 携带 `currentRevision`/`serverMarkdown`；`PLAN_STATE`/`PLAN_INVALID`/`PLAN_ACCESS_DENIED` 同批映射（§6.1）
 - [x] ~~`plan_templates` 与 P0-1 模板体系字段对齐复核~~ → 实体无 sections/placeholders 列，由 `splitSections` + `{{...}}` 正则派生，加 `description`（§6）
 - [x] ~~服务层细节待完成事项补充~~ → §6.1（含机器身份映射决策：合成 `HumanPrincipal("agent", ADMIN)`）
-- [ ] 五条 `usageExample` 编写（含一条冲突处理示例）——随实现
-- [ ] `stage=PLAN` 注册与目录页筛选联测（目录端点/页面零改动，验证自动呈现）——随实现
-- [ ] `skill-pack/perf-platform-plan/SKILL.md` 编写 + `skill-pack/README.md` 组件表补行 + `verify/acceptance-smoke.sh` 扩展计划工具只读调用
+- [x] 五条 `usageExample` 编写（含一条冲突处理示例）——随实现
+- [x] `stage=PLAN` 注册与目录页筛选联测（目录端点/页面零改动，验证自动呈现）——随实现
+- [x] `skill-pack/perf-platform-plan/SKILL.md` 编写 + `skill-pack/README.md` 组件表补行 + `verify/acceptance-smoke.sh` 扩展计划工具只读调用
 - [x] D3 措辞同步（`skills/perf-plan/` → `skill-pack/perf-platform-plan/`）——用户指令继续 P0-2 未完项即确认执行（2026-09-07）
 
 ## 9. 决策与待确认
@@ -235,6 +235,6 @@ SKILL.md 流程骨架：
 - **后端（②，先行）**：
   - `McpDirectoryControllerTest`：返回与 `registry.all()` 严格一致（数量/字段/stage 集合含 PLAN 排序）；未登录 401；`usageExample` 默认空串不影响现有 8 工具（全量回归）。
 - **前端（②）**：手测清单——阶段筛选、搜索、两个配置片段复制、API Key 申请入口链接可达；宽屏铺满无成片空白、平铺无分组头、状态图标两态、页脚渲染；字段与端点响应对齐（对照 `mcp-directory-prototype.html` 视觉基准）。
-- **①（实施中，2026-09-07）**：五工具集成测试（`mcp/plan/` 下，覆盖：模板派生字段、create 初始正文 revision=1、get 全文、update 成功/`PLAN_REVISION_CONFLICT` details 负载/`PLAN_STATE`、query 过滤分页、未知模板 `PLAN_INVALID`、markdown 与 templateId 均缺省校验）；`McpServerApiTest` 工具清单断言扩至 13 个 + readonly scope 不可见 `plan_create`/`plan_update`；`McpDirectoryControllerTest` 补 PLAN 工具排序断言。
-- **③（实施中）**：skill 按验收口径人工走查"梳理→生成→同步→再修改"全流程；`skill-pack/verify/acceptance-smoke.sh` 扩展 `plan_templates`/`plan_query` 只读调用 + 工具清单 13 项断言。
+- **①（已交付 2026-09-07）**：五工具集成测试（`mcp/plan/` 下，覆盖：模板派生字段、create 初始正文 revision=1、get 全文、update 成功/`PLAN_REVISION_CONFLICT` details 负载/`PLAN_STATE`、query 过滤分页、未知模板 `PLAN_INVALID`、markdown 与 templateId 均缺省校验）；`McpServerApiTest` 工具清单断言扩至 13 个 + readonly scope 不可见 `plan_create`/`plan_update`；`McpDirectoryControllerTest` 补 PLAN 工具排序断言。
+- **③（已交付 2026-09-07）**：skill 按验收口径人工走查"梳理→生成→同步→再修改"全流程；`skill-pack/verify/acceptance-smoke.sh` 扩展 `plan_templates` 只读调用与 13 工具清单断言（`plan_query` 由协议级 `McpServerApiTest` 覆盖，冒烟不依赖真实项目数据）。
 - 总验收 = roadmap P0-2 行两条口径。

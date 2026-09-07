@@ -33,6 +33,7 @@
 | `facade/FacadeGuard` | agent 面主体校验 | 审计在控制模块内（C5） |
 | `governance` | 脱敏/限流/请求审计/执行审计 | AuditFacade 走有界查询（C5） |
 | `task/plandoc/PlanWorkflowService` | 计划文档域：状态机/批注/模板/分享/发布快照/precheck 门禁 | 执行门禁挂 ExecutionControlService seam（P0-1） |
+| `mcp/plan` 计划工具 | 计划文档的 MCP 面：模板读 + 文档 CRUD + 列表查询（白名单 5 工具，D12）；直调 plandoc 服务，agent 合成身份 | P0-2①；错误词表同 REST PlanErrorBody |
 
 ## 关键决策记录（非正式 ADR）
 

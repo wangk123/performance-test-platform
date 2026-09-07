@@ -183,6 +183,6 @@
 
 验证：
 
-1. `McpToolSupportPlanErrorTest`/`PlanInitialMarkdownCreateTest`/`PlanToolsTest` 直调 + `McpServerApiTest` 协议级（13 工具、readonly 不可见写工具、端到端含冲突 details）+ 目录 PLAN 排序断言全绿；`gradle :backend:test` 全量通过。
+1. `McpToolSupportPlanErrorTest`/`PlanInitialMarkdownCreateTest`/`PlanToolsTest` 直调 + `McpServerApiTest` 协议级（13 工具、readonly 调用写工具被拒、端到端含冲突 details）+ 目录 PLAN 排序断言全绿；`gradle :backend:test` 全量通过。
 2. bootRun + acceptance-smoke.sh 实跑通过（13 工具可见、内置模板在列）；目录端点 toolCount=13。
 
