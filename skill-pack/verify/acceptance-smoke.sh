@@ -59,7 +59,9 @@ done
 step "tools/call list_projects"
 CALL=$(rpc "tools/call" '{"name":"list_projects","arguments":{}}')
 if echo "$CALL" | grep -q '"isError":false'; then ok "list_projects 调用成功"; else fail "list_projects 失败: $CALL"; fi
-if echo "$CALL" | grep -q '"items"'; then ok "结果含 items"; else fail "结果缺少 items"; fi
+# 平台现实（T12 起）：McpToolSupport.ok 将负载封套为 {"data":{...}}，嵌在 content[].text
+# 内经 SSE/JSON 双重编码后，响应体中呈现为转义形式 \"data\"——按此实际线缆格式断言。
+if echo "$CALL" | grep -q '\\"data\\"'; then ok "结果含 data 封套"; else fail "结果缺少 data 封套: $CALL"; fi
 
 # 4b. 计划工具只读调用（plan_templates：内置模板随平台 seed，恒可读）
 step "tools/call plan_templates"
@@ -67,12 +69,14 @@ TPL=$(rpc "tools/call" '{"name":"plan_templates","arguments":{}}')
 if echo "$TPL" | grep -q '"isError":false'; then ok "plan_templates 调用成功"; else fail "plan_templates 失败: $TPL"; fi
 if echo "$TPL" | grep -q '通用压测计划'; then ok "内置模板在列"; else fail "内置模板缺失"; fi
 
-# 5. 审计轨迹校验：本次调用应出现在请求审计中
-step "审计轨迹校验"
-AUDIT=$(rpc "tools/call" '{"name":"list_projects","arguments":{}}' >/dev/null; \
-  curl -sS -m 30 -H "X-API-Key: $API_KEY" "$PLATFORM_URL/api/agent/audit/requests?limit=20")
-if echo "$AUDIT" | grep -q '"/mcp"'; then ok "MCP 调用已入审计库"; else fail "审计库未记录 MCP 调用: $AUDIT"; fi
+# 5. scope 可见性检查：tools/list 为静态目录（不做 scope 过滤，写权限在调用期由
+#    McpToolRegistry.visible 拦截），plan_templates 对任意 scope 恒可见。
+#    （T13 旧断言假设 /mcp 请求入 agent 审计库——AgentGovernanceFilter 仅覆盖
+#    /api/agent/**，/mcp 从不在审计范围，故替换为本检查。）
+step "tools/list scope 可见性"
+LIST2=$(rpc "tools/list" "{}")
+if echo "$LIST2" | grep -q '"name":"plan_templates"'; then ok "plan_templates 对当前 scope 可见（静态目录）"; else fail "plan_templates 不可见: $LIST2"; fi
 
 echo
-echo "== 结果：通过 $PASS，失败 $FAIL"
+echo "== 结果：通过 ${PASS}，失败 ${FAIL}"
 [ "$FAIL" -eq 0 ]
