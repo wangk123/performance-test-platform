@@ -235,6 +235,6 @@ SKILL.md 流程骨架：
 - **后端（②，先行）**：
   - `McpDirectoryControllerTest`：返回与 `registry.all()` 严格一致（数量/字段/stage 集合含 PLAN 排序）；未登录 401；`usageExample` 默认空串不影响现有 8 工具（全量回归）。
 - **前端（②）**：手测清单——阶段筛选、搜索、两个配置片段复制、API Key 申请入口链接可达；宽屏铺满无成片空白、平铺无分组头、状态图标两态、页脚渲染；字段与端点响应对齐（对照 `mcp-directory-prototype.html` 视觉基准）。
-- **①（已交付 2026-09-07）**：五工具集成测试（`mcp/plan/` 下，覆盖：模板派生字段、create 初始正文 revision=1、get 全文、update 成功/`PLAN_REVISION_CONFLICT` details 负载/`PLAN_STATE`、query 过滤分页、未知模板 `PLAN_INVALID`、markdown 与 templateId 均缺省校验）；`McpServerApiTest` 工具清单断言扩至 13 个 + readonly scope 不可见 `plan_create`/`plan_update`；`McpDirectoryControllerTest` 补 PLAN 工具排序断言。
+- **①（已交付 2026-09-07）**：五工具集成测试（`mcp/plan/` 下，覆盖：模板派生字段、create 初始正文 revision=1、get 全文、update 成功/`PLAN_REVISION_CONFLICT` details 负载/`PLAN_STATE`、query 过滤分页、未知模板 `PLAN_INVALID`、markdown 与 templateId 均缺省校验）；`McpServerApiTest` 工具清单断言扩至 13 个 + readonly scope 调用 `plan_create`/`plan_update` 被拒（ACCESS_DENIED）；`McpDirectoryControllerTest` 补 PLAN 工具排序断言。
 - **③（已交付 2026-09-07）**：skill 按验收口径人工走查"梳理→生成→同步→再修改"全流程；`skill-pack/verify/acceptance-smoke.sh` 扩展 `plan_templates` 只读调用与 13 工具清单断言（`plan_query` 由协议级 `McpServerApiTest` 覆盖，冒烟不依赖真实项目数据）。
 - 总验收 = roadmap P0-2 行两条口径。
