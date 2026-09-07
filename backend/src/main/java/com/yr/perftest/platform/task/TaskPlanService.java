@@ -74,12 +74,28 @@ public class TaskPlanService {
             Long defaultControllerNodeId, List<Long> defaultWorkerNodeIds, List<Long> defaultMonitorTargetIds,
             String createdBy, Long templateId
     ) {
+        return createPlan(projectId, name, remark, defaultControllerNodeId, defaultWorkerNodeIds,
+                defaultMonitorTargetIds, createdBy, templateId, null);
+    }
+
+    /**
+     * P0-2①：initialMarkdown 非空时直接作为初始正文（创建语境初始化，不 bump revision，同模板渲染语义）；
+     * 空/空白落模板渲染路径。
+     */
+    @Transactional
+    public TaskPlan createPlan(
+            long projectId, String name, String remark,
+            Long defaultControllerNodeId, List<Long> defaultWorkerNodeIds, List<Long> defaultMonitorTargetIds,
+            String createdBy, Long templateId, String initialMarkdown
+    ) {
         validateProject(projectId);
         validateName(name);
         PersistentTaskPlanRecord plan = planRepository.save(new PersistentTaskPlanRecord(projectId, name.trim(), remark, createdBy));
         plan.updateProfile(name, remark, defaultControllerNodeId,
                 taskJson.writeLongList(defaultWorkerNodeIds), taskJson.writeLongList(defaultMonitorTargetIds));
-        String body = renderInitialBody(projectId, templateId, name.trim());
+        String body = initialMarkdown != null && !initialMarkdown.isBlank()
+                ? initialMarkdown
+                : renderInitialBody(projectId, templateId, name.trim());
         if (body != null) {
             plan.initializeBody(body); // 创建语境初始化：不 bump revision（首版 revision=1）
             plan.initializePrecheck(defaultPrecheckJson(body));

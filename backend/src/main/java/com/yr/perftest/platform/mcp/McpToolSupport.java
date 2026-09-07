@@ -8,6 +8,11 @@ import com.yr.perftest.platform.execution.ExecutionValidationException;
 import com.yr.perftest.platform.execution.IdempotencyConflictException;
 import com.yr.perftest.platform.facade.DataSourceUnavailableException;
 import com.yr.perftest.platform.identity.AuthenticationException;
+import com.yr.perftest.platform.project.ProjectValidationException;
+import com.yr.perftest.platform.task.plandoc.PlanRevisionConflictException;
+import com.yr.perftest.platform.task.plandoc.PlanStateException;
+import com.yr.perftest.platform.task.plandoc.PlanAccessDeniedException;
+import com.yr.perftest.platform.task.plandoc.PlanValidationException;
 import io.modelcontextprotocol.spec.McpSchema;
 
 import java.util.LinkedHashMap;
@@ -27,14 +32,43 @@ public final class McpToolSupport {
     }
 
     public static McpSchema.CallToolResult error(ObjectMapper objectMapper, String code, String message) {
+        return error(objectMapper, code, message, null);
+    }
+
+    /** details 非空时 error 对象携带 details 字段（P0-2①：冲突/状态负载透传，词表同 REST PlanErrorBody）。 */
+    public static McpSchema.CallToolResult error(ObjectMapper objectMapper, String code, String message,
+            Map<String, Object> details) {
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("code", code);
+        error.put("message", message);
+        if (details != null) {
+            error.put("details", details);
+        }
         Map<String, Object> envelope = new LinkedHashMap<>();
         envelope.put("data", null);
-        envelope.put("error", Map.of("code", code, "message", message));
+        envelope.put("error", error);
         return text(objectMapper, envelope, true);
     }
 
     public static McpSchema.CallToolResult failure(ObjectMapper objectMapper, RuntimeException exception) {
-        return error(objectMapper, codeOf(exception), messageOf(exception));
+        return error(objectMapper, codeOf(exception), messageOf(exception), detailsOf(exception));
+    }
+
+    private static Map<String, Object> detailsOf(RuntimeException exception) {
+        if (exception instanceof PlanRevisionConflictException conflict) {
+            Map<String, Object> details = new LinkedHashMap<>();
+            details.put("currentRevision", conflict.getCurrentRevision());
+            details.put("serverMarkdown", conflict.getServerMarkdown());
+            return details;
+        }
+        if (exception instanceof PlanStateException state) {
+            Map<String, Object> details = new LinkedHashMap<>();
+            details.put("phase", state.getPhase().name());
+            details.put("status", state.getStatus().name());
+            details.put("allowedActions", state.getAllowedActions());
+            return details;
+        }
+        return null;
     }
 
     private static McpSchema.CallToolResult text(ObjectMapper objectMapper, Map<String, Object> envelope, boolean isError) {
@@ -69,6 +103,21 @@ public final class McpToolSupport {
         }
         if (exception instanceof DataSourceUnavailableException) {
             return AgentErrorCode.DATA_SOURCE_UNAVAILABLE.name();
+        }
+        if (exception instanceof PlanRevisionConflictException) {
+            return "PLAN_REVISION_CONFLICT";
+        }
+        if (exception instanceof PlanStateException) {
+            return "PLAN_STATE";
+        }
+        if (exception instanceof PlanAccessDeniedException) {
+            return "PLAN_ACCESS_DENIED";
+        }
+        if (exception instanceof PlanValidationException) {
+            return "PLAN_INVALID";
+        }
+        if (exception instanceof ProjectValidationException) {
+            return AgentErrorCode.NOT_FOUND.name();
         }
         if (exception instanceof IllegalArgumentException) {
             return AgentErrorCode.VALIDATION_FAILED.name();
