@@ -115,6 +115,44 @@ export function toggleChecklistItem(content: string, index: number): string {
     .join('\n');
 }
 
+/** 分组清单条目：index 是全章 checkbox 行序号（toggleChecklistItem 口径）。 */
+export interface GroupedChecklistItem extends ChecklistItem {
+  index: number;
+}
+
+export interface ChecklistGroup {
+  title: string | null;
+  items: GroupedChecklistItem[];
+}
+
+/** 按 `### 标题`（或整行 `**标题**`）分组解析清单；2026-09 UI 重构新增，不改 parseChecklistItems。 */
+export function parseChecklistGroups(content: string | null | undefined): ChecklistGroup[] {
+  if (!content) return [];
+  const groups: ChecklistGroup[] = [];
+  let current: ChecklistGroup | null = null;
+  let cursor = 0;
+  for (const raw of content.split('\n')) {
+    const line = raw.trim();
+    const h3 = line.match(/^###\s+(.+)$/);
+    const bold = line.match(/^\*\*([^*]+)\*\*：?$/);
+    if (h3 || bold) {
+      if (current && current.items.length) groups.push(current);
+      current = { title: (h3?.[1] ?? bold?.[1] ?? '').trim(), items: [] };
+      continue;
+    }
+    if (/^- \[( |x)\] /.test(line)) {
+      if (!current) current = { title: null, items: [] };
+      const checked = line.startsWith('- [x] ');
+      const text = line.slice(6).trim();
+      const auto = text.endsWith('（自动）') || text.endsWith('(自动)');
+      current.items.push({ text, auto, checked, index: cursor });
+      cursor += 1;
+    }
+  }
+  if (current && current.items.length) groups.push(current);
+  return groups;
+}
+
 export function parseMarkdownTable(content: string | null | undefined): MarkdownTable | null {
   if (!content) return null;
   const rows = content
