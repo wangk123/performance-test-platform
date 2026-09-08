@@ -1,46 +1,84 @@
 <template>
-  <section class="panel publish-tab">
-    <div v-if="can('PUBLISH')" class="publish-form">
-      <h3>发布</h3>
-      <p class="publish-hint">前置：报告已生成、无活跃执行；发布将冻结文档并固化快照。</p>
-      <a-textarea v-model:value="conclusion" :rows="3" placeholder="总体结论（发布人确认，必填；已预填自动判定文本，可修改）" />
-      <a-button type="primary" :disabled="!conclusion.trim()" @click="publish">发布</a-button>
-    </div>
-    <a-alert v-else-if="doc.plan.value?.phase === 'PUBLISH'" type="success" show-icon message="该计划已发布（终态）。变更请发起修订。" />
+  <section class="publish-tab">
+    <div class="publish-layout">
+      <div class="publish-main">
+        <div v-if="can('PUBLISH')" class="card publish-form-card">
+          <h4>发布</h4>
+          <div class="plan-note warn publish-precondition">
+            前置条件：报告已生成、总体结论已确认、无活跃执行。发布将冻结文档并固化快照。
+          </div>
+          <label class="publish-label">总体结论（发布人确认，必填；已预填自动判定文本，可修改）</label>
+          <a-textarea
+            v-model:value="conclusion"
+            :rows="3"
+            placeholder="总体结论（发布人确认，必填）"
+          />
+          <div class="publish-actions">
+            <a-button v-if="can('NEW_REVISION')" @click="doc.transition('new-revision', undefined, '已发起新修订')">发起新修订</a-button>
+            <a-button type="primary" :disabled="!conclusion.trim()" @click="publish">发布</a-button>
+          </div>
+        </div>
+        <div v-else-if="doc.plan.value?.phase === 'PUBLISH'" class="plan-note ok">
+          该计划已发布（终态）。变更请发起修订。
+        </div>
 
-    <div v-if="can('NEW_REVISION')" class="publish-revision">
-      <a-button @click="doc.transition('new-revision', undefined, '已发起新修订')">发起新修订</a-button>
-    </div>
+        <div v-if="can('NEW_REVISION') && !can('PUBLISH')" class="publish-revision-row">
+          <a-button @click="doc.transition('new-revision', undefined, '已发起新修订')">发起新修订</a-button>
+        </div>
 
-    <h3>发布快照</h3>
-    <a-table :columns="snapshotColumns" :data-source="snapshots" :pagination="false" row-key="id" size="small" :locale="{ emptyText: '暂无快照' }">
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'publishedAt'">
-          {{ new Date(record.publishedAt).toLocaleString() }}
-        </template>
-      </template>
-    </a-table>
+        <div class="card publish-history">
+          <h4>发布历史（快照）</h4>
+          <template v-if="snapshots.length">
+            <div v-for="snapshot in snapshots" :key="snapshot.id" class="snapshot">
+              <div class="snapshot-icon mono">v{{ snapshot.revision }}</div>
+              <div class="snapshot-info">
+                <div class="snapshot-title">发布快照 · revision {{ snapshot.revision }}</div>
+                <div class="snapshot-meta">{{ formatDate(snapshot.publishedAt) }} · 发布人 {{ snapshot.publishedBy }}</div>
+              </div>
+            </div>
+          </template>
+          <div v-else class="plan-empty">暂无发布快照。</div>
+        </div>
+      </div>
 
-    <h3>只读分享链接</h3>
-    <div class="share-actions" v-if="can('SHARE')">
-      <a-button @click="createShare">创建分享链接（默认 30 天）</a-button>
+      <aside class="publish-side">
+        <div class="card side-card">
+          <h4>只读分享链接</h4>
+          <template v-if="shares.length">
+            <div v-for="share in shares" :key="share.id" class="share-row">
+              <div class="share-link mono" :class="{ revoked: shareState(share) !== 'active' }" :title="shareUrl(share.token)">
+                {{ shareUrl(share.token) }}
+              </div>
+              <span class="share-state" :class="shareState(share)">{{ shareStateText(share) }}</span>
+              <a-button
+                v-if="shareState(share) === 'active'"
+                size="small"
+                @click="copyShare(share)"
+              >复制</a-button>
+              <a-button
+                v-if="can('SHARE') && !share.revokedAt && shareState(share) === 'active'"
+                size="small"
+                danger
+                @click="revoke(share)"
+              >撤销</a-button>
+            </div>
+          </template>
+          <div v-else class="plan-empty">暂无分享链接。</div>
+          <div v-if="can('SHARE')" class="share-create">
+            <a-button
+              size="small"
+              :disabled="doc.plan.value?.phase !== 'PUBLISH'"
+              title="仅已发布计划可创建分享链接"
+              @click="createShare"
+            >创建分享链接（默认 30 天）</a-button>
+          </div>
+        </div>
+        <div class="card side-card">
+          <h4>发布权限</h4>
+          <p class="side-note">计划负责人 / 项目 OWNER / 系统管理员。发布后文档冻结，变更走「发起新修订」。</p>
+        </div>
+      </aside>
     </div>
-    <a-table :columns="shareColumns" :data-source="shares" :pagination="false" row-key="id" size="small" :locale="{ emptyText: '暂无分享' }">
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'url'">
-          <code>{{ shareUrl(record.token) }}</code>
-        </template>
-        <template v-else-if="column.key === 'expiresAt'">
-          {{ record.expiresAt ? new Date(record.expiresAt).toLocaleString() : '永久' }}
-        </template>
-        <template v-else-if="column.key === 'state'">
-          {{ shareState(record) }}
-        </template>
-        <template v-else-if="column.key === 'actions'">
-          <a-button v-if="can('SHARE') && !record.revokedAt" type="link" danger size="small" @click="revoke(record)">撤销</a-button>
-        </template>
-      </template>
-    </a-table>
   </section>
 </template>
 
@@ -48,6 +86,8 @@
 import { onMounted, ref } from 'vue';
 import { message } from 'ant-design-vue';
 import { createShareApi, getPlanVerdictApi, listSharesApi, listSnapshotsApi, revokeShareApi } from '../../api/plan-doc';
+import { copyToClipboard } from '../../utils/clipboard';
+import { formatDate } from '../../utils/format';
 import type { PlanShareTokenView, PlanSnapshotView } from '../../types';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
 
@@ -56,18 +96,6 @@ const props = defineProps<{ doc: ReturnType<typeof usePlanDoc> }>();
 const conclusion = ref('');
 const snapshots = ref<PlanSnapshotView[]>([]);
 const shares = ref<PlanShareTokenView[]>([]);
-
-const snapshotColumns = [
-  { title: 'revision', dataIndex: 'revision', key: 'revision' },
-  { title: '发布人', dataIndex: 'publishedBy', key: 'publishedBy' },
-  { title: '发布时间', key: 'publishedAt' },
-];
-const shareColumns = [
-  { title: '链接', key: 'url' },
-  { title: '过期时间', key: 'expiresAt' },
-  { title: '状态', key: 'state' },
-  { title: '操作', key: 'actions' },
-];
 
 onMounted(() => void reload());
 
@@ -108,6 +136,12 @@ async function createShare() {
   }
 }
 
+async function copyShare(share: PlanShareTokenView) {
+  const succeeded = await copyToClipboard(shareUrl(share.token));
+  if (succeeded) message.success('分享链接已复制');
+  else message.error('复制失败，请手动选择复制');
+}
+
 async function revoke(record: PlanShareTokenView) {
   const planId = props.doc.plan.value?.id;
   if (!planId) return;
@@ -124,14 +158,236 @@ function shareUrl(token: string) {
   return `${window.location.origin}/share/plans/${token}`;
 }
 
-function shareState(record: PlanShareTokenView) {
-  if (record.revokedAt) return '已撤销';
-  if (record.expiresAt && new Date(record.expiresAt) < new Date()) return '已过期';
-  return '有效';
+function shareState(record: PlanShareTokenView): 'active' | 'expired' | 'revoked' {
+  if (record.revokedAt) return 'revoked';
+  if (record.expiresAt && new Date(record.expiresAt) < new Date()) return 'expired';
+  return 'active';
+}
+
+function shareStateText(record: PlanShareTokenView) {
+  return { active: '有效', expired: '已过期', revoked: '已撤销' }[shareState(record)];
 }
 </script>
 
 <style scoped>
-.publish-form { display: flex; flex-direction: column; gap: 8px; max-width: 520px; margin-bottom: 16px; }
-.publish-hint { color: var(--muted); }
+/* 规格：plan-document-prototype.html .publish-layout / .snapshot / .share-row */
+.publish-tab {
+  display: flex;
+  flex-direction: column;
+}
+
+.publish-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  align-items: start;
+}
+
+.publish-main {
+  min-width: 0;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.publish-form-card {
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+.publish-form-card h4 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.publish-precondition {
+  margin-bottom: 12px;
+}
+
+.plan-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.plan-note.warn {
+  background: var(--warning-soft);
+  border: 1px solid var(--warn);
+  color: var(--warn);
+}
+
+.plan-note.ok {
+  background: var(--ok-soft);
+  border: 1px solid var(--ok);
+  color: var(--ok);
+}
+
+.publish-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.publish-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.publish-revision-row {
+  margin-bottom: 16px;
+}
+
+.publish-history {
+  padding: 16px 18px;
+}
+
+.publish-history h4 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.snapshot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.snapshot:last-of-type {
+  border-bottom: none;
+}
+
+.snapshot-icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--accent-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.snapshot-info {
+  min-width: 0;
+}
+
+.snapshot-title {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.snapshot-meta {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.publish-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.side-card {
+  padding: 16px 18px;
+}
+
+.side-card h4 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.side-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.8;
+}
+
+.share-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.share-row:last-of-type {
+  border-bottom: none;
+}
+
+.share-link {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.share-link.revoked {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.share-state {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.share-state.active {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.share-state.expired {
+  background: var(--warning-soft);
+  color: var(--warn);
+}
+
+.share-state.revoked {
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.share-create {
+  margin-top: 12px;
+}
 </style>

@@ -126,6 +126,7 @@
       v-model:open="conflictOpen"
       :server-markdown="plan.body ?? ''"
       :local-markdown="conflictLocal"
+      :server-revision="plan.revision"
       @resolve="resolveConflict"
     />
 
