@@ -1,5 +1,7 @@
 package com.yr.perftest.platform.datamigration;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -32,6 +34,8 @@ import java.util.Locale;
 @ConditionalOnProperty("app.data-migration.h2-source")
 @EnableConfigurationProperties(DataMigrationProperties.class)
 public class DataMigrationRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(DataMigrationRunner.class);
 
     /** 每批提交行数。 */
     private static final int BATCH_SIZE = 500;
@@ -148,6 +152,8 @@ public class DataMigrationRunner {
                 for (String table : MIGRATION_TABLES) {
                     rowsCopied += copyTable(source, target, table, overwrite);
                 }
+                log.info("H2→主库迁移完成：{} 张表、{} 行（源 {}，overwrite={}）——迁完请移除 app.data-migration 属性",
+                        MIGRATION_TABLES.size(), rowsCopied, sourceUrl, overwrite);
                 return new MigrationSummary(MIGRATION_TABLES.size(), rowsCopied);
             }
         } catch (SQLException e) {

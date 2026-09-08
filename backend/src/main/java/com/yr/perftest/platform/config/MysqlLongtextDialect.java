@@ -31,6 +31,11 @@ public class MysqlLongtextDialect extends MySQLDialect {
             // validate 判等通道：found longtext → CLOB，与 @Lob String 期望的 CLOB 匹配
             return jdbcTypeRegistry.getDescriptor(SqlTypes.CLOB);
         }
+        if ("longblob".equalsIgnoreCase(columnTypeName)) {
+            // 同款问题的二进制家族（V2 扩容后实证）：found longblob (LONGVARBINARY) → BLOB，
+            // 与 @Lob byte[] 期望的 BLOB 匹配（期望渲染名 tinyblob）
+            return jdbcTypeRegistry.getDescriptor(SqlTypes.BLOB);
+        }
         return super.resolveSqlTypeDescriptor(columnTypeName, jdbcTypeCode, precision, scale, jdbcTypeRegistry);
     }
 }
