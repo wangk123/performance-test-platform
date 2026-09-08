@@ -3,7 +3,7 @@
     <div v-if="can('PUBLISH')" class="publish-form">
       <h3>发布</h3>
       <p class="publish-hint">前置：报告已生成、无活跃执行；发布将冻结文档并固化快照。</p>
-      <a-textarea v-model:value="conclusion" :rows="3" placeholder="总体结论（发布人确认，必填）" />
+      <a-textarea v-model:value="conclusion" :rows="3" placeholder="总体结论（发布人确认，必填；已预填自动判定文本，可修改）" />
       <a-button type="primary" :disabled="!conclusion.trim()" @click="publish">发布</a-button>
     </div>
     <a-alert v-else-if="doc.plan.value?.phase === 'PUBLISH'" type="success" show-icon message="该计划已发布（终态）。变更请发起修订。" />
@@ -47,7 +47,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { message } from 'ant-design-vue';
-import { createShareApi, listSharesApi, listSnapshotsApi, revokeShareApi } from '../../api/plan-doc';
+import { createShareApi, getPlanVerdictApi, listSharesApi, listSnapshotsApi, revokeShareApi } from '../../api/plan-doc';
 import type { PlanShareTokenView, PlanSnapshotView } from '../../types';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
 
@@ -70,6 +70,15 @@ const shareColumns = [
 ];
 
 onMounted(() => void reload());
+
+onMounted(async () => {
+  const planId = props.doc.plan.value?.id;
+  if (!planId) return;
+  const verdict = await getPlanVerdictApi(planId).catch(() => null);
+  if (verdict?.prefillConclusion && !conclusion.value.trim()) {
+    conclusion.value = verdict.prefillConclusion; // 预填可改（V7：后端不预写文档）
+  }
+});
 
 function can(action: string) {
   return Boolean(props.doc.permissions.value[action]);

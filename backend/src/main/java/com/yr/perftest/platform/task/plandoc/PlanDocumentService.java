@@ -56,6 +56,8 @@ public class PlanDocumentService {
                     plan.getRevision(),
                     plan.getBody());
         }
+        // 解析即校验（spec §3.1）：格式非法 400，不落库；合法/无指标均放行。
+        PlanAcceptanceParser.parse(markdown == null ? "" : markdown);
         plan.updateBody(markdown == null ? "" : markdown);
         return planService.getPlan(planId);
     }

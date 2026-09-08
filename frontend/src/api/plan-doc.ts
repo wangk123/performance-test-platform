@@ -4,6 +4,7 @@ import type {
   PlanSnapshotView,
   PlanShareTokenView,
   PlanTemplate,
+  PlanVerdict,
   PrecheckRunReport,
   PrecheckSettings,
   TaskPlan,
@@ -38,6 +39,10 @@ export function transitionPlanApi(planId: number, action: TransitionAction, payl
 
 export function precheckRunApi(planId: number) {
   return request<PrecheckRunReport>(`/api/task-plans/${planId}/precheck-run`, { method: 'POST' });
+}
+
+export function getPlanVerdictApi(planId: number) {
+  return request<PlanVerdict>(`/api/task-plans/${planId}/verdict`);
 }
 
 export function precheckSkipApi(planId: number) {

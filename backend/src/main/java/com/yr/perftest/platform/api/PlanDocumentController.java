@@ -11,6 +11,7 @@ import com.yr.perftest.platform.task.plandoc.PlanAccess;
 import com.yr.perftest.platform.task.plandoc.PlanAccessDeniedException;
 import com.yr.perftest.platform.task.plandoc.PlanDocumentService;
 import com.yr.perftest.platform.task.plandoc.PlanQuickExecuteService;
+import com.yr.perftest.platform.task.plandoc.PlanVerdictService;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService.CommentView;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService.PrecheckReport;
@@ -34,19 +35,22 @@ public class PlanDocumentController {
     private final TaskPlanService planService;
     private final ProjectAccessResolver accessResolver;
     private final ReportDataService reportDataService;
+    private final PlanVerdictService verdictService;
 
     public PlanDocumentController(PlanDocumentService documentService,
                                   PlanWorkflowService workflowService,
                                   PlanQuickExecuteService quickExecuteService,
                                   TaskPlanService planService,
                                   ProjectAccessResolver accessResolver,
-                                  ReportDataService reportDataService) {
+                                  ReportDataService reportDataService,
+                                  PlanVerdictService verdictService) {
         this.documentService = documentService;
         this.workflowService = workflowService;
         this.quickExecuteService = quickExecuteService;
         this.planService = planService;
         this.accessResolver = accessResolver;
         this.reportDataService = reportDataService;
+        this.verdictService = verdictService;
     }
 
     public record PlanResponse(TaskPlan plan, Map<String, Boolean> permissions) {
@@ -194,6 +198,14 @@ public class PlanDocumentController {
     public PlanReportResponse report(@PathVariable long planId) {
         requireMember(planService.getPlan(planId));
         return reportDataService.aggregateByPlan(planId);
+    }
+
+    /** 验收判等只读视图（spec §6.1）：即时重算不持久化，读门槛与 /report 一致（项目成员）。 */
+    @GetMapping("/task-plans/{planId}/verdict")
+    public PlanVerdictService.VerdictView verdict(@PathVariable long planId) {
+        TaskPlan plan = planService.getPlan(planId);
+        requireMember(plan);
+        return verdictService.view(planId);
     }
 
     @PostMapping("/task-plans/{planId}/shares")

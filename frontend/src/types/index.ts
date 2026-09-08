@@ -477,6 +477,27 @@ export interface PrecheckRunReport {
   autoPassed: string[];
 }
 
+export type PlanVerdictRow = {
+  objectName: string;
+  metricRaw: string;
+  metricType: string;
+  targetRaw: string;
+  targetValue: number | null;
+  actualValue: string | null;
+  status: 'ACHIEVED' | 'MISSED' | 'INDETERMINATE';
+  reason: string | null;
+  scenarioId: number | null;
+  executionId: number | null;
+};
+
+export type PlanVerdict = {
+  present: boolean;
+  available: boolean;
+  overall: 'PASSED' | 'FAILED' | 'INDETERMINATE' | 'NONE';
+  prefillConclusion: string | null;
+  rows: PlanVerdictRow[];
+};
+
 export type TaskPlan = {
   id: number;
   projectId: number;

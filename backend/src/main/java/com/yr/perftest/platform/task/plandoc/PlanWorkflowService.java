@@ -39,6 +39,7 @@ public class PlanWorkflowService {
     private final PersistentPlanPublishSnapshotRepository snapshotRepository;
     private final TaskPlanService planService;
     private final ScenarioThreadGroupConfigSupport configSupport;
+    private final PlanVerdictService verdictService;
 
     public PlanWorkflowService(
             PersistentTaskPlanRepository planRepository,
@@ -53,7 +54,8 @@ public class PlanWorkflowService {
             PersistentPlanShareTokenRepository shareTokenRepository,
             PersistentPlanPublishSnapshotRepository snapshotRepository,
             TaskPlanService planService,
-            ScenarioThreadGroupConfigSupport configSupport
+            ScenarioThreadGroupConfigSupport configSupport,
+            PlanVerdictService verdictService
     ) {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
@@ -68,6 +70,7 @@ public class PlanWorkflowService {
         this.snapshotRepository = snapshotRepository;
         this.planService = planService;
         this.configSupport = configSupport;
+        this.verdictService = verdictService;
     }
 
     @Transactional
@@ -478,8 +481,13 @@ public class PlanWorkflowService {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "GENERATE_REPORT");
         plan.transitionTo(PlanPhase.REPORT, PlanStatus.GENERATING); // 瞬态（设计 §4.1）
         String body = plan.getBody() == null ? "" : plan.getBody();
+        PlanAcceptanceParser.AcceptanceSection acceptance = PlanAcceptanceParser.parseLeniently(body);
         body = upsertReportOverview(body, buildScenarioOverviews(planId));
-        body = fillConclusionActualColumn(body, latestScenarioSummaries(planId));
+        if (acceptance.present()) {
+            body = upsertVerdictTable(body, verdictService.compute(planId));
+        } else {
+            body = fillConclusionActualColumn(body, latestScenarioSummaries(planId));
+        }
         plan.updateBody(body);
         plan.transitionTo(PlanPhase.REPORT, PlanStatus.DONE);
         systemComment(planId, "生成报告（revision=" + plan.getRevision() + "）");
@@ -593,20 +601,77 @@ public class PlanWorkflowService {
             }
             return PlanMarkdownSupport.replaceSection(body, "十一、结论", conclusion + block);
         }
+        return body.substring(0, marker) + block + body.substring(blockEndOf(body, marker));
+    }
+
+    /**
+     * 幂等重绘达成表（spec §5/§6）：标记 `<!-- backfill:verdict -->` 之前的内容不动；
+     * 无标记时替换「### 指标达成表」占位小节（标题行到下一标题行），两处皆无则追加到结论章节尾。
+     * 块尾 = 其后第一个其它标题行或 `**总体结论**` 行之前（块自身 #### 指标达成表 标题除外）。
+     */
+    private String upsertVerdictTable(String body, PlanVerdictService.VerdictResult verdict) {
+        String timestamp = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                .withZone(java.time.ZoneId.systemDefault()).format(Instant.now());
+        StringBuilder table = new StringBuilder("| 对象 | 指标 | 目标 | 实际 | 状态 | 说明 |\n|---|---|---|---|---|---|\n");
+        for (PlanVerdictService.VerdictRow row : verdict.rows()) {
+            table.append("| ").append(row.objectName()).append(" | ").append(row.metricRaw())
+                    .append(" | ").append(row.targetRaw()).append(" | ").append(row.actualValue())
+                    .append(" | ").append(verdictStatusText(row.status())).append(" | ")
+                    .append(row.reason()).append(" |\n");
+        }
+        String block = "<!-- backfill:verdict -->\n#### 指标达成表（生成于 " + timestamp + "）\n\n"
+                + table + "\n- " + verdict.prefillConclusion() + "\n";
+        int marker = body.indexOf("<!-- backfill:verdict -->");
+        if (marker >= 0) {
+            return body.substring(0, marker) + block + body.substring(blockEndOf(body, marker));
+        }
+        int subsection = indexOfLine(body, "### 指标达成表");
+        if (subsection >= 0) {
+            int end = blockEndOf(body, subsection);
+            return body.substring(0, subsection) + block + body.substring(end);
+        }
+        String conclusion = PlanMarkdownSupport.extractSection(body, "十一、结论");
+        if (conclusion == null) {
+            return PlanMarkdownSupport.ensureSection(body, "十一、结论", "\n" + block);
+        }
+        return PlanMarkdownSupport.replaceSection(body, "十一、结论", conclusion + block);
+    }
+
+    /** 从 startLine 起找块尾：其后第一个其它标题行（跳过本块 `#### 指标达成表`/`#### 执行结果总览`）或 `**总体结论**` 行前。 */
+    private int blockEndOf(String body, int startOffset) {
         int end = body.length();
-        int offset = marker;
-        for (String line : body.substring(marker).split("\n", -1)) {
-            if (offset > marker && (line.startsWith("#") || line.startsWith("**总体结论**"))
-                    && !line.startsWith("#### 执行结果总览")) {
+        int offset = startOffset;
+        for (String line : body.substring(startOffset).split("\n", -1)) {
+            if (offset > startOffset && (line.startsWith("#") || line.startsWith("**总体结论**"))
+                    && !line.startsWith("#### 指标达成表") && !line.startsWith("#### 执行结果总览")) {
                 end = offset;
                 break;
             }
             offset += line.length() + 1;
         }
-        return body.substring(0, marker) + block + body.substring(Math.min(end, body.length()));
+        return Math.min(end, body.length());
     }
 
-    /** 达成表"实际结果"列：指标列包含场景名的行填入该场景最近摘要；无执行填"暂无执行"。 */
+    private int indexOfLine(String body, String exactLine) {
+        int offset = 0;
+        for (String line : body.split("\n", -1)) {
+            if (line.trim().equals(exactLine)) {
+                return offset;
+            }
+            offset += line.length() + 1;
+        }
+        return -1;
+    }
+
+    private String verdictStatusText(PlanVerdictService.VerdictStatus status) {
+        return switch (status) {
+            case ACHIEVED -> "达成";
+            case MISSED -> "未达成";
+            case INDETERMINATE -> "无法判定";
+        };
+    }
+
+    /** 达成表"实际"列自适应（spec §3.5 模板改列后兼容旧表）：表头含「实际」或「实际结果」的列下标，缺省 2。 */
     private String fillConclusionActualColumn(String body, List<java.util.Map<String, String>> summaries) {
         String conclusion = PlanMarkdownSupport.extractSection(body, "十一、结论");
         if (conclusion == null) {
@@ -617,15 +682,30 @@ public class PlanWorkflowService {
         for (java.util.Map<String, String> summary : summaries) {
             knownScenarios.add(summary.get("scenarioName"));
         }
+        int actualColumn = 2; // 旧占位表「实际结果」列
         for (String line : conclusion.split("\n", -1)) {
             String trimmed = line.trim();
-            if (trimmed.startsWith("|") && !trimmed.startsWith("|---") && !trimmed.contains("实际结果")) {
-                String firstCell = trimmed.substring(1, trimmed.indexOf('|', 1)).trim();
+            if (trimmed.startsWith("|") && !trimmed.startsWith("|---")) {
+                String[] cells = trimmed.substring(1, trimmed.lastIndexOf('|')).split("\\|", -1);
+                int actualIdx = -1;
+                for (int i = 0; i < cells.length; i++) {
+                    String c = cells[i].trim();
+                    if (c.equals("实际结果") || c.equals("实际")) {
+                        actualIdx = i;
+                        break;
+                    }
+                }
+                if (actualIdx >= 0) { // 表头行：锁定实际列下标，原样输出
+                    actualColumn = actualIdx;
+                    updated.append(line).append('\n');
+                    continue;
+                }
+                String firstCell = cells.length > 0 ? cells[0].trim() : "";
                 String matched = knownScenarios.stream().filter(firstCell::contains).findFirst().orElse(null);
                 if (matched != null) {
                     String summary = summaries.stream()
                             .filter(s -> s.get("scenarioName").equals(matched)).findFirst().orElseThrow().get("summary");
-                    line = replaceTableRowCell(line, 2, summary);
+                    line = replaceTableRowCell(line, actualColumn, summary);
                 }
             }
             updated.append(line).append('\n');

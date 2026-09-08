@@ -186,3 +186,33 @@
 1. `McpToolSupportPlanErrorTest`/`PlanInitialMarkdownCreateTest`/`PlanToolsTest` 直调 + `McpServerApiTest` 协议级（13 工具、readonly 调用写工具被拒、端到端含冲突 details）+ 目录 PLAN 排序断言全绿；`gradle :backend:test` 全量通过。
 2. bootRun + acceptance-smoke.sh 实跑通过（13 工具可见、内置模板在列）；目录端点 toolCount=13。
 
+
+## 2026-09-07（P0-3 验收标准解析 + 自动判等）
+
+已完成：
+
+1. 指标章节解析器 `task/plandoc/PlanAcceptanceParser`（纯静态）：「二、测试目的与指标」表格解析——别名映射（trim+大小写不敏感，TPS/平均RT/P95/P99/错误率/并发峰值/容量/OTHER）、`交易`旧表头向后兼容、方向符与单位剥离、格式非法抛 `PLAN_INVALID`（缺列/单元格不足/目标值非数字，带行号）；章节缺失/无表格/空表落无指标路径；`parseLeniently` 为报告期存量兜底。
+2. 保存链解析即校验（不落库、不建判等实体）：挂 `PlanDocumentService.updateMarkdown`（REST PUT / Pretty 章节合并 / MCP `plan_update` 三路共用），revision 校验之后、updateBody 之前，非法 400 且文档与 revision 不变。
+3. 判等引擎 `task/plandoc/PlanVerdictService`：判等输入 = 文档指标章节 + 每场景最近执行（`findFirstByScenarioIdOrderByIdDesc` 同报告取数口径）；场景级绑定 Summary（TPS/AVG_RT/P95/错误率）、交易级绑定 AggregateRow（含 P99）；同名 label 多场景/零命中/场景无执行/无聚合数据/不可判类型 → 无法判定附原因（含 scenarioId/executionId 供下钻）；计划级聚合 PASSED/FAILED/INDETERMINATE/NONE + 自动判定文本（发布预填与达成表尾行共用）；零样本守卫（评审修复）：无聚合数据的执行落无法判定、不按空 Summary 零值误判。
+4. 报告链路：`generateReport` 按有无指标分流——有指标 `upsertVerdictTable` 幂等重绘达成表（`<!-- backfill:verdict -->` 块，六列+自动判定尾行；标记/`### 指标达成表` 占位小节/结论章节尾三态落点）、不再跑实际列摘要回填；无指标 P0-1 现状零回归；块尾扫描收敛 `blockEndOf`；`fillConclusionActualColumn` 实际列按表头自适应（新六列/旧四列兼容）。
+5. verdict 只读接口 `GET /api/task-plans/{id}/verdict`（项目成员读门槛同 /report）：即时重算不持久化，present/available/overall/prefillConclusion/rows；仅 REPORT/DONE 与 PUBLISH/PUBLISHED 可读，复测重置（newRevision 后）available=false。
+6. 内置模板 seed 微调：指标表头 `交易`→`对象`；结论达成表占位更新为重绘后六列形态；seed 存在即跳过不变。
+7. 前端：报告 Tab 总体判定徽章（达成绿/未达成红/无法判定橙）+ 未达标行清单 + 执行详情下钻 + 无指标提示条 + 报告未生成警告（生成报告成功后即时刷新）；发布表单预填 prefillConclusion（仅空时预填、人可改）；`plan-doc.ts` 扩 verdict 类型与调用。
+
+关键决策与偏差（对照 spec）：
+
+1. verdict 响应未加顶层 reason 字段（spec §6.1 响应结构为准，available=false 以 overall=NONE 表达、前端提示"报告未生成"）。
+2. spec §3.5"Pretty 指标表单列名改对象"无对应实体——Pretty 视图对该章节为 MdPreview 直渲染 Markdown，实际落点仅模板 seed 表头（前端无改动点）。
+3. rows 字段名 `objectName`（spec §6.1 草图为 `object`；端到端一致且更达意，保留）。
+4. P0-1 遗留项目级模板创建接缝（`POST /projects/{id}/plan-templates`）按任务书默认**保留**，待人工验收走查定夺（roadmap §6 活口）。
+5. 评审裁量修复：报告 Tab 生成报告后即时刷新判定（终审发现同页过期警告缺陷）。
+
+验证：
+
+1. `gradle :backend:test` 全量两轮通过（修复波前后各一轮：120 测试类 / 450→451 用例，0 失败 0 错误）；新增 6 个测试类（解析器/保存校验/判等引擎/报告重绘/verdict API/模板 seed）+ 修复波补真实发布→修订复测链与平均RT方向断言。
+2. `npm run build`（vue-tsc --noEmit + vite build）零错误。
+3. Subagent-Driven 每任务实现+评审门（Task 3 零样本守卫修复轮、终审 3 项修复波，复审均 ADDRESSED）。
+
+## 2026-09-07（P0-4 主库 MySQL 迁移——夜间跳过）
+
+按任务书前置自检：本机 `docker info` 不可用（无 docker CLI / Docker.app / colima，属未安装而非守护进程未启动），P0-4 **整体跳过**，未做任何代码/配置变更。spec §10 验收口径（testMysql 全绿等）要求 Docker，不允许跳过 testMysql 假装完成。待具备 Docker 的环境（本机安装或昼间人工）后按 `docs/superpowers/specs/2026-09-07-p0-4-mysql-migration-design.md` 重新实施；亦不可夜间登录 192.168.17.216 部署（任务书红线）。
