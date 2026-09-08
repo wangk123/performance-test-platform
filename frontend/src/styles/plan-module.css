@@ -603,3 +603,93 @@
 .plan-empty .plan-empty-action {
   margin-top: 10px;
 }
+
+/* ---------------------------------------------------------------------
+ * 批次 F · 状态 pill / 列表筛选行 / 响应式断点 / a11y
+ * ------------------------------------------------------------------- */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-pill.pending {
+  background: var(--warning-soft);
+  color: var(--warn);
+}
+
+.status-pill.running {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.status-pill.success {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.status-pill.error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* 列表筛选行：原两列 grid（右列 160px 空置）收为单列搜索 */
+.task-schedule .task-filters {
+  grid-template-columns: minmax(240px, 420px);
+}
+
+/* ≤1280px：TOC 208 → 180 */
+@media (max-width: 1280px) {
+  .plan-document .doc-body {
+    grid-template-columns: 180px minmax(0, 1fr);
+  }
+}
+
+/* ≤1100px：文档双栏单列化（TOC 变工具条下方横向 chips）；评审/报告/发布双栏单列 */
+@media (max-width: 1100px) {
+  .plan-document .doc-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plan-document .doc-toc {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 2px 2px 6px;
+  }
+
+  .plan-document .doc-toc h4 {
+    flex: none;
+    margin: 0 4px 0 0;
+  }
+
+  .plan-document .toc-item {
+    flex: none;
+    margin-bottom: 0;
+    padding: 3px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .plan-document .toc-item.current {
+    border-color: var(--accent);
+  }
+
+  .plan-document .toc-tag {
+    display: none;
+  }
+
+  .review-tab .review-layout,
+  .report-tab .report-layout,
+  .publish-tab .publish-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

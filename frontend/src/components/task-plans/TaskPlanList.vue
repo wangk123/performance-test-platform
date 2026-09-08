@@ -41,7 +41,7 @@
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'phase'">
-            <a-tag :color="phaseColor(record.phase)">{{ phaseText(record.phase) }} · {{ statusLabel(record.phase, record.status) }}</a-tag>
+            <span class="phase-badge" :class="`is-${record.phase.toLowerCase()}`">{{ phaseText(record.phase) }} · {{ statusLabel(record.phase, record.status) }}</span>
           </template>
           <template v-else-if="column.key === 'name'">
             <strong>{{ record.name }}</strong>
@@ -103,16 +103,9 @@ const columns: TableColumnsType<TaskPlan> = [
 const PHASE_TEXT: Record<string, string> = {
   DRAFT: '草稿', REVIEW: '评审', EXECUTION: '执行', REPORT: '报告', PUBLISH: '发布',
 };
-const PHASE_COLOR: Record<string, string> = {
-  DRAFT: 'default', REVIEW: 'processing', EXECUTION: 'warning', REPORT: 'cyan', PUBLISH: 'success',
-};
 
 function phaseText(phase: string) {
   return PHASE_TEXT[phase] ?? phase;
-}
-
-function phaseColor(phase: string) {
-  return PHASE_COLOR[phase] ?? 'default';
 }
 
 function openCreatePlan() {

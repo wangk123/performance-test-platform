@@ -12,7 +12,7 @@
       v-model="draft"
       class="plan-md"
       :theme="mdTheme"
-      :style="{ height: '420px' }"
+      :style="{ height: 'min(56vh, 520px)', minHeight: '380px' }"
       language="zh-CN"
     />
   </a-modal>
