@@ -209,7 +209,7 @@ watch(() => props.plan.precheckJson, parsePrecheck, { immediate: true });
 
 watch([viewMode, () => props.plan.body, editing], () => {
   void nextTick(updateCurrentSection);
-});
+}, { immediate: true });
 
 function parsePrecheck() {
   try {

@@ -171,8 +171,8 @@ function latestStatusClass(name: string) {
 function latestStatusText(name: string) {
   const status = latestStatusOf(name);
   if (!status) return '未执行';
-  const text = { SUCCESS: 'SUCCESS', FAILED: 'FAILED', INTERRUPTED: 'INTERRUPTED', CANCELLED: 'CANCELLED' }[status];
-  return text ?? status;
+  const text: Record<string, string> = { SUCCESS: '执行成功', FAILED: '执行失败', INTERRUPTED: '已中断', CANCELLED: '已取消' };
+  return text[status] ?? status;
 }
 
 function recordStatusClass(record: string) {

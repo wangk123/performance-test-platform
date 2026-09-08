@@ -34,7 +34,7 @@
           :doc="doc"
           :plan="doc.plan.value ?? plan"
           :scenarios="scenarios"
-          @changed="doc.refresh"
+          @changed="onDocChanged"
           @request-add="openAddScenario"
           @request-edit="openEditScenario"
         />
@@ -60,6 +60,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import type { TaskPlan, TaskScenario } from '../../types';
 import { usePlanDoc, statusLabel } from '../../composables/usePlanDoc';
+import { useTaskPlans } from '../../composables/useTaskPlans';
 import { formatDate } from '../../utils/format';
 import PlanPhaseStepper from './PlanPhaseStepper.vue';
 import PlanDetailDocument from './PlanDetailDocument.vue';
@@ -91,6 +92,13 @@ const phaseBadgeClass = computed(() => `is-${phase.value.toLowerCase()}`);
 
 onMounted(() => void doc.load(props.plan.id));
 watch(() => props.plan.id, (id) => void doc.load(id));
+
+/** 文档或场景实体变更后，除刷新文档外还需重载场景列表（绑定徽标/执行状态取自场景实体）。 */
+const { loadScenarios } = useTaskPlans();
+function onDocChanged() {
+  void doc.refresh();
+  void loadScenarios(props.plan.id);
+}
 
 function can(action: string) {
   return Boolean(doc.permissions.value[action]);
