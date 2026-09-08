@@ -378,10 +378,6 @@ function confirmSkipPrecheck(text: string, scenarioName: string) {
   padding: 8px 12px;
 }
 
-.scenario-settings :deep(.md-editor-previewWrapper) {
-  padding: 0;
-}
-
 .sc-footer {
   display: flex;
   align-items: center;

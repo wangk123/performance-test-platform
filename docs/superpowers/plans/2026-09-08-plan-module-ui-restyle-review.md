@@ -82,3 +82,13 @@
 - 三轮共发现 P0×1、P1×4、P2×6，全部修复或裁决记录；每轮后 `npm run build`（vue-tsc + vite）全绿。
 - 冒烟期另修复三处运行时缺陷（scrollspy 初始高亮 watch `immediate`、场景列表变更后不重载、执行状态文案恒等映射），已于独立 commit 落库。
 - 环境限制（无头 IAB）：smooth 滚动动画/原生 scroll 事件、剪贴板、ant-select 弹层展开、a-modal 关闭过渡动画不可原生验证；对应逻辑均以等价方式驱动验证，真实浏览器行为依赖标准 API。
+
+---
+
+## 附：code-review 技能双轴终审（第 5 步）
+
+**Standards 轴**：四条硬约束核查——plan-markdown.ts 仅新增 ✓、usePlanDoc.ts 未动 ✓、package.json/后端未动 ✓、裸 hex 零违规（仅注释引用）✓；md-editor 覆盖集中 `.plan-md` 一处：发现 ScenarioDesignModule 残留 `.scenario-settings :deep(.md-editor-previewWrapper)` 组件内覆盖 → **已收敛**至 plan-module.css `.plan-md.scenario-settings .md-editor-previewWrapper`（组件内 :deep 删除）。判断性气味（记录不处理，均为重构期典型重复、受「不修改既有函数」约束所限）：checkbox 行解析第三处重复（无法抽共享助手，因不得改既有函数）、状态→pill 类映射三形、`latestStatusText` 与 `executionStatusText` 词表分叉、`.status-pill` 与 `.sc-status-pill` 双胶囊家族、`verdictClass/rowClass` 双映射对、`serverParts=diffParts(local, server)` 实参顺序读感；rgba 阴影两处（base.css 阴影本就 rgba 形态，非色板令牌，维持）。
+
+**Spec 轴**：**P0×1**——R1 的 `:root` 派生色块插入位置切进文件头注释，`.content:has(.plan-detail){overflow:hidden}`（批次 A 骨架）被吞进废选择器（build 不校验选择器故仍绿；无头环境滚动不可测故截图未察）→ **已修复**：头部注释复原 + `:root` 块独立成段，PostCSS 解析复核规则恢复独立存在。批次 F "TaskPlanDialog/ScenarioDialog 表单栅格与高度微调" 缺失 → **已补**（`.plan-dialog-form` 紧凑栅格 14px 挂两弹窗）。偏差补记：`.plan-detail` 修饰类替代 `.task-detail` 直改（避免 4 组件共用类互窜，原型忠实但属实现层偏差）、页头+步骤条包 `.plan-head-card` 白卡。其余 §3.2/§3.3/§4 逐项核对全部通过（含 window.prompt/confirm 清零、响应式断点、暗色、a11y）。
+
+**终审结论**：双轴 P0/P1 清零后收口。

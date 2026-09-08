@@ -1,16 +1,26 @@
 /* =====================================================================
  * 计划模块（任务计划详情/列表/场景/评审/报告/发布）样式 —— 2026-09 UI 重构
- * 规格来源：plan-document-prototype/* 语义文本色（对比度加固，双主题自动适配）：小字号语义文本一律用派生色，裸语义色仅用于边框/底/圆点等非文本元素。 */
+ * 规格来源：plan-document-prototype.html + design-mockup-redesign.html
+ * 约定：全部走 base.css 设计令牌（禁裸 hex）；暗色主题零额外成本。
+ * ===================================================================== */
+
+/* 计划模块弹窗表单紧凑栅格（批次 F：表单高度微调，24px→14px 行距） */
+.plan-dialog-form .ant-form-item {
+  margin-bottom: 14px;
+}
+
+/* md-editor-v3 覆盖统一收敛于 .plan-md 家族；场景设置面板为内嵌小卡，预览去内边距 */
+.plan-md.scenario-settings .md-editor-previewWrapper {
+  padding: 0;
+}
+
+/* 语义文本色（对比度加固，双主题自动适配）：小字号语义文本一律用派生色，裸语义色仅用于边框/底/圆点等非文本元素。 */
 :root {
   --plan-accent-text: color-mix(in srgb, var(--accent) 82%, var(--ink));
   --plan-ok-text: color-mix(in srgb, var(--ok) 72%, var(--ink));
   --plan-warn-text: color-mix(in srgb, var(--warn) 70%, var(--ink));
   --plan-danger-text: color-mix(in srgb, var(--danger) 82%, var(--ink));
 }
-
-.html + design-mockup-redesign.html
- * 约定：全部走 base.css 设计令牌（禁裸 hex）；暗色主题零额外成本。
- * ===================================================================== */
 
 /* ---------------------------------------------------------------------
  * 批次 A · 页面骨架与滚动容器

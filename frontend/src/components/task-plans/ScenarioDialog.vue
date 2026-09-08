@@ -1,6 +1,6 @@
 <template>
   <a-modal v-model:open="visible" :title="isEditing ? '编辑场景' : '添加场景'" width="800px" destroy-on-close>
-    <a-form layout="vertical">
+    <a-form class="plan-dialog-form" layout="vertical">
       <a-form-item :label="isEditing ? '场景名称' : '场景名称前缀'">
         <a-input v-model:value="form.name" :placeholder="isEditing ? '' : '留空则使用脚本名称'" />
       </a-form-item>
