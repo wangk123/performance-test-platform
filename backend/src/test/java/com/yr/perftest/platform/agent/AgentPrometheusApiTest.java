@@ -46,8 +46,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:agent-prometheus-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.datasource.url=jdbc:h2:mem:agent-prometheus-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE",
+        "spring.jpa.hibernate.ddl-auto=validate",
         "spring.h2.console.enabled=false"
 })
 @AutoConfigureMockMvc

@@ -20,6 +20,12 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     runtimeOnly 'com.h2database:h2'
     runtimeOnly 'com.mysql:mysql-connector-j'
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
+    testImplementation 'org.testcontainers:mysql'
+    // @Testcontainers/@Container JUnit 5 扩展与 @ServiceConnection 连接详情
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     implementation 'org.xerial:sqlite-jdbc:3.49.1.0'
     implementation 'org.hdrhistogram:HdrHistogram:2.2.2'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
@@ -42,11 +48,31 @@ dependencies {
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        // P0-4：真 MySQL Testcontainers 用例只走 testMysql（Gradle 9 起 Test 任务不再默认
+        // 按 *Test 文件名过滤，须显式按 tag 隔离，避免默认套件误发现/误跑 *IT）
+        excludeTags 'mysql'
+    }
     // 全量套件含 40+ 个 @SpringBootTest 上下文，默认 512m 堆会 OOM（P0-1/P0-2 基线各自实测）
     maxHeapSize = '2g'
 }
 
 tasks.named('processResources') {
     dependsOn ':jmeter-functions:copyToBackendRuntime'
+}
+
+// P0-4：Testcontainers 真 MySQL 集成测试（用例按 @Tag("mysql") 隔离：默认 test excludeTags /
+// 本任务 includeTags；Gradle 9 的 Test 任务已无 *Test 文件名默认过滤，须显式 tag 隔离）。
+// 经 DOCKER_HOST 可指向远程 Docker（本机无 Docker 时走 SSH unix-socket 隧道 → 216）：
+//   DOCKER_HOST=unix:///tmp/p024-docker.sock TESTCONTAINERS_HOST_OVERRIDE=192.168.17.216 \
+//   TESTCONTAINERS_RYUK_DISABLED=true ./gradlew :backend:testMysql
+tasks.register('testMysql', Test) {
+    description = 'Testcontainers 真 MySQL 集成测试（需 Docker，经 DOCKER_HOST 可指向远程）'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'mysql'
+    }
+    maxHeapSize = '2g'
+    shouldRunAfter tasks.named('test')
 }

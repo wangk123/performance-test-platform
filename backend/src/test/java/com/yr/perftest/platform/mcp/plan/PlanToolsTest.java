@@ -27,8 +27,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * 计划工具直调集成测试（P0-2①）：契约字段、冲突/状态异常、过滤分页（spec §6）。
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:plan-tools-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.datasource.url=jdbc:h2:mem:plan-tools-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE",
+        "spring.jpa.hibernate.ddl-auto=validate",
         "spring.h2.console.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)

@@ -29,7 +29,7 @@
 | 语言 | Java | 17 |
 | 构建 | Gradle | wrapper |
 | ORM | Spring Data JPA + Hibernate | 6.x |
-| 数据库 | H2 (开发) / MySQL 8.0 (生产) | - |
+| 数据库 | MySQL 8.0（运行时唯一数据源，默认连测试服务器；H2 仅测试内存库） | - |
 | 前端框架 | Vue 3 + TypeScript | 3.5 |
 | 构建 | Vite | 7.x |
 | UI 库 | Ant Design Vue | 4.x |
@@ -167,7 +167,8 @@ performance-test-platform/
 │   │   ├── script/                 # JMX Parser/Renderer + 版本
 │   │   └── task/                   # 测试计划 + 场景 + 执行
 │   └── src/main/resources/
-│       └── application.yml         # 应用配置
+│       ├── application.yml         # 应用配置（默认连测试服务器 MySQL）
+│       └── db/migration/           # Flyway 迁移脚本（V1__baseline.sql 全量建表基线）
 ├── frontend/                       # Vue 3 前端
 │   └── src/
 │       ├── api/                    # HTTP 客户端 + API 模块
@@ -193,8 +194,6 @@ performance-test-platform/
 │   ├── development-plan.md         # 开发计划
 │   ├── platform-vision.md          # 远期目标
 │   ├── modules/                    # 模块详细设计（11个）
-│   ├── database/
-│   │   └── mysql-schema.sql        # MySQL 建表脚本
 │   └── README.md                   # 文档索引
 └── openspec/                       # OpenSpec 规格文件
     └── specs/                      # 当前规格
@@ -216,18 +215,21 @@ performance-test-platform/
 
 ### 1. 启动后端
 
+后端默认直连测试服务器上的 MySQL（`192.168.17.216:3306/perftest`，已由 Docker Compose 常驻部署，见[完整部署方案](#完整部署方案)）。首次启动 Flyway 自动建表（V1 全量基线）并写入种子账号，无需手工初始化。
+
 ```bash
 # 设置 JDK 17
 export JAVA_HOME=/path/to/jdk-17/Contents/Home/
 
-# 启动 Spring Boot（默认端口 8080，H2 数据库自动创建）
+# 启动 Spring Boot（默认端口 8080，连 MySQL，Flyway 自动建表）
 ./gradlew :backend:bootRun
 ```
 
+> 测试服务器不可达时，可本机起一个 MySQL 后用环境变量覆盖数据源，见方案 A-2。
+
 后端启动后：
 - API 服务：`http://localhost:8080`
-- H2 控制台：`http://localhost:8080/h2-console`（JDBC URL: `jdbc:h2:file:./storage/perftest`，用户名 `sa`，空密码）
-- 默认账户：`admin` / `admin123` 和 `tester` / `tester123`
+- 默认账户：`admin` / `admin123` 和 `tester` / `tester123`（Flyway 建表后由平台 seed 写入）
 
 ### 2. 启动前端
 
@@ -242,8 +244,11 @@ npm run dev        # 开发服务器 → http://localhost:5173
 ### 3. 运行后端测试
 
 ```bash
-# 全量测试
+# 全量测试（H2 内存库 + Flyway V1，不需要 Docker）
 ./gradlew :backend:test
+
+# 真 MySQL 集成测试（Testcontainers，需 Docker 可达，见方案 A-5）
+./gradlew :backend:testMysql
 
 # 单个测试类
 ./gradlew :backend:test --tests "com.yr.perftest.platform.api.PlatformApiBehaviorTest"
@@ -261,20 +266,43 @@ npm run preview    # 预览生产构建
 
 ## 完整部署方案
 
-### 方案 A：开发环境（单机）
+数据库口径（D14）：**MySQL 8.0 是运行时唯一数据源**。schema 由 Flyway 管理（`backend/src/main/resources/db/migration/V1__baseline.sql` 全量基线，50 表；`ddl-auto: validate`），**没有手工建表脚本**——应用首次启动自动建表并写入种子账号。H2 仅作为测试内存库。
 
-适用于开发测试、功能验证。数据库使用 H2 文件库，无需额外安装。
+### 方案 A：本地开发（连 MySQL）
+
+#### A-1 默认直连测试服务器（零配置）
+
+测试服务器 216 已通过 Docker Compose 常驻部署 MySQL（容器 `perftest-mysql`，utf8mb4，账号口径见 `deploy/mysql/docker-compose.yml`）。`application.yml` 默认指向 `192.168.17.216:3306/perftest`，内网环境 `./gradlew :backend:bootRun` 即可。
+
+#### A-2 本机 MySQL（离线/隔离环境）
+
+```bash
+# 1. 本机起 MySQL（mysql:8.0，utf8mb4 服务器级，root/perftest-root，应用账号 perftest/perftest）
+docker compose -f deploy/mysql/docker-compose.yml up -d
+
+# 2. 环境变量覆盖数据源（Spring Boot 宽松绑定：SPRING_DATASOURCE_* 覆盖 application.yml 的 spring.datasource.*）
+export SPRING_DATASOURCE_URL='jdbc:mysql://localhost:3306/perftest?characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai'
+export SPRING_DATASOURCE_USERNAME=perftest
+export SPRING_DATASOURCE_PASSWORD=perftest
+
+# 3. 启动后端
+./gradlew :backend:bootRun
+```
+
+> `characterEncoding` 必须用 Java 字符集名 `UTF-8`——Connector/J 9 拒绝 MySQL 词法 `utf8mb4`，而 UTF-8 即映射 MySQL utf8mb4。
+
+#### A-3 完整启动示例
 
 ```bash
 # 1. 克隆仓库
 git clone <repo-url> && cd performance-test-platform
 
-# 2. 配置 JMeter 路径（macOS/Linux）
+# 2. 配置 JDK 与 JMeter 路径（macOS/Linux）
 export JAVA_HOME=/path/to/jdk-17/Contents/Home/
 export JMETER_EXECUTABLE=/path/to/apache-jmeter-5.6.3/bin/jmeter
 export JMETER_JAVA_HOME=$JAVA_HOME
 
-# 3. 启动后端
+# 3. 启动后端（Flyway 自动建表 + 种子账号）
 ./gradlew :backend:bootRun
 
 # 4. 启动前端（另一个终端）
@@ -284,18 +312,50 @@ cd frontend && npm install && npm run dev
 open http://localhost:5173
 ```
 
+#### A-4 已有 H2 数据迁往 MySQL（一次性）
+
+存量 H2 文件库（旧版默认 `./storage/perftest`，即 `perftest.mv.db`）由内置迁移工具一次带入：挂 `app.data-migration.h2-source` 属性启动一次即可（旧库只读；目标非空拒跑，确认覆盖加 `app.data-migration.overwrite=true`）：
+
+```bash
+java -jar backend/build/libs/backend-0.1.0-SNAPSHOT.jar \
+  --app.data-migration.h2-source=./storage/perftest
+```
+
+- 迁移完成（日志输出 `MigrationSummary`：表数/行数）后，**人工归档旧 `perftest.mv.db`**（工具不删不改源文件）。
+- 迁移完成后**移除 `app.data-migration.h2-source` 属性**再正常启动。
+- 表清单维护：新增 JPA 实体/表时须同步 `DataMigrationRunner.MIGRATION_TABLES`（见下方贡献者约定）。
+
+#### A-5 运行 testMysql（真 MySQL 集成测试）
+
+`testMysql` 用 Testcontainers 起真 MySQL 8.0 容器（`@Tag("mysql")`，默认 `test` 套件已显式排除）。需要 Docker 可达；本机无 Docker 时可经 SSH unix-socket 隧道驱动远程 Docker（已在 216 验证通过）：
+
+```bash
+# 1) 隧道：本机 → 远端 /var/run/docker.sock
+ssh -fNT -L /tmp/p024-docker.sock:/var/run/docker.sock root@<server>
+
+# 2) 远程 Docker 跑 testMysql（DOCKER_HOST 等须在 Gradle daemon 启动时在场，必要时先 ./gradlew --stop）
+DOCKER_HOST=unix:///tmp/p024-docker.sock \
+TESTCONTAINERS_HOST_OVERRIDE=<server-ip> \
+TESTCONTAINERS_RYUK_DISABLED=true \
+./gradlew :backend:testMysql
+```
+
+> `TESTCONTAINERS_RYUK_DISABLED=true`：远端无外网拉不到 `testcontainers/ryuk` 边车镜像时必须禁用（否则用例被 skip），容器清理由测试自身 `@AfterAll` 负责。
+
+#### 贡献者约定（数据库）
+
+- 新增 JPA 实体/表：DDL 进新的 Flyway 增量脚本（**禁止**改写已应用的 V1），并同步 `datamigration/DataMigrationRunner.java` 的 `MIGRATION_TABLES` 清单（与 V1 基线表集合一致，由 `DataMigrationRunnerTableListTest` 强制；当前按字母序、V1 无外键约束故顺序无关；未来 V2+ 引入外键的表加入时须确保父表先于子表），否则存量 H2 迁移会漏表。
+- 列类型注意：`@Lob String` 在主配置方言（`MysqlLongtextDialect`）下落 `longtext`；H2 测试侧由 `src/test/resources` 的占位符渲染为 clob，勿在实体上自行指定 `columnDefinition`。
+
 ### 方案 B：生产环境（MySQL + Nginx）
 
-适用于生产部署、持续运行。数据库切换为 MySQL，前端通过 Nginx 托管。
+适用于生产部署、持续运行。MySQL 为唯一数据源（Flyway 首次启动自动建表，无手工 schema 脚本、无 prod profile 文件——一律用环境变量/启动参数覆盖），前端通过 Nginx 托管。
 
 #### 第一步：环境准备
 
 ```bash
-# 安装 MySQL 8.0（以 Ubuntu 为例）
-sudo apt update
-sudo apt install mysql-server-8.0
-
 # 安装 OpenJDK 17
+sudo apt update
 sudo apt install openjdk-17-jdk
 
 # 安装 Node.js 20（用于前端构建）
@@ -307,9 +367,14 @@ wget https://dlcdn.apache.org/jmeter/binaries/apache-jmeter-5.6.3.tgz
 tar -xzf apache-jmeter-5.6.3.tgz -C /opt/
 ```
 
-#### 第二步：创建 MySQL 数据库
+#### 第二步：部署 MySQL（二选一）
 
 ```bash
+# 方式一：Docker Compose（推荐，与测试服务器同构）
+docker compose -f deploy/mysql/docker-compose.yml up -d
+# root/perftest-root，应用账号 perftest/perftest，utf8mb4 服务器级
+
+# 方式二：自装 MySQL 8.0（utf8mb4）
 mysql -u root -p
 
 CREATE DATABASE perftest CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -317,39 +382,21 @@ CREATE USER 'perftest'@'localhost' IDENTIFIED BY 'your_password';
 GRANT ALL PRIVILEGES ON perftest.* TO 'perftest'@'localhost';
 FLUSH PRIVILEGES;
 
-# 导入建表脚本
-USE perftest;
-SOURCE docs/database/mysql-schema.sql;
+# 无需导入任何建表脚本：应用首次启动时 Flyway 自动执行 V1 全量基线建表
 ```
 
-#### 第三步：配置后端
+#### 第三步：配置后端（环境变量覆盖，无需 profile 文件）
 
-创建生产配置 `backend/src/main/resources/application-prod.yml`：
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/perftest?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8mb4
-    username: perftest
-    password: your_password
-    driver-class-name: com.mysql.cj.jdbc.Driver
-  jpa:
-    hibernate:
-      ddl-auto: validate   # 生产环境使用 validate，不自动改表结构
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
-  h2:
-    console:
-      enabled: false       # 关闭 H2 控制台
-
-platform:
-  storage:
-    root: /data/perftest/storage    # 持久化存储路径
-  jmeter:
-    executable: /opt/apache-jmeter-5.6.3/bin/jmeter
-    java-home: /usr/lib/jvm/java-17-openjdk-amd64
+```bash
+export SPRING_DATASOURCE_URL='jdbc:mysql://localhost:3306/perftest?characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai'
+export SPRING_DATASOURCE_USERNAME=perftest
+export SPRING_DATASOURCE_PASSWORD=your_password
+export PLATFORM_STORAGE_ROOT=/data/perftest/storage          # 持久化存储路径
+export JMETER_EXECUTABLE=/opt/apache-jmeter-5.6.3/bin/jmeter
+export JMETER_JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ```
+
+> `ddl-auto` 已固定为 `validate`（表结构变化只经 Flyway）；如自装 MySQL，请保持与应用 `application.yml` 相同的 URL 参数（`characterEncoding=UTF-8`，勿写 `utf8mb4`）。
 
 #### 第四步：构建并启动后端
 
@@ -358,9 +405,7 @@ platform:
 ./gradlew :backend:bootJar
 
 # 启动（生产环境）
-java -jar backend/build/libs/backend-0.1.0-SNAPSHOT.jar \
-  --spring.profiles.active=prod \
-  --server.port=8080
+java -jar backend/build/libs/backend-0.1.0-SNAPSHOT.jar --server.port=8080
 ```
 
 建议使用 systemd 管理后端进程：
@@ -375,7 +420,11 @@ After=network.target mysql.service
 Type=simple
 User=perftest
 WorkingDirectory=/opt/perftest
-ExecStart=/usr/bin/java -jar /opt/perftest/backend.jar --spring.profiles.active=prod
+Environment=SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/perftest?characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+Environment=SPRING_DATASOURCE_USERNAME=perftest
+Environment=SPRING_DATASOURCE_PASSWORD=your_password
+Environment=PLATFORM_STORAGE_ROOT=/data/perftest/storage
+ExecStart=/usr/bin/java -jar /opt/perftest/backend.jar
 Restart=on-failure
 RestartSec=10
 
@@ -424,11 +473,6 @@ server {
         proxy_read_timeout 300s;      # 执行日志和 SSE 需要长连接
         proxy_buffering off;          # SSE 需要关闭缓冲
     }
-
-    # H2 控制台（仅开发环境，生产建议关闭）
-    # location /h2-console/ {
-    #     proxy_pass http://127.0.0.1:8080;
-    # }
 }
 ```
 
@@ -486,6 +530,9 @@ curl http://localhost/
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
+| `SPRING_DATASOURCE_URL` | MySQL JDBC URL（`characterEncoding=UTF-8`，勿写 utf8mb4） | `jdbc:mysql://192.168.17.216:3306/perftest?...` |
+| `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` | 数据库账号 | `perftest` / `perftest` |
+| `app.data-migration.h2-source` | H2→MySQL 一次性迁移源路径（挂上即迁，迁完移除） | 未设置 |
 | `platform.storage.root` | 脚本/日志/结果存储根目录 | `./storage` |
 | `platform.execution.max-concurrent-tasks` | 最大并发执行数 | `1` |
 | `platform.jmeter.executable` | JMeter CLI 路径 | 本地 JMeter 安装路径 |
@@ -507,7 +554,8 @@ curl http://localhost/
 | [需求与架构总览](docs/requirements-and-architecture.md) | 产品定位、架构决策、评审清单 |
 | [开发计划](docs/development-plan.md) | 三阶段开发计划 |
 | [远期目标](docs/platform-vision.md) | 多引擎、AI 生成、远程 Agent |
-| [MySQL 建表脚本](docs/database/mysql-schema.sql) | 完整 DDL + 种子数据 |
+| [Flyway V1 基线](backend/src/main/resources/db/migration/V1__baseline.sql) | 全量建表 DDL（50 表，`@Lob` 方言参数化） |
+| [MySQL 部署 Compose](deploy/mysql/docker-compose.yml) | 测试/生产 MySQL 8.0 容器（utf8mb4） |
 | [模块设计文档](docs/modules/) | 11 个模块的详细设计 |
 | [实现记录](docs/implementation-log.md) | 开发历程 |
 

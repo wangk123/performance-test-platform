@@ -38,8 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 只读 scope 越权拦截、写操作幂等。
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
-        "spring.datasource.url=jdbc:h2:mem:mcp-server-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.datasource.url=jdbc:h2:mem:mcp-server-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE",
+        "spring.jpa.hibernate.ddl-auto=validate",
         "spring.h2.console.enabled=false"
 })
 @AutoConfigureMockMvc

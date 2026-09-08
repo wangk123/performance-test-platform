@@ -2,16 +2,31 @@ spring:
   application:
     name: performance-test-platform
   datasource:
-    url: jdbc:h2:file:./storage/perftest;MODE=MySQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE
-    username: sa
-    password:
+    # characterEncoding 需 Java 字符集名（Connector/J 9 拒绝 utf8mb4：Unsupported character encoding）；
+    # UTF-8 即映射 MySQL utf8mb4（compose 侧 server 级同为 utf8mb4）
+    url: jdbc:mysql://192.168.17.216:3306/perftest?characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+    username: perftest
+    password: perftest
+    # Hikari 适度参数（spec §3）：内部测试环境、单进程平台，小池即可
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 10000
+      max-lifetime: 1800000
+  flyway:
+    enabled: true
+    placeholders:
+      # @Lob String 物理类型按方言参数化：MySQL=longtext（H2 测试侧由 src/test/resources 提供 clob）
+      lob_type: longtext
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
-  h2:
-    console:
-      enabled: true
+    properties:
+      hibernate:
+        # @Lob String 在 MySQL 方言渲染为 tinytext（255 字节截断隐患），validate 拒绝 V1 的
+        # longtext 列；本方言把提取到的 longtext 解析回 CLOB 完成判等，保住 longtext 运行时语义
+        dialect: com.yr.perftest.platform.config.MysqlLongtextDialect
 
 server:
   port: 8080

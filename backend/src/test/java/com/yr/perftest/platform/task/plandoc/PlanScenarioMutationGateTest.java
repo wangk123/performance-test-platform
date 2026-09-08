@@ -16,8 +16,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** 场景增删改阶段门禁（设计 §4.5）：PUBLISH 与 EXECUTION/RUNNING 冻结。 */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:plan-scenario-gate-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.datasource.url=jdbc:h2:mem:plan-scenario-gate-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE",
+        "spring.jpa.hibernate.ddl-auto=validate",
         "spring.h2.console.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)

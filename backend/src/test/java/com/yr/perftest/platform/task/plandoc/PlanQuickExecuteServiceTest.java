@@ -31,8 +31,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * 异步 runner 在测试环境必然失败并终态化（此处只断言同步可见的状态，终态转化容忍异步）。
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:plan-quick-exec-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.datasource.url=jdbc:h2:mem:plan-quick-exec-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE",
+        "spring.jpa.hibernate.ddl-auto=validate",
         "spring.h2.console.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)

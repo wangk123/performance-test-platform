@@ -15,7 +15,7 @@ class SeedJdbcCaptureRowSourceTest {
     @Test
     void streamsRowsInConfiguredBatchSizes() throws Exception {
         try (Connection connection = DriverManager.getConnection(
-                "jdbc:h2:mem:seed-capture-source;MODE=MySQL;DB_CLOSE_DELAY=-1",
+                "jdbc:h2:mem:seed-capture-source;MODE=MySQL",
                 "sa",
                 ""
         );

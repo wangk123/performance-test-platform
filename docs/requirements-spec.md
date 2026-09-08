@@ -618,7 +618,7 @@
 - 后端：`MonitorTargetController` 完整 CRUD
 - 前端：`ProjectMonitoringView.vue` + 新建服务器对话框
 - 表：`monitor_target`
-- SSH 字段通过 `MonitoringSchemaInitializer` 动态添加
+- SSH 字段已并入 Flyway V1 基线（原 `MonitoringSchemaInitializer` 已随 P0-4 删除）
 
 #### REQ-MON-002 监控代理部署 ✅
 
@@ -992,7 +992,7 @@ execution_nodes
 | 12 | `execution_monitor_binding` | 执行监控绑定 | `id` (AUTO) | - |
 | 13 | `execution_target_metrics_snapshot` | 目标指标快照 | `id` (AUTO) | `(execution_id, kind)` UNIQUE |
 
-完整建表 SQL 见 `docs/database/mysql-schema.sql`。
+建表 SQL 由 Flyway 管理：全量基线见 `backend/src/main/resources/db/migration/V1__baseline.sql`（应用启动自动应用，无手工脚本）。
 
 ### 6.3 数据存储路径
 

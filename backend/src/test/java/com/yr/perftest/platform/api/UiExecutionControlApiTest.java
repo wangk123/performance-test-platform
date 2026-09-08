@@ -31,8 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * UI 触发/停止走 ExecutionControlService：幂等键生效、执行审计以 HUMAN 身份落库、冲突返回 409。
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:ui-execution-control-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.datasource.url=jdbc:h2:mem:ui-execution-control-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE",
+        "spring.jpa.hibernate.ddl-auto=validate",
         "spring.h2.console.enabled=false"
 })
 @AutoConfigureMockMvc

@@ -31,8 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * SOURCE_UNAVAILABLE，不得伪造空成功。
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:agent-deep-probe-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.datasource.url=jdbc:h2:mem:agent-deep-probe-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE",
+        "spring.jpa.hibernate.ddl-auto=validate",
         "spring.h2.console.enabled=false",
         "platform.evidence.deep.kinds.db-metrics.enabled=true",
         "platform.monitoring.prometheus.base-url=http://127.0.0.1:1",

@@ -33,8 +33,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 审计轨迹查询入口测试（T13）：请求审计与执行审计可重建平台侧操作轨迹。
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:agent-audit-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.datasource.url=jdbc:h2:mem:agent-audit-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE",
+        "spring.jpa.hibernate.ddl-auto=validate",
         "spring.h2.console.enabled=false"
 })
 @AutoConfigureMockMvc

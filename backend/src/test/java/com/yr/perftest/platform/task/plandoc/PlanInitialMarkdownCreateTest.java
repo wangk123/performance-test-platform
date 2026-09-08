@@ -15,8 +15,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * createPlan 9 参重载（P0-2①）：initialMarkdown 作初始正文，revision=1 不加版（spec §6.1）。
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:plan-initial-markdown-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.datasource.url=jdbc:h2:mem:plan-initial-markdown-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE",
+        "spring.jpa.hibernate.ddl-auto=validate",
         "spring.h2.console.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)

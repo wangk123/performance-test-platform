@@ -216,3 +216,39 @@
 ## 2026-09-07（P0-4 主库 MySQL 迁移——夜间跳过）
 
 按任务书前置自检：本机 `docker info` 不可用（无 docker CLI / Docker.app / colima，属未安装而非守护进程未启动），P0-4 **整体跳过**，未做任何代码/配置变更。spec §10 验收口径（testMysql 全绿等）要求 Docker，不允许跳过 testMysql 假装完成。待具备 Docker 的环境（本机安装或昼间人工）后按 `docs/superpowers/specs/2026-09-07-p0-4-mysql-migration-design.md` 重新实施；亦不可夜间登录 192.168.17.216 部署（任务书红线）。
+
+## 2026-09-08（P0-4 主库 MySQL 迁移——实施完成，7 任务全链）
+
+> 前夜「跳过」记录由本日昼间实施取代：本机未装 Docker，改以 SSH unix-socket 隧道驱动 216 远程 Docker 满足全部真库验收，216 MySQL 已实部署为常驻库。
+
+已完成（对应任务 1–7）：
+
+1. 依赖与 compose：`com.mysql:mysql-connector-j` 确认在依赖中；`deploy/mysql/docker-compose.yml`（mysql:8.0、utf8mb4 服务器级、root/perftest-root + 应用账号 perftest/perftest、healthcheck、数据卷）部署到 216 `/app/perftest/`。
+2. Flyway V1 基线生成与清洗：50 表全量 DDL（UNIQUE KEY 去名×16、二级索引提出为 CREATE INDEX×13、enum 保留经 H2 验证网裁决通过），`@Lob` 44 列以 `${lob_type}` 占位符按方言参数化（主配置 longtext / 测试侧 clob）。
+3. 配置切换与 sweep：`application.yml` 删 H2 console/url，默认直连 216 MySQL + Flyway + `ddl-auto: validate`；55 处测试 `create-drop`→`validate`；56 处去 `DB_CLOSE_DELAY=-1` 恢复新上下文全新库语义；测试源集兜 `src/test/resources/application.yml`（`@DataJpaTest` replace=none 走 MODE=MySQL）。
+4. 删除项：`MonitoringSchemaInitializer` 与废弃 `docs/database/mysql-schema.sql` 收编删除（补列结果已含于 V1）。
+5. 迁移工具：`app.data-migration.h2-source` 属性开关，固定有序表清单按原主键分批拷贝（批 500），目标非空拒跑/`overwrite` 显式覆盖，旧库只读（IFEXISTS+ACCESS_MODE_DATA=r）；runner `HIGHEST_PRECEDENCE` 先于内置 seeder，避免 seed 行触发拒跑。
+6. testMysql 任务与真库验证：`MysqlV1SchemaIT`（真库上下文 + LONGTEXT/datetime(6) 往返）与 `DataMigrationMysqlIT`（显式主键 + 自增续号）经远程 Docker 隧道跑绿；默认 test 显式 `excludeTags 'mysql'` 对称隔离（Gradle 9 已无 *Test 文件名默认过滤）。
+7. 主配置真库启动缺陷修复：`MysqlLongtextDialect` 提升主源集 `config` 包并挂 `spring.jpa.properties.hibernate.dialect`（validate 与 `@Lob String`→longtext 双语义并存，test yml 整体遮蔽故 H2 网零扰动）；JDBC URL `characterEncoding=utf8mb4`→`UTF-8`（Connector/J 9 拒绝 MySQL 词法）。
+
+关键决策与偏差（对照 spec）：
+
+1. **远程 Docker 隧道**：spec 未预见"本机无 Docker"场景，SSH unix-socket 隧道（`-L /tmp/p024-docker.sock:/var/run/docker.sock`）+ `DOCKER_HOST` + `TESTCONTAINERS_HOST_OVERRIDE` 是不装本地 Docker 且零改服务器的唯一无损方案；ryuk 边车因 216 无外网拉不到 Docker Hub，须 `TESTCONTAINERS_RYUK_DISABLED=true`（README 已记录跑法）。
+2. **T2/T3 原子合并**：V1 基线与配置切换互相依赖（validate 无表必红），合并为单提交保证每提交可构建。
+3. **55 处 validate sweep**：spec §7"测试零改动"与 M1"validate 全局"冲突，以 M1 为准——机械 sweep 非语义改动。
+4. **enum 保留**：H2 验证网全绿裁决通过（H2 MODE=MySQL 接受 MySQL enum 词法），未做 spec 预案的 varchar 降级。
+5. **遗留项**：Hibernate 6.6 对 `@Lob String` 在原生 MySQL 方言渲染 tinytext（255 字节截断隐患），由自定义方言解析回 CLOB 保住 longtext 语义——升级 Hibernate 时需回归验证。
+6. **test yml 遮蔽副作用**：`src/test/resources/application.yml` 整体遮蔽主配置（test JVM 永远看不到主 yml 的 dialect/占位符），两 IT 内显式内联 `lob_type=longtext` + 方言 FQN；这也意味着默认 H2 套件对主配置改动天然免疫（既是隔离优点也是盲区）。
+7. **验收 #4/#5 记 N/A**：本机无存量 `./storage/perftest` H2 文件——迁移工具语义已被单测 + MySQL IT 覆盖，真实迁移待用户提供旧库时一次执行；旧文件保护逻辑（只读 IFEXISTS）同由测试覆盖。
+
+验证：
+
+1. 全量默认套件 **121 suites / 454 tests / 0 failures / 0 errors / 0 skipped**（IT 类不在默认结果中，主 yml 改动对 H2 验证网零扰动）。
+2. `./gradlew :backend:testMysql` 经远程 Docker 隧道 **2/2 全绿**（修复波后含 datetime(6) 微秒精度断言）。
+3. 默认配置直连 216 真 boot：`bootJar` + `java -jar` 无环境覆盖，Flyway `Successfully applied 1 migration`（51 表 = 50 + flyway_schema_history，history version=1 success=1）；表结构与种子数据按任务要求保留在 216。
+4. 收尾冒烟（Task 7，2026-09-08）：bootJar 复用 HEAD 构建，默认配置启动（Started in 34.1s，Flyway 连 `192.168.17.216:3306/perftest` validate 通过）→ curl `POST /api/auth/login` admin/admin123 得 200+token → `POST /api/projects` 201（id=1）→ `POST /api/projects/1/task-plans` 201（id=1，模板正文落库）→ GET 项目 200 / 计划列表 200 / 计划详情 200；boot 日志零 ERROR，停机后 216 库保留冒烟数据。
+5. 全仓 grep：代码（java/gradle/yml）`MonitoringSchemaInitializer`/`mysql-schema.sql` 零残留；文档残留仅 openspec 归档与 docs/superpowers 历史 spec/plan（有意保留的历史记录）。
+
+### 2026-09-08（P0-4 终审补充）
+
+双轴终审（Standards/Spec）+ 修复波（a2e3be9）：MIGRATION_TABLES 注释与 README 措辞诚实化（字母序、V1 无外键故顺序无关、V2+ 引入 FK 须人工保序）并新增 `DataMigrationRunnerTableListTest` drift-guard（V1 表集合 == 迁移清单，集合一致性机械化）；主 yml 补 Hikari 适度参数（10/2/10s/30min，spec §3 字面项）。终审其余发现记 P2 遗留：55 处测试内联属性块可退役、test yml 共享库 DB_CLOSE_DELAY 观察项、datamigration 测试样板重复、StartupMigration 中间人、迁移报错行号以"已拷贝 N 行"近似。最终口径：`:backend:test` 455/455（120+1 套件）、`testMysql` 2/2（远程 Docker）、默认配置直连 216 启动+冒烟通过。

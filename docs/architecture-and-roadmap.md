@@ -185,7 +185,7 @@ flowchart TB
 
 | 形态 | 组成 | 适用 |
 |------|------|------|
-| 本地开发 | Vite dev（5173）→ 后端 8080 代理；H2 file（MySQL 兼容模式）profile | 日常开发，无外部依赖 |
+| 本地开发 | Vite dev（5173）→ 后端 8080 代理；MySQL 8.0 为运行时唯一数据源（默认直连测试服务器 216，本机可 `deploy/mysql` compose 起库 + 环境变量覆盖；D14） | 日常开发 |
 | 生产部署（P2-1） | 前端 build 产物打进 api jar，页面与 API 同端口；MySQL 8.0+；`scripts/start.sh` 一条命令起全部 | 测试环境内部落地 |
 | 监控栈 | Prometheus + Exporters 独立部署（Docker Compose）；平台只做查询与展示，不承载 Prometheus 自身 | 与平台同环境，可用时增强报告 |
 
@@ -241,7 +241,7 @@ flowchart TB
 | P0-1 | **计划文档模块重构**：TaskPlan 升级为压测计划文档（结构化模块 + Markdown 正文，**一稿走到头**：计划→执行回填→报告→发布）；二级状态机 D2；评审流程与批注（任意成员通过）；业务化场景设计（脚本不进文档、评审后编写关联）；环境检查可选项（首执行触发、可跳过）；模板体系（内置预设，D3 2026-09-07 修订）；自动回填 D4；revision 冲突三选一 D5；发布终态 | 🟨（待验收走查） | — | 一个计划能从草稿走到"已发布"，中间可评审、可批注、可被本地 Agent 同步修改且冲突可手工处理 |
 | P0-2 | **MCP Agent 接入面：计划工具集 + 工具目录页**（P1-6 于 2026-09-04 并入）：① 计划 MCP 工具 `plan_templates` / `plan_create` / `plan_get` / `plan_update` / `plan_query`（发布不进 MCP，D12）+ 仓库内 `skill-pack/perf-platform-plan/` skill；② MCP 工具目录页（卡片式）：展示全部已注册 MCP 工具（名称/阶段/说明/参数 schema 摘要/写权限标记），页头接入指引（endpoint + API Key 申请入口 + Claude Code / DSH 配置片段一键复制），按阶段筛选 + 搜索，页面只读，启停与可见性由注册表 stage/scope 决定（D18） | ✅（② 2026-09-04；①③ 2026-09-07） | P0-1 已合并 | 本地 Agent 仅凭 MCP + skill 完成"梳理→生成→同步→再修改"全流程；新成员打开目录页复制配置即可在本地 Agent 接入，无需问人，卡片信息与注册表一致 |
 | P0-3 | **验收标准解析 + 自动判等（指标可选）**：验收指标**可选**挂计划（判等输入 = 文档指标章节，保存时严格校验、报告生成时确定性解析，**不建判等实体**）；两层判定——**场景级**（TPS/平均RT/P95/错误率）+ **交易级**（含 P99）指标行，计划级总体判定聚合（达成/未达成/无法判定）；达成表由判等引擎幂等重绘、总体结论发布时人工确认（D4 半自动）；**无指标计划（摸底/排查型）判等跳过、达成表退化为实测记录、结论纯人工**（设计见 `docs/superpowers/specs/2026-09-07-p0-3-acceptance-verdict-design.md`） | 🟨（待验收走查） | P0-1 | 一次执行结束，报告直接给出"过/不过 + 哪些指标超标"，场景级明细可下钻；无指标计划从执行到发布全程无判等阻塞 |
-| P0-4 | **主库 MySQL 迁移 + schema 版本化**：MySQL 为运行时唯一数据源（默认连服务器）；引入 Flyway（V1 全量基线、ddl-auto 切 validate、废弃手工 schema 脚本、MonitoringSchemaInitializer 收编删除）；执行明细不迁库（D14 修订）；一次性 H2→MySQL 数据迁移工具；Docker compose + 部署初始化说明（设计见 `docs/superpowers/specs/2026-09-07-p0-4-mysql-migration-design.md`） | ⬜ | — | test/testMysql 全绿；Docker 起 MySQL 后平台开箱运行；存量 H2 数据经迁移工具完整迁入（账号/项目/脚本/计划/执行记录等），旧失败样本文件仍可查看 |
+| P0-4 | **主库 MySQL 迁移 + schema 版本化**：MySQL 为运行时唯一数据源（默认连服务器）；引入 Flyway（V1 全量基线、ddl-auto 切 validate、废弃手工 schema 脚本、MonitoringSchemaInitializer 收编删除）；执行明细不迁库（D14 修订）；一次性 H2→MySQL 数据迁移工具；Docker compose + 部署初始化说明（设计见 `docs/superpowers/specs/2026-09-07-p0-4-mysql-migration-design.md`） | 🟨（代码完成、待人工验收） | — | test/testMysql 全绿；Docker 起 MySQL 后平台开箱运行；存量 H2 数据经迁移工具完整迁入（账号/项目/脚本/计划/执行记录等），旧失败样本文件仍可查看（2026-09-08 进展：454/454 + testMysql 2/2 绿，默认配置直连 216 boot + 建项目/建计划冒烟通过，216 已实部署；存量 H2 迁移待用户提供旧库） |
 
 ### P1 —— 闭环中部补强
 
