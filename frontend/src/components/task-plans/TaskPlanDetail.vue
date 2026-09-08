@@ -1,5 +1,5 @@
 <template>
-  <section class="task-detail">
+  <section class="task-detail plan-detail">
     <div class="page-head">
       <div>
         <h1>{{ doc.plan.value?.name ?? plan.name }}</h1>
@@ -30,13 +30,13 @@
         />
       </a-tab-pane>
       <a-tab-pane key="review" tab="评审">
-        <PlanDetailReview :doc="doc" />
+        <div class="plan-tab-scroll"><PlanDetailReview :doc="doc" /></div>
       </a-tab-pane>
       <a-tab-pane key="report" tab="报告">
-        <PlanDetailReport :doc="doc" :scenarios="scenarios" />
+        <div class="plan-tab-scroll"><PlanDetailReport :doc="doc" :scenarios="scenarios" /></div>
       </a-tab-pane>
       <a-tab-pane key="publish" tab="发布">
-        <PlanDetailPublish :doc="doc" />
+        <div class="plan-tab-scroll"><PlanDetailPublish :doc="doc" /></div>
       </a-tab-pane>
     </a-tabs>
 

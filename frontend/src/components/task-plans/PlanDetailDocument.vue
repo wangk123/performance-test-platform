@@ -23,7 +23,7 @@
         >{{ section.title }}</a>
       </aside>
 
-      <div class="doc-main">
+      <div ref="docMainRef" class="doc-main">
         <template v-if="viewMode === 'Pretty'">
           <div v-for="section in prettySections" :key="section.title" class="panel pretty-section" :data-section="section.title">
             <div class="pretty-section-head">
@@ -126,6 +126,7 @@ const sections = computed(() => splitSections(props.plan.body));
 const prettySections = computed(() => sections.value.filter((s) => CONSTRAINED.includes(s.title)));
 const canEdit = computed(() => Boolean(props.doc.permissions.value.EDIT));
 const canPrecheck = computed(() => Boolean(props.doc.permissions.value.PRECHECK_RUN));
+const docMainRef = ref<HTMLElement | null>(null);
 
 watch(() => props.plan.precheckJson, parsePrecheck, { immediate: true });
 
@@ -218,22 +219,20 @@ function scrollTo(line: number) {
   const all = splitSections(props.plan.body);
   const target = all.find((s) => s.line === line);
   if (!target) return;
-  const el = viewMode.value === 'Pretty'
-    ? document.querySelector(`[data-section="${target.title}"]`)
-    : null;
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const el = docMainRef.value?.querySelector(`[data-section="${target.title}"]`);
+  const main = docMainRef.value;
+  // 相对 .doc-main（唯一滚动容器）定位，不触碰外层页面滚动
+  if (el && main) {
+    main.scrollTo({
+      top: main.scrollTop + el.getBoundingClientRect().top - main.getBoundingClientRect().top - 8,
+      behavior: 'smooth',
+    });
+  }
 }
 </script>
 
 <style scoped>
-.plan-document { display: flex; flex-direction: column; gap: 12px; }
-.doc-toolbar { display: flex; justify-content: space-between; align-items: center; }
-.doc-body { display: grid; grid-template-columns: 180px 1fr; gap: 16px; }
-.doc-toc { border-right: 1px solid var(--border); padding-right: 8px; }
-.doc-toc h4 { margin: 4px 0 8px; font-size: 12px; color: var(--muted); }
-.toc-item { display: block; padding: 4px 6px; font-size: 13px; color: var(--muted); cursor: pointer; border-radius: 4px; text-decoration: none; }
-.toc-item:hover { background: var(--canvas, #f4f6f8); }
-.toc-item.constrained { color: var(--ink, inherit); font-weight: 500; }
+/* 骨架与滚动布局见全局 plan-module.css（.plan-document/.doc-body/.doc-toc/.doc-main） */
 .pretty-section { margin-bottom: 12px; }
 .pretty-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .pretty-hint { color: var(--muted); font-size: 12px; }

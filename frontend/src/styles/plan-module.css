@@ -1,0 +1,131 @@
+/* =====================================================================
+ * 计划模块（任务计划详情/列表/场景/评审/报告/发布）样式 —— 2026-09 UI 重构
+ * 规格来源：plan-document-prototype.html + design-mockup-redesign.html
+ * 约定：全部走 base.css 设计令牌（禁裸 hex）；暗色主题零额外成本。
+ * ===================================================================== */
+
+/* ---------------------------------------------------------------------
+ * 批次 A · 页面骨架与滚动容器
+ * .plan-detail 页自占满高：页头/步骤条/Tabs/工具条/TOC 固定，
+ * .doc-main 是唯一文档滚动容器；其余页面仍随 .content 滚动。
+ * ------------------------------------------------------------------- */
+.content:has(.plan-detail) {
+  overflow: hidden;
+}
+
+.plan-detail {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.plan-detail > .page-head {
+  flex: none;
+  margin-bottom: 0;
+}
+
+.plan-detail > .plan-phase-stepper {
+  flex: none;
+}
+
+/* a-tabs 撑满剩余高度（作用域限定 .plan-detail，不影响其它页面） */
+.plan-detail .ant-tabs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.plan-detail .ant-tabs .ant-tabs-nav {
+  flex: none;
+  margin: 0 0 12px;
+}
+
+.plan-detail .ant-tabs .ant-tabs-content-holder {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.plan-detail .ant-tabs .ant-tabs-content,
+.plan-detail .ant-tabs .ant-tabs-tabpane {
+  height: 100%;
+}
+
+/* 评审/报告/发布等整页滚动的 Tab：内容自带纵向滚动 */
+.plan-tab-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* 文档 Tab：工具条固定 + 双栏（TOC | 文档主体） */
+.plan-document {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.plan-document .doc-toolbar {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.plan-document .doc-toc h4 {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.plan-document .toc-item {
+  display: block;
+  padding: 4px 6px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.plan-document .toc-item:hover {
+  background: var(--active-bg);
+}
+
+.plan-document .toc-item.constrained {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.plan-document .doc-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 208px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.plan-document .doc-toc {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* ★ 唯一文档滚动容器 */
+.plan-document .doc-main {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+  scroll-behavior: smooth;
+}
+
+.plan-document .doc-main > * {
+  scroll-margin-top: 16px;
+}
