@@ -51,6 +51,8 @@
           <a-button
             v-if="!scriptBound(block.name) && canBindScript"
             size="small"
+            :disabled="!scenarioOf(block.name)"
+            title="文档有块但无场景实体；实体生成后才能关联脚本"
             @click="bindScript(block.name)"
           >关联脚本</a-button>
           <a-button
@@ -268,7 +270,7 @@ function confirmSkipPrecheck(text: string, scenarioName: string) {
   border-radius: 6px;
   background: var(--accent-soft);
   border: 1px solid var(--accent);
-  color: var(--accent);
+  color: var(--plan-accent-text);
   font-family: var(--font-data);
   font-size: 12px;
   font-weight: 600;
@@ -322,17 +324,17 @@ function confirmSkipPrecheck(text: string, scenarioName: string) {
 
 .sc-status-pill.ok {
   background: var(--ok-soft);
-  color: var(--ok);
+  color: var(--plan-ok-text);
 }
 
 .sc-status-pill.danger {
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--plan-danger-text);
 }
 
 .sc-status-pill.run {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--plan-accent-text);
 }
 
 .sc-status-pill.none {
@@ -407,12 +409,12 @@ function confirmSkipPrecheck(text: string, scenarioName: string) {
 
 .sc-bind.ok {
   background: var(--ok-soft);
-  color: var(--ok);
+  color: var(--plan-ok-text);
 }
 
 .sc-bind.warn {
   background: var(--warning-soft);
-  color: var(--warn);
+  color: var(--plan-warn-text);
 }
 
 .sc-bind.muted {
@@ -445,7 +447,7 @@ function confirmSkipPrecheck(text: string, scenarioName: string) {
   border: 1px solid var(--accent);
   border-radius: 999px;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--plan-accent-text);
   font-size: 11px;
   font-weight: 600;
 }

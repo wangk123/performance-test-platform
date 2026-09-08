@@ -1,6 +1,14 @@
 /* =====================================================================
  * 计划模块（任务计划详情/列表/场景/评审/报告/发布）样式 —— 2026-09 UI 重构
- * 规格来源：plan-document-prototype.html + design-mockup-redesign.html
+ * 规格来源：plan-document-prototype/* 语义文本色（对比度加固，双主题自动适配）：小字号语义文本一律用派生色，裸语义色仅用于边框/底/圆点等非文本元素。 */
+:root {
+  --plan-accent-text: color-mix(in srgb, var(--accent) 82%, var(--ink));
+  --plan-ok-text: color-mix(in srgb, var(--ok) 72%, var(--ink));
+  --plan-warn-text: color-mix(in srgb, var(--warn) 70%, var(--ink));
+  --plan-danger-text: color-mix(in srgb, var(--danger) 82%, var(--ink));
+}
+
+.html + design-mockup-redesign.html
  * 约定：全部走 base.css 设计令牌（禁裸 hex）；暗色主题零额外成本。
  * ===================================================================== */
 
@@ -210,12 +218,12 @@
 }
 
 .plan-document .toc-item:hover {
-  color: var(--accent);
+  color: var(--plan-accent-text);
   background: var(--accent-soft);
 }
 
 .plan-document .toc-item.current {
-  color: var(--accent);
+  color: var(--plan-accent-text);
   border-left-color: var(--accent);
   background: var(--accent-soft);
   font-weight: 600;
@@ -228,8 +236,14 @@
   border: 1px solid var(--line);
   border-radius: 4px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.5;
+}
+
+/* 受控章用 accent 描边区分叙述章（≤1100px 横向 chips 态随基础规则隐藏） */
+.plan-document .toc-tag.ctrl {
+  border-color: var(--accent);
+  color: var(--plan-accent-text);
 }
 
 /* 阅读视图：文档标题块 + 每章一张白卡 */
@@ -271,7 +285,7 @@
   border-radius: 12px;
 }
 
-.plan-document .doc-section-head h2 {
+.plan-document .doc-section-head h3 {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -289,7 +303,7 @@
   border: 1px solid var(--accent);
   border-radius: 999px;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--plan-accent-text);
   font-size: 11px;
   font-weight: 600;
 }
@@ -328,7 +342,7 @@
 .plan-md .md-editor-preview h1 {
   margin: 4px 0 12px;
   color: var(--ink);
-  font-size: 22px;
+  font-size: 20px;
 }
 
 .plan-md .md-editor-preview h2 {
@@ -536,20 +550,26 @@
 .phase-badge.is-review {
   background: var(--accent-soft);
   border: 1px solid var(--accent);
-  color: var(--accent);
+  color: var(--ink);
 }
+
+.phase-badge.is-review .dot { background: var(--accent); }
 
 .phase-badge.is-execution {
   background: var(--warning-soft);
   border: 1px solid var(--warn);
-  color: var(--warn);
+  color: var(--ink);
 }
+
+.phase-badge.is-execution .dot { background: var(--warn); }
 
 .phase-badge.is-report {
   background: var(--ok-soft);
   border: 1px solid var(--ok);
-  color: var(--ok);
+  color: var(--ink);
 }
+
+.phase-badge.is-report .dot { background: var(--ok); }
 
 .phase-badge.is-publish {
   background: var(--ink);
@@ -597,7 +617,7 @@
   border-radius: 10px;
   text-align: center;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .plan-empty .plan-empty-action {
@@ -620,22 +640,22 @@
 
 .status-pill.pending {
   background: var(--warning-soft);
-  color: var(--warn);
+  color: var(--plan-warn-text);
 }
 
 .status-pill.running {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--plan-accent-text);
 }
 
 .status-pill.success {
   background: var(--ok-soft);
-  color: var(--ok);
+  color: var(--plan-ok-text);
 }
 
 .status-pill.error {
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--plan-danger-text);
 }
 
 /* 列表筛选行：原两列 grid（右列 160px 空置）收为单列搜索 */
@@ -691,5 +711,16 @@
   .report-tab .report-layout,
   .publish-tab .publish-layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 动效降级：脉冲/平滑滚动尊重系统减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .phase-badge .dot {
+    animation: none;
+  }
+
+  .plan-document .doc-main {
+    scroll-behavior: auto;
   }
 }

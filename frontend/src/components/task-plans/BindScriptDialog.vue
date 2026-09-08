@@ -3,6 +3,7 @@
     :open="open"
     :title="`关联脚本：${scenarioName}`"
     ok-text="关联"
+    cancel-text="取消"
     :ok-button-props="{ disabled: !resolvedId }"
     @ok="handleOk"
     @cancel="close"

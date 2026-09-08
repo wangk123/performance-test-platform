@@ -7,7 +7,7 @@
             {{ doc.plan.value?.name ?? plan.name }}
             <span class="phase-badge" :class="phaseBadgeClass">
               <span v-if="isRunning" class="dot" />
-              {{ phaseText }} · {{ statusText }}
+              {{ phaseText === statusText ? phaseText : `${phaseText} · ${statusText}` }}
             </span>
           </h1>
           <p class="plan-head-meta">

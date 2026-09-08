@@ -4,6 +4,7 @@
     :title="`编辑章节：${title}`"
     width="860px"
     ok-text="保存章节"
+    cancel-text="取消"
     :confirm-loading="saving"
     @ok="handleOk"
     @cancel="$emit('update:open', false)"

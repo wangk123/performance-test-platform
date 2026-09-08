@@ -102,7 +102,7 @@ const serverRevision = computed(() => props.serverRevision ?? '最新');
   border: 1px solid var(--warn);
   border-radius: 10px;
   background: var(--warning-soft);
-  color: var(--warn);
+  color: var(--plan-warn-text);
   font-size: 13px;
 }
 
@@ -147,7 +147,7 @@ const serverRevision = computed(() => props.serverRevision ?? '最新');
 
 .diff-badge.platform {
   background: var(--ok-soft);
-  color: var(--ok);
+  color: var(--plan-ok-text);
 }
 
 .diff-badge.local {
@@ -175,12 +175,12 @@ const serverRevision = computed(() => props.serverRevision ?? '最新');
 
 .diff-line.added {
   background: var(--ok-soft);
-  color: var(--ok);
+  color: var(--plan-ok-text);
 }
 
 .diff-line.removed {
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--plan-danger-text);
   text-decoration: line-through;
 }
 

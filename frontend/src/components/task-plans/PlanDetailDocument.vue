@@ -1,7 +1,12 @@
 <template>
   <section class="plan-document">
     <div class="doc-toolbar">
-      <div class="segmented" role="tablist" aria-label="文档视图切换">
+      <div
+        class="segmented"
+        role="tablist"
+        aria-label="文档视图切换"
+        @keydown="onSegmentedKeydown"
+      >
         <button
           v-for="mode in (['Pretty', 'Markdown'] as const)"
           :key="mode"
@@ -10,6 +15,7 @@
           class="segmented-item"
           :class="{ active: viewMode === mode }"
           :aria-selected="viewMode === mode"
+          :aria-controls="`doc-panel-${mode}`"
           @click="viewMode = mode"
         >{{ mode }}</button>
       </div>
@@ -32,18 +38,19 @@
           :key="section.title"
           class="toc-item"
           :class="{ current: currentSection === section.title }"
+          href="#"
           :aria-current="currentSection === section.title ? 'true' : undefined"
-          @click="jumpTo(section.title)"
+          @click.prevent="jumpTo(section.title)"
         >
           {{ section.title }}
-          <span class="toc-tag">{{ isConstrained(section.title) ? '受控' : '叙述' }}</span>
+          <span class="toc-tag" :class="isConstrained(section.title) ? 'ctrl' : 'narr'">{{ isConstrained(section.title) ? '受控' : '叙述' }}</span>
         </a>
       </nav>
 
-      <div ref="docMainRef" class="doc-main" @scroll="onDocScroll">
+      <div ref="docMainRef" class="doc-main" tabindex="0" role="region" aria-label="计划文档内容" @scroll="onDocScroll">
         <template v-if="viewMode === 'Pretty'">
-          <div class="doc-title-block">
-            <h1 class="doc-title">{{ plan.name }}</h1>
+          <div class="doc-title-block" id="doc-panel-Pretty">
+            <h2 class="doc-title">{{ plan.name }}</h2>
             <div class="doc-title-meta">
               <span>负责人 <b>{{ plan.createdBy }}</b></span>
               <span>文档 <b class="mono">revision {{ plan.revision }}</b></span>
@@ -58,7 +65,7 @@
             :data-section="section.title"
           >
             <header class="doc-section-head">
-              <h2>{{ section.title }}</h2>
+              <h3>{{ section.title }}</h3>
               <span v-if="isConstrained(section.title)" class="doc-chip">受控</span>
               <a-button
                 v-if="canEdit"
@@ -95,7 +102,7 @@
         </template>
 
         <template v-else>
-          <div v-if="!editing" class="doc-section doc-md-wrap">
+          <div v-if="!editing" id="doc-panel-Markdown" class="doc-section doc-md-wrap">
             <MdPreview
               class="plan-md"
               :model-value="plan.body ?? ''"
@@ -311,6 +318,13 @@ async function toggleChecklist(content: string, index: number) {
 }
 
 /* ---------- TOC 跳转与 scrollspy（相对 .doc-main 唯一滚动容器定位） ---------- */
+
+/** tablist 左右方向键切换视图（按钮本身仍可 Tab 逐一到达）。 */
+function onSegmentedKeydown(event: KeyboardEvent) {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+  event.preventDefault();
+  viewMode.value = event.key === 'ArrowRight' ? 'Markdown' : 'Pretty';
+}
 
 function jumpTo(title: string) {
   const main = docMainRef.value;

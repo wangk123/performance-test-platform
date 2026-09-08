@@ -223,13 +223,13 @@ function shareStateText(record: PlanShareTokenView) {
 .plan-note.warn {
   background: var(--warning-soft);
   border: 1px solid var(--warn);
-  color: var(--warn);
+  color: var(--plan-warn-text);
 }
 
 .plan-note.ok {
   background: var(--ok-soft);
   border: 1px solid var(--ok);
-  color: var(--ok);
+  color: var(--plan-ok-text);
 }
 
 .publish-label {
@@ -373,12 +373,12 @@ function shareStateText(record: PlanShareTokenView) {
 
 .share-state.active {
   background: var(--ok-soft);
-  color: var(--ok);
+  color: var(--plan-ok-text);
 }
 
 .share-state.expired {
   background: var(--warning-soft);
-  color: var(--warn);
+  color: var(--plan-warn-text);
 }
 
 .share-state.revoked {

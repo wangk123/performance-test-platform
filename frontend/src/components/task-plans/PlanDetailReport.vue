@@ -283,19 +283,19 @@ async function generate() {
 .plan-note.info {
   background: var(--accent-soft);
   border: 1px solid var(--accent);
-  color: var(--accent);
+  color: var(--plan-accent-text);
 }
 
 .plan-note.warn {
   background: var(--warning-soft);
   border: 1px solid var(--warn);
-  color: var(--warn);
+  color: var(--plan-warn-text);
 }
 
 .plan-note.ok {
   background: var(--ok-soft);
   border: 1px solid var(--ok);
-  color: var(--ok);
+  color: var(--plan-ok-text);
 }
 
 .verdict-card {
@@ -333,17 +333,17 @@ async function generate() {
 
 .verdict-pill.passed {
   background: var(--ok-soft);
-  color: var(--ok);
+  color: var(--plan-ok-text);
 }
 
 .verdict-pill.failed {
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--plan-danger-text);
 }
 
 .verdict-pill.indeterminate {
   background: var(--warning-soft);
-  color: var(--warn);
+  color: var(--plan-warn-text);
 }
 
 .verdict-pill.none {
@@ -371,12 +371,12 @@ async function generate() {
 
 .bind-chip.ok {
   background: var(--ok-soft);
-  color: var(--ok);
+  color: var(--plan-ok-text);
 }
 
 .bind-chip.warn {
   background: var(--warning-soft);
-  color: var(--warn);
+  color: var(--plan-warn-text);
 }
 
 .latest-cell {
@@ -416,6 +416,6 @@ async function generate() {
 }
 
 .side-accent h4 {
-  color: var(--accent);
+  color: var(--plan-accent-text);
 }
 </style>

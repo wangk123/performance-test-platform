@@ -72,7 +72,7 @@ const groups = computed(() => parseChecklistGroups(props.content));
   border: 1px solid var(--accent);
   border-radius: 999px;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--plan-accent-text);
   font-weight: 600;
 }
 

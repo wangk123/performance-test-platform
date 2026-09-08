@@ -101,11 +101,11 @@ function subLabel(phase: PlanPhase, index: number): string {
 }
 
 .phase.done .pname {
-  color: var(--ok);
+  color: var(--plan-ok-text);
 }
 
 .phase.current .pname {
-  color: var(--accent);
+  color: var(--plan-accent-text);
   font-weight: 700;
 }
 
@@ -122,7 +122,7 @@ function subLabel(phase: PlanPhase, index: number): string {
 .phase.done .sub {
   border-color: var(--ok);
   background: var(--ok-soft);
-  color: var(--ok);
+  color: var(--plan-ok-text);
 }
 
 .phase.current .sub {

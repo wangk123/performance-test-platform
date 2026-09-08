@@ -345,7 +345,7 @@ async function remove(comment: PlanComment) {
 }
 
 .side-accent h4 {
-  color: var(--accent);
+  color: var(--plan-accent-text);
 }
 
 .side-note {
