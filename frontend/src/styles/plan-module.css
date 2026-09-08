@@ -447,3 +447,143 @@
 .plan-md .md-editor-preview input[type='checkbox'] {
   accent-color: var(--accent);
 }
+
+/* 页头卡（原型 .card.plan-header：白卡含标题行 + canvas 底步骤条） */
+.plan-head-card {
+  flex: none;
+  padding: 18px 20px 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.plan-head-card .page-head {
+  margin-bottom: 16px;
+}
+
+.plan-detail > .plan-head-card + .ant-tabs {
+  margin-top: 0;
+}
+
+/* ---------------------------------------------------------------------
+ * 批次 C · 页头 / 阶段徽章 / a-tabs 覆盖（作用域 .plan-detail）
+ * ------------------------------------------------------------------- */
+.plan-detail .page-head h1.plan-head-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.plan-head-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.plan-head-meta b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.plan-head-meta b.mono,
+.plan-head-meta .mono {
+  font-family: var(--font-data);
+}
+
+/* 阶段语义徽章家族（与原型 badge 家族同源；DRAFT 灰以 canvas+line 近似 #EEF0F3，token 化） */
+.phase-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.phase-badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.phase-badge .dot {
+  animation: plan-badge-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes plan-badge-pulse {
+  50% { opacity: 0.25; }
+}
+
+.phase-badge.is-draft {
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.phase-badge.is-review {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+.phase-badge.is-execution {
+  background: var(--warning-soft);
+  border: 1px solid var(--warn);
+  color: var(--warn);
+}
+
+.phase-badge.is-report {
+  background: var(--ok-soft);
+  border: 1px solid var(--ok);
+  color: var(--ok);
+}
+
+.phase-badge.is-publish {
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  color: var(--accent-ink);
+}
+
+/* a-tabs 对齐效果图：13px/500、active accent 600 + 2px 底边、item padding 12px 14px */
+.plan-detail .ant-tabs .ant-tabs-tab {
+  margin: 0;
+  padding: 12px 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.plan-detail .ant-tabs .ant-tabs-tab + .ant-tabs-tab {
+  margin-left: 4px;
+}
+
+.plan-detail .ant-tabs .ant-tabs-tab:hover {
+  color: var(--ink);
+}
+
+.plan-detail .ant-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.plan-detail .ant-tabs .ant-tabs-tab-btn:active {
+  color: var(--accent);
+}
+
+.plan-detail .ant-tabs .ant-tabs-ink-bar {
+  height: 2px;
+  background: var(--accent);
+}

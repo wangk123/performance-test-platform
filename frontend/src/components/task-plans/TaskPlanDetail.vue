@@ -1,22 +1,32 @@
 <template>
   <section class="task-detail plan-detail">
-    <div class="page-head">
-      <div>
-        <h1>{{ doc.plan.value?.name ?? plan.name }}</h1>
-        <p>
-          {{ plan.scenarioCount }} 个场景 · 负责人 {{ plan.createdBy }} ·
-          文档 revision {{ doc.plan.value?.revision ?? plan.revision }}
-        </p>
+    <div class="plan-head-card">
+      <div class="page-head">
+        <div class="plan-head-info">
+          <h1 class="plan-head-title">
+            {{ doc.plan.value?.name ?? plan.name }}
+            <span class="phase-badge" :class="phaseBadgeClass">
+              <span v-if="isRunning" class="dot" />
+              {{ phaseText }} · {{ statusText }}
+            </span>
+          </h1>
+          <p class="plan-head-meta">
+            <span>负责人 <b>{{ plan.createdBy }}</b></span>
+            <span>场景 <b>{{ scenarios.length }}</b></span>
+            <span>文档 <b class="mono">revision {{ doc.plan.value?.revision ?? plan.revision }}</b></span>
+            <span>更新于 <b>{{ formatDate(doc.plan.value?.updatedAt ?? plan.updatedAt) }}</b></span>
+          </p>
+        </div>
+        <div class="script-assets-actions">
+          <a-button v-if="can('EDIT')" @click="openPlanConfig">编辑默认配置</a-button>
+          <a-button v-if="can('SUBMIT')" type="primary" @click="submitForReview">提交评审</a-button>
+          <a-button v-if="can('WITHDRAW')" @click="doc.transition('withdraw', undefined, '已撤回')">撤回</a-button>
+          <a-button v-if="can('BACK_TO_DRAFT')" @click="doc.transition('back-to-draft', undefined, '已退回草稿')">退回草稿</a-button>
+        </div>
       </div>
-      <div class="script-assets-actions">
-        <a-button v-if="can('EDIT')" @click="openPlanConfig">编辑默认配置</a-button>
-        <a-button v-if="can('SUBMIT')" type="primary" @click="submitForReview">提交评审</a-button>
-        <a-button v-if="can('WITHDRAW')" @click="doc.transition('withdraw', undefined, '已撤回')">撤回</a-button>
-        <a-button v-if="can('BACK_TO_DRAFT')" @click="doc.transition('back-to-draft', undefined, '已退回草稿')">退回草稿</a-button>
-      </div>
-    </div>
 
-    <PlanPhaseStepper :phase="doc.plan.value?.phase ?? 'DRAFT'" :status="doc.plan.value?.status ?? 'DRAFT'" />
+      <PlanPhaseStepper :phase="doc.plan.value?.phase ?? 'DRAFT'" :status="doc.plan.value?.status ?? 'DRAFT'" />
+    </div>
 
     <a-tabs v-model:active-key="activeTab">
       <a-tab-pane key="document" tab="文档">
@@ -46,10 +56,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import type { TaskPlan, TaskScenario } from '../../types';
-import { usePlanDoc } from '../../composables/usePlanDoc';
+import { usePlanDoc, statusLabel } from '../../composables/usePlanDoc';
+import { formatDate } from '../../utils/format';
 import PlanPhaseStepper from './PlanPhaseStepper.vue';
 import PlanDetailDocument from './PlanDetailDocument.vue';
 import PlanDetailReview from './PlanDetailReview.vue';
@@ -66,6 +77,17 @@ const activeTab = ref('document');
 const planDialogVisible = ref(false);
 const scenarioDialogVisible = ref(false);
 const editingScenario = ref<TaskScenario | null>(null);
+
+const PHASE_TEXT: Record<string, string> = {
+  DRAFT: '草稿', REVIEW: '评审', EXECUTION: '执行', REPORT: '报告', PUBLISH: '发布',
+};
+
+const phase = computed(() => doc.plan.value?.phase ?? 'DRAFT');
+const status = computed(() => doc.plan.value?.status ?? 'DRAFT');
+const phaseText = computed(() => PHASE_TEXT[phase.value] ?? phase.value);
+const statusText = computed(() => statusLabel(phase.value, status.value));
+const isRunning = computed(() => phase.value === 'EXECUTION' && status.value === 'RUNNING');
+const phaseBadgeClass = computed(() => `is-${phase.value.toLowerCase()}`);
 
 onMounted(() => void doc.load(props.plan.id));
 watch(() => props.plan.id, (id) => void doc.load(id));
