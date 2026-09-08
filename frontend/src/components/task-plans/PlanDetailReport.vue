@@ -39,7 +39,9 @@
     </template>
 
     <h3>结论章节预览</h3>
-    <MdPreview :model-value="conclusion ?? '（暂无结论章节）'" language="zh-CN" />
+    <div class="doc-section report-conclusion">
+      <MdPreview class="plan-md" :model-value="conclusion ?? '（暂无结论章节）'" :theme="mdTheme" language="zh-CN" />
+    </div>
 
     <h3>场景执行概览</h3>
     <a-table
@@ -59,6 +61,7 @@ import { useRouter } from 'vue-router';
 import { MdPreview } from 'md-editor-v3';
 import 'md-editor-v3/lib/style.css';
 import type { PlanVerdict, PlanVerdictRow, TaskScenario } from '../../types';
+import { useTheme } from '../../composables/useTheme';
 import { getPlanVerdictApi } from '../../api/plan-doc';
 import { extractSection, parseExecutionRecords } from '../../utils/plan-markdown';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
@@ -66,6 +69,8 @@ import type { usePlanDoc } from '../../composables/usePlanDoc';
 const props = defineProps<{ doc: ReturnType<typeof usePlanDoc>; scenarios: TaskScenario[] }>();
 
 const router = useRouter();
+const { themeMode } = useTheme();
+const mdTheme = computed(() => (themeMode.value === 'dark' ? 'dark' : 'light'));
 const generating = ref(false);
 const verdict = ref<PlanVerdict | null>(null);
 

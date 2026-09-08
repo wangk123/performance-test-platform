@@ -14,7 +14,13 @@
         <span v-else class="scenario-latest none">未执行</span>
       </div>
       <p class="scenario-purpose">目的：{{ block.purpose || '（待填写）' }}</p>
-      <MdPreview v-if="block.settings" class="scenario-settings" :model-value="block.settings" language="zh-CN" />
+      <MdPreview
+        v-if="block.settings"
+        class="scenario-settings plan-md"
+        :model-value="block.settings"
+        :theme="mdTheme"
+        language="zh-CN"
+      />
       <div class="scenario-actions">
         <a-button size="small" @click="requestEdit(block.name)" :disabled="!scenarioOf(block.name)">编辑</a-button>
         <a-button
@@ -45,6 +51,7 @@ import 'md-editor-v3/lib/style.css';
 import { useRouter } from 'vue-router';
 import type { TaskPlan, TaskScenario } from '../../types';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
+import { useTheme } from '../../composables/useTheme';
 import { parseScenarioBlocks } from '../../utils/plan-markdown';
 import { bindScenarioScriptApi, precheckSkipApi } from '../../api/plan-doc';
 import { triggerExecutionApi } from '../../api/task-plans';
@@ -53,6 +60,8 @@ const props = defineProps<{ docPlan: ReturnType<typeof usePlanDoc>; plan: TaskPl
 const emit = defineEmits<{ (e: 'changed'): void; (e: 'request-add'): void; (e: 'request-edit', scenario: TaskScenario): void }>();
 
 const router = useRouter();
+const { themeMode } = useTheme();
+const mdTheme = computed(() => (themeMode.value === 'dark' ? 'dark' : 'light'));
 const blocks = computed(() => parseScenarioBlocks(props.plan.body));
 
 const canEditScenario = computed(() => {

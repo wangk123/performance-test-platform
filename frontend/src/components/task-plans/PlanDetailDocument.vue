@@ -1,35 +1,73 @@
 <template>
   <section class="plan-document">
     <div class="doc-toolbar">
-      <a-segmented v-model:value="viewMode" :options="['Pretty', 'Markdown']" />
+      <div class="segmented" role="tablist" aria-label="文档视图切换">
+        <button
+          v-for="mode in (['Pretty', 'Markdown'] as const)"
+          :key="mode"
+          type="button"
+          role="tab"
+          class="segmented-item"
+          :class="{ active: viewMode === mode }"
+          :aria-selected="viewMode === mode"
+          @click="viewMode = mode"
+        >{{ mode }}</button>
+      </div>
       <div class="doc-toolbar-right">
-        <a-button v-if="viewMode === 'Markdown' && canEdit" type="primary" @click="startEdit">
-          {{ editing ? '保存' : '编辑' }}
-        </a-button>
-        <a-button v-if="viewMode === 'Markdown' && editing" @click="cancelEdit">取消</a-button>
-        <a-button @click="precheckDrawerOpen = true">执行设置（环境检查）</a-button>
+        <span class="doc-rev">revision {{ plan.revision }}</span>
+        <a-button v-if="viewMode === 'Markdown' && canEdit && !editing" size="small" type="primary" @click="beginEdit">编辑</a-button>
+        <template v-if="viewMode === 'Markdown' && editing">
+          <a-button size="small" @click="cancelEdit">取消</a-button>
+          <a-button size="small" type="primary" :disabled="!dirty" @click="saveEdit">保存</a-button>
+        </template>
+        <a-button size="small" @click="precheckDrawerOpen = true">执行设置（环境检查）</a-button>
       </div>
     </div>
 
     <div class="doc-body">
-      <aside class="doc-toc">
+      <nav class="doc-toc" aria-label="章节导航">
         <h4>章节导航</h4>
         <a
           v-for="section in sections"
           :key="section.title"
           class="toc-item"
-          :class="{ constrained: CONSTRAINED.includes(section.title) }"
-          @click="scrollTo(section.line)"
-        >{{ section.title }}</a>
-      </aside>
+          :class="{ current: currentSection === section.title }"
+          :aria-current="currentSection === section.title ? 'true' : undefined"
+          @click="jumpTo(section.title)"
+        >
+          {{ section.title }}
+          <span class="toc-tag">{{ isConstrained(section.title) ? '受控' : '叙述' }}</span>
+        </a>
+      </nav>
 
-      <div ref="docMainRef" class="doc-main">
+      <div ref="docMainRef" class="doc-main" @scroll="onDocScroll">
         <template v-if="viewMode === 'Pretty'">
-          <div v-for="section in prettySections" :key="section.title" class="panel pretty-section" :data-section="section.title">
-            <div class="pretty-section-head">
-              <h3>{{ section.title }}</h3>
-              <a-button v-if="canEdit" size="small" @click="openSectionEditor(section.title)">编辑章节</a-button>
+          <div class="doc-title-block">
+            <h1 class="doc-title">{{ plan.name }}</h1>
+            <div class="doc-title-meta">
+              <span>负责人 <b>{{ plan.createdBy }}</b></span>
+              <span>文档 <b class="mono">revision {{ plan.revision }}</b></span>
+              <span>场景 <b>{{ scenarios.length }}</b></span>
+              <span>更新于 <b>{{ formatDate(plan.updatedAt) }}</b></span>
             </div>
+          </div>
+          <section
+            v-for="section in sections"
+            :key="section.title"
+            class="doc-section"
+            :data-section="section.title"
+          >
+            <header class="doc-section-head">
+              <h2>{{ section.title }}</h2>
+              <span v-if="isConstrained(section.title)" class="doc-chip">受控</span>
+              <a-button
+                v-if="canEdit"
+                class="doc-section-edit"
+                size="small"
+                type="text"
+                @click="openSectionEditor(section.title)"
+              >编辑章节</a-button>
+            </header>
             <ChecklistView
               v-if="section.title === '五、测试约束'"
               :content="section.content"
@@ -45,14 +83,35 @@
               @request-add="emit('request-add')"
               @request-edit="(scenario) => emit('request-edit', scenario)"
             />
-            <MdPreview v-else :model-value="section.content || '（空）'" language="zh-CN" />
-          </div>
-          <p class="pretty-hint">叙述章节（背景/策略/风险/附录/结论）请切换到 Markdown 视图查看。</p>
+            <MdPreview
+              v-else
+              class="plan-md"
+              :model-value="section.content || '（本章暂无内容）'"
+              :theme="mdTheme"
+              :md-heading-id="headingId"
+              language="zh-CN"
+            />
+          </section>
         </template>
 
         <template v-else>
-          <MdPreview v-if="!editing" :model-value="plan.body ?? ''" language="zh-CN" />
-          <MdEditor v-else v-model="editDraft" :style="{ height: '560px' }" language="zh-CN" />
+          <div v-if="!editing" class="doc-section doc-md-wrap">
+            <MdPreview
+              class="plan-md"
+              :model-value="plan.body ?? ''"
+              :theme="mdTheme"
+              :md-heading-id="headingId"
+              language="zh-CN"
+            />
+          </div>
+          <MdEditor
+            v-else
+            v-model="editDraft"
+            class="plan-md plan-md-editor"
+            :theme="mdTheme"
+            :style="{ height: '100%', minHeight: '420px' }"
+            language="zh-CN"
+          />
         </template>
       </div>
     </div>
@@ -88,12 +147,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { message } from 'ant-design-vue';
+import { computed, nextTick, ref, watch } from 'vue';
+import { message, Modal } from 'ant-design-vue';
 import { MdEditor, MdPreview } from 'md-editor-v3';
 import 'md-editor-v3/lib/style.css';
 import type { TaskPlan, TaskScenario } from '../../types';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
+import { useTheme } from '../../composables/useTheme';
+import { formatDate } from '../../utils/format';
 import { extractSection, replaceSection, splitSections, toggleChecklistItem } from '../../utils/plan-markdown';
 import { updatePrecheckSettingsApi } from '../../api/plan-doc';
 import PlanConflictDialog from './PlanConflictDialog.vue';
@@ -110,6 +171,9 @@ const emit = defineEmits<{
 
 const CONSTRAINED = ['二、测试目的与指标', '三、测试范围', '四、测试资源', '五、测试约束', '七、场景设计', '九、排期与协作'];
 
+const { themeMode } = useTheme();
+const mdTheme = computed(() => (themeMode.value === 'dark' ? 'dark' : 'light'));
+
 const viewMode = ref<'Pretty' | 'Markdown'>('Pretty');
 const editing = ref(false);
 const editDraft = ref('');
@@ -123,12 +187,28 @@ const precheck = ref<{ enabled: boolean; items: string[] }>({ enabled: false, it
 const precheckItemsText = ref('');
 
 const sections = computed(() => splitSections(props.plan.body));
-const prettySections = computed(() => sections.value.filter((s) => CONSTRAINED.includes(s.title)));
 const canEdit = computed(() => Boolean(props.doc.permissions.value.EDIT));
 const canPrecheck = computed(() => Boolean(props.doc.permissions.value.PRECHECK_RUN));
 const docMainRef = ref<HTMLElement | null>(null);
+const currentSection = ref('');
+const dirty = computed(() => editing.value && editDraft.value !== (props.plan.body ?? ''));
+
+/** md-editor-v3 h2 锚点：encodeURIComponent 保证中文标题可直接 getElementById。 */
+const ANCHOR_PREFIX = 'plan-mdh-';
+const headingId = (options: { text: string }) => ANCHOR_PREFIX + encodeURIComponent(options.text.trim());
+function anchorDomId(title: string) {
+  return ANCHOR_PREFIX + encodeURIComponent(title.trim());
+}
+
+function isConstrained(title: string) {
+  return CONSTRAINED.includes(title);
+}
 
 watch(() => props.plan.precheckJson, parsePrecheck, { immediate: true });
+
+watch([viewMode, () => props.plan.body, editing], () => {
+  void nextTick(updateCurrentSection);
+});
 
 function parsePrecheck() {
   try {
@@ -152,18 +232,32 @@ async function savePrecheck() {
   }
 }
 
-function startEdit() {
-  if (editing.value) {
-    void submitWholeDocument(editDraft.value);
-  } else {
-    editDraft.value = props.plan.body ?? '';
-    editing.value = true;
-  }
+function beginEdit() {
+  editDraft.value = props.plan.body ?? '';
+  editing.value = true;
 }
 
 function cancelEdit() {
+  if (dirty.value) {
+    Modal.confirm({
+      title: '放弃未保存的修改？',
+      content: '本地草稿尚未保存，取消后修改将丢失。',
+      okText: '放弃修改',
+      okType: 'danger',
+      cancelText: '继续编辑',
+      onOk: () => {
+        editing.value = false;
+        editDraft.value = '';
+      },
+    });
+    return;
+  }
   editing.value = false;
   editDraft.value = '';
+}
+
+function saveEdit() {
+  void submitWholeDocument(editDraft.value);
 }
 
 async function submitWholeDocument(markdown: string): Promise<void> {
@@ -215,25 +309,66 @@ async function toggleChecklist(content: string, index: number) {
   await submitWholeDocument(body);
 }
 
-function scrollTo(line: number) {
-  const all = splitSections(props.plan.body);
-  const target = all.find((s) => s.line === line);
-  if (!target) return;
-  const el = docMainRef.value?.querySelector(`[data-section="${target.title}"]`);
+/* ---------- TOC 跳转与 scrollspy（相对 .doc-main 唯一滚动容器定位） ---------- */
+
+function jumpTo(title: string) {
   const main = docMainRef.value;
-  // 相对 .doc-main（唯一滚动容器）定位，不触碰外层页面滚动
-  if (el && main) {
-    main.scrollTo({
-      top: main.scrollTop + el.getBoundingClientRect().top - main.getBoundingClientRect().top - 8,
-      behavior: 'smooth',
-    });
+  if (!main) return;
+  let el: HTMLElement | null = null;
+  if (viewMode.value === 'Pretty') {
+    el = main.querySelector(`[data-section="${title}"]`);
+  } else if (!editing.value) {
+    el = document.getElementById(anchorDomId(title));
   }
+  if (!el || !main.contains(el)) return;
+  main.scrollTo({
+    top: main.scrollTop + el.getBoundingClientRect().top - main.getBoundingClientRect().top - 8,
+    behavior: 'smooth',
+  });
+  currentSection.value = title;
+}
+
+let scrollRaf: number | null = null;
+function onDocScroll() {
+  if (scrollRaf !== null) return;
+  scrollRaf = window.requestAnimationFrame(() => {
+    scrollRaf = null;
+    updateCurrentSection();
+  });
+}
+
+function anchorElements(): { el: HTMLElement; title: string }[] {
+  const main = docMainRef.value;
+  if (!main) return [];
+  if (viewMode.value === 'Pretty') {
+    return [...main.querySelectorAll<HTMLElement>('[data-section]')].map((el) => ({
+      el,
+      title: el.dataset.section ?? '',
+    }));
+  }
+  if (!editing.value) {
+    return [...main.querySelectorAll<HTMLElement>('.md-editor-preview h2')]
+      .filter((el) => el.id.startsWith(ANCHOR_PREFIX))
+      .map((el) => ({ el, title: decodeURIComponent(el.id.slice(ANCHOR_PREFIX.length)) }));
+  }
+  return [];
+}
+
+function updateCurrentSection() {
+  const main = docMainRef.value;
+  if (!main) return;
+  const anchors = anchorElements();
+  if (!anchors.length) return;
+  const mainTop = main.getBoundingClientRect().top;
+  let current = anchors[0].title;
+  for (const anchor of anchors) {
+    if (anchor.el.getBoundingClientRect().top - mainTop <= 96) current = anchor.title;
+    else break;
+  }
+  currentSection.value = current;
 }
 </script>
 
 <style scoped>
-/* 骨架与滚动布局见全局 plan-module.css（.plan-document/.doc-body/.doc-toc/.doc-main） */
-.pretty-section { margin-bottom: 12px; }
-.pretty-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.pretty-hint { color: var(--muted); font-size: 12px; }
+/* 骨架与滚动布局见全局 plan-module.css；组件内仅留结构钩子 */
 </style>
