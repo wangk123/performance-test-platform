@@ -1,6 +1,6 @@
 <template>
   <a-modal v-model:open="visible" :title="editingPlan ? '编辑任务计划' : '新建任务计划'" width="640px" destroy-on-close>
-    <a-form layout="vertical">
+    <a-form class="plan-dialog-form" layout="vertical">
       <a-form-item v-if="!editingPlan" label="计划模板">
         <a-select v-model:value="templateId" placeholder="通用压测计划（默认）" allow-clear>
           <a-option v-for="template in templates" :key="template.id" :value="template.id">

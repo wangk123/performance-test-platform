@@ -25,7 +25,7 @@
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
-            <span class="status" :class="statusClass(record.status)">{{ executionStatusText(toUiStatus(record.status)) }}</span>
+            <span class="status-pill" :class="statusClass(record.status)">{{ executionStatusText(toUiStatus(record.status)) }}</span>
           </template>
           <template v-else-if="column.key === 'startedAt'">{{ record.startedAt ? formatDate(record.startedAt) : formatDate(record.createdAt) }}</template>
           <template v-else-if="column.key === 'duration'">{{ record.durationMs ? `${Math.round(record.durationMs / 1000)}s` : '-' }}</template>

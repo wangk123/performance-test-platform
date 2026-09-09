@@ -252,3 +252,38 @@
 ### 2026-09-08（P0-4 终审补充）
 
 双轴终审（Standards/Spec）+ 修复波（a2e3be9）：MIGRATION_TABLES 注释与 README 措辞诚实化（字母序、V1 无外键故顺序无关、V2+ 引入 FK 须人工保序）并新增 `DataMigrationRunnerTableListTest` drift-guard（V1 表集合 == 迁移清单，集合一致性机械化）；主 yml 补 Hikari 适度参数（10/2/10s/30min，spec §3 字面项）。终审其余发现记 P2 遗留：55 处测试内联属性块可退役、test yml 共享库 DB_CLOSE_DELAY 观察项、datamigration 测试样板重复、StartupMigration 中间人、迁移报错行号以"已拷贝 N 行"近似。最终口径：`:backend:test` 455/455（120+1 套件）、`testMysql` 2/2（远程 Docker）、默认配置直连 216 启动+冒烟通过。
+
+## 2026-09-08（计划模块 UI 样式优化改造 · feature/plan-module-ui-restyle）
+
+已完成：
+
+1. 按 `docs/superpowers/plans/2026-09-08-plan-module-ui-restyle.md` 六批次原样执行：A 骨架滚动（`.plan-detail` 修饰类自占满高、`.content:has(.plan-detail)` 关滚动、`.doc-main` 唯一文档滚动容器）；B 排版统一（全局 `.plan-md` 预设、Pretty 全文档阅读视图、doc-toolbar 卡片化+segmented、TOC current 态+scrollspy）；C 页头/步骤条/Tabs（`plan-head-card`、PlanPhaseStepper 24px 节点+连线+三态 pill+`aria-current="step"`、a-tabs 13px/500 覆盖）；D 结构化卡片（场景卡、`parseChecklistGroups` 仅新增、分组清单、`.plan-empty`）；E 评审/报告/发布/冲突屏重设计 + `window.prompt/confirm` 清零（BindScriptDialog 下拉+手输兜底、驳回 a-modal、跳过预检 Modal.confirm）；F 列表 badge 家族/筛选行/响应式断点（≤1280 TOC 180、≤1100 单列横向 chips）。
+2. 运行时冒烟全链路（真实栈：复用 8080 后端 + vite dev，详见 `docs/superpowers/plans/2026-09-08-plan-module-ui-restyle-review.md`）：新建计划→整篇/章节编辑保存→冲突三选一（服务端并发 rev 构造 409→采纳本地版）→TOC 双模式跳转（公式落点 8px 精确）→提交评审→批注→通过→关联脚本 #18→执行 #183 SUCCESS→报告 verdict（无法判定态）→发布→分享创建/复制降级提示/撤销→分享只读页；12 张截图归档 `docs/superpowers/screenshots/2026-09-08-plan-ui-restyle/`。
+3. 冒烟实测修复三处：scrollspy watch `immediate`（初始 TOC 高亮缺失）、TaskPlanDetail 变更后重载场景列表（绑定徽标滞留）、执行状态文案中文映射（原恒等直出枚举）。
+4. ui-ux-pro-max 三轮 review（记录文档同目录 `-review.md`）：R1 设计系统（token 派生 `--plan-{accent,ok,warn,danger}-text` color-mix 配比数值验证双主题全过 4.5:1、phase-badge 圆点化）；R2 交互（toc 链接键盘可达、标题层级、reduced-motion、doc-main region、segmented 方向键）；R3 视觉还原（§3.2 显式数值优先回退 R1 阶梯化误改，逐项核对一致）。
+5. code-review 双轴终审：修复 Spec 轴 P0（R1 `:root` 块插入切进头注释致批次 A 滚动规则被吞——PostCSS 复核恢复）、md-editor 覆盖收敛 `.plan-md` 家族、批次 F 两弹窗紧凑栅格补位；Standards 轴四条硬约束全过，判断性气味记录于 review 文档不处理。
+
+提交（8 个）：
+
+1. `157c319` feat：批次A 骨架与滚动
+2. `aad3bf5` feat：批次B 排版统一
+3. `9705d33` feat：批次C 页头/步骤条/Tabs
+4. `b37b6ff` feat：批次D 结构化卡片
+5. `61ac42c` feat：批次E 评审/报告/发布/冲突屏
+6. `0503223` feat：批次F 收尾
+7. `ebbe5b4` fix：冒烟实测三处修复 + 12 截图归档
+8. `bd6b6c4` fix：三轮 review 修复 + review 记录文档
+9. （终审修复 commit 见下）
+
+验证：
+
+1. 每批次 + 每轮 review 后 `npm run build`（vue-tsc + vite）真实执行全绿（最终 8.06s）。
+2. 运行时冒烟在真实栈完成（上表清单）；无头 IAB 环境限制（rAF 挂起/剪贴板/ant-select 弹层）以等价驱动方式验证并在 review 文档标注。
+3. 终审 P0 修复后 PostCSS 解析复核 `.content:has(.plan-detail)` 规则独立存在，浏览器实测 `.content` overflow:hidden + `.doc-main` 可滚动。
+4. 硬约束自查：plan-markdown.ts 仅新增、usePlanDoc.ts 零改动、package.json 零改动、后端零改动、裸 hex 零违规。
+
+遗留（P2/P3，记录不处理）：
+
+1. 结论达成表（backfill:verdict）虚线强调为计划标注"可选增强"，未实施。
+2. 状态→pill 类映射三形、`.status-pill`/`.sc-status-pill` 双家族、`latestStatusText` 与 `executionStatusText` 词表分叉、checkbox 行解析第三处重复（受"不修改既有函数"约束）。
+3. BindScriptDialog 下拉选择路径在无头环境无法展开验证（手输兜底路径已实测），真实浏览器待人工复核。
