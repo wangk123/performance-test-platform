@@ -27,13 +27,13 @@ public class CollectEvidenceTool implements McpTool {
 
     @Override
     public String title() {
-        return "Collect Evidence";
+        return "收集证据";
     }
 
     @Override
     public String description() {
-        return "Drill down an execution's evidence chain (base sources plus deep sources like db-metrics, "
-                + "trace, app-log) by time window and optional traceId. Every source declares availability.";
+        return "按时间窗与可选 traceId 下钻执行的证据链（基础源 + db-metrics、trace、app-log 等深度源），"
+                + "每个数据源显式声明可用性。";
     }
 
     @Override
@@ -49,7 +49,7 @@ public class CollectEvidenceTool implements McpTool {
     @Override
     public Map<String, Object> inputSchema() {
         return AnalyzeExecutionTool.schema(
-                "evidence drill-down",
+                "证据下钻",
                 Map.of(
                         "executionId", Map.of("type", "integer"),
                         "from", Map.of("type", "string"),

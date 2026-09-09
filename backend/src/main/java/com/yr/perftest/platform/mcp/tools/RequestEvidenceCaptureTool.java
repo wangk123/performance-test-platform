@@ -27,13 +27,13 @@ public class RequestEvidenceCaptureTool implements McpTool {
 
     @Override
     public String title() {
-        return "Request Evidence Capture";
+        return "申请补充取证";
     }
 
     @Override
     public String description() {
-        return "Request supplementary evidence capture for a finished execution. Declares purpose, impact level "
-                + "and cost note; a human must approve before the bounded snapshot is collected.";
+        return "为已结束的执行申请补充取证：声明目的、影响级别与成本说明；"
+                + "经人工审批后才会采集有界快照。";
     }
 
     @Override
@@ -49,12 +49,12 @@ public class RequestEvidenceCaptureTool implements McpTool {
     @Override
     public Map<String, Object> inputSchema() {
         return AnalyzeExecutionTool.schema(
-                "evidence capture request",
+                "补充取证申请",
                 Map.of(
                         "executionId", Map.of("type", "integer"),
-                        "purpose", Map.of("type", "string", "description", "why this capture is needed"),
-                        "impactLevel", Map.of("type", "string", "description", "NONE / LOW / MEDIUM / HIGH"),
-                        "costNote", Map.of("type", "string", "description", "required unless impact is NONE")
+                        "purpose", Map.of("type", "string", "description", "本次取证的目的"),
+                        "impactLevel", Map.of("type", "string", "description", "影响级别：NONE / LOW / MEDIUM / HIGH"),
+                        "costNote", Map.of("type", "string", "description", "成本说明；impact 为 NONE 时可省略")
                 ),
                 List.of("executionId", "purpose")
         );

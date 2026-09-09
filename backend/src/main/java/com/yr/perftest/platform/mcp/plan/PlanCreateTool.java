@@ -33,14 +33,13 @@ public class PlanCreateTool implements McpTool {
 
     @Override
     public String title() {
-        return "Create Test Plan";
+        return "创建测试计划";
     }
 
     @Override
     public String description() {
-        return "Create a draft performance test plan. Pass the locally rendered full markdown as "
-                + "initial document (revision stays 1); without markdown a visible template renders it. "
-                + "Review and transitions happen on the platform, not via MCP.";
+        return "创建性能测试计划草稿：传入本地渲染的完整 Markdown 作为初始文档（revision 保持为 1）；"
+                + "未传 markdown 时由对该项目可见的模板渲染生成。评审与阶段流转在平台内完成，不经 MCP。";
     }
 
     @Override
@@ -56,13 +55,13 @@ public class PlanCreateTool implements McpTool {
     @Override
     public Map<String, Object> inputSchema() {
         Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put("projectId", Map.of("type", "integer", "description", "owning project id"));
-        properties.put("title", Map.of("type", "string", "description", "plan title, e.g. 电商核心链路容量验证"));
+        properties.put("projectId", Map.of("type", "integer", "description", "所属项目 id"));
+        properties.put("title", Map.of("type", "string", "description", "计划标题，如：电商核心链路容量验证"));
         properties.put("markdown", Map.of("type", "string",
-                "description", "full plan markdown rendered locally (11 canonical sections preferred)"));
+                "description", "本地渲染的完整计划 Markdown（建议 11 个规范章节）"));
         properties.put("templateId", Map.of("type", "integer",
-                "description", "source template id used when markdown is omitted (must be visible to the project)"));
-        properties.put("remark", Map.of("type", "string", "description", "optional remark"));
+                "description", "markdown 缺省时使用的模板 id（须对该项目可见）"));
+        properties.put("remark", Map.of("type", "string", "description", "可选备注"));
         return Map.of(
                 "type", "object",
                 "properties", properties,

@@ -29,13 +29,12 @@ public class AnalyzeExecutionTool implements McpTool {
 
     @Override
     public String title() {
-        return "Analyze Execution";
+        return "分析执行";
     }
 
     @Override
     public String description() {
-        return "Run deterministic analysis on an execution: trend, anomaly intervals, error clustering and "
-                + "resource saturation. Facts only, no root-cause claims.";
+        return "对执行运行确定性分析：趋势、异常区间、错误聚类与资源饱和。只输出事实，不作根因结论。";
     }
 
     @Override
@@ -54,11 +53,11 @@ public class AnalyzeExecutionTool implements McpTool {
                 "type", "object",
                 "properties", Map.of(
                         "executionId", Map.of("type", "integer"),
-                        "from", Map.of("type", "string", "description", "ISO-8601 start time"),
-                        "to", Map.of("type", "string", "description", "ISO-8601 end time"),
+                        "from", Map.of("type", "string", "description", "起始时间（ISO-8601）"),
+                        "to", Map.of("type", "string", "description", "结束时间（ISO-8601）"),
                         "kinds", Map.of("type", "array",
                                 "items", Map.of("type", "string"),
-                                "description", "trend / anomaly / error-cluster / resource-saturation")
+                                "description", "分析类型：trend / anomaly / error-cluster / resource-saturation")
                 ),
                 "required", List.of("executionId")
         );

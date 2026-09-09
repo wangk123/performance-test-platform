@@ -29,14 +29,14 @@ public class PlanUpdateTool implements McpTool {
 
     @Override
     public String title() {
-        return "Update Test Plan";
+        return "更新测试计划";
     }
 
     @Override
     public String description() {
-        return "Update a plan's full markdown with optimistic concurrency: pass the revision from plan_get "
-                + "as baseRevision. On conflict the error carries currentRevision and serverMarkdown in "
-                + "details; resolve by one of keep-platform / adopt-local / merge-then-resubmit.";
+        return "以乐观并发更新计划全文：把 plan_get 返回的 revision 作为 baseRevision 传入。"
+                + "冲突时错误 details 携带 currentRevision 与 serverMarkdown，"
+                + "按保留平台版 / 采纳本地版 / 合并后重提三者择一解决。";
     }
 
     @Override
@@ -52,10 +52,10 @@ public class PlanUpdateTool implements McpTool {
     @Override
     public Map<String, Object> inputSchema() {
         Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put("planId", Map.of("type", "integer", "description", "plan id"));
-        properties.put("markdown", Map.of("type", "string", "description", "updated full plan markdown"));
+        properties.put("planId", Map.of("type", "integer", "description", "计划 id"));
+        properties.put("markdown", Map.of("type", "string", "description", "更新后的完整计划 Markdown"));
         properties.put("baseRevision", Map.of("type", "integer",
-                "description", "revision the update is based on (from plan_get)"));
+                "description", "本次更新基于的 revision（来自 plan_get）"));
         return Map.of(
                 "type", "object",
                 "properties", properties,

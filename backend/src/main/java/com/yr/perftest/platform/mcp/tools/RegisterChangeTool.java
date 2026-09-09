@@ -27,12 +27,12 @@ public class RegisterChangeTool implements McpTool {
 
     @Override
     public String title() {
-        return "Register Change";
+        return "登记变更";
     }
 
     @Override
     public String description() {
-        return "Register a code or config change reference (e.g. commit hash) before verifying an optimization.";
+        return "在验证优化前登记代码或配置变更引用（如 commit hash）。";
     }
 
     @Override
@@ -48,10 +48,10 @@ public class RegisterChangeTool implements McpTool {
     @Override
     public Map<String, Object> inputSchema() {
         return AnalyzeExecutionTool.schema(
-                "change record",
+                "变更登记",
                 Map.of(
-                        "changeType", Map.of("type", "string", "description", "CODE or CONFIG"),
-                        "changeRef", Map.of("type", "string", "description", "commit hash or config key"),
+                        "changeType", Map.of("type", "string", "description", "CODE 或 CONFIG"),
+                        "changeRef", Map.of("type", "string", "description", "commit hash 或配置键"),
                         "description", Map.of("type", "string")
                 ),
                 List.of("changeType", "changeRef")

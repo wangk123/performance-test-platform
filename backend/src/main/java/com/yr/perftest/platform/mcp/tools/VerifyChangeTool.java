@@ -26,13 +26,13 @@ public class VerifyChangeTool implements McpTool {
 
     @Override
     public String title() {
-        return "Verify Change";
+        return "验证变更";
     }
 
     @Override
     public String description() {
-        return "Verify an optimization: compare baseline vs candidate executions registered against a change "
-                + "record, output IMPROVED / REGRESSED / INCONCLUSIVE with guardrail checks.";
+        return "验证优化效果：对比同一变更记录下登记的基线与候选执行，带护栏检查，"
+                + "输出 IMPROVED / REGRESSED / INCONCLUSIVE。";
     }
 
     @Override
@@ -48,7 +48,7 @@ public class VerifyChangeTool implements McpTool {
     @Override
     public Map<String, Object> inputSchema() {
         return AnalyzeExecutionTool.schema(
-                "verification",
+                "优化验证",
                 Map.of(
                         "baselineExecutionId", Map.of("type", "integer"),
                         "candidateExecutionId", Map.of("type", "integer"),

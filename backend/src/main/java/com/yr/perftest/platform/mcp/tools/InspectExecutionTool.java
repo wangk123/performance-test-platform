@@ -28,12 +28,12 @@ public class InspectExecutionTool implements McpTool {
 
     @Override
     public String title() {
-        return "Inspect Execution";
+        return "查看执行";
     }
 
     @Override
     public String description() {
-        return "Inspect a load test execution: status timeline and result summary (samples, throughput, avg/p95, error rate).";
+        return "查看压测执行：状态时间线与结果摘要（样本数、吞吐量、avg/p95、错误率）。";
     }
 
     @Override
@@ -51,7 +51,7 @@ public class InspectExecutionTool implements McpTool {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
-                        "executionId", Map.of("type", "integer", "description", "execution id")
+                        "executionId", Map.of("type", "integer", "description", "执行 id")
                 ),
                 "required", java.util.List.of("executionId")
         );

@@ -28,13 +28,12 @@ public class PlanGetTool implements McpTool {
 
     @Override
     public String title() {
-        return "Get Test Plan";
+        return "读取测试计划";
     }
 
     @Override
     public String description() {
-        return "Read a performance test plan's full markdown document with phase/status and revision, "
-                + "for local display or continued editing.";
+        return "读取性能测试计划的完整 Markdown 文档，附带阶段/状态与 revision，用于本地展示或继续编辑。";
     }
 
     @Override
@@ -52,7 +51,7 @@ public class PlanGetTool implements McpTool {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
-                        "planId", Map.of("type", "integer", "description", "plan id")
+                        "planId", Map.of("type", "integer", "description", "计划 id")
                 ),
                 "required", List.of("planId")
         );

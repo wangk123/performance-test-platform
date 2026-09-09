@@ -34,13 +34,13 @@ public class PlanTemplatesTool implements McpTool {
 
     @Override
     public String title() {
-        return "List Plan Templates";
+        return "列出计划模板";
     }
 
     @Override
     public String description() {
-        return "List performance test plan templates (builtin plus project custom) with derived section "
-                + "structure and placeholders, for rendering a full plan draft locally.";
+        return "列出性能测试计划模板（内置 + 项目自定义），返回派生的章节结构与占位符，"
+                + "用于在本地渲染完整计划草稿。";
     }
 
     @Override
@@ -59,7 +59,7 @@ public class PlanTemplatesTool implements McpTool {
                 "type", "object",
                 "properties", Map.of(
                         "projectId", Map.of("type", "integer",
-                                "description", "project id; omit to list builtin templates only")
+                                "description", "项目 id；省略则仅列出内置模板")
                 )
         );
     }

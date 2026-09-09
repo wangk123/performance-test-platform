@@ -25,12 +25,12 @@ public class ListProjectsTool implements McpTool {
 
     @Override
     public String title() {
-        return "List Projects";
+        return "列出项目";
     }
 
     @Override
     public String description() {
-        return "List platform projects with owner and status. Use this first to navigate available test assets.";
+        return "列出平台项目及其负责人与状态。导航可用测试资产时请先调用本工具。";
     }
 
     @Override
@@ -48,7 +48,7 @@ public class ListProjectsTool implements McpTool {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
-                        "includeArchived", Map.of("type", "boolean", "description", "include archived projects")
+                        "includeArchived", Map.of("type", "boolean", "description", "是否包含已归档项目")
                 )
         );
     }

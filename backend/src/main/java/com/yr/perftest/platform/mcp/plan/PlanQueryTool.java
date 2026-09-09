@@ -32,13 +32,13 @@ public class PlanQueryTool implements McpTool {
 
     @Override
     public String title() {
-        return "Query Test Plans";
+        return "查询测试计划";
     }
 
     @Override
     public String description() {
-        return "Query performance test plans by project with optional phase filter (DRAFT/REVIEW/EXECUTION/"
-                + "REPORT/PUBLISH), case-insensitive title keyword and in-memory paging.";
+        return "按项目查询性能测试计划，支持可选阶段过滤（DRAFT/REVIEW/EXECUTION/REPORT/PUBLISH）、"
+                + "标题关键词（不区分大小写）与内存分页。";
     }
 
     @Override
@@ -54,12 +54,12 @@ public class PlanQueryTool implements McpTool {
     @Override
     public Map<String, Object> inputSchema() {
         Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put("projectId", Map.of("type", "integer", "description", "project id"));
+        properties.put("projectId", Map.of("type", "integer", "description", "项目 id"));
         properties.put("phase", Map.of("type", "string",
-                "description", "phase filter: DRAFT / REVIEW / EXECUTION / REPORT / PUBLISH (case-insensitive)"));
-        properties.put("keyword", Map.of("type", "string", "description", "title keyword, case-insensitive contains"));
-        properties.put("page", Map.of("type", "integer", "description", "1-based page, default 1"));
-        properties.put("pageSize", Map.of("type", "integer", "description", "page size 1-100, default 20"));
+                "description", "阶段过滤：DRAFT / REVIEW / EXECUTION / REPORT / PUBLISH（不区分大小写）"));
+        properties.put("keyword", Map.of("type", "string", "description", "标题关键词，不区分大小写的包含匹配"));
+        properties.put("page", Map.of("type", "integer", "description", "页码，从 1 起，默认 1"));
+        properties.put("pageSize", Map.of("type", "integer", "description", "每页条数 1-100，默认 20"));
         return Map.of(
                 "type", "object",
                 "properties", properties,

@@ -29,13 +29,13 @@ public class StartExecutionTool implements McpTool {
 
     @Override
     public String title() {
-        return "Start Execution";
+        return "启动执行";
     }
 
     @Override
     public String description() {
-        return "Precheck and start a load test execution for a scenario. Idempotent: repeated calls with the "
-                + "same idempotencyKey (or identical parameters) start the execution only once.";
+        return "对场景执行预检并启动压测。幂等：相同 idempotencyKey（或完全相同参数）的重复调用"
+                + "只会启动一次执行。";
     }
 
     @Override
@@ -51,7 +51,7 @@ public class StartExecutionTool implements McpTool {
     @Override
     public Map<String, Object> inputSchema() {
         return AnalyzeExecutionTool.schema(
-                "start execution",
+                "启动执行",
                 Map.of(
                         "scenarioId", Map.of("type", "integer"),
                         "executionName", Map.of("type", "string"),
