@@ -39,14 +39,14 @@ export function useBreadcrumb() {
     const segments: BreadcrumbSegment[] = [];
     const routeName = String(route.name ?? '');
 
-    // 首页：单段，不可点击
+    // 首页：单段，不可点击（图标由 TopBar 统一渲染）
     if (routeName === 'home') {
-      segments.push({ label: '🏠 首页' });
+      segments.push({ label: '首页' });
       return segments;
     }
 
-    // 首页图标段始终可点击
-    segments.push({ label: '🏠 首页', to: '/' });
+    // 首页段始终可点击
+    segments.push({ label: '首页', to: '/' });
 
     // 模型配置管理
     if (route.path.startsWith('/llm-config') || route.path.startsWith('/settings/llm')) {

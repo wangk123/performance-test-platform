@@ -7,8 +7,8 @@
           v-if="segment.to"
           class="crumb-seg"
           @click="navigateTo(segment.to)"
-        >{{ segment.label }}</a>
-        <span v-else class="crumb-seg crumb-current">{{ segment.label }}</span>
+        ><HomeOutlined v-if="index === 0" class="crumb-icon" />{{ segment.label }}</a>
+        <span v-else class="crumb-seg crumb-current"><HomeOutlined v-if="index === 0" class="crumb-icon" />{{ segment.label }}</span>
       </template>
     </nav>
     <div class="topbar-actions">
@@ -41,6 +41,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { HomeOutlined } from '@ant-design/icons-vue';
 import { useAuth } from '../../composables/useAuth';
 import { useRouter } from 'vue-router';
 import { useBreadcrumb } from '../../composables/useBreadcrumb';

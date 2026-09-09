@@ -24,7 +24,7 @@
 
 /* ---------------------------------------------------------------------
  * 批次 A · 页面骨架与滚动容器
- * .plan-detail 页自占满高：页头/步骤条/Tabs/工具条/TOC 固定，
+ * .plan-detail 页自占满高：页头（含紧凑步骤条）/Tabs 行（含文档工具条）/TOC 固定，
  * .doc-main 是唯一文档滚动容器；其余页面仍随 .content 滚动。
  * ------------------------------------------------------------------- */
 .content:has(.plan-detail) {
@@ -37,15 +37,6 @@
   flex-direction: column;
   gap: 12px;
   min-height: 0;
-}
-
-.plan-detail > .page-head {
-  flex: none;
-  margin-bottom: 0;
-}
-
-.plan-detail > .plan-phase-stepper {
-  flex: none;
 }
 
 /* a-tabs 撑满剩余高度（作用域限定 .plan-detail，不影响其它页面） */
@@ -136,31 +127,42 @@
   padding-right: 4px;
 }
 
-/* ★ 唯一文档滚动容器 */
+/* ★ 唯一文档滚动容器：自身即文档白卡（单容器，章节以发丝线分隔） */
 .plan-document .doc-main {
   min-height: 0;
   overflow-y: auto;
-  padding-right: 6px;
   scroll-behavior: smooth;
+  padding: 6px 24px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
 }
 
-.plan-document .doc-main > * {
+.plan-document .doc-main > *,
+.plan-document .doc-section {
   scroll-margin-top: 16px;
 }
 
 /* ---------------------------------------------------------------------
- * 批次 B · 文档工具条 / TOC / 阅读视图卡片 / .plan-md 排版预设
+ * 批次 B · 文档工具条（挂在 Tabs 行 rightExtra）/ TOC / 阅读视图 / .plan-md 排版预设
  * ------------------------------------------------------------------- */
 
-/* 工具条：白底卡片（segmented 胶囊 | rev 号 + 按钮组） */
-.plan-document .doc-toolbar {
-  padding: 8px 12px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+/* 工具条：视图切换 | rev 号 + 执行设置（位于 a-tabs-nav 右侧，样式见批次 C 行卡） */
+.plan-doc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.plan-document .segmented {
+.plan-doc-toolbar .doc-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.plan-detail .segmented {
   display: inline-flex;
   gap: 2px;
   padding: 3px;
@@ -168,7 +170,7 @@
   border-radius: 8px;
 }
 
-.plan-document .segmented-item {
+.plan-detail .segmented-item {
   border: 0;
   padding: 5px 16px;
   border-radius: 6px;
@@ -178,33 +180,33 @@
   cursor: pointer;
 }
 
-.plan-document .segmented-item:hover {
-  color: var(--accent);
+.plan-detail .segmented-item:hover {
+  color: var(--ink);
 }
 
-.plan-document .segmented-item.active {
+.plan-detail .segmented-item.active {
   background: var(--surface);
-  color: var(--accent);
+  color: var(--ink);
   font-weight: 600;
   box-shadow: 0 1px 2px rgba(26, 35, 50, 0.08);
 }
 
-:root[data-theme='dark'] .plan-document .segmented-item.active {
+:root[data-theme='dark'] .plan-detail .segmented-item.active {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
-.plan-document .doc-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.plan-document .doc-rev {
+/* revision 徽标：轻容器化，与按钮并排不显突兀 */
+.plan-detail .doc-rev {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-soft);
   color: var(--muted);
   font: 500 12px var(--font-data);
+  white-space: nowrap;
 }
 
-/* TOC：current 态 = accent 字 + 左边框 + soft 底 + 600 */
+/* TOC：current 态 = 墨色 600 + 墨色左条 + soft 底（强调色预算：accent 只留给主按钮/当前阶段/正文链） */
 .plan-document .doc-toc h4 {
   margin: 2px 0 8px;
   padding: 0 4px;
@@ -216,11 +218,14 @@
 
 .plan-document .toc-item {
   position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   margin-bottom: 1px;
-  padding: 5px 8px;
-  border-left: 2px solid transparent;
-  border-radius: 6px;
+  padding: 5px 8px 5px 9px;
+  border-left: 3px solid transparent;
+  border-radius: 0 6px 6px 0;
   color: var(--muted);
   font-size: 12.5px;
   text-decoration: none;
@@ -228,107 +233,94 @@
 }
 
 .plan-document .toc-item:hover {
-  color: var(--plan-accent-text);
-  background: var(--accent-soft);
+  color: var(--ink);
+  background: var(--surface-soft);
 }
 
 .plan-document .toc-item.current {
-  color: var(--plan-accent-text);
-  border-left-color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--ink);
+  border-left-color: var(--ink);
+  background: var(--surface-soft);
   font-weight: 600;
 }
 
-.plan-document .toc-tag {
-  float: right;
-  margin-top: 1px;
-  padding: 0 4px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.5;
+/* 受控章以 12px 灰锁提示（内容类型语义，不占用强调色） */
+.plan-document .toc-label {
+  min-width: 0;
 }
 
-/* 受控章用 accent 描边区分叙述章（≤1100px 横向 chips 态随基础规则隐藏） */
-.plan-document .toc-tag.ctrl {
-  border-color: var(--accent);
-  color: var(--plan-accent-text);
+.plan-document .toc-lock {
+  flex: none;
+  color: var(--line-strong);
 }
 
-/* 阅读视图：文档标题块 + 每章一张白卡 */
-.plan-document .doc-title-block {
-  margin-bottom: 16px;
-  padding: 18px 22px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
+/* 阅读视图：文档为单容器，章与章之间发丝线分隔（不再逐章包白卡） */
+.plan-document .doc-section {
+  margin: 0;
+  padding: 18px 0 20px;
 }
 
-.plan-document .doc-title {
+.plan-document .doc-section + .doc-section {
+  border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+
+.plan-document .doc-section-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-bottom: 8px;
+}
+
+.plan-document .doc-section-head h3 {
   margin: 0;
   color: var(--ink);
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.4;
 }
 
-.plan-document .doc-title-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-  margin-top: 8px;
+/* 受控标签：中性灰（内容类型，不是状态） */
+.plan-document .doc-chip {
+  flex: none;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* 编辑入口：章头右端幽灵按钮，不打断阅读动线 */
+.plan-document .doc-section-edit {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--muted);
   font-size: 12px;
 }
 
-.plan-document .doc-title-meta b {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.plan-document .doc-section {
-  margin-bottom: 16px;
-  padding: 18px 22px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-}
-
-.plan-document .doc-section-head h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--line);
-  color: var(--ink);
-  font-size: 15px;
-  font-weight: 650;
-}
-
-.plan-document .doc-chip {
-  margin-left: auto;
-  padding: 1px 8px;
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  background: var(--accent-soft);
+.plan-document .doc-section-edit:hover {
   color: var(--plan-accent-text);
-  font-size: 11px;
-  font-weight: 600;
 }
 
-.plan-document .doc-section-head .doc-chip + .doc-section-edit {
-  margin-left: 0;
+/* Markdown 视图：编辑动作行悬浮于内容上方右缘，编辑器撑满面板 */
+.plan-document .doc-md-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
 }
 
-.plan-document .doc-section-edit {
-  margin-left: auto;
+.plan-document .md-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
   flex: none;
-}
-
-.plan-document .doc-section-head .doc-chip ~ .doc-section-edit {
-  margin-left: 0;
 }
 
 /* Markdown 编辑态撑满 .doc-main（消除双滚动） */
@@ -342,6 +334,16 @@
  * 挂载点：文档 Pretty/Markdown、场景设置、报告结论、分享页。
  * 约束：覆盖只作用于预览排版（.md-editor-preview），不碰编辑交互。
  * ------------------------------------------------------------------- */
+/* 暗色零成本：吃掉 md-editor 暗色自带的黑底（--md-bk-color），预览融入宿主卡片 */
+.plan-md.md-editor,
+.plan-md .md-editor {
+  --md-bk-color: transparent;
+}
+
+:root[data-theme='dark'] .plan-md .md-editor-preview table tr:nth-child(2n) {
+  background: transparent;
+}
+
 .plan-md .md-editor-preview {
   padding: 0;
   color: var(--ink);
@@ -439,6 +441,29 @@
   white-space: nowrap;
 }
 
+/* 文档 Pretty 视图覆盖：表格按内容定宽（不拉满、行距收紧），小节标题降为 15px 无分割线
+   （章级标题/分隔由 .doc-section 承担，作用域限定文档 Tab，不影响报告/分享页预设） */
+.plan-document #doc-panel-Pretty .plan-md .md-editor-preview table {
+  width: 100%;
+  max-width: 880px;
+}
+
+.plan-document #doc-panel-Pretty .plan-md .md-editor-preview th,
+.plan-document #doc-panel-Pretty .plan-md .md-editor-preview td {
+  padding: 9px 14px;
+}
+
+.plan-document #doc-panel-Pretty .plan-md .md-editor-preview tr:last-child td {
+  border-bottom: 0;
+}
+
+.plan-document #doc-panel-Pretty .plan-md .md-editor-preview h2 {
+  margin: 18px 0 8px;
+  padding-bottom: 0;
+  border-bottom: 0;
+  font-size: 15px;
+}
+
 .plan-md .md-editor-preview blockquote {
   margin: 10px 0;
   padding: 8px 14px;
@@ -472,17 +497,27 @@
   accent-color: var(--accent);
 }
 
-/* 页头卡（原型 .card.plan-header：白卡含标题行 + canvas 底步骤条） */
+/* 页头卡：左列标题+meta（唯一来源），右列动作组 + 紧凑步骤条 */
 .plan-head-card {
   flex: none;
-  padding: 18px 20px 0;
+  padding: 14px 20px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 12px;
 }
 
 .plan-head-card .page-head {
-  margin-bottom: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+
+/* 右列：动作按钮在上，紧凑步骤条在下（替代原整条步骤卡） */
+.plan-head-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  flex: none;
 }
 
 .plan-detail > .plan-head-card + .ant-tabs {
@@ -507,7 +542,8 @@
 .plan-head-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 18px;
+  align-items: center;
+  gap: 6px 8px;
   margin: 8px 0 0;
   color: var(--muted);
   font-size: 12px;
@@ -521,6 +557,21 @@
 .plan-head-meta b.mono,
 .plan-head-meta .mono {
   font-family: var(--font-data);
+}
+
+.plan-head-meta .dot {
+  color: var(--line-strong);
+}
+
+.plan-head-meta .meta-link {
+  margin-left: 6px;
+  color: var(--plan-accent-text);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.plan-head-meta .meta-link:hover {
+  text-decoration: underline;
 }
 
 /* 阶段语义徽章家族（与原型 badge 家族同源；DRAFT 灰以 canvas+line 近似 #EEF0F3，token 化） */
@@ -587,7 +638,19 @@
   color: var(--accent-ink);
 }
 
-/* a-tabs 对齐效果图：13px/500、active accent 600 + 2px 底边、item padding 12px 14px */
+/* a-tabs 行卡：Tabs 与文档工具条合并为一行（rightExtra 挂右）；active 墨色（强调色预算） */
+.plan-detail > .ant-tabs > .ant-tabs-nav {
+  margin: 0 0 12px;
+  padding: 0 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.plan-detail > .ant-tabs > .ant-tabs-nav::before {
+  border-bottom: 0;
+}
+
 .plan-detail .ant-tabs .ant-tabs-tab {
   margin: 0;
   padding: 12px 14px;
@@ -605,17 +668,17 @@
 }
 
 .plan-detail .ant-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
-  color: var(--accent);
+  color: var(--ink);
   font-weight: 600;
 }
 
 .plan-detail .ant-tabs .ant-tabs-tab-btn:active {
-  color: var(--accent);
+  color: var(--ink);
 }
 
 .plan-detail .ant-tabs .ant-tabs-ink-bar {
   height: 2px;
-  background: var(--accent);
+  background: var(--ink);
 }
 
 /* ---------------------------------------------------------------------
@@ -710,10 +773,10 @@
   }
 
   .plan-document .toc-item.current {
-    border-color: var(--accent);
+    border-color: var(--ink);
   }
 
-  .plan-document .toc-tag {
+  .plan-document .toc-lock {
     display: none;
   }
 

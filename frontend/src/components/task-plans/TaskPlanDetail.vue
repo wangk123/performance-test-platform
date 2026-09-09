@@ -12,25 +12,60 @@
           </h1>
           <p class="plan-head-meta">
             <span>负责人 <b>{{ plan.createdBy }}</b></span>
-            <span>场景 <b>{{ scenarios.length }}</b></span>
-            <span>文档 <b class="mono">revision {{ doc.plan.value?.revision ?? plan.revision }}</b></span>
+            <span class="dot" aria-hidden="true">·</span>
+            <span>场景 <b>{{ scenarios.length }}</b><a
+              v-if="can('EDIT') && !scenarios.length"
+              class="meta-link"
+              href="#"
+              @click.prevent="openAddScenario"
+            >去绑定</a></span>
+            <span class="dot" aria-hidden="true">·</span>
             <span>更新于 <b>{{ formatDate(doc.plan.value?.updatedAt ?? plan.updatedAt) }}</b></span>
           </p>
         </div>
-        <div class="script-assets-actions">
-          <a-button v-if="can('EDIT')" @click="openPlanConfig">编辑默认配置</a-button>
-          <a-button v-if="can('SUBMIT')" type="primary" @click="submitForReview">提交评审</a-button>
-          <a-button v-if="can('WITHDRAW')" @click="doc.transition('withdraw', undefined, '已撤回')">撤回</a-button>
-          <a-button v-if="can('BACK_TO_DRAFT')" @click="doc.transition('back-to-draft', undefined, '已退回草稿')">退回草稿</a-button>
+        <div class="plan-head-side">
+          <div class="script-assets-actions">
+            <a-button v-if="can('EDIT')" @click="openPlanConfig">编辑默认配置</a-button>
+            <a-button v-if="can('SUBMIT')" type="primary" @click="submitForReview">提交评审</a-button>
+            <a-button v-if="can('WITHDRAW')" @click="doc.transition('withdraw', undefined, '已撤回')">撤回</a-button>
+            <a-button v-if="can('BACK_TO_DRAFT')" @click="doc.transition('back-to-draft', undefined, '已退回草稿')">退回草稿</a-button>
+          </div>
+          <PlanPhaseStepper :phase="doc.plan.value?.phase ?? 'DRAFT'" />
         </div>
       </div>
-
-      <PlanPhaseStepper :phase="doc.plan.value?.phase ?? 'DRAFT'" :status="doc.plan.value?.status ?? 'DRAFT'" />
     </div>
 
     <a-tabs v-model:active-key="activeTab">
+      <template #rightExtra>
+        <div v-if="activeTab === 'document'" class="plan-doc-toolbar">
+          <div
+            class="segmented"
+            role="tablist"
+            aria-label="文档视图切换"
+            @keydown="onDocViewKeydown"
+          >
+            <button
+              v-for="mode in DOC_VIEWS"
+              :key="mode"
+              type="button"
+              role="tab"
+              class="segmented-item"
+              :class="{ active: docView === mode }"
+              :aria-selected="docView === mode"
+              :aria-controls="`doc-panel-${mode}`"
+              @click="docView = mode"
+            >{{ mode }}</button>
+          </div>
+          <div class="doc-toolbar-right">
+            <span class="doc-rev">revision {{ doc.plan.value?.revision ?? plan.revision }}</span>
+            <a-button size="small" title="环境检查等执行前设置" @click="documentRef?.openPrecheck()">执行设置</a-button>
+          </div>
+        </div>
+      </template>
       <a-tab-pane key="document" tab="文档">
         <PlanDetailDocument
+          ref="documentRef"
+          v-model:view-mode="docView"
           :doc="doc"
           :plan="doc.plan.value ?? plan"
           :scenarios="scenarios"
@@ -78,6 +113,18 @@ const activeTab = ref('document');
 const planDialogVisible = ref(false);
 const scenarioDialogVisible = ref(false);
 const editingScenario = ref<TaskScenario | null>(null);
+
+/** 文档视图状态上提至 Tabs 行工具条（rightExtra），经 v-model 下发组件内部使用。 */
+const DOC_VIEWS = ['Pretty', 'Markdown'] as const;
+const docView = ref<'Pretty' | 'Markdown'>('Pretty');
+const documentRef = ref<InstanceType<typeof PlanDetailDocument> | null>(null);
+
+/** tablist 左右方向键切换视图（按钮本身仍可 Tab 逐一到达）。 */
+function onDocViewKeydown(event: KeyboardEvent) {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+  event.preventDefault();
+  docView.value = event.key === 'ArrowRight' ? 'Markdown' : 'Pretty';
+}
 
 const PHASE_TEXT: Record<string, string> = {
   DRAFT: '草稿', REVIEW: '评审', EXECUTION: '执行', REPORT: '报告', PUBLISH: '发布',

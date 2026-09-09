@@ -8,7 +8,6 @@
       >
         <div class="node">{{ index < currentIndex ? '✓' : index + 1 }}</div>
         <div class="pname">{{ node.label }}</div>
-        <div class="sub">{{ subLabel(node.phase, index) }}</div>
       </div>
       <div v-if="index < nodes.length - 1" class="p-line" :class="{ done: index < currentIndex }" />
     </template>
@@ -17,13 +16,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { PlanPhase, PlanStatus } from '../../types';
-import { statusLabel } from '../../composables/usePlanDoc';
+import type { PlanPhase } from '../../types';
 
-const props = defineProps<{ phase: PlanPhase; status: PlanStatus }>();
+const props = defineProps<{ phase: PlanPhase }>();
 
+/** 阶段名与状态解耦：步骤条只表达流程位置，「草稿/待评审」等状态由页头徽标表达。 */
 const nodes: { phase: PlanPhase; label: string }[] = [
-  { phase: 'DRAFT', label: '草稿' },
+  { phase: 'DRAFT', label: '策略' },
   { phase: 'REVIEW', label: '评审' },
   { phase: 'EXECUTION', label: '执行' },
   { phase: 'REPORT', label: '报告' },
@@ -35,42 +34,27 @@ const currentIndex = computed(() => nodes.findIndex((n) => n.phase === props.pha
 function phaseClass(index: number) {
   return { done: index < currentIndex.value, current: index === currentIndex.value };
 }
-
-/** 当前阶段显示真实子状态；已过阶段给既成事实；未来阶段给领域化待办文案。 */
-function subLabel(phase: PlanPhase, index: number): string {
-  if (phase === 'PUBLISH' && index >= currentIndex.value && props.phase !== 'PUBLISH') return '—';
-  if (index < currentIndex.value) {
-    return { DRAFT: '已完成', REVIEW: '评审通过', EXECUTION: '执行完成', REPORT: '已生成', PUBLISH: '已发布' }[phase];
-  }
-  if (index === currentIndex.value) return statusLabel(phase, props.status);
-  return { DRAFT: '未开始', REVIEW: '待评审', EXECUTION: '待执行', REPORT: '待生成', PUBLISH: '—' }[phase];
-}
 </script>
 
 <style scoped>
-/* 规格：plan-document-prototype.html .stepper（数值原样取自原型） */
+/* 紧凑变体：嵌于页头右列（规格：2026-09-09-plan-detail-layout-optimization-design.md §5） */
 .plan-phase-stepper {
   display: flex;
   align-items: flex-start;
-  padding: 14px 16px;
-  background: var(--canvas);
-  border-radius: 10px;
-  overflow-x: auto;
 }
 
 .phase {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   flex: none;
-  min-width: 78px;
 }
 
 .phase .node {
-  width: 24px;
-  height: 24px;
-  border: 1.5px solid var(--line);
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--line-strong);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -78,7 +62,7 @@ function subLabel(phase: PlanPhase, index: number): string {
   background: var(--surface);
   color: var(--muted);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .phase.done .node {
@@ -95,8 +79,8 @@ function subLabel(phase: PlanPhase, index: number): string {
 
 .phase .pname {
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11px;
+  line-height: 1;
   white-space: nowrap;
 }
 
@@ -106,37 +90,14 @@ function subLabel(phase: PlanPhase, index: number): string {
 
 .phase.current .pname {
   color: var(--plan-accent-text);
-  font-weight: 700;
-}
-
-.phase .sub {
-  padding: 1px 8px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--muted);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.phase.done .sub {
-  border-color: var(--ok);
-  background: var(--ok-soft);
-  color: var(--plan-ok-text);
-}
-
-.phase.current .sub {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
   font-weight: 600;
 }
 
 .p-line {
   flex: none;
-  width: 26px;
-  height: 1.5px;
-  margin: 11px 6px 0;
+  width: 18px;
+  height: 2px;
+  margin: 9px 6px 0;
   background: var(--line-strong);
 }
 

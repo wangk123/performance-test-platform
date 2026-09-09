@@ -1,35 +1,5 @@
 <template>
   <section class="plan-document">
-    <div class="doc-toolbar">
-      <div
-        class="segmented"
-        role="tablist"
-        aria-label="文档视图切换"
-        @keydown="onSegmentedKeydown"
-      >
-        <button
-          v-for="mode in (['Pretty', 'Markdown'] as const)"
-          :key="mode"
-          type="button"
-          role="tab"
-          class="segmented-item"
-          :class="{ active: viewMode === mode }"
-          :aria-selected="viewMode === mode"
-          :aria-controls="`doc-panel-${mode}`"
-          @click="viewMode = mode"
-        >{{ mode }}</button>
-      </div>
-      <div class="doc-toolbar-right">
-        <span class="doc-rev">revision {{ plan.revision }}</span>
-        <a-button v-if="viewMode === 'Markdown' && canEdit && !editing" size="small" type="primary" @click="beginEdit">编辑</a-button>
-        <template v-if="viewMode === 'Markdown' && editing">
-          <a-button size="small" @click="cancelEdit">取消</a-button>
-          <a-button size="small" type="primary" :disabled="!dirty" @click="saveEdit">保存</a-button>
-        </template>
-        <a-button size="small" @click="precheckDrawerOpen = true">执行设置（环境检查）</a-button>
-      </div>
-    </div>
-
     <div class="doc-body">
       <nav class="doc-toc" aria-label="章节导航">
         <h4>章节导航</h4>
@@ -42,83 +12,100 @@
           :aria-current="currentSection === section.title ? 'true' : undefined"
           @click.prevent="jumpTo(section.title)"
         >
-          {{ section.title }}
-          <span class="toc-tag" :class="isConstrained(section.title) ? 'ctrl' : 'narr'">{{ isConstrained(section.title) ? '受控' : '叙述' }}</span>
+          <span class="toc-label">{{ section.title }}</span>
+          <svg
+            v-if="isConstrained(section.title)"
+            class="toc-lock"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          ><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
         </a>
       </nav>
 
       <div ref="docMainRef" class="doc-main" tabindex="0" role="region" aria-label="计划文档内容" @scroll="onDocScroll">
         <template v-if="viewMode === 'Pretty'">
-          <div class="doc-title-block" id="doc-panel-Pretty">
-            <h2 class="doc-title">{{ plan.name }}</h2>
-            <div class="doc-title-meta">
-              <span>负责人 <b>{{ plan.createdBy }}</b></span>
-              <span>文档 <b class="mono">revision {{ plan.revision }}</b></span>
-              <span>场景 <b>{{ scenarios.length }}</b></span>
-              <span>更新于 <b>{{ formatDate(plan.updatedAt) }}</b></span>
-            </div>
+          <div id="doc-panel-Pretty" class="doc-flow">
+            <section
+              v-for="section in sections"
+              :key="section.title"
+              class="doc-section"
+              :data-section="section.title"
+            >
+              <header class="doc-section-head">
+                <h3>{{ section.title }}</h3>
+                <span v-if="isConstrained(section.title)" class="doc-chip">受控</span>
+                <a-button
+                  v-if="canEdit"
+                  class="doc-section-edit"
+                  size="small"
+                  type="text"
+                  title="编辑章节"
+                  @click="openSectionEditor(section.title)"
+                >
+                  <template #icon>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
+                  </template>
+                  编辑
+                </a-button>
+              </header>
+              <ChecklistView
+                v-if="section.title === '五、测试约束'"
+                :content="section.content"
+                :editable="canEdit"
+                @toggle="toggleChecklist(section.content, $event)"
+              />
+              <ScenarioDesignModule
+                v-else-if="section.title === '七、场景设计'"
+                :doc-plan="doc"
+                :plan="plan"
+                :scenarios="scenarios"
+                @changed="emit('changed')"
+                @request-add="emit('request-add')"
+                @request-edit="(scenario) => emit('request-edit', scenario)"
+              />
+              <MdPreview
+                v-else
+                class="plan-md"
+                :model-value="section.content || '（本章暂无内容）'"
+                :theme="mdTheme"
+                :md-heading-id="headingId"
+                language="zh-CN"
+              />
+            </section>
           </div>
-          <section
-            v-for="section in sections"
-            :key="section.title"
-            class="doc-section"
-            :data-section="section.title"
-          >
-            <header class="doc-section-head">
-              <h3>{{ section.title }}</h3>
-              <span v-if="isConstrained(section.title)" class="doc-chip">受控</span>
-              <a-button
-                v-if="canEdit"
-                class="doc-section-edit"
-                size="small"
-                type="text"
-                @click="openSectionEditor(section.title)"
-              >编辑章节</a-button>
-            </header>
-            <ChecklistView
-              v-if="section.title === '五、测试约束'"
-              :content="section.content"
-              :editable="canEdit"
-              @toggle="toggleChecklist(section.content, $event)"
-            />
-            <ScenarioDesignModule
-              v-else-if="section.title === '七、场景设计'"
-              :doc-plan="doc"
-              :plan="plan"
-              :scenarios="scenarios"
-              @changed="emit('changed')"
-              @request-add="emit('request-add')"
-              @request-edit="(scenario) => emit('request-edit', scenario)"
-            />
-            <MdPreview
-              v-else
-              class="plan-md"
-              :model-value="section.content || '（本章暂无内容）'"
-              :theme="mdTheme"
-              :md-heading-id="headingId"
-              language="zh-CN"
-            />
-          </section>
         </template>
 
         <template v-else>
-          <div v-if="!editing" id="doc-panel-Markdown" class="doc-section doc-md-wrap">
+          <div id="doc-panel-Markdown" class="doc-md-panel">
+            <div v-if="canEdit" class="md-edit-actions">
+              <a-button v-if="!editing" size="small" type="primary" @click="beginEdit">编辑全文</a-button>
+              <template v-else>
+                <a-button size="small" @click="cancelEdit">取消</a-button>
+                <a-button size="small" type="primary" :disabled="!dirty" @click="saveEdit">保存全文</a-button>
+              </template>
+            </div>
             <MdPreview
+              v-if="!editing"
               class="plan-md"
               :model-value="plan.body ?? ''"
               :theme="mdTheme"
               :md-heading-id="headingId"
               language="zh-CN"
             />
+            <MdEditor
+              v-else
+              v-model="editDraft"
+              class="plan-md plan-md-editor"
+              :theme="mdTheme"
+              :style="{ flex: '1', minHeight: '420px' }"
+              language="zh-CN"
+            />
           </div>
-          <MdEditor
-            v-else
-            v-model="editDraft"
-            class="plan-md plan-md-editor"
-            :theme="mdTheme"
-            :style="{ height: '100%', minHeight: '420px' }"
-            language="zh-CN"
-          />
         </template>
       </div>
     </div>
@@ -162,7 +149,6 @@ import 'md-editor-v3/lib/style.css';
 import type { TaskPlan, TaskScenario } from '../../types';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
 import { useTheme } from '../../composables/useTheme';
-import { formatDate } from '../../utils/format';
 import { extractSection, replaceSection, splitSections, toggleChecklistItem } from '../../utils/plan-markdown';
 import { updatePrecheckSettingsApi } from '../../api/plan-doc';
 import PlanConflictDialog from './PlanConflictDialog.vue';
@@ -170,11 +156,18 @@ import PlanSectionEditor from './PlanSectionEditor.vue';
 import ChecklistView from './ChecklistView.vue';
 import ScenarioDesignModule from './ScenarioDesignModule.vue';
 
-const props = defineProps<{ doc: ReturnType<typeof usePlanDoc>; plan: TaskPlan; scenarios: TaskScenario[] }>();
+const props = defineProps<{
+  doc: ReturnType<typeof usePlanDoc>;
+  plan: TaskPlan;
+  scenarios: TaskScenario[];
+  /** 视图状态由父级 Tabs 行工具条持有（v-model:view-mode）。 */
+  viewMode: 'Pretty' | 'Markdown';
+}>();
 const emit = defineEmits<{
   (e: 'changed'): void;
   (e: 'request-add'): void;
   (e: 'request-edit', scenario: TaskScenario): void;
+  (e: 'update:viewMode', value: 'Pretty' | 'Markdown'): void;
 }>();
 
 const CONSTRAINED = ['二、测试目的与指标', '三、测试范围', '四、测试资源', '五、测试约束', '七、场景设计', '九、排期与协作'];
@@ -182,7 +175,11 @@ const CONSTRAINED = ['二、测试目的与指标', '三、测试范围', '四�
 const { themeMode } = useTheme();
 const mdTheme = computed(() => (themeMode.value === 'dark' ? 'dark' : 'light'));
 
-const viewMode = ref<'Pretty' | 'Markdown'>('Pretty');
+/** 可写计算属性：读写皆透传父级，组件内既有 viewMode.value 读写零改动。 */
+const viewMode = computed({
+  get: () => props.viewMode,
+  set: (value) => emit('update:viewMode', value),
+});
 const editing = ref(false);
 const editDraft = ref('');
 const conflictLocal = ref('');
@@ -301,6 +298,13 @@ function openSectionEditor(title: string) {
   sectionEditorOpen.value = true;
 }
 
+/** 执行设置抽屉由父级 Tabs 行工具条触发（按钮已上移，抽屉仍属文档组件）。 */
+function openPrecheck() {
+  precheckDrawerOpen.value = true;
+}
+
+defineExpose({ openPrecheck });
+
 async function saveSection(content: string) {
   const body = props.plan.body ?? '';
   try {
@@ -318,13 +322,6 @@ async function toggleChecklist(content: string, index: number) {
 }
 
 /* ---------- TOC 跳转与 scrollspy（相对 .doc-main 唯一滚动容器定位） ---------- */
-
-/** tablist 左右方向键切换视图（按钮本身仍可 Tab 逐一到达）。 */
-function onSegmentedKeydown(event: KeyboardEvent) {
-  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-  event.preventDefault();
-  viewMode.value = event.key === 'ArrowRight' ? 'Markdown' : 'Pretty';
-}
 
 function jumpTo(title: string) {
   const main = docMainRef.value;

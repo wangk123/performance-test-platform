@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>任务计划详情 · 布局优化效果图（2026-09-09）</title>
+<style>
+  :root {
+    --canvas: #f4f6f8;
+    --surface: #ffffff;
+    --surface-soft: #f7fafb;
+    --ink: #1a2332;
+    --muted: #5c6b7a;
+    --line: #e2e8ee;
+    --line-strong: #c8d3dc;
+    --accent: #0b7f8a;
+    --accent-soft: #e6f5f6;
+    --accent-ink: #ffffff;
+    --sidebar-bg: #121a22;
+    --radius: 8px;
+    --radius-sm: 6px;
+    --shadow: 0 1px 2px rgba(26, 35, 50, 0.04);
+    --plan-accent-text: color-mix(in srgb, var(--accent) 82%, var(--ink));
+    --font-ui: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font-ui);
+    color: var(--ink);
+    background: var(--canvas);
+    font-size: 14px;
+    overflow: hidden;
+    display: flex;
+  }
+  button { font-family: inherit; border: none; background: none; cursor: pointer; }
+
+  /* ============ 侧栏（图标 rail + 项目上下文） ============ */
+  .rail {
+    width: 52px; flex: none; background: var(--sidebar-bg);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 10px 0; gap: 6px;
+  }
+  .rail .logo {
+    width: 28px; height: 28px; border-radius: 6px; background: var(--accent);
+    color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .5px;
+    display: flex; align-items: center; justify-content: center; margin-bottom: 14px;
+  }
+  .rail-btn {
+    width: 34px; height: 34px; border-radius: 8px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255, 255, 255, 0.42);
+  }
+  .rail-btn.active { background: rgba(43, 179, 191, 0.18); color: #62c9d3; }
+  .ctx {
+    width: 200px; flex: none; background: var(--surface);
+    border-right: 1px solid var(--line); display: flex; flex-direction: column;
+  }
+  .ctx-head {
+    height: 48px; flex: none; display: flex; align-items: center; gap: 8px;
+    padding: 0 12px; border-bottom: 1px solid var(--line); font-size: 13px;
+  }
+  .ctx-head .proj { font-weight: 600; }
+  .ctx-head .back { color: var(--muted); display: flex; }
+  .ctx-head .collapse { margin-left: auto; color: var(--line-strong); display: flex; }
+  .ctx-nav { padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; }
+  .ctx-item {
+    display: flex; align-items: center; gap: 9px; padding: 7px 10px;
+    font-size: 13px; color: var(--muted); border-radius: 6px;
+    border-left: 3px solid transparent;
+  }
+  .ctx-item.active {
+    background: var(--surface-soft); color: var(--ink); font-weight: 600;
+    border-left-color: var(--ink);
+  }
+
+  /* ============ 主列 ============ */
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  .crumbbar {
+    height: 40px; flex: none; background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; padding: 0 16px; gap: 6px;
+    font-size: 12px; color: var(--muted);
+  }
+  .crumbbar .sep { color: var(--line-strong); margin: 0 2px; }
+  .crumbbar .home { display: flex; align-items: center; gap: 4px; }
+  .crumbbar .current { color: var(--ink); }
+  .user {
+    margin-left: auto; display: flex; align-items: center; gap: 7px;
+    font-size: 12px; color: var(--ink);
+  }
+  .user .avatar {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--accent);
+    color: #fff; display: flex; align-items: center; justify-content: center;
+  }
+
+  .content { flex: 1; min-height: 0; padding: 14px 16px 0; display: flex; flex-direction: column; gap: 12px; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+
+  /* ============ 页头卡：标题/meta 唯一来源 + 右侧按钮与紧凑步骤条 ============ */
+  .page-head { flex: none; padding: 14px 20px 14px; display: flex; justify-content: space-between; gap: 24px; }
+  .head-left { min-width: 0; }
+  .title-row { display: flex; align-items: center; gap: 10px; }
+  .title-row h1 { font-size: 18px; font-weight: 600; }
+  .status-badge {
+    font-size: 11px; font-weight: 600; color: var(--plan-accent-text);
+    background: var(--accent-soft); border-radius: 999px; padding: 2px 9px;
+  }
+  .meta-row { margin-top: 9px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .meta-row b { color: var(--ink); font-weight: 500; }
+  .meta-row .dot { color: var(--line-strong); }
+  .meta-row .mono { font-family: var(--font-mono); font-size: 12px; }
+  .meta-row a { color: var(--plan-accent-text); text-decoration: none; font-size: 12px; }
+  .head-right { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+  .head-actions { display: flex; gap: 8px; }
+  .btn {
+    height: 30px; padding: 0 13px; border-radius: var(--radius-sm);
+    border: 1px solid var(--line); background: var(--surface);
+    font-size: 13px; color: var(--ink);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 500; }
+  .btn .sub { font-size: 12px; color: var(--muted); }
+
+  /* 紧凑步骤条：阶段名固定，状态只看页头徽标 */
+  .stepper { display: flex; align-items: flex-start; }
+  .step { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .step .num {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 1px solid var(--line-strong); background: var(--surface);
+    color: var(--muted); font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step .lbl { font-size: 11px; color: var(--muted); line-height: 1; }
+  .step.current .num { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .step.current .lbl { color: var(--plan-accent-text); font-weight: 600; }
+  .step-conn { width: 18px; height: 2px; background: var(--line-strong); margin: 9px 6px 0; flex: none; }
+
+  /* ============ Tabs + 工具条合并行 ============ */
+  .tab-row {
+    flex: none; height: 44px; padding: 0 16px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .tabs { display: flex; align-self: stretch; }
+  .tab {
+    padding: 0 4px; margin-right: 22px; font-size: 14px; color: var(--muted);
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    display: flex; align-items: center;
+  }
+  .tab.active { color: var(--ink); font-weight: 600; border-bottom-color: var(--ink); }
+  .toolbar { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .seg { display: flex; background: var(--surface-soft); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 2px; }
+  .seg button { font-size: 12px; padding: 3px 10px; border-radius: 4px; color: var(--muted); }
+  .seg button.active { background: var(--surface); color: var(--ink); font-weight: 500; border: 1px solid var(--line); padding: 2px 9px; }
+  .rev-chip { font-family: var(--font-mono); font-size: 12px; color: var(--muted); background: var(--surface-soft); border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; }
+  .btn.sm { height: 28px; padding: 0 10px; font-size: 12.5px; }
+
+  /* ============ 文档区：TOC + 唯一文档容器 ============ */
+  .doc-area { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; align-items: stretch; }
+  .toc { min-height: 0; overflow: hidden; padding-top: 2px; }
+  .toc h4 { font-size: 12px; color: var(--muted); font-weight: 500; margin: 0 0 8px 8px; }
+  .toc-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    padding: 5px 8px 5px 9px; font-size: 13px; color: var(--muted);
+    border-left: 3px solid transparent; border-radius: 0 4px 4px 0;
+    margin-bottom: 1px;
+  }
+  .toc-item.active { background: var(--surface-soft); color: var(--ink); font-weight: 600; border-left-color: var(--ink); }
+  .toc-item svg { color: var(--line-strong); flex: none; }
+
+  .doc-main { min-height: 0; overflow: hidden; padding: 10px 36px 0; }
+  .ch { padding: 18px 0 22px; }
+  .ch + .ch { border-top: 1px solid rgba(226, 232, 238, 0.7); }
+  .ch-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .ch-head h2 { font-size: 17px; font-weight: 600; }
+  .ch-tag {
+    font-size: 11px; color: var(--muted); background: var(--surface-soft);
+    border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px;
+  }
+  .edit-link {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; color: var(--muted); padding: 4px 8px; border-radius: 4px;
+  }
+  .edit-link:hover { color: var(--plan-accent-text); background: var(--surface-soft); }
+  .ch p { font-size: 14px; line-height: 1.7; color: var(--ink); }
+  .ch p.placeholder { color: var(--muted); }
+  .ch h3 { font-size: 15px; font-weight: 600; margin: 16px 0 8px; }
+  .tbl-note { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); margin: 2px 0 8px; }
+  .tbl-wrap { max-width: 880px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+  th {
+    text-align: left; font-weight: 500; color: var(--muted);
+    background: var(--surface-soft); padding: 8px 14px;
+    border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--line); height: 40px; }
+  tr:last-child td { border-bottom: none; }
+  td .demo { color: var(--muted); }
+  tr.ghost-add td {
+    border-top: 1px dashed var(--line-strong); border-bottom: none;
+    color: var(--muted); font-size: 12.5px; cursor: pointer;
+  }
+  tr.ghost-add td:hover { color: var(--plan-accent-text); background: var(--surface-soft); }
+  td.mono, .mono { font-family: var(--font-mono); font-size: 12.5px; }
+  .col-wide { min-width: 320px; }
+  ul.plain { margin: 4px 0 0 18px; font-size: 14px; line-height: 1.8; }
+  ul.plain li { color: var(--muted); }
+</style>
+</head>
+<body>
+
+  <!-- 图标 rail -->
+  <nav class="rail">
+    <div class="logo">PT</div>
+    <button class="rail-btn" title="首页"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></button>
+    <button class="rail-btn" title="项目概览"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></button>
+    <button class="rail-btn" title="副本"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+    <button class="rail-btn active" title="任务计划"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></button>
+    <button class="rail-btn" title="监控"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></button>
+    <button class="rail-btn" title="报告"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg></button>
+    <button class="rail-btn" title="造数工厂"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l6 4V8l6 4V4h6v17H3z"/></svg></button>
+    <button class="rail-btn" title="函数库"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2M16 4h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-2"/><path d="M9.5 9.5 7 12l2.5 2.5M14.5 9.5 17 12l-2.5 2.5"/></svg></button>
+    <button class="rail-btn" title="成员"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M21 19.5c-.5-2.2-2-3.6-4.2-4"/></svg></button>
+  </nav>
+
+  <!-- 项目上下文面板 -->
+  <aside class="ctx">
+    <div class="ctx-head">
+      <span class="back"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></span>
+      <span>项目</span><span class="proj">测试</span>
+      <span class="collapse"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 7 5 12l6 5M18 7l-6 5 6 5"/></svg></span>
+    </div>
+    <div class="ctx-nav">
+      <span class="ctx-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>项目概览</span>
+      <span class="ctx-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>副本</span>
+      <span class="ctx-item active"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>任务计划</span>
+      <span class="ctx-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>监控</span>
+      <span class="ctx-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>报告</span>
+      <span class="ctx-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l6 4V8l6 4V4h6v17H3z"/></svg>造数工厂</span>
+      <span class="ctx-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2M16 4h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-2"/><path d="M9.5 9.5 7 12l2.5 2.5M14.5 9.5 17 12l-2.5 2.5"/></svg>函数库</span>
+      <span class="ctx-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M21 19.5c-.5-2.2-2-3.6-4.2-4"/></svg>成员</span>
+    </div>
+  </aside>
+
+  <!-- 主列 -->
+  <div class="main">
+    <div class="crumbbar">
+      <span class="home"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>首页</span>
+      <span class="sep">/</span><span>项目列表</span>
+      <span class="sep">/</span><span>测试</span>
+      <span class="sep">/</span><span>任务计划</span>
+      <span class="sep">/</span><span class="current">cccc</span>
+      <span class="user">
+        <span class="avatar"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.2-6 8-6s7 2 8 6"/></svg></span>
+        平台管理员
+      </span>
+    </div>
+
+    <div class="content">
+
+      <!-- 页头卡：meta 唯一来源；右侧动作 + 紧凑步骤条 -->
+      <header class="card page-head">
+        <div class="head-left">
+          <div class="title-row">
+            <h1>CCCC</h1>
+            <span class="status-badge">草稿</span>
+          </div>
+          <div class="meta-row">
+            <span>负责人 <b>admin</b></span><span class="dot">·</span>
+            <span>场景 <b>0</b> <a href="#">去绑定</a></span><span class="dot">·</span>
+            <span>更新于 <b>09/09 09:24</b></span>
+          </div>
+        </div>
+        <div class="head-right">
+          <div class="head-actions">
+            <button class="btn">编辑默认配置</button>
+            <button class="btn primary">提交评审</button>
+          </div>
+          <div class="stepper">
+            <div class="step current"><div class="num">1</div><div class="lbl">策略</div></div>
+            <div class="step-conn"></div>
+            <div class="step"><div class="num">2</div><div class="lbl">评审</div></div>
+            <div class="step-conn"></div>
+            <div class="step"><div class="num">3</div><div class="lbl">执行</div></div>
+            <div class="step-conn"></div>
+            <div class="step"><div class="num">4</div><div class="lbl">报告</div></div>
+            <div class="step-conn"></div>
+            <div class="step"><div class="num">5</div><div class="lbl">发布</div></div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Tabs + 工具条合并行 -->
+      <div class="card tab-row">
+        <nav class="tabs">
+          <span class="tab active">文档</span>
+          <span class="tab">评审</span>
+          <span class="tab">报告</span>
+          <span class="tab">发布</span>
+        </nav>
+        <div class="toolbar">
+          <div class="seg">
+            <button class="active">Pretty</button>
+            <button>Markdown</button>
+          </div>
+          <span class="rev-chip">revision 1</span>
+          <button class="btn sm">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+            执行设置<span class="sub">· 环境检查</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 文档区：TOC + 唯一文档容器 -->
+      <div class="doc-area">
+        <nav class="toc">
+          <h4>章节导航</h4>
+          <div class="toc-item active"><span>一、背景</span></div>
+          <div class="toc-item"><span>二、测试目的与指标</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+          <div class="toc-item"><span>三、测试范围</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+          <div class="toc-item"><span>四、测试资源</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+          <div class="toc-item"><span>五、测试约束</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+          <div class="toc-item"><span>六、测试策略</span></div>
+          <div class="toc-item"><span>七、场景设计</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+          <div class="toc-item"><span>八、风险与预案</span></div>
+          <div class="toc-item"><span>九、排期与协作</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+          <div class="toc-item"><span>十、附录</span></div>
+          <div class="toc-item"><span>十一、结论</span></div>
+        </nav>
+
+        <section class="card doc-main">
+          <article class="ch">
+            <div class="ch-head">
+              <h2>一、背景</h2>
+              <button class="edit-link" title="编辑叙述文本"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>编辑</button>
+            </div>
+            <p class="placeholder">（简述被测系统、本次压测的业务背景与动因。）</p>
+          </article>
+
+          <article class="ch">
+            <div class="ch-head">
+              <h2>二、测试目的与指标</h2>
+              <span class="ch-tag">受控</span>
+              <button class="edit-link" title="结构化编辑"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>编辑</button>
+            </div>
+            <div class="tbl-note">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M12 11v5"/></svg>
+              示例数据 · 提交评审前替换为实测目标
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th class="col-wide">交易</th><th>指标</th><th>目标值</th><th>口径</th></tr></thead>
+                <tbody>
+                  <tr><td><span class="demo">(示例)</span> 查询交易</td><td class="mono">TPS</td><td class="mono">≥ 200</td><td>5 分钟均值</td></tr>
+                  <tr><td><span class="demo">(示例)</span> 查询交易</td><td class="mono">P95</td><td class="mono">≤ 300 ms</td><td>5 分钟均值</td></tr>
+                  <tr><td><span class="demo">(示例)</span> 查询交易</td><td>错误率</td><td class="mono">≤ 0.5%</td><td>全量样本</td></tr>
+                  <tr class="ghost-add"><td colspan="4">＋ 添加指标</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="ch">
+            <div class="ch-head">
+              <h2>三、测试范围</h2>
+              <span class="ch-tag">受控</span>
+              <button class="edit-link" title="结构化编辑"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>编辑</button>
+            </div>
+            <h3>范围内交易</h3>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th class="col-wide">交易名称</th><th>交易占比</th><th>备注</th></tr></thead>
+                <tbody>
+                  <tr><td><span class="demo">(示例)</span> 登录</td><td class="mono">30%</td><td></td></tr>
+                  <tr class="ghost-add"><td colspan="3">＋ 添加交易</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <h3>范围外清单</h3>
+            <ul class="plain"><li>（列出明确不测的交易及原因）</li></ul>
+          </article>
+
+          <article class="ch">
+            <div class="ch-head">
+              <h2>四、测试资源</h2>
+              <span class="ch-tag">受控</span>
+              <button class="edit-link" title="结构化编辑"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>编辑</button>
+            </div>
+            <p class="placeholder">（说明压测环境、数据准备与执行机器资源。）</p>
+          </article>
+        </section>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
