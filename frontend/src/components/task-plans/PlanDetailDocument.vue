@@ -201,12 +201,15 @@ const props = defineProps<{
   scenarios: TaskScenario[];
   /** 视图状态由父级 Tabs 行工具条持有（v-model:view-mode）。 */
   viewMode: 'Pretty' | 'Markdown';
+  /** 评审工作台「↧ 定位」下发的待定位批注 id（跨 Tab，定位完成后置空）。 */
+  locateCommentId?: number | null;
 }>();
 const emit = defineEmits<{
   (e: 'changed'): void;
   (e: 'request-add'): void;
   (e: 'request-edit', scenario: TaskScenario): void;
   (e: 'update:viewMode', value: 'Pretty' | 'Markdown'): void;
+  (e: 'located'): void;
 }>();
 
 const { themeMode } = useTheme();
@@ -312,6 +315,17 @@ function locateThread(thread: PlanCommentThread) {
   if (viewMode.value !== 'Pretty') viewMode.value = 'Pretty';
   void nextTick(() => commentLayer.locate(resolution?.line ?? null));
 }
+
+/** 评审工作台跨 Tab 定位（Task 10）：切 Pretty 后等 data-line 注入（同 rebuild 的 nextTick+rAF 约定）再滚动闪烁。 */
+watch(() => props.locateCommentId, (id) => {
+  if (id == null) return;
+  if (viewMode.value !== 'Pretty') viewMode.value = 'Pretty';
+  void nextTick(() => window.requestAnimationFrame(() => {
+    const resolutions = deriveAnchors(props.plan.body, props.doc.anchoredRoots.value);
+    commentLayer.locate(resolutions.get(id)?.line ?? null);
+    emit('located');
+  }));
+});
 
 async function removeComment(thread: PlanCommentThread, comment: PlanComment) {
   if (!props.doc.plan.value) return;

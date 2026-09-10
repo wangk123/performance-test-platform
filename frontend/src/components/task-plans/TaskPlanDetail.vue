@@ -74,13 +74,15 @@
           :doc="doc"
           :plan="doc.plan.value ?? plan"
           :scenarios="scenarios"
+          :locate-comment-id="pendingLocate"
+          @located="pendingLocate = null"
           @changed="onDocChanged"
           @request-add="openAddScenario"
           @request-edit="openEditScenario"
         />
       </a-tab-pane>
       <a-tab-pane key="review" tab="评审">
-        <div class="plan-tab-scroll"><PlanDetailReview :doc="doc" /></div>
+        <div class="plan-tab-scroll"><PlanDetailReview :doc="doc" @locate="locateComment" /></div>
       </a-tab-pane>
       <a-tab-pane key="report" tab="报告">
         <div class="plan-tab-scroll"><PlanDetailReport :doc="doc" :scenarios="scenarios" /></div>
@@ -145,6 +147,14 @@ function onDocViewKeydown(event: KeyboardEvent) {
   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
   event.preventDefault();
   docView.value = event.key === 'ArrowRight' ? 'Markdown' : 'Pretty';
+}
+
+/** 评审工作台「↧ 定位」：切到文档 Tab，待定位批注经 prop 下发（Task 11 再叠加 URL 持久化）。 */
+const pendingLocate = ref<number | null>(null);
+
+function locateComment(commentId: number) {
+  pendingLocate.value = commentId;
+  activeTab.value = 'document';
 }
 
 const PHASE_TEXT: Record<string, string> = {

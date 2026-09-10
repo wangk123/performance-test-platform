@@ -955,3 +955,55 @@
 .anno-card-link { color: var(--accent); font-size: 12px; margin-right: auto; }
 
 .anno-toggle { margin-right: 8px; }
+
+/* ---------- 评审工作台（spec §3.4） ---------- */
+.workbench-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  margin-bottom: 12px;
+}
+
+.workbench-badge {
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--plan-accent-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.workbench-hint { color: var(--anno-accent-text, #d46b08); font-size: 12px; }
+:root[data-theme='dark'] .workbench-hint { --anno-accent-text: #ffc53d; }
+
+.workbench-filters { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+
+.workbench-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  padding: 2px 11px;
+  cursor: pointer;
+}
+
+.workbench-chip.active { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+
+.workbench-group { color: var(--muted); font-size: 11px; letter-spacing: 0.4px; margin: 10px 0 6px; }
+
+.workbench-list { display: flex; flex-direction: column; gap: 8px; }
+.workbench-list .anno-card { max-width: 880px; }
+
+.workbench-flow {
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 2;
+}
