@@ -56,6 +56,9 @@
               @click="docView = mode"
             >{{ mode }}</button>
           </div>
+          <div class="doc-toolbar-right">
+            <a-button size="small" type="primary" ghost @click="publishOpen = true">发布版本</a-button>
+          </div>
         </div>
       </template>
       <a-tab-pane key="document" tab="文档">
@@ -78,10 +81,18 @@
       <a-tab-pane key="publish" tab="发布">
         <div class="plan-tab-scroll"><PlanDetailPublish :doc="doc" /></div>
       </a-tab-pane>
+      <a-tab-pane key="versions" tab="版本">
+        <div class="plan-tab-scroll"><PlanDetailVersions :doc="doc" :refresh-tick="versionRefreshTick" @request-publish="publishOpen = true" /></div>
+      </a-tab-pane>
     </a-tabs>
 
     <TaskPlanDialog v-model="planDialogVisible" :editing-plan="plan" />
     <ScenarioDialog v-model="scenarioDialogVisible" :plan="doc.plan.value ?? plan" :editing-scenario="editingScenario" />
+    <PublishVersionModal
+      v-model:open="publishOpen"
+      :plan-id="(doc.plan.value ?? plan).id"
+      @published="onVersionPublished"
+    />
   </section>
 </template>
 
@@ -99,6 +110,8 @@ import PlanDetailReport from './PlanDetailReport.vue';
 import PlanDetailPublish from './PlanDetailPublish.vue';
 import TaskPlanDialog from './TaskPlanDialog.vue';
 import ScenarioDialog from './ScenarioDialog.vue';
+import PlanDetailVersions from './PlanDetailVersions.vue';
+import PublishVersionModal from './PublishVersionModal.vue';
 
 const props = defineProps<{ plan: TaskPlan; scenarios: TaskScenario[] }>();
 defineEmits<{ (e: 'back'): void }>();
@@ -108,6 +121,13 @@ const activeTab = ref('document');
 const planDialogVisible = ref(false);
 const scenarioDialogVisible = ref(false);
 const editingScenario = ref<TaskScenario | null>(null);
+
+const publishOpen = ref(false);
+const versionRefreshTick = ref(0);
+
+function onVersionPublished() {
+  versionRefreshTick.value += 1; // 发布后刷新版本 Tab（未发布变更提示/列表）
+}
 
 /** 文档视图状态上提至 Tabs 行工具条（rightExtra），经 v-model 下发组件内部使用。 */
 const DOC_VIEWS = ['Pretty', 'Markdown'] as const;

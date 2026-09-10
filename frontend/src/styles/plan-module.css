@@ -125,6 +125,12 @@
   gap: 12px;
 }
 
+.plan-doc-toolbar .doc-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .plan-detail .segmented {
   display: inline-flex;
   gap: 2px;
@@ -743,5 +749,16 @@
 
   .plan-document .doc-main {
     scroll-behavior: auto;
+  }
+}
+
+/* 版本 Tab：发布时间倒序的修订记录行卡 */
+.plan-versions .version-row + .version-row {
+  margin-top: 2px;
+}
+
+@media (max-width: 1100px) {
+  .plan-versions .version-row {
+    padding: 10px 12px;
   }
 }
