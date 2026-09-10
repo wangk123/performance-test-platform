@@ -23,3 +23,6 @@ backend/storage/
 
 # ZCode 客户端本地工作数据
 .zcode/
+
+# 运行时冒烟截图等临时产物不入库
+docs/superpowers/screenshots/

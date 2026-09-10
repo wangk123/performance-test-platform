@@ -85,30 +85,65 @@ export function replaceSection(body: string, title: string, newContent: string):
   return before + normalized + (after === '' ? '' : after);
 }
 
-export function parseChecklistItems(content: string | null | undefined): ChecklistItem[] {
-  if (!content) return [];
-  return content
-    .split('\n')
-    .filter((line) => /^- \[( |x)\] /.test(line.trim()))
-    .map((line) => {
-      const trimmed = line.trim();
-      const checked = trimmed.startsWith('- [x] ');
-      const text = trimmed.slice(6).trim();
-      const auto = text.endsWith('（自动）') || text.endsWith('(自动)');
-      return { text, auto, checked };
-    });
+/** 任务清单行：`- [ ] `/`- [x] `（约束章规范格式）。 */
+const TASK_ITEM_RE = /^- \[( |x)\] /;
+/** 容错识别的普通清单行：`1. `/`1、` 编号行与 `- `/`*` 圆点行（存量文档常见写法）。 */
+const PLAIN_ITEM_RE = /^(?:\d{1,2}[.、)）]\s*|[-*•]\s+)(.+)$/;
+
+function checklistTextOf(trimmed: string): string {
+  if (trimmed.startsWith('- [x] ')) return trimmed.slice(6).trim();
+  if (trimmed.startsWith('- [ ] ')) return trimmed.slice(6).trim();
+  return (trimmed.match(PLAIN_ITEM_RE)?.[1] ?? '').trim();
 }
 
+function isChecklistItemLine(line: string): boolean {
+  const trimmed = line.trim();
+  return TASK_ITEM_RE.test(trimmed) || PLAIN_ITEM_RE.test(trimmed);
+}
+
+function splitAuto(text: string): { text: string; auto: boolean } {
+  const auto = text.endsWith('（自动）') || text.endsWith('(自动)');
+  return { text, auto };
+}
+
+export function parseChecklistItems(content: string | null | undefined): ChecklistItem[] {
+  return parseChecklistGroups(content).flatMap((group) =>
+    group.items.map(({ text, auto, checked }) => ({ text, auto, checked })),
+  );
+}
+
+/**
+ * 勾选回写：index 是全章清单行序号（与 parseChecklistGroups 同一口径，含容错的编号/圆点行）。
+ * 目标是任务行时原位翻转；目标是普通清单行时整章归一为任务清单格式再翻转
+ * （编号/圆点在清单语义里不承载顺序，规范格式即 `- [ ] `）。
+ */
 export function toggleChecklistItem(content: string, index: number): string {
   let cursor = -1;
+  const targetIsPlain = (() => {
+    for (const line of content.split('\n')) {
+      if (!isChecklistItemLine(line)) continue;
+      cursor += 1;
+      if (cursor === index) {
+        const trimmed = line.trim();
+        return !TASK_ITEM_RE.test(trimmed);
+      }
+    }
+    return false;
+  })();
+  cursor = -1;
   return content
     .split('\n')
     .map((line) => {
-      if (/^- \[( |x)\] /.test(line.trim())) {
-        cursor += 1;
-        if (cursor === index) {
-          return line.trim().startsWith('- [x] ') ? line.replace('- [x] ', '- [ ] ') : line.replace('- [ ] ', '- [x] ');
-        }
+      if (!isChecklistItemLine(line)) return line;
+      cursor += 1;
+      const trimmed = line.trim();
+      const indent = line.slice(0, line.length - line.trimStart().length);
+      if (targetIsPlain) {
+        if (cursor === index) return `${indent}- [x] ${checklistTextOf(trimmed)}`;
+        return `${indent}- [ ] ${checklistTextOf(trimmed)}`;
+      }
+      if (cursor === index) {
+        return trimmed.startsWith('- [x] ') ? line.replace('- [x] ', '- [ ] ') : line.replace('- [ ] ', '- [x] ');
       }
       return line;
     })
@@ -125,7 +160,7 @@ export interface ChecklistGroup {
   items: GroupedChecklistItem[];
 }
 
-/** 按 `### 标题`（或整行 `**标题**`）分组解析清单；2026-09 UI 重构新增，不改 parseChecklistItems。 */
+/** 按 `### 标题`（或整行 `**标题**`）分组解析清单；任务行与容错的编号/圆点行都算条目。 */
 export function parseChecklistGroups(content: string | null | undefined): ChecklistGroup[] {
   if (!content) return [];
   const groups: ChecklistGroup[] = [];
@@ -140,11 +175,10 @@ export function parseChecklistGroups(content: string | null | undefined): Checkl
       current = { title: (h3?.[1] ?? bold?.[1] ?? '').trim(), items: [] };
       continue;
     }
-    if (/^- \[( |x)\] /.test(line)) {
+    if (isChecklistItemLine(line)) {
       if (!current) current = { title: null, items: [] };
       const checked = line.startsWith('- [x] ');
-      const text = line.slice(6).trim();
-      const auto = text.endsWith('（自动）') || text.endsWith('(自动)');
+      const { text, auto } = splitAuto(checklistTextOf(line));
       current.items.push({ text, auto, checked, index: cursor });
       cursor += 1;
     }

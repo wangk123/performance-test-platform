@@ -104,8 +104,9 @@
       :content="editingSectionContent"
       @save="saveSection"
     />
-    <MetricsEditorModal
-      v-model:open="metricsEditorOpen"
+    <SectionTableEditor
+      v-model:open="tableEditorOpen"
+      :section-title="editingSectionTitle"
       :content="editingSectionContent"
       @save="saveSection"
     />
@@ -142,11 +143,12 @@ import 'md-editor-v3/lib/style.css';
 import type { TaskPlan, TaskScenario } from '../../types';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
 import { useTheme } from '../../composables/useTheme';
-import { extractSection, replaceSection, splitSections, toggleChecklistItem } from '../../utils/plan-markdown';
+import { extractSection, parseMarkdownTable, replaceSection, splitSections, toggleChecklistItem } from '../../utils/plan-markdown';
+import { planTableCompatible, planTableSchemaOf } from '../../utils/plan-table-schemas';
 import { updatePrecheckSettingsApi } from '../../api/plan-doc';
 import PlanConflictDialog from './PlanConflictDialog.vue';
 import PlanSectionEditor from './PlanSectionEditor.vue';
-import MetricsEditorModal from './MetricsEditorModal.vue';
+import SectionTableEditor from './SectionTableEditor.vue';
 import ChecklistView from './ChecklistView.vue';
 import ScenarioDesignModule from './ScenarioDesignModule.vue';
 
@@ -177,7 +179,7 @@ const editDraft = ref('');
 const conflictLocal = ref('');
 const conflictOpen = ref(false);
 const sectionEditorOpen = ref(false);
-const metricsEditorOpen = ref(false);
+const tableEditorOpen = ref(false);
 const editingSectionTitle = ref('');
 const editingSectionContent = ref('');
 const precheckDrawerOpen = ref(false);
@@ -284,9 +286,10 @@ async function resolveConflict(kind: 'keep-server' | 'take-local' | 'manual') {
 function openSectionEditor(title: string) {
   editingSectionTitle.value = title;
   editingSectionContent.value = extractSection(props.plan.body, title) ?? '';
-  // 指标章走结构化表单（固定字段、行增删），其余章节维持 Markdown 编辑
-  if (title === '三、测试指标') {
-    metricsEditorOpen.value = true;
+  // 表格型章节走结构化表单（固定列、行增删）；首表与列 schema 不兼容（如模板「人员」子表）回落 Markdown 编辑
+  const schema = planTableSchemaOf(title);
+  if (schema && planTableCompatible(schema, parseMarkdownTable(editingSectionContent.value)?.header ?? null)) {
+    tableEditorOpen.value = true;
     return;
   }
   sectionEditorOpen.value = true;
