@@ -7,6 +7,7 @@
         :key="entry.index"
         class="check-item"
         :class="{ pass: entry.checked }"
+        :data-line="anchorLines[entry.index]"
       >
         <a-checkbox
           class="check-box"
@@ -27,7 +28,9 @@
 import { computed } from 'vue';
 import { parseChecklistGroups } from '../../utils/plan-markdown';
 
-const props = defineProps<{ content: string; editable: boolean }>();
+const props = withDefaults(defineProps<{ content: string; editable: boolean; anchorLines?: number[] }>(), {
+  anchorLines: () => [],
+});
 defineEmits<{ (e: 'toggle', index: number): void }>();
 
 const groups = computed(() => parseChecklistGroups(props.content));

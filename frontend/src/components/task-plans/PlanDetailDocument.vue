@@ -35,7 +35,7 @@
               :data-section="section.title"
             >
               <header class="doc-section-head">
-                <h3>{{ section.title }}</h3>
+                <h3 :data-line="section.title === '八、场景设计' ? section.line : undefined">{{ section.title }}</h3>
                 <a-button
                   v-if="canEdit"
                   class="doc-section-edit"
@@ -50,10 +50,24 @@
                   编辑
                 </a-button>
               </header>
+              <div
+                v-for="group in commentLayer.brokenGroups.value.filter((g) => g.sectionTitle === section.title)"
+                :key="`broken-${section.title}`"
+                class="doc-anno-broken"
+              >
+                <details>
+                  <summary>⚠ {{ group.threads.length }} 条批注的锚点因内容变更失效</summary>
+                  <div v-for="thread in group.threads" :key="thread.root.id" class="doc-anno-broken-item">
+                    <b>{{ thread.root.author }}</b>：{{ thread.root.content }}
+                    <span class="doc-anno-broken-quote">原位置「{{ thread.root.anchorText }}」</span>
+                  </div>
+                </details>
+              </div>
               <ChecklistView
                 v-if="section.title === '六、测试约束'"
                 :content="section.content"
                 :editable="canEdit"
+                :anchor-lines="checklistAnchorLines(section)"
                 @toggle="toggleChecklist(section.content, $event)"
               />
               <ScenarioDesignModule
@@ -151,7 +165,7 @@ import 'md-editor-v3/lib/style.css';
 import type { TaskPlan, TaskScenario } from '../../types';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
 import { useTheme } from '../../composables/useTheme';
-import { extractSection, parseMarkdownTable, replaceSection, splitSections, toggleChecklistItem } from '../../utils/plan-markdown';
+import { checklistItemLines, extractSection, parseMarkdownTable, replaceSection, splitSections, toggleChecklistItem, type Section } from '../../utils/plan-markdown';
 import { planTableCompatible, planTableSchemaOf } from '../../utils/plan-table-schemas';
 import { useDocCommentLayer } from '../../composables/useDocCommentLayer';
 import PlanConflictDialog from './PlanConflictDialog.vue';
@@ -218,6 +232,7 @@ const commentLayer = useDocCommentLayer({
   threads: props.doc.threads,
   canComment,
   enabled: computed(() => viewMode.value === 'Pretty' && !editing.value),
+  body: computed(() => props.plan.body),
 });
 const composerBusy = ref(false);
 
@@ -235,6 +250,11 @@ async function submitAnchorComment(content: string) {
   });
   composerBusy.value = false;
   if (ok) commentLayer.closeComposer();
+}
+
+/** 六章清单项的全局行号（spec §5.1）：章标题下一行起 + 清单项局部行号。 */
+function checklistAnchorLines(section: Section): number[] {
+  return checklistItemLines(section.content).map((local) => section.line + 1 + local);
 }
 
 function beginEdit() {

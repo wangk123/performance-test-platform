@@ -1,6 +1,7 @@
 import { ref, type Ref } from 'vue';
 import type { PlanCommentThread } from '../types';
 import { listItemOffsets, splitBlocks, type Section } from '../utils/plan-markdown';
+import { deriveAnchors } from '../utils/plan-anchors';
 
 export interface ComposerTarget {
   top: number;
@@ -20,11 +21,17 @@ export function useDocCommentLayer(options: {
   canComment: Ref<boolean>;
   /** Pretty 视图且非编辑态才生效 */
   enabled: Ref<boolean>;
+  /** 当前文档正文：deriveAnchors 的输入（spec §5.3 纯派生不回写） */
+  body: Ref<string | null>;
+  /** 徽标点击回调（面板联动，spec §3.2；本任务不传） */
+  onBadgeClick?: (line: number) => void;
 }) {
   const addButton = ref({ visible: false, top: 0 });
   const composer = ref<ComposerTarget | null>(null);
   // 悬浮目标（实现裁决）：不用 dataset 挂载，line/section 以 ref 承载，openComposerFor 从这里读
   const hoverTarget = ref<{ line: number; section: string } | null>(null);
+  /** 断链分组（spec §3.3）：deriveAnchors 判 broken 的批注按展示章归组，模板渲染折叠条 */
+  const brokenGroups = ref<{ sectionTitle: string; threads: PlanCommentThread[] }[]>([]);
 
   const sectionEls = () =>
     [...(options.containerRef.value?.querySelectorAll<HTMLElement>('[data-section]') ?? [])];
@@ -57,11 +64,14 @@ export function useDocCommentLayer(options: {
   /** 映射注入：数量不一致（Markdown 边界形态）则整章跳过，宁可少注入也不错位（spec §5.4）。 */
   function injectDataLines(): void {
     for (const sectionEl of sectionEls()) {
-      sectionEl.querySelectorAll('[data-line]').forEach((el) => el.removeAttribute('data-line'));
+      const host = previewHost(sectionEl);
+      // 无 MdPreview 的章节（六章清单/八章场景模块）：行锚点由模板绑定（h3/check-item data-line），
+      // 注入层不得触碰——旧实现整节清除会抹掉 Vue 绑定的 data-line
+      if (!host) continue;
+      host.querySelectorAll('[data-line]').forEach((el) => el.removeAttribute('data-line'));
       const title = sectionEl.dataset.section ?? '';
       const section = options.sections.value.find((s) => s.title === title);
-      const host = previewHost(sectionEl);
-      if (!section || !host || !section.content.trim()) continue;
+      if (!section || !section.content.trim()) continue;
       const blocks = splitBlocks(section.content);
       const children = [...host.children] as HTMLElement[];
       if (children.length !== blocks.length) continue;
@@ -135,13 +145,64 @@ export function useDocCommentLayer(options: {
     composer.value = null;
   }
 
+  /** 渲染已有批注（spec §3.3/§5.3）：徽标 + 高亮 + 断链分组；先清后挂，幂等。 */
+  function renderAnnotations(): void {
+    const container = options.containerRef.value;
+    if (!container) return;
+    container.querySelectorAll('.doc-anno-badge').forEach((el) => el.remove());
+    container.querySelectorAll('[data-anno]').forEach((el) => el.removeAttribute('data-anno'));
+    container.querySelectorAll('.doc-anno-hl').forEach((el) => el.classList.remove('doc-anno-hl'));
+    const roots = options.threads.value.map((t) => t.root);
+    const resolutions = deriveAnchors(options.body.value, roots);
+    const byLine = new Map<number, PlanCommentThread[]>();
+    const broken: Map<string, PlanCommentThread[]> = new Map();
+    for (const thread of options.threads.value) {
+      const resolution = resolutions.get(thread.root.id);
+      if (!resolution || resolution.line == null) continue; // 无锚点/断链 → 面板与断链条呈现
+      if (resolution.state === 'broken') {
+        broken.set(resolution.sectionTitle, [...(broken.get(resolution.sectionTitle) ?? []), thread]);
+        continue;
+      }
+      byLine.set(resolution.line, [...(byLine.get(resolution.line) ?? []), thread]);
+    }
+    for (const [line, threadsAtLine] of byLine) {
+      const el = container.querySelector<HTMLElement>(`[data-line="${line}"]`);
+      if (!el) continue;
+      const unresolved = threadsAtLine.filter((t) => !t.root.resolved).length;
+      el.dataset.anno = String(threadsAtLine.length);
+      if (unresolved > 0) el.classList.add('doc-anno-hl');
+      const badge = document.createElement('span');
+      badge.className = `doc-anno-badge${unresolved > 0 ? '' : ' resolved'}`;
+      badge.textContent = unresolved > 0 ? `💬 ${threadsAtLine.length}` : `✓ ${threadsAtLine.length}`;
+      badge.title = threadsAtLine.map((t) => `${t.root.author}：${t.root.content}`).join('\n');
+      badge.addEventListener('click', (event) => {
+        event.stopPropagation();
+        options.onBadgeClick?.(line);
+      });
+      el.appendChild(badge);
+    }
+    brokenGroups.value = [...broken.entries()].map(([sectionTitle, threads]) => ({ sectionTitle, threads }));
+  }
+
   async function rebuild(): Promise<void> {
     injectDataLines();
+    renderAnnotations();
+  }
+
+  /** 面板/工作台定位（spec §3.2）：滚动到块并闪烁高亮。 */
+  function locate(line: number | null): void {
+    const container = options.containerRef.value;
+    if (!container || line == null) return;
+    const el = container.querySelector<HTMLElement>(`[data-line="${line}"]`);
+    if (!el) return;
+    container.scrollTo({ top: container.scrollTop + el.getBoundingClientRect().top - container.getBoundingClientRect().top - 96, behavior: 'smooth' });
+    el.classList.add('doc-anno-flash');
+    window.setTimeout(() => el.classList.remove('doc-anno-flash'), 1600);
   }
 
   return {
     addButton, composer, hoverTarget,
     onHover, hideButton, openComposerFor, closeComposer, rebuild,
-    // Task 8 扩展：renderAnnotations / brokenGroups / locate
+    brokenGroups, renderAnnotations, locate,
   };
 }
