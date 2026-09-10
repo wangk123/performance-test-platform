@@ -275,3 +275,96 @@ function extractSettings(body: string): string {
 export function parseExecutionRecords(body: string | null | undefined, scenarioName: string): string[] {
   return parseScenarioBlocks(body).find((b) => b.name === scenarioName)?.records ?? [];
 }
+
+// ---------- 块切分（行级批注的锚定单元，spec §5.1） ----------
+
+export interface DocBlock {
+  /** 块首行（0 基，章内容局部行号） */
+  startLine: number;
+  /** 块尾行（含） */
+  endLine: number;
+  raw: string;
+}
+
+const ATX_RE = /^\s*#{1,6}\s/;
+const TABLE_RE = /^\s*\|.*\|\s*$/;
+const QUOTE_RE = /^\s*>/;
+const LIST_ITEM_RE = /^\s*(?:[-*+]\s+|\d{1,2}[.、)）]\s*)/;
+const LIST_CONT_RE = /^\s{2,}\S/;
+const FENCE_RE = /^\s*(`{3,}|~{3,})/;
+
+export function splitBlocks(content: string | null | undefined): DocBlock[] {
+  if (!content) return [];
+  const lines = content.split('\n');
+  const blocks: DocBlock[] = [];
+  let paragraph: DocBlock | null = null;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() === '') {
+      paragraph = null;
+      continue;
+    }
+    const fence = line.match(FENCE_RE)?.[1];
+    if (fence) {
+      let end = i;
+      for (let j = i + 1; j < lines.length; j++) {
+        end = j;
+        if (lines[j].trim().startsWith(fence)) break;
+      }
+      blocks.push({ startLine: i, endLine: end, raw: lines.slice(i, end + 1).join('\n') });
+      paragraph = null;
+      i = end;
+      continue;
+    }
+    if (ATX_RE.test(line) || QUOTE_RE.test(line)) {
+      blocks.push({ startLine: i, endLine: i, raw: line });
+      paragraph = null;
+      continue;
+    }
+    if (TABLE_RE.test(line)) {
+      let end = i;
+      while (end + 1 < lines.length && TABLE_RE.test(lines[end + 1])) end++;
+      blocks.push({ startLine: i, endLine: end, raw: lines.slice(i, end + 1).join('\n') });
+      paragraph = null;
+      i = end;
+      continue;
+    }
+    if (LIST_ITEM_RE.test(line)) {
+      let end = i;
+      while (end + 1 < lines.length && lines[end + 1].trim() !== ''
+      && (LIST_ITEM_RE.test(lines[end + 1]) || LIST_CONT_RE.test(lines[end + 1]))) end++;
+      blocks.push({ startLine: i, endLine: end, raw: lines.slice(i, end + 1).join('\n') });
+      paragraph = null;
+      i = end;
+      continue;
+    }
+    if (paragraph) {
+      paragraph.endLine = i;
+      paragraph.raw += '\n' + line;
+    } else {
+      paragraph = { startLine: i, endLine: i, raw: line };
+      blocks.push(paragraph);
+    }
+  }
+  return blocks;
+}
+
+/** 块内列表项首行的局部偏移（Task 7 的 <li> 行映射用）。 */
+export function listItemOffsets(raw: string): number[] {
+  return raw.split('\n')
+    .map((line, offset) => (LIST_ITEM_RE.test(line) ? offset : -1))
+    .filter((offset) => offset >= 0);
+}
+
+/** 清单项行的局部行号，序与 parseChecklistGroups 的 index 口径一致（spec §5.1 六章映射）。 */
+export function checklistItemLines(content: string | null | undefined): number[] {
+  if (!content) return [];
+  const lines = content.split('\n');
+  const result: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (/^###\s+/.test(trimmed) || /^\*\*[^*]+\*\*：?$/.test(trimmed)) continue;
+    if (TASK_ITEM_RE.test(trimmed) || PLAIN_ITEM_RE.test(trimmed)) result.push(i);
+  }
+  return result;
+}
