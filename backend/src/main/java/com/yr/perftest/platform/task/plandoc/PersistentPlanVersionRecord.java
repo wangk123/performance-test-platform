@@ -68,8 +68,10 @@ public class PersistentPlanVersionRecord {
         this.updatedAt = createdAt;
     }
 
-    /** 覆盖发布（版本号不变的小修复）：刷新快照关联的修订元数据，createdBy/createdAt 不变。 */
-    public void applyOverwrite(String changeNote, String author, String planPhase, int planRevision, Instant updatedAt) {
+    /** 覆盖发布（版本号不变的小修复）：刷新正文快照与修订元数据，createdBy/createdAt 不变。 */
+    public void applyOverwrite(String snapshotBody, String changeNote, String author, String planPhase,
+                               int planRevision, Instant updatedAt) {
+        this.snapshotBody = snapshotBody;
         this.changeNote = changeNote;
         this.author = author;
         this.planPhase = planPhase;
