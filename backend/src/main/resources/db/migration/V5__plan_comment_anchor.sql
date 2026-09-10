@@ -1,0 +1,10 @@
+ALTER TABLE `plan_comments` ADD COLUMN `parent_id` bigint NULL;
+ALTER TABLE `plan_comments` ADD COLUMN `anchor_line` int NULL;
+ALTER TABLE `plan_comments` ADD COLUMN `anchor_text` varchar(200) NULL;
+ALTER TABLE `plan_comments` ADD COLUMN `section_title` varchar(64) NULL;
+ALTER TABLE `plan_comments` ADD COLUMN `body_revision` bigint NULL;
+ALTER TABLE `plan_comments` ADD COLUMN `resolved` boolean NOT NULL DEFAULT FALSE;
+ALTER TABLE `plan_comments` ADD COLUMN `resolved_by` varchar(80) NULL;
+ALTER TABLE `plan_comments` ADD COLUMN `resolved_at` datetime(6) NULL;
+CREATE INDEX `idx_plan_comments_parent` ON `plan_comments` (`parent_id`);
+CREATE INDEX `idx_plan_comments_thread` ON `plan_comments` (`plan_id`, `kind`, `resolved`);
