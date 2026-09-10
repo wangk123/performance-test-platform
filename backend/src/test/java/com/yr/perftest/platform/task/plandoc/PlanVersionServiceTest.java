@@ -80,6 +80,10 @@ class PlanVersionServiceTest {
         assertThat(overwritten.author()).isEqualTo("member-b");
         assertThat(overwritten.createdBy()).isEqualTo("owner");
         assertThat(overwritten.changeNote()).isEqualTo("错别字小修，不升号");
+        assertThat(overwritten.createdAt()).isEqualTo(first.createdAt());
+        assertThat(overwritten.updatedAt()).isAfterOrEqualTo(first.updatedAt());
+        PlanVersionService.PlanVersionDetail afterOverwrite = versionService.get(planId, first.id(), OWNER);
+        assertThat(afterOverwrite.snapshotBody()).contains("小修错别字");
         PlanVersionService.PlanVersionListResponse list = versionService.list(planId, OWNER);
         assertThat(list.versions()).hasSize(1);
         assertThat(list.bodyDiffersFromLatest()).isFalse();
@@ -131,6 +135,22 @@ class PlanVersionServiceTest {
     @Test
     void nonProjectMemberDenied() {
         assertThatThrownBy(() -> versionService.list(planId, OUTSIDER))
+                .isInstanceOf(PlanAccessDeniedException.class);
+    }
+
+    @Test
+    void listOrdersMultipleVersionsByCreatedDesc() {
+        versionService.publish(planId, OWNER, "V1.0", "首版");
+        versionService.publish(planId, OWNER, "V1.1", "补充");
+        versionService.publish(planId, OWNER, "V1.2", "再补充");
+        assertThat(versionService.list(planId, OWNER).versions())
+                .extracting(PlanVersionService.PlanVersionView::versionNo)
+                .containsExactly("V1.2", "V1.1", "V1.0");
+    }
+
+    @Test
+    void publishDeniedForNonProjectMember() {
+        assertThatThrownBy(() -> versionService.publish(planId, OUTSIDER, "V1.0", "越权"))
                 .isInstanceOf(PlanAccessDeniedException.class);
     }
 

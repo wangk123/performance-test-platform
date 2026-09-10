@@ -116,7 +116,7 @@
  * 批次 B · 文档工具条（挂在 Tabs 行 rightExtra）/ TOC / 阅读视图 / .plan-md 排版预设
  * ------------------------------------------------------------------- */
 
-/* 工具条：视图切换 | rev 号 + 执行设置（位于 a-tabs-nav 右侧，样式见批次 C 行卡） */
+/* 工具条：文档视图切换 + 发布版本入口（位于 a-tabs-nav 右侧） */
 .plan-doc-toolbar {
   display: flex;
   align-items: center;

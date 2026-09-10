@@ -115,6 +115,8 @@ function rollback(version: PlanVersionView) {
       if (outcome === 'ok') {
         message.success(`已回滚到版本 ${version.versionNo}`);
         await reload();
+      } else if (outcome === 'conflict') {
+        message.info('文档已被他人修改，已保留平台版本，请刷新后重试');
       }
     },
   });
