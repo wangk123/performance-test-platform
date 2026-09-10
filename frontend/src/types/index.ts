@@ -459,6 +459,27 @@ export interface PlanSnapshotView {
   publishedAt: string;
 }
 
+export interface PlanVersionView {
+  id: number;
+  versionNo: string;
+  changeNote: string;
+  createdBy: string;
+  author: string;
+  planPhase: string;
+  planRevision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanVersionListResponse {
+  versions: PlanVersionView[];
+  bodyDiffersFromLatest: boolean;
+}
+
+export interface PlanVersionDetail extends PlanVersionView {
+  snapshotBody: string;
+}
+
 export interface PrecheckSettings {
   enabled: boolean;
   items: string[];

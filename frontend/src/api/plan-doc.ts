@@ -5,6 +5,9 @@ import type {
   PlanShareTokenView,
   PlanTemplate,
   PlanVerdict,
+  PlanVersionDetail,
+  PlanVersionListResponse,
+  PlanVersionView,
   PrecheckRunReport,
   PrecheckSettings,
   TaskPlan,
@@ -149,5 +152,21 @@ export function bindScenarioScriptApi(scenarioId: number, scriptVersionId: numbe
     method: 'POST',
     headers: json,
     body: JSON.stringify({ scriptVersionId }),
+  });
+}
+
+export function listPlanVersionsApi(planId: number) {
+  return request<PlanVersionListResponse>(`/api/task-plans/${planId}/versions`);
+}
+
+export function getPlanVersionApi(planId: number, versionId: number) {
+  return request<PlanVersionDetail>(`/api/task-plans/${planId}/versions/${versionId}`);
+}
+
+export function publishPlanVersionApi(planId: number, payload: { versionNo: string; changeNote: string }) {
+  return request<PlanVersionView>(`/api/task-plans/${planId}/versions`, {
+    method: 'POST',
+    headers: json,
+    body: JSON.stringify(payload),
   });
 }
