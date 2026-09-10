@@ -7,8 +7,8 @@ import java.util.List;
 public final class PlanMarkdownSupport {
 
     public static final List<String> CANONICAL_HEADINGS = List.of(
-            "一、背景", "二、测试目的与指标", "三、测试范围", "四、测试资源", "五、测试约束",
-            "六、测试策略", "七、场景设计", "八、风险与预案", "九、排期与协作", "十、附录", "十一、结论");
+            "一、背景", "二、测试目的", "三、测试指标", "四、测试范围", "五、测试资源", "六、测试约束",
+            "七、测试策略", "八、场景设计", "九、风险与预案", "十、排期与协作", "十一、附录", "十二、结论");
 
     private static final String EXECUTION_RECORD_HEADING = "#### 执行记录";
 
@@ -80,7 +80,7 @@ public final class PlanMarkdownSupport {
         if (block == null) {
             String generated = "### S? " + scenarioName + " · UNKNOWN\n\n**场景目的**：（待补充）\n\n"
                     + EXECUTION_RECORD_HEADING + "\n";
-            String withBlock = ensureSection(body, "七、场景设计", generated);
+            String withBlock = ensureSection(body, "八、场景设计", generated);
             block = scenarioBlockBounds(withBlock, scenarioName);
             body = withBlock;
         }
@@ -219,12 +219,12 @@ public final class PlanMarkdownSupport {
     }
 
     private static String appendExecutionlessBlock(String body, String generatedBlock) {
-        String section = extractSection(body, "七、场景设计");
+        String section = extractSection(body, "八、场景设计");
         String block = generatedBlock + "\n" + EXECUTION_RECORD_HEADING + "\n";
         if (section == null) {
-            return ensureSection(body, "七、场景设计", "\n" + block);
+            return ensureSection(body, "八、场景设计", "\n" + block);
         }
-        return replaceSection(body, "七、场景设计", section + block);
+        return replaceSection(body, "八、场景设计", section + block);
     }
 
     /** 返回 [contentStart, contentEnd)：标题行之后到下一 `## ` 标题行之前。 */
@@ -250,7 +250,7 @@ public final class PlanMarkdownSupport {
 
     /** 场景块 = 七章节内以 `### ` 开头且包含场景名的行，到下一 `### `/`## ` 或文末。 */
     private static int[] scenarioBlockBounds(String body, String scenarioName) {
-        int[] section = sectionBounds(body, "七、场景设计");
+        int[] section = sectionBounds(body, "八、场景设计");
         if (section == null) {
             return null;
         }
@@ -286,7 +286,7 @@ public final class PlanMarkdownSupport {
             }
             // 容错：仅序号前缀匹配（如「## 二、xxx」改名场景），按序号取第一个规范标题
             String numeral = heading.substring(0, heading.indexOf('、') + 1);
-            if (!numeral.equals("十一、") && text.startsWith(numeral)) {
+            if (!numeral.equals("十二、") && text.startsWith(numeral)) {
                 return heading;
             }
         }

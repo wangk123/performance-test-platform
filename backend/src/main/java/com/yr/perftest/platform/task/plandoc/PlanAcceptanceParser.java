@@ -55,7 +55,7 @@ public final class PlanAcceptanceParser {
     }
 
     public static AcceptanceSection parse(String body) {
-        String section = PlanMarkdownSupport.extractSection(body, "二、测试目的与指标");
+        String section = PlanMarkdownSupport.extractSection(body, "三、测试指标");
         if (section == null) {
             return AcceptanceSection.EMPTY;
         }

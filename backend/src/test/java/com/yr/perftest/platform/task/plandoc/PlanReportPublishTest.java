@@ -53,7 +53,7 @@ class PlanReportPublishTest {
         PersistentTaskPlanRecord plan = planRepository.save(
                 new PersistentTaskPlanRecord(project.getId(), "计划", null, "owner"));
         plan.updateBody("""
-                ## 七、场景设计
+                ## 八、场景设计
 
                 ### S1 登录 · SINGLE_TXN
 
@@ -61,7 +61,7 @@ class PlanReportPublishTest {
 
                 #### 执行记录
 
-                ## 十一、结论
+                ## 十二、结论
 
                 ### 指标达成表
 
@@ -111,7 +111,7 @@ class PlanReportPublishTest {
     @Test
     void publishWithoutConclusionSectionDoesNotWriteNullLiteral() {
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
-        plan.updateBody("## 一、背景\n\n内容\n"); // 无「十一、结论」章节
+        plan.updateBody("## 一、背景\n\n内容\n"); // 无「十二、结论」章节
         plan.forceState(PlanPhase.REPORT, PlanStatus.DONE);
         planRepository.save(plan);
 
@@ -119,7 +119,7 @@ class PlanReportPublishTest {
         assertThat(published.phase()).isEqualTo(PlanPhase.PUBLISH);
         String body = planRepository.findById(planId).orElseThrow().getBody();
         assertThat(body).contains("**总体结论**：结论文本");
-        assertThat(body).contains("## 十一、结论");
+        assertThat(body).contains("## 十二、结论");
         assertThat(body).doesNotContain("null");
         var snapshot = snapshotRepository.findAllByPlanIdOrderByRevisionDesc(planId).get(0);
         assertThat(snapshot.getDocJson()).contains("总体结论");

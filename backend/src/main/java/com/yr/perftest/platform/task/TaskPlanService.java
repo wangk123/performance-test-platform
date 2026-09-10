@@ -120,7 +120,7 @@ public class TaskPlanService {
     /** 从渲染后的正文解析入口准则条目 → 默认 precheck 设置（disabled；设计 §10.2 只取入口准则）。 */
     private String defaultPrecheckJson(String body) {
         List<String> items = PlanMarkdownSupport.parseChecklistItems(entryCriteriaRegion(
-                PlanMarkdownSupport.extractSection(body == null ? "" : body, "五、测试约束")));
+                PlanMarkdownSupport.extractSection(body == null ? "" : body, "六、测试约束")));
         List<String> effective = items.isEmpty() ? PrecheckSettings.DEFAULT_ITEMS : items;
         try {
             return objectMapper.writeValueAsString(new PrecheckSettings(false, effective));

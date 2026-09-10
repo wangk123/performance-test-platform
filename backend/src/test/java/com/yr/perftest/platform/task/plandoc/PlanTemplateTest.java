@@ -88,8 +88,8 @@ class PlanTemplateTest {
                 .filter(t -> t.getName().equals("通用压测计划")).findFirst().orElseThrow().getId();
         TaskPlan plan = planService.createPlan(projectId, "零售3.1 压测", null, null, null, null, "owner", templateId);
         assertThat(plan.body()).contains("# 零售3.1 压测 性能测试计划");
-        assertThat(plan.body()).contains("## 二、测试目的与指标");
-        assertThat(plan.body()).contains("## 十一、结论");
+        assertThat(plan.body()).contains("## 三、测试指标");
+        assertThat(plan.body()).contains("## 十二、结论");
         assertThat(plan.body()).contains("指标已定义（自动）");
         assertThat(plan.revision()).isEqualTo(1);
         // 默认 precheck：disabled + 默认清单（入口准则条目）

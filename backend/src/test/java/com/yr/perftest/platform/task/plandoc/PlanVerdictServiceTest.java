@@ -91,7 +91,7 @@ class PlanVerdictServiceTest {
 
     private void doc(String metricTable) {
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
-        plan.updateBody("## 二、测试目的与指标\n\n" + metricTable + "\n\n## 十一、结论\n\n（空）\n");
+        plan.updateBody("## 三、测试指标\n\n" + metricTable + "\n\n## 十二、结论\n\n（空）\n");
         planRepository.save(plan);
     }
 
@@ -215,7 +215,7 @@ class PlanVerdictServiceTest {
     @Test
     void legacyBrokenSectionDegradesToIndeterminateNotBlocking() {
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
-        plan.updateBody("## 二、测试目的与指标\n\n| 指标名 | 数值 |\n|---|---|\n| TPS | 200 |\n");
+        plan.updateBody("## 三、测试指标\n\n| 指标名 | 数值 |\n|---|---|\n| TPS | 200 |\n");
         planRepository.save(plan);
         PlanVerdictService.VerdictResult result = verdictService.compute(planId);
         assertThat(result.present()).isFalse(); // lenient 兜底为空 → 无指标路径（保存校验上线后新文档不可能出现）

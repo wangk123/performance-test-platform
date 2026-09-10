@@ -58,7 +58,7 @@ public class PlanCreateTool implements McpTool {
         properties.put("projectId", Map.of("type", "integer", "description", "所属项目 id"));
         properties.put("title", Map.of("type", "string", "description", "计划标题，如：电商核心链路容量验证"));
         properties.put("markdown", Map.of("type", "string",
-                "description", "本地渲染的完整计划 Markdown（建议 11 个规范章节）"));
+                "description", "本地渲染的完整计划 Markdown（建议 12 个规范章节）"));
         properties.put("templateId", Map.of("type", "integer",
                 "description", "markdown 缺省时使用的模板 id（须对该项目可见）"));
         properties.put("remark", Map.of("type", "string", "description", "可选备注"));
@@ -76,7 +76,7 @@ public class PlanCreateTool implements McpTool {
                 plan_create({
                   "projectId": 1,
                   "title": "电商核心链路容量验证",
-                  "markdown": "# 一、背景\\n…（11 章节全文）"
+                  "markdown": "# 一、背景\\n…（12 章节全文）"
                 })
 
                 → { "planId": 42, "revision": 1, "phase": "DRAFT", "status": "DRAFT",

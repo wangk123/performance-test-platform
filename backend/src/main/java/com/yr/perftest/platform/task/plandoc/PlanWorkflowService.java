@@ -250,8 +250,8 @@ public class PlanWorkflowService {
             switch (plain) {
                 case "指标已定义" -> {
                     auto = true;
-                    pass = PlanMarkdownSupport.extractSection(body, "二、测试目的与指标") != null
-                            && PlanMarkdownSupport.extractSection(body, "二、测试目的与指标").contains("|---");
+                    pass = PlanMarkdownSupport.extractSection(body, "三、测试指标") != null
+                            && PlanMarkdownSupport.extractSection(body, "三、测试指标").contains("|---");
                 }
                 case "场景已配置" -> {
                     auto = true;
@@ -280,7 +280,7 @@ public class PlanWorkflowService {
 
     /** 自动通过项回写入口准则勾选（系统回填：revision+1）。 */
     private void writeBackEntryChecklist(PersistentTaskPlanRecord plan, String body, List<String> autoPassed) {
-        String constraints = PlanMarkdownSupport.extractSection(body, "五、测试约束");
+        String constraints = PlanMarkdownSupport.extractSection(body, "六、测试约束");
         if (constraints == null) {
             return;
         }
@@ -289,7 +289,7 @@ public class PlanWorkflowService {
             updated = updated.replace("- [ ] " + item + "（自动）", "- [x] " + item + "（自动）");
         }
         if (!updated.equals(constraints)) {
-            plan.updateBody(PlanMarkdownSupport.replaceSection(body, "五、测试约束", updated));
+            plan.updateBody(PlanMarkdownSupport.replaceSection(body, "六、测试约束", updated));
         }
     }
 
@@ -511,8 +511,8 @@ public class PlanWorkflowService {
             int end = body.indexOf('\n', start);
             body = end < 0 ? body.substring(0, start) + line : body.substring(0, start) + line + body.substring(end);
         } else {
-            String conclusionSection = PlanMarkdownSupport.extractSection(body, "十一、结论");
-            body = PlanMarkdownSupport.ensureSection(body, "十一、结论",
+            String conclusionSection = PlanMarkdownSupport.extractSection(body, "十二、结论");
+            body = PlanMarkdownSupport.ensureSection(body, "十二、结论",
                     (conclusionSection == null ? "" : conclusionSection) + "\n" + line + "\n");
         }
         plan.updateBody(body);
@@ -595,11 +595,11 @@ public class PlanWorkflowService {
         String block = "<!-- backfill:report -->\n#### 执行结果总览（生成于 " + timestamp + "）\n" + overviewLines;
         int marker = body.indexOf("<!-- backfill:report -->");
         if (marker < 0) {
-            String conclusion = PlanMarkdownSupport.extractSection(body, "十一、结论");
+            String conclusion = PlanMarkdownSupport.extractSection(body, "十二、结论");
             if (conclusion == null) {
-                return PlanMarkdownSupport.ensureSection(body, "十一、结论", "\n" + block);
+                return PlanMarkdownSupport.ensureSection(body, "十二、结论", "\n" + block);
             }
-            return PlanMarkdownSupport.replaceSection(body, "十一、结论", conclusion + block);
+            return PlanMarkdownSupport.replaceSection(body, "十二、结论", conclusion + block);
         }
         return body.substring(0, marker) + block + body.substring(blockEndOf(body, marker));
     }
@@ -630,11 +630,11 @@ public class PlanWorkflowService {
             int end = blockEndOf(body, subsection);
             return body.substring(0, subsection) + block + body.substring(end);
         }
-        String conclusion = PlanMarkdownSupport.extractSection(body, "十一、结论");
+        String conclusion = PlanMarkdownSupport.extractSection(body, "十二、结论");
         if (conclusion == null) {
-            return PlanMarkdownSupport.ensureSection(body, "十一、结论", "\n" + block);
+            return PlanMarkdownSupport.ensureSection(body, "十二、结论", "\n" + block);
         }
-        return PlanMarkdownSupport.replaceSection(body, "十一、结论", conclusion + block);
+        return PlanMarkdownSupport.replaceSection(body, "十二、结论", conclusion + block);
     }
 
     /** 从 startLine 起找块尾：其后第一个其它标题行（跳过本块 `#### 指标达成表`/`#### 执行结果总览`）或 `**总体结论**` 行前。 */
@@ -673,7 +673,7 @@ public class PlanWorkflowService {
 
     /** 达成表"实际"列自适应（spec §3.5 模板改列后兼容旧表）：表头含「实际」或「实际结果」的列下标，缺省 2。 */
     private String fillConclusionActualColumn(String body, List<java.util.Map<String, String>> summaries) {
-        String conclusion = PlanMarkdownSupport.extractSection(body, "十一、结论");
+        String conclusion = PlanMarkdownSupport.extractSection(body, "十二、结论");
         if (conclusion == null) {
             return body;
         }
@@ -710,7 +710,7 @@ public class PlanWorkflowService {
             }
             updated.append(line).append('\n');
         }
-        return PlanMarkdownSupport.replaceSection(body, "十一、结论", updated.toString());
+        return PlanMarkdownSupport.replaceSection(body, "十二、结论", updated.toString());
     }
 
     /** 替换 Markdown 表格行第 index 个数据单元格（0 基）。 */

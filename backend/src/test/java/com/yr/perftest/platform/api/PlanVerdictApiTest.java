@@ -52,7 +52,7 @@ class PlanVerdictApiTest {
         PersistentTaskPlanRecord plan = planRepository.save(
                 new PersistentTaskPlanRecord(project.getId(), "计划", null, "admin"));
         plan.updateBody("""
-                ## 二、测试目的与指标
+                ## 三、测试指标
 
                 | 对象 | 指标 | 目标值 | 口径 |
                 |---|---|---|---|

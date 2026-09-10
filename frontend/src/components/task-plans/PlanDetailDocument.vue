@@ -13,17 +13,6 @@
           @click.prevent="jumpTo(section.title)"
         >
           <span class="toc-label">{{ section.title }}</span>
-          <svg
-            v-if="isConstrained(section.title)"
-            class="toc-lock"
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            aria-hidden="true"
-          ><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
         </a>
       </nav>
 
@@ -38,7 +27,6 @@
             >
               <header class="doc-section-head">
                 <h3>{{ section.title }}</h3>
-                <span v-if="isConstrained(section.title)" class="doc-chip">受控</span>
                 <a-button
                   v-if="canEdit"
                   class="doc-section-edit"
@@ -54,13 +42,13 @@
                 </a-button>
               </header>
               <ChecklistView
-                v-if="section.title === '五、测试约束'"
+                v-if="section.title === '六、测试约束'"
                 :content="section.content"
                 :editable="canEdit"
                 @toggle="toggleChecklist(section.content, $event)"
               />
               <ScenarioDesignModule
-                v-else-if="section.title === '七、场景设计'"
+                v-else-if="section.title === '八、场景设计'"
                 :doc-plan="doc"
                 :plan="plan"
                 :scenarios="scenarios"
@@ -116,6 +104,11 @@
       :content="editingSectionContent"
       @save="saveSection"
     />
+    <MetricsEditorModal
+      v-model:open="metricsEditorOpen"
+      :content="editingSectionContent"
+      @save="saveSection"
+    />
     <PlanConflictDialog
       v-model:open="conflictOpen"
       :server-markdown="plan.body ?? ''"
@@ -153,6 +146,7 @@ import { extractSection, replaceSection, splitSections, toggleChecklistItem } fr
 import { updatePrecheckSettingsApi } from '../../api/plan-doc';
 import PlanConflictDialog from './PlanConflictDialog.vue';
 import PlanSectionEditor from './PlanSectionEditor.vue';
+import MetricsEditorModal from './MetricsEditorModal.vue';
 import ChecklistView from './ChecklistView.vue';
 import ScenarioDesignModule from './ScenarioDesignModule.vue';
 
@@ -170,8 +164,6 @@ const emit = defineEmits<{
   (e: 'update:viewMode', value: 'Pretty' | 'Markdown'): void;
 }>();
 
-const CONSTRAINED = ['二、测试目的与指标', '三、测试范围', '四、测试资源', '五、测试约束', '七、场景设计', '九、排期与协作'];
-
 const { themeMode } = useTheme();
 const mdTheme = computed(() => (themeMode.value === 'dark' ? 'dark' : 'light'));
 
@@ -185,6 +177,7 @@ const editDraft = ref('');
 const conflictLocal = ref('');
 const conflictOpen = ref(false);
 const sectionEditorOpen = ref(false);
+const metricsEditorOpen = ref(false);
 const editingSectionTitle = ref('');
 const editingSectionContent = ref('');
 const precheckDrawerOpen = ref(false);
@@ -203,10 +196,6 @@ const ANCHOR_PREFIX = 'plan-mdh-';
 const headingId = (options: { text: string }) => ANCHOR_PREFIX + encodeURIComponent(options.text.trim());
 function anchorDomId(title: string) {
   return ANCHOR_PREFIX + encodeURIComponent(title.trim());
-}
-
-function isConstrained(title: string) {
-  return CONSTRAINED.includes(title);
 }
 
 watch(() => props.plan.precheckJson, parsePrecheck, { immediate: true });
@@ -295,6 +284,11 @@ async function resolveConflict(kind: 'keep-server' | 'take-local' | 'manual') {
 function openSectionEditor(title: string) {
   editingSectionTitle.value = title;
   editingSectionContent.value = extractSection(props.plan.body, title) ?? '';
+  // 指标章走结构化表单（固定字段、行增删），其余章节维持 Markdown 编辑
+  if (title === '三、测试指标') {
+    metricsEditorOpen.value = true;
+    return;
+  }
   sectionEditorOpen.value = true;
 }
 
@@ -317,7 +311,7 @@ async function saveSection(content: string) {
 
 async function toggleChecklist(content: string, index: number) {
   const next = toggleChecklistItem(content, index);
-  const body = replaceSection(props.plan.body ?? '', '五、测试约束', next);
+  const body = replaceSection(props.plan.body ?? '', '六、测试约束', next);
   await submitWholeDocument(body);
 }
 

@@ -1,6 +1,6 @@
 export const CANONICAL_HEADINGS = [
-  '一、背景', '二、测试目的与指标', '三、测试范围', '四、测试资源', '五、测试约束',
-  '六、测试策略', '七、场景设计', '八、风险与预案', '九、排期与协作', '十、附录', '十一、结论',
+  '一、背景', '二、测试目的', '三、测试指标', '四、测试范围', '五、测试资源', '六、测试约束',
+  '七、测试策略', '八、场景设计', '九、风险与预案', '十、排期与协作', '十一、附录', '十二、结论',
 ];
 
 const EXECUTION_RECORD_HEADING = '#### 执行记录';
@@ -39,7 +39,7 @@ function canonicalTitleOf(line: string): string | null {
   if (exact) return exact;
   for (const heading of CANONICAL_HEADINGS) {
     const numeral = heading.slice(0, heading.indexOf('、') + 1);
-    if (numeral !== '十一、' && text.startsWith(numeral)) return heading;
+    if (numeral !== '十二、' && text.startsWith(numeral)) return heading;
   }
   return null;
 }
@@ -153,19 +153,40 @@ export function parseChecklistGroups(content: string | null | undefined): Checkl
   return groups;
 }
 
+/** `|---|` 分隔行识别（与后端 PlanAcceptanceParser 口径一致）：全部单元格为 --- 形态。 */
+function isSeparatorRow(cells: string[]): boolean {
+  const meaningful = cells.map((cell) => cell.trim()).filter((cell) => cell !== '');
+  return meaningful.length > 0 && meaningful.every((cell) => /^:?-{2,}:?$/.test(cell));
+}
+
 export function parseMarkdownTable(content: string | null | undefined): MarkdownTable | null {
   if (!content) return null;
   const rows = content
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.startsWith('|') && line.endsWith('|'))
-    .map((line) => line.slice(1, -1).split('|').map((cell) => cell.trim()));
+    .map((line) => line.slice(1, -1).split('|').map((cell) => cell.trim()))
+    .filter((cells) => !isSeparatorRow(cells));
   if (rows.length < 2) return null;
   return { header: rows[0], rows: rows.slice(1) };
 }
 
+/** 单元格内联化：竖线转义、换行压空格，保证序列化回的表格行数与单元格数不漂移。 */
+function toCell(text: string): string {
+  return (text ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
+}
+
+/** Markdown 表序列化（parseMarkdownTable 的逆操作）：表头 + 分隔线 + 数据行。 */
+export function toMarkdownTable(header: string[], rows: string[][]): string {
+  const width = header.length;
+  const line = (cells: string[]) =>
+    `| ${Array.from({ length: width }, (_, i) => toCell(cells[i] ?? '')).join(' | ')} |`;
+  const separator = `| ${Array.from({ length: width }, () => '---').join(' | ')} |`;
+  return [line(header), separator, ...rows.map((row) => line(row))].join('\n');
+}
+
 export function parseScenarioBlocks(body: string | null | undefined): ScenarioBlock[] {
-  const section = extractSection(body, '七、场景设计');
+  const section = extractSection(body, '八、场景设计');
   if (!section) return [];
   const lines = section.split('\n');
   const blocks: ScenarioBlock[] = [];

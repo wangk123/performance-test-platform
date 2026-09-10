@@ -42,7 +42,7 @@ class PlanScenarioDocSyncTest {
     @BeforeEach
     void setUp() {
         PersistentTaskPlanRecord plan = planRepository.save(new PersistentTaskPlanRecord(1L, "计划", null, "owner"));
-        plan.updateBody("## 七、场景设计\n\n### S1 登录 · BENCHMARK\n\n**场景目的**：旧目的\n\n"
+        plan.updateBody("## 八、场景设计\n\n### S1 登录 · BENCHMARK\n\n**场景目的**：旧目的\n\n"
                 + "**测试方法**：自由文本保留验证\n\n**场景设置**（由场景执行配置生成，勿手改）：\n\n"
                 + "| 用户数 | 持续时长 | 加载方式 | 退出方式 |\n|---|---|---|---|\n| 10 | 60 秒 | 同时加载 | 同时退出 |\n\n#### 执行记录\n");
         planId = planRepository.save(plan).getId();

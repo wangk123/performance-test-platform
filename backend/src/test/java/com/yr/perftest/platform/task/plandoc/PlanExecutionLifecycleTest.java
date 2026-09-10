@@ -51,7 +51,7 @@ class PlanExecutionLifecycleTest {
         PersistentProjectRecord project = projectRepository.save(new PersistentProjectRecord("P1", "项目一", "", "owner"));
         PersistentTaskPlanRecord plan = planRepository.save(
                 new PersistentTaskPlanRecord(project.getId(), "计划", null, "owner"));
-        plan.updateBody("## 七、场景设计\n\n### S1 场景A · SINGLE_TXN\n\n**场景目的**：p\n\n"
+        plan.updateBody("## 八、场景设计\n\n### S1 场景A · SINGLE_TXN\n\n**场景目的**：p\n\n"
                 + "**场景设置**（由场景执行配置生成，勿手改）：\n\n| 用户数 | 持续时长 | 加载方式 | 退出方式 |\n|---|---|---|---|\n| 50 | 300 秒 | 同时加载 | 同时退出 |\n\n#### 执行记录\n");
         plan.forceState(PlanPhase.EXECUTION, PlanStatus.RUNNING);
         planId = planRepository.save(plan).getId();

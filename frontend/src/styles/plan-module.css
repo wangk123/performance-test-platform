@@ -87,31 +87,6 @@
   gap: 12px;
 }
 
-.plan-document .doc-toc h4 {
-  margin: 4px 0 8px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.plan-document .toc-item {
-  display: block;
-  padding: 4px 6px;
-  font-size: 13px;
-  color: var(--muted);
-  cursor: pointer;
-  border-radius: 4px;
-  text-decoration: none;
-}
-
-.plan-document .toc-item:hover {
-  background: var(--active-bg);
-}
-
-.plan-document .toc-item.constrained {
-  color: var(--ink);
-  font-weight: 500;
-}
-
 .plan-document .doc-body {
   flex: 1;
   min-height: 0;
@@ -121,13 +96,7 @@
   align-items: stretch;
 }
 
-.plan-document .doc-toc {
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-/* ★ 唯一文档滚动容器：自身即文档白卡（单容器，章节以发丝线分隔） */
+/* ★ 唯一文档滚动容器：自身即文档白卡（单容器，章节以发丝线分隔）；TOC 卡片样式见批次 B */
 .plan-document .doc-main {
   min-height: 0;
   overflow-y: auto;
@@ -206,52 +175,59 @@
   white-space: nowrap;
 }
 
-/* TOC：current 态 = 墨色 600 + 墨色左条 + soft 底（强调色预算：accent 只留给主按钮/当前阶段/正文链） */
+/* TOC：软卡片（与右侧文档白卡同语言），current 态 = 墨字 + 白底 + 墨色左条 */
+.plan-document .doc-toc {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+  padding: 10px 8px 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  scrollbar-width: thin;
+}
+
 .plan-document .doc-toc h4 {
-  margin: 2px 0 8px;
-  padding: 0 4px;
-  color: var(--ink);
-  font-size: 12px;
+  margin: 2px 8px 8px;
+  color: var(--muted);
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.3px;
+  letter-spacing: 1.2px;
 }
 
 .plan-document .toc-item {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
   margin-bottom: 1px;
-  padding: 5px 8px 5px 9px;
+  padding: 5px 10px 5px 9px;
   border-left: 3px solid transparent;
-  border-radius: 0 6px 6px 0;
+  border-radius: 6px;
   color: var(--muted);
   font-size: 12.5px;
+  line-height: 1.5;
   text-decoration: none;
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 
 .plan-document .toc-item:hover {
   color: var(--ink);
-  background: var(--surface-soft);
+  background: color-mix(in srgb, var(--surface) 65%, transparent);
 }
 
 .plan-document .toc-item.current {
   color: var(--ink);
   border-left-color: var(--ink);
-  background: var(--surface-soft);
+  background: var(--surface);
   font-weight: 600;
+  box-shadow: 0 1px 2px rgba(26, 35, 50, 0.06);
 }
 
-/* 受控章以 12px 灰锁提示（内容类型语义，不占用强调色） */
-.plan-document .toc-label {
-  min-width: 0;
-}
-
-.plan-document .toc-lock {
-  flex: none;
-  color: var(--line-strong);
+:root[data-theme='dark'] .plan-document .toc-item.current {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 /* 阅读视图：文档为单容器，章与章之间发丝线分隔（不再逐章包白卡） */
@@ -278,18 +254,6 @@
   font-size: 17px;
   font-weight: 650;
   line-height: 1.4;
-}
-
-/* 受控标签：中性灰（内容类型，不是状态） */
-.plan-document .doc-chip {
-  flex: none;
-  padding: 1px 8px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--surface-soft);
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 500;
 }
 
 /* 编辑入口：章头右端幽灵按钮，不打断阅读动线 */
@@ -750,12 +714,17 @@
   }
 
   .plan-document .doc-toc {
+    position: static;
+    max-height: none;
     display: flex;
     align-items: center;
     gap: 6px;
     overflow-x: auto;
     overflow-y: hidden;
     padding: 2px 2px 6px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
   }
 
   .plan-document .doc-toc h4 {
@@ -774,10 +743,6 @@
 
   .plan-document .toc-item.current {
     border-color: var(--ink);
-  }
-
-  .plan-document .toc-lock {
-    display: none;
   }
 
   .review-tab .review-layout,

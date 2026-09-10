@@ -72,7 +72,7 @@ public class PlanTemplatesTool implements McpTool {
 
                 → { "templates": [
                      { "id": 1, "name": "通用压测计划", "scope": "BUILTIN", "description": "…",
-                       "sections": ["一、背景", "二、测试目的与指标", "…"],
+                       "sections": ["一、背景", "二、测试目的", "三、测试指标", "…"],
                        "placeholders": ["{{planName}}"] } ] }""";
     }
 

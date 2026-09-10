@@ -5,7 +5,7 @@
         <div class="card report-stage-card">
           <h4>报告阶段</h4>
           <p class="report-stage-note">
-            当前阶段 <b>{{ phaseText }} · {{ statusText }}</b>。生成 = 聚合执行摘要回填"十一、结论"（达成表实际列 + 结果总览），
+            当前阶段 <b>{{ phaseText }} · {{ statusText }}</b>。生成 = 聚合执行摘要回填"十二、结论"（达成表实际列 + 结果总览），
             同一份文档从计划走到报告。
           </p>
           <div class="report-actions">
@@ -172,7 +172,7 @@ const verdictColumns = [
   { title: '下钻', key: 'drill' },
 ];
 
-const conclusion = computed(() => extractSection(props.doc.plan.value?.body, '十一、结论'));
+const conclusion = computed(() => extractSection(props.doc.plan.value?.body, '十二、结论'));
 const rows = computed(() =>
   props.scenarios.map((scenario) => {
     // 执行记录按时间正序追加，最新一条在末尾。

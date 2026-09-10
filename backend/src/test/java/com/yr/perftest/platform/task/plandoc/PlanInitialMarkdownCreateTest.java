@@ -31,9 +31,9 @@ class PlanInitialMarkdownCreateTest {
     void initialMarkdownSeedsBodyAtRevisionOne() {
         long projectId = projectRepository.save(new PersistentProjectRecord("P1", "项目一", "", "owner")).getId();
         TaskPlan plan = taskPlanService.createPlan(projectId, "计划一", null, null, null, null,
-                "agent", null, "# 一、背景\nagent 全文\n二、测试目的与指标\n…");
+                "agent", null, "# 一、背景\nagent 全文\n三、测试指标\n…");
         assertThat(plan.revision()).isEqualTo(1);
-        assertThat(plan.body()).isEqualTo("# 一、背景\nagent 全文\n二、测试目的与指标\n…");
+        assertThat(plan.body()).isEqualTo("# 一、背景\nagent 全文\n三、测试指标\n…");
         assertThat(plan.phase()).isEqualTo(PlanPhase.DRAFT);
         assertThat(plan.status()).isEqualTo(PlanStatus.DRAFT);
     }

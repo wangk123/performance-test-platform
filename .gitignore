@@ -20,3 +20,6 @@ backend/storage/
 
 # subagent-driven development worktrees
 .worktrees/
+
+# ZCode 客户端本地工作数据
+.zcode/

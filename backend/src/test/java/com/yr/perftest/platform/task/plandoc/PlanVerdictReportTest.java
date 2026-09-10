@@ -73,19 +73,19 @@ class PlanVerdictReportTest {
     private void docWithMetrics(String conclusionSection) {
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
         plan.updateBody("""
-                ## 二、测试目的与指标
+                ## 三、测试指标
 
                 | 对象 | 指标 | 目标值 | 口径 |
                 |---|---|---|---|
                 | 登录场景 | TPS | ≥ 700 | 5 分钟均值 |
 
-                ## 七、场景设计
+                ## 八、场景设计
 
                 ### S1 登录场景 · SINGLE_TXN
 
                 #### 执行记录
 
-                ## 十一、结论
+                ## 十二、结论
 
                 """ + conclusionSection);
         planRepository.save(plan);
@@ -165,13 +165,13 @@ class PlanVerdictReportTest {
     void reportWithoutMetricsKeepsP0ZeroOneBehaviour() {
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
         plan.updateBody("""
-                ## 七、场景设计
+                ## 八、场景设计
 
                 ### S1 登录场景 · SINGLE_TXN
 
                 #### 执行记录
 
-                ## 十一、结论
+                ## 十二、结论
 
                 ### 指标达成表
 

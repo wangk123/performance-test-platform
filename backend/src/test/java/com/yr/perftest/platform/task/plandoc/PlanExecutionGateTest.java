@@ -56,8 +56,8 @@ class PlanExecutionGateTest {
         memberRepository.save(new PersistentProjectMemberRecord(project.getId(), "owner", ProjectRole.OWNER));
         PersistentTaskPlanRecord plan = planRepository.save(
                 new PersistentTaskPlanRecord(project.getId(), "计划", null, "owner"));
-        plan.updateBody("## 二、测试目的与指标\n\n| 交易 | 指标 | 目标值 | 口径 |\n|---|---|---|---|\n| 查询 | TPS | 200 | 均值 |\n\n"
-                + "## 五、测试约束\n\n### 入口准则\n\n- [ ] 指标已定义（自动）\n- [ ] 环境就绪（人工）\n\n## 七、场景设计\n");
+        plan.updateBody("## 三、测试指标\n\n| 交易 | 指标 | 目标值 | 口径 |\n|---|---|---|---|\n| 查询 | TPS | 200 | 均值 |\n\n"
+                + "## 六、测试约束\n\n### 入口准则\n\n- [ ] 指标已定义（自动）\n- [ ] 环境就绪（人工）\n\n## 八、场景设计\n");
         plan.forceState(PlanPhase.EXECUTION, PlanStatus.PENDING);
         planId = planRepository.save(plan).getId();
         PersistentTaskScenarioRecord scenario = scenarioRepository.save(
@@ -151,7 +151,7 @@ class PlanExecutionGateTest {
         assertThat(report.autoPassed()).containsExactly("指标已定义", "场景已配置");
         // 指标已定义=自动通过 → 回写勾选（revision+1，系统回填语义）
         String constraints = PlanMarkdownSupport.extractSection(
-                planRepository.findById(planId).orElseThrow().getBody(), "五、测试约束");
+                planRepository.findById(planId).orElseThrow().getBody(), "六、测试约束");
         assertThat(constraints).contains("- [x] 指标已定义（自动）");
     }
 }

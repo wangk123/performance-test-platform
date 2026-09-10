@@ -10,8 +10,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PlanAcceptanceParserTest {
 
     private static String doc(String metricSection) {
-        return "# 计划\n\n## 一、背景\n\nb\n\n## 二、测试目的与指标\n\n" + metricSection
-                + "\n\n## 三、测试范围\n\nt\n";
+        return "# 计划\n\n## 一、背景\n\nb\n\n## 三、测试指标\n\n" + metricSection
+                + "\n\n## 四、测试范围\n\nt\n";
     }
 
     @Test
@@ -95,8 +95,8 @@ class PlanAcceptanceParserTest {
 
     @Test
     void sectionTitleOrderingTolerated() {
-        // 序号容错：标题写成「二、xxx」别名仍能定位（extractSection 的序号容错）
-        String body = "# p\n\n## 二、目的与指标（修订）\n\n| 对象 | 指标 | 目标值 |\n|---|---|---|\n| S | TPS | 100 |\n";
+        // 序号容错：指标章标题写成「三、xxx」别名仍能定位（extractSection 的序号容错）
+        String body = "# p\n\n## 三、指标（修订）\n\n| 对象 | 指标 | 目标值 |\n|---|---|---|\n| S | TPS | 100 |\n";
         assertThat(PlanAcceptanceParser.parse(body).present()).isTrue();
     }
 

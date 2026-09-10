@@ -55,7 +55,7 @@ class PlanAcceptanceSaveValidationTest {
     }
 
     private String baseDoc(String metricTable) {
-        return "## 二、测试目的与指标\n\n" + metricTable + "\n\n## 七、场景设计\n\n（空）\n";
+        return "## 三、测试指标\n\n" + metricTable + "\n\n## 八、场景设计\n\n（空）\n";
     }
 
     @Test

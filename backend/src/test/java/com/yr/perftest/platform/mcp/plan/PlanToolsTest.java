@@ -75,7 +75,7 @@ class PlanToolsTest {
         assertThat(templates).isNotEmpty();
         Map<String, Object> builtin = templates.get(0);
         assertThat(builtin.get("scope")).isEqualTo("BUILTIN");
-        assertThat((List<String>) builtin.get("sections")).contains("一、背景", "七、场景设计");
+        assertThat((List<String>) builtin.get("sections")).contains("一、背景", "八、场景设计");
         assertThat((List<String>) builtin.get("placeholders")).contains("{{planName}}");
         assertThat(builtin.get("name")).isEqualTo("通用压测计划");
         // 缺省 projectId → 仅内置模板（findAllVisible(null) 语义）

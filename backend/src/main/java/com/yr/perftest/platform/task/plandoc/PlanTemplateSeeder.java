@@ -15,7 +15,11 @@ public class PlanTemplateSeeder {
 
             （简述被测系统、本次压测的业务背景与动因。）
 
-            ## 二、测试目的与指标
+            ## 二、测试目的
+
+            （叙述本次压测要达成的业务与技术目的。）
+
+            ## 三、测试指标
 
             | 对象 | 指标 | 目标值 | 口径 |
             |---|---|---|---|
@@ -23,19 +27,11 @@ public class PlanTemplateSeeder {
             | （示例）查询交易 | P95 | ≤ 300 ms | 5 分钟均值 |
             | （示例）查询交易 | 错误率 | ≤ 0.5% | 全量样本 |
 
-            ## 三、测试范围
+            ## 四、测试范围
 
-            ### 范围内交易
+            - （列出纳入本次压测的交易、接口或链路；不在范围内的项一并注明）
 
-            | 交易名称 | 交易配比 | 备注 |
-            |---|---|---|
-            | （示例）登录 | 30% | |
-
-            ### 范围外清单
-
-            - （列出明确不测的交易及原因）
-
-            ## 四、测试资源
+            ## 五、测试资源
 
             ### 人员
 
@@ -59,7 +55,7 @@ public class PlanTemplateSeeder {
 
             - 计划执行时间：
 
-            ## 五、测试约束
+            ## 六、测试约束
 
             ### 入口准则
 
@@ -77,11 +73,11 @@ public class PlanTemplateSeeder {
             - [ ] 指标达成表已确认（人工）
             - [ ] 风险与建议已记录（人工）
 
-            ## 六、测试策略
+            ## 七、测试策略
 
             （叙述：压测模型、数据准备策略、监控与观察点。）
 
-            ## 七、场景设计
+            ## 八、场景设计
 
             （场景块由平台按场景实体生成并回写；示例结构如下，勿手改标记行。）
 
@@ -101,11 +97,11 @@ public class PlanTemplateSeeder {
 
             #### 执行记录
 
-            ## 八、风险与预案
+            ## 九、风险与预案
 
             （列出主要风险与应对。）
 
-            ## 九、排期与协作
+            ## 十、排期与协作
 
             | 环节 | 时间 | 负责人 |
             |---|---|---|
@@ -114,15 +110,15 @@ public class PlanTemplateSeeder {
             | 执行与观察 |  |  |
             | 报告与发布 |  |  |
 
-            ## 十、附录
+            ## 十一、附录
 
             （参考资料、术语等。）
 
-            ## 十一、结论
+            ## 十二、结论
 
             ### 指标达成表
 
-            （报告生成时按「二、测试目的与指标」自动重绘；无指标计划本表保持为实测记录。）
+            （报告生成时按「三、测试指标」自动重绘；无指标计划本表保持为实测记录。）
 
             | 对象 | 指标 | 目标 | 实际 | 状态 | 说明 |
             |---|---|---|---|---|---|
@@ -135,13 +131,19 @@ public class PlanTemplateSeeder {
             **总体结论**：（发布时填写）
             """;
 
+    public static final String TEMPLATE_DESCRIPTION = "内置通用压测计划模板（12 章节固定结构）";
+
     @Bean
     public ApplicationRunner planTemplateSeed(PersistentPlanTemplateRepository repository) {
         return args -> {
-            if (repository.findFirstByBuiltinTrueOrderByIdAsc().isEmpty()) {
+            PersistentPlanTemplateRecord builtin = repository.findFirstByBuiltinTrueOrderByIdAsc().orElse(null);
+            if (builtin == null) {
                 repository.save(new PersistentPlanTemplateRecord(
-                        null, "通用压测计划", "内置通用压测计划模板（11 章节固定结构）",
-                        BUILTIN_TEMPLATE, true, "system"));
+                        null, "通用压测计划", TEMPLATE_DESCRIPTION, BUILTIN_TEMPLATE, true, "system"));
+            } else if (!BUILTIN_TEMPLATE.equals(builtin.getContent())) {
+                // 内置模板行归平台所有（不可编辑删除）：内容与代码模板不一致时一律就地刷新
+                builtin.update("通用压测计划", TEMPLATE_DESCRIPTION, BUILTIN_TEMPLATE);
+                repository.save(builtin);
             }
         };
     }
