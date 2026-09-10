@@ -421,6 +421,12 @@ export type PlanStatus =
   | 'RUNNING' | 'DONE' | 'GENERATING' | 'PUBLISHED';
 export type PlanCommentKind = 'REVIEW' | 'SYSTEM';
 
+export interface PlanCommentAnchor {
+  line: number;
+  text: string;
+  section: string;
+}
+
 export interface PlanComment {
   id: number;
   planId: number;
@@ -428,6 +434,22 @@ export interface PlanComment {
   content: string;
   kind: PlanCommentKind;
   createdAt: string;
+  parentId: number | null;
+  anchorLine: number | null;
+  anchorText: string | null;
+  sectionTitle: string | null;
+  bodyRevision: number | null;
+  resolved: boolean;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  canResolve: boolean;
+  canDelete: boolean;
+}
+
+/** 根批注 + 一层回复（spec §2 线程）。 */
+export interface PlanCommentThread {
+  root: PlanComment;
+  replies: PlanComment[];
 }
 
 export interface PlanTemplate {

@@ -1,10 +1,11 @@
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { message } from 'ant-design-vue';
-import type { PlanComment, PlanPermissions, TaskPlan } from '../types';
+import type { PlanComment, PlanCommentAnchor, PlanCommentThread, PlanPermissions, TaskPlan } from '../types';
 import {
   addCommentApi,
   getPlanDocumentApi,
   listCommentsApi,
+  resolveCommentApi,
   transitionPlanApi,
   updatePlanDocumentApi,
 } from '../api/plan-doc';
@@ -76,11 +77,81 @@ export function usePlanDoc() {
     }
   }
 
-  async function addComment(content: string) {
-    if (!plan.value) return;
-    await addCommentApi(plan.value.id, content);
-    comments.value = await listCommentsApi(plan.value.id);
+  const REVIEW_ROOTS = (list: PlanComment[]) =>
+    list.filter((c) => c.kind === 'REVIEW' && c.parentId == null);
+
+  /** 线程视图：根批注（保持 id 升序）+ 各自一层回复（spec §2）。 */
+  const threads = computed<PlanCommentThread[]>(() => {
+    const byParent = new Map<number, PlanComment[]>();
+    for (const comment of comments.value) {
+      if (comment.parentId != null) {
+        byParent.set(comment.parentId, [...(byParent.get(comment.parentId) ?? []), comment]);
+      }
+    }
+    return REVIEW_ROOTS(comments.value).map((root) => ({
+      root,
+      replies: byParent.get(root.id) ?? [],
+    }));
+  });
+
+  const unresolvedCount = computed(() => threads.value.filter((t) => !t.root.resolved).length);
+
+  /** 无锚点根批注（历史批注、驳回原因）——面板/工作台「未锚定」分组。 */
+  const unanchoredThreads = computed(() =>
+    threads.value.filter((t) => t.root.anchorLine == null || t.root.sectionTitle == null));
+
+  /** deriveAnchors 入参：带完整锚点的根批注。 */
+  const anchoredRoots = computed(() =>
+    REVIEW_ROOTS(comments.value).filter((c) => c.anchorLine != null && c.sectionTitle != null));
+
+  // ---- 面板开关（spec §3.2）：REVIEW 阶段缺省开；手动选择记 localStorage ----
+  const PANEL_KEY = 'plan-comment-panel-open';
+  const panelOpen = ref<boolean | null>(readPanelPref());
+  const panelEffective = computed(() => panelOpen.value ?? (plan.value?.phase === 'REVIEW'));
+
+  function readPanelPref(): boolean | null {
+    const stored = localStorage.getItem(PANEL_KEY);
+    return stored === null ? null : stored === 'true';
   }
 
-  return { plan, permissions, comments, loading, load, refresh, saveDocument, transition, addComment };
+  function togglePanel() {
+    panelOpen.value = !panelEffective.value;
+    localStorage.setItem(PANEL_KEY, String(panelOpen.value));
+  }
+
+  async function addAnchoredComment(input: { content: string; parentId?: number; anchor?: PlanCommentAnchor }) {
+    if (!plan.value) return false;
+    try {
+      await addCommentApi(plan.value.id, input);
+      comments.value = await listCommentsApi(plan.value.id);
+      return true;
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '批注提交失败');
+      return false;
+    }
+  }
+
+  async function resolveComment(commentId: number, resolved: boolean) {
+    if (!plan.value) return false;
+    try {
+      await resolveCommentApi(plan.value.id, commentId, resolved);
+      comments.value = await listCommentsApi(plan.value.id);
+      message.success(resolved ? '已解决' : '已重新打开');
+      return true;
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '操作失败');
+      return false;
+    }
+  }
+
+  // 兼容旧调用（PlanDetailReview，Task 10 重写后移除）。
+  async function addComment(content: string) {
+    await addAnchoredComment({ content });
+  }
+
+  return {
+    plan, permissions, comments, loading, load, refresh, saveDocument, transition, addComment,
+    threads, unresolvedCount, unanchoredThreads, anchoredRoots,
+    panelOpen, panelEffective, togglePanel, addAnchoredComment, resolveComment,
+  };
 }

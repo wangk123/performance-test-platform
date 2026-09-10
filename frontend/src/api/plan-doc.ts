@@ -1,5 +1,6 @@
 import type {
   PlanComment,
+  PlanCommentAnchor,
   PlanDocumentResponse,
   PlanSnapshotView,
   PlanShareTokenView,
@@ -82,11 +83,19 @@ export function listCommentsApi(planId: number) {
   return request<PlanComment[]>(`/api/task-plans/${planId}/comments`);
 }
 
-export function addCommentApi(planId: number, content: string) {
+export function addCommentApi(planId: number, payload: { content: string; parentId?: number; anchor?: PlanCommentAnchor }) {
   return request<PlanComment>(`/api/task-plans/${planId}/comments`, {
     method: 'POST',
     headers: json,
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function resolveCommentApi(planId: number, commentId: number, resolved: boolean) {
+  return request<void>(`/api/task-plans/${planId}/comments/${commentId}/resolve`, {
+    method: 'POST',
+    headers: json,
+    body: JSON.stringify({ resolved }),
   });
 }
 
