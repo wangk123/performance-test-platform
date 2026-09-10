@@ -48,6 +48,8 @@ interface AnchorBlock {
 function anchorBlocks(body: string | null | undefined): AnchorBlock[] {
   const blocks: AnchorBlock[] = [];
   for (const section of splitSections(body)) {
+    // 标题行块：章级批注（章级入口 hover 标题，anchorLine = 标题行、anchorText = 章标题）精确命中，不误报断链
+    blocks.push({ line: section.line, sectionTitle: section.title, text: `## ${section.title}` });
     const offset = section.line + 1; // 章内容从标题行下一行开始
     for (const block of splitBlocks(section.content)) {
       blocks.push({ line: offset + block.startLine, sectionTitle: section.title, text: block.raw });

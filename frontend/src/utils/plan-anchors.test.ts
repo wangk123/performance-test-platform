@@ -37,6 +37,11 @@ describe('deriveAnchors', () => {
     expect(map.get(1)).toMatchObject({ state: 'ok', line: 2, sectionTitle: '三、测试指标' });
   });
 
+  it('章标题行锚定（章级入口）→ ok', () => {
+    const map = deriveAnchors(BODY, [root({ id: 6, anchorLine: 1, anchorText: '三、测试指标', sectionTitle: '三、测试指标' })]);
+    expect(map.get(6)).toMatchObject({ state: 'ok', line: 1, sectionTitle: '三、测试指标' });
+  });
+
   it('行号漂移但章内文本可匹配 → remounted 到新行', () => {
     const map = deriveAnchors(BODY, [root({ id: 2, anchorLine: 6, anchorText: '下单接口 P95 ≤ 200ms', sectionTitle: '三、测试指标' })]);
     expect(map.get(2)?.state).toBe('remounted');
