@@ -200,8 +200,17 @@ public class PlanDocumentController {
     @PostMapping("/task-plans/{planId}/comments")
     @ResponseStatus(HttpStatus.CREATED)
     public PlanCommentService.CommentView addComment(@PathVariable long planId, @RequestBody AddCommentRequest request) {
-        return commentService.addComment(planId, requireHuman(),
-                new PlanCommentService.AddCommentCommand(request.content(), null, null));
+        return commentService.addComment(planId, requireHuman(), new PlanCommentService.AddCommentCommand(
+                request.content(), request.parentId(),
+                request.anchor() == null ? null : new PlanCommentService.CommentAnchor(
+                        request.anchor().line(), request.anchor().text(), request.anchor().section())));
+    }
+
+    @PostMapping("/task-plans/{planId}/comments/{commentId}/resolve")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resolveComment(@PathVariable long planId, @PathVariable long commentId,
+                               @RequestBody ResolveCommentRequest request) {
+        commentService.resolveComment(planId, commentId, requireHuman(), request.resolved());
     }
 
     @DeleteMapping("/task-plans/{planId}/comments/{commentId}")
@@ -368,7 +377,13 @@ public class PlanDocumentController {
     public record CommentRequest(String comment) {
     }
 
-    public record AddCommentRequest(String content) {
+    public record CommentAnchorRequest(Integer line, String text, String section) {
+    }
+
+    public record AddCommentRequest(String content, Long parentId, CommentAnchorRequest anchor) {
+    }
+
+    public record ResolveCommentRequest(boolean resolved) {
     }
 
     public record PublishRequest(String conclusion) {

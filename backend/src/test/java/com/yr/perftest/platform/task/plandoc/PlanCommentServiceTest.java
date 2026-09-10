@@ -114,4 +114,112 @@ class PlanCommentServiceTest {
                 planId, REVIEWER, new PlanCommentService.AddCommentCommand("  ", null, null)))
                 .isInstanceOf(PlanValidationException.class);
     }
+
+    @Test
+    void anchoredCommentRoundTrip() {
+        var anchor = new PlanCommentService.CommentAnchor(42, "登录接口 TPS ≥ 1000", "三、测试指标");
+        PlanCommentService.CommentView created = comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("目标偏乐观", null, anchor));
+        long revision = planRepository.findById(planId).orElseThrow().getRevision();
+        assertThat(created.anchorLine()).isEqualTo(42);
+        assertThat(created.sectionTitle()).isEqualTo("三、测试指标");
+        assertThat(created.bodyRevision()).isEqualTo(revision); // 服务端写入，不信任客户端
+        assertThat(created.parentId()).isNull();
+        assertThat(created.resolved()).isFalse();
+    }
+
+    @Test
+    void anchorMustBeComplete() {
+        var partial = new PlanCommentService.CommentAnchor(42, "登录接口", null);
+        assertThatThrownBy(() -> comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("x", null, partial)))
+                .isInstanceOf(PlanValidationException.class)
+                .hasMessageContaining("锚点不完整");
+    }
+
+    @Test
+    void anchorSectionWhitelisted() {
+        var bad = new PlanCommentService.CommentAnchor(1, "text", "十三、不存在");
+        assertThatThrownBy(() -> comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("x", null, bad)))
+                .isInstanceOf(PlanValidationException.class)
+                .hasMessageContaining("章节不合法");
+    }
+
+    @Test
+    void anchorTextTruncatedTo200() {
+        var anchor = new PlanCommentService.CommentAnchor(0, "长".repeat(300), "三、测试指标");
+        PlanCommentService.CommentView created = comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("x", null, anchor));
+        assertThat(created.anchorText()).hasSize(200);
+    }
+
+    @Test
+    void replyToOneLevelOnly() {
+        PlanCommentService.CommentView root = comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("根", null, null));
+        PlanCommentService.CommentView reply = comments.addComment(
+                planId, OWNER, new PlanCommentService.AddCommentCommand("回复", root.id(), null));
+        assertThat(reply.parentId()).isEqualTo(root.id());
+        assertThat(reply.canResolve()).isFalse(); // 回复不可被解决
+        assertThatThrownBy(() -> comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("嵌套", reply.id(), null)))
+                .isInstanceOf(PlanValidationException.class)
+                .hasMessageContaining("PLAN_COMMENT_NESTED");
+    }
+
+    @Test
+    void resolveRootOnlyAndPermissionAware() {
+        PlanCommentService.CommentView root = comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("根", null, null));
+        PlanCommentService.CommentView reply = comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("回复", root.id(), null));
+        assertThatThrownBy(() -> comments.resolveComment(planId, reply.id(), REVIEWER, true))
+                .isInstanceOf(PlanValidationException.class)
+                .hasMessageContaining("仅根批注");
+        memberRepository.save(new PersistentProjectMemberRecord(
+                projectRepository.findAll().get(0).getId(), "outsider", ProjectRole.MEMBER));
+        assertThatThrownBy(() -> comments.resolveComment(planId, root.id(), OUTSIDER, true))
+                .isInstanceOf(PlanAccessDeniedException.class);
+        comments.resolveComment(planId, root.id(), OWNER, true); // 负责人可解决他人批注
+        var resolved = comments.listComments(planId, OWNER).stream()
+                .filter(c -> c.id() == root.id()).findFirst().orElseThrow();
+        assertThat(resolved.resolved()).isTrue();
+        assertThat(resolved.resolvedBy()).isEqualTo("owner");
+        comments.resolveComment(planId, root.id(), REVIEWER, false); // 作者可重开
+        assertThat(comments.listComments(planId, OWNER).stream()
+                .filter(c -> c.id() == root.id()).findFirst().orElseThrow().resolved()).isFalse();
+    }
+
+    @Test
+    void resolveBlockedAfterExecution() {
+        PlanCommentService.CommentView root = comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("根", null, null));
+        workflow.submit(planId, OWNER, null);
+        workflow.startReview(planId, REVIEWER);
+        workflow.approve(planId, REVIEWER, null);
+        workflow.startExecution(planId, REVIEWER);
+        assertThatThrownBy(() -> comments.resolveComment(planId, root.id(), REVIEWER, true))
+                .isInstanceOf(PlanStateException.class);
+    }
+
+    @Test
+    void deleteRootCascadesReplies() {
+        PlanCommentService.CommentView root = comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("根", null, null));
+        comments.addComment(planId, OWNER, new PlanCommentService.AddCommentCommand("回复", root.id(), null));
+        comments.deleteComment(planId, root.id(), REVIEWER);
+        assertThat(comments.listComments(planId, OWNER)).isEmpty();
+    }
+
+    @Test
+    void commentBlockedOutsideReviewPhases() {
+        workflow.submit(planId, OWNER, null);
+        workflow.startReview(planId, REVIEWER);
+        workflow.approve(planId, REVIEWER, null);
+        workflow.startExecution(planId, REVIEWER);
+        assertThatThrownBy(() -> comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("迟到", null, null)))
+                .isInstanceOf(PlanStateException.class);
+    }
 }
