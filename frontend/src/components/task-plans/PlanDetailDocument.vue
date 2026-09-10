@@ -16,7 +16,16 @@
         </a>
       </nav>
 
-      <div ref="docMainRef" class="doc-main" tabindex="0" role="region" aria-label="计划文档内容" @scroll="onDocScroll">
+      <div
+        ref="docMainRef"
+        class="doc-main"
+        tabindex="0"
+        role="region"
+        aria-label="计划文档内容"
+        @scroll="onDocScroll"
+        @mouseover="commentLayer.onHover"
+        @mouseleave="commentLayer.hideButton"
+      >
         <template v-if="viewMode === 'Pretty'">
           <div id="doc-panel-Pretty" class="doc-flow">
             <section
@@ -66,6 +75,19 @@
               />
             </section>
           </div>
+
+          <template v-if="commentLayer.addButton.value.visible && canComment">
+            <button type="button" class="doc-anno-add" :style="{ top: `${commentLayer.addButton.value.top}px` }" @click="commentLayer.openComposerFor">＋ 批注</button>
+          </template>
+          <template v-if="commentLayer.composer.value">
+            <div class="doc-anno-composer-wrap" :style="{ top: `${commentLayer.composer.value.top}px` }">
+              <PlanCommentComposer
+                :busy="composerBusy"
+                @submit="submitAnchorComment"
+                @cancel="commentLayer.closeComposer"
+              />
+            </div>
+          </template>
         </template>
 
         <template v-else>
@@ -131,7 +153,9 @@ import type { usePlanDoc } from '../../composables/usePlanDoc';
 import { useTheme } from '../../composables/useTheme';
 import { extractSection, parseMarkdownTable, replaceSection, splitSections, toggleChecklistItem } from '../../utils/plan-markdown';
 import { planTableCompatible, planTableSchemaOf } from '../../utils/plan-table-schemas';
+import { useDocCommentLayer } from '../../composables/useDocCommentLayer';
 import PlanConflictDialog from './PlanConflictDialog.vue';
+import PlanCommentComposer from './PlanCommentComposer.vue';
 import PlanSectionEditor from './PlanSectionEditor.vue';
 import SectionTableEditor from './SectionTableEditor.vue';
 import ChecklistView from './ChecklistView.vue';
@@ -170,6 +194,7 @@ const editingSectionContent = ref('');
 
 const sections = computed(() => splitSections(props.plan.body));
 const canEdit = computed(() => Boolean(props.doc.permissions.value.EDIT));
+const canComment = computed(() => Boolean(props.doc.permissions.value.COMMENT));
 const docMainRef = ref<HTMLElement | null>(null);
 const currentSection = ref('');
 const dirty = computed(() => editing.value && editDraft.value !== (props.plan.body ?? ''));
@@ -184,6 +209,33 @@ function anchorDomId(title: string) {
 watch([viewMode, () => props.plan.body, editing], () => {
   void nextTick(updateCurrentSection);
 }, { immediate: true });
+
+/* ---------- 行级批注层（Task 7）：data-line 注入 + 悬浮「＋批注」入口 ---------- */
+
+const commentLayer = useDocCommentLayer({
+  containerRef: docMainRef,
+  sections,
+  threads: props.doc.threads,
+  canComment,
+  enabled: computed(() => viewMode.value === 'Pretty' && !editing.value),
+});
+const composerBusy = ref(false);
+
+watch([() => props.plan.body, viewMode, editing, props.doc.threads], () => {
+  void nextTick(() => window.requestAnimationFrame(() => void commentLayer.rebuild()));
+}, { immediate: true });
+
+async function submitAnchorComment(content: string) {
+  const target = commentLayer.composer.value;
+  if (!target) return;
+  composerBusy.value = true;
+  const ok = await props.doc.addAnchoredComment({
+    content,
+    anchor: { line: target.line, text: target.text, section: target.section },
+  });
+  composerBusy.value = false;
+  if (ok) commentLayer.closeComposer();
+}
 
 function beginEdit() {
   editDraft.value = props.plan.body ?? '';

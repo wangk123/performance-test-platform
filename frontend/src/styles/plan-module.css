@@ -762,3 +762,70 @@
     padding: 10px 12px;
   }
 }
+
+/* ---------- 行级批注：悬浮入口与内联编辑器（spec §3.1/§3.3） ---------- */
+.plan-document .doc-main { position: relative; }
+
+.doc-anno-add {
+  position: absolute;
+  right: 8px;
+  z-index: 6;
+  padding: 1px 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.doc-anno-add:hover {
+  border-color: var(--anno-accent, #d46b08);
+  color: var(--anno-accent, #d46b08);
+  border-style: solid;
+}
+
+:root[data-theme='dark'] .doc-anno-add:hover { --anno-accent: #ffc53d; }
+
+.doc-anno-composer-wrap {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  z-index: 7;
+}
+
+.anno-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 12%);
+}
+
+.anno-composer-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 6px 8px;
+  resize: vertical;
+}
+
+.anno-composer-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.anno-composer-hint {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
