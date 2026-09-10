@@ -85,6 +85,8 @@ export function useDocCommentLayer(options: {
 
   // ---- 悬浮「＋批注」（spec §3.1）：事件委托，单实例按钮跟随悬浮块 ----
   function onHover(event: MouseEvent): void {
+    // 指针落在「＋批注」按钮上：保持现状，避免 closest('[data-line]') 落空导致按钮卸载→重挂交替闪烁
+    if ((event.target as HTMLElement).closest?.('.doc-anno-add')) return;
     if (!options.enabled.value || !options.canComment.value || composer.value) return;
     const target = (event.target as HTMLElement).closest<HTMLElement>('[data-line]');
     if (!target || !options.containerRef.value?.contains(target)) {
@@ -92,8 +94,13 @@ export function useDocCommentLayer(options: {
       hoverTarget.value = null;
       return;
     }
+    // .doc-main 既是滚动容器又是定位容器：绝对定位 top 属内容坐标，
+    // getBoundingClientRect 差值是可视偏移（内容坐标 − scrollTop），需补回 scrollTop
     const containerTop = options.containerRef.value.getBoundingClientRect().top;
-    addButton.value = { visible: true, top: target.getBoundingClientRect().top - containerTop };
+    addButton.value = {
+      visible: true,
+      top: target.getBoundingClientRect().top - containerTop + options.containerRef.value.scrollTop,
+    };
     hoverTarget.value = { line: Number(target.dataset.line), section: sectionOf(target) };
   }
 
@@ -116,7 +123,10 @@ export function useDocCommentLayer(options: {
     const el = container.querySelector<HTMLElement>(`[data-line="${line}"]`);
     const blockText = (el?.textContent ?? '').trim().slice(0, 200);
     const containerTop = container.getBoundingClientRect().top;
-    const blockBottom = el ? el.getBoundingClientRect().bottom - containerTop : addButton.value.top;
+    // 同 onHover：补回 scrollTop 换算到内容坐标，否则滚动后 composer 渲染在可视区外
+    const blockBottom = el
+      ? el.getBoundingClientRect().bottom - containerTop + container.scrollTop
+      : addButton.value.top;
     composer.value = { top: blockBottom + 6, line, text: blockText, section: sectionOf(el ?? container) };
     addButton.value.visible = false;
   }
