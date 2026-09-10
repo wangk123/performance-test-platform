@@ -1,5 +1,5 @@
 import type { PlanComment } from '../types';
-import { CANONICAL_HEADINGS, splitBlocks, splitSections } from './plan-markdown';
+import { blockAnchorLines, CANONICAL_HEADINGS, splitBlocks, splitSections } from './plan-markdown';
 
 export type AnchorState = 'ok' | 'remounted' | 'broken';
 
@@ -52,10 +52,27 @@ function anchorBlocks(body: string | null | undefined): AnchorBlock[] {
     blocks.push({ line: section.line, sectionTitle: section.title, text: `## ${section.title}` });
     const offset = section.line + 1; // 章内容从标题行下一行开始
     for (const block of splitBlocks(section.content)) {
-      blocks.push({ line: offset + block.startLine, sectionTitle: section.title, text: block.raw });
+      // 行级展开（终审 C1）：表格数据行/列表项/清单项逐行建锚，与 useDocCommentLayer 的
+      // data-line 注入共用 blockAnchorLines，两侧行号同源，行级批注不再一出生就断链
+      for (const { line, text } of blockAnchorLines(block)) {
+        blocks.push({ line: offset + line, sectionTitle: section.title, text });
+      }
     }
   }
   return blocks;
+}
+
+/**
+ * 精确行命中判定（spec §5.3，终审 I3）：相似度 ≥ 0.6 **或前缀/包含**。
+ * 快照截断 200 字符，未改长块的 bigram Dice 会退化（>500 归一化字符即低于阈值），
+ * 故补充归一化包含判断；较短方 ≥ 8 归一化字符才启用，防短文本误包含。
+ */
+function snapshotMatches(anchorText: string, blockText: string): boolean {
+  if (similarity(anchorText, blockText) >= SIMILARITY_THRESHOLD) return true;
+  const na = normalizeForMatch(anchorText);
+  const nb = normalizeForMatch(blockText);
+  if (na.length < 8 || nb.length < 8) return false;
+  return na.includes(nb) || nb.includes(na);
 }
 
 /**
@@ -71,7 +88,7 @@ export function deriveAnchors(body: string | null | undefined, roots: PlanCommen
     const resolution = (state: AnchorState, line: number | null, sectionTitle: string): AnchorResolution =>
       ({ commentId: comment.id, state, line, sectionTitle });
     const exact = byLine.get(comment.anchorLine);
-    if (exact && similarity(comment.anchorText, exact.text) >= SIMILARITY_THRESHOLD) {
+    if (exact && snapshotMatches(comment.anchorText, exact.text)) {
       result.set(comment.id, resolution('ok', exact.line, exact.sectionTitle));
       continue;
     }
@@ -91,10 +108,10 @@ export function deriveAnchors(body: string | null | undefined, roots: PlanCommen
 
 function bestMatch(anchorText: string, candidates: AnchorBlock[]): AnchorBlock | null {
   let best: AnchorBlock | null = null;
-  let bestScore = SIMILARITY_THRESHOLD;
+  let bestScore = 0; // 阈值统一在下面卡（≥ 0.6 才可入选，终审 A），0 分候选不会入选
   for (const candidate of candidates) {
     const score = similarity(anchorText, candidate.text);
-    if (score > bestScore) {
+    if (score >= SIMILARITY_THRESHOLD && score > bestScore) {
       best = candidate;
       bestScore = score;
     }

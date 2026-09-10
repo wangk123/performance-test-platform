@@ -89,6 +89,20 @@
                   language="zh-CN"
                 />
               </section>
+              <!-- 整章被删的断链组兜底（spec §5.3，终审 I2）：所属章不存在于正文时挂文档最顶部 -->
+              <div
+                v-for="group in orphanBrokenGroups"
+                :key="`broken-orphan-${group.sectionTitle}`"
+                class="doc-anno-broken"
+              >
+                <details>
+                  <summary>⚠ 以下批注所属章节已不存在：{{ group.sectionTitle }}（{{ group.threads.length }} 条）</summary>
+                  <div v-for="thread in group.threads" :key="thread.root.id" class="doc-anno-broken-item">
+                    <b>{{ thread.root.author }}</b>：{{ thread.root.content }}
+                    <span class="doc-anno-broken-quote">原位置「{{ thread.root.anchorText }}」</span>
+                  </div>
+                </details>
+              </div>
             </div>
 
             <template v-if="commentLayer.addButton.value.visible && canComment">
@@ -279,6 +293,11 @@ async function submitAnchorComment(content: string) {
 
 const resolvedCount = computed(() => props.doc.threads.value.filter((t) => t.root.resolved).length);
 
+/** 断链组展示章不存在于正文（整章被删）时兜底渲染到 doc-flow 末尾（spec §5.3，终审 I2）。 */
+const orphanBrokenGroups = computed(() =>
+  commentLayer.brokenGroups.value.filter((g) => !sections.value.some((s) => s.title === g.sectionTitle)),
+);
+
 const panelGroups = computed<PlanCommentPanelGroup[]>(() => {
   const resolutions = deriveAnchors(props.plan.body, props.doc.anchoredRoots.value);
   const sectionOf = (thread: PlanCommentThread): string | null => {
@@ -313,7 +332,8 @@ function locateThread(thread: PlanCommentThread) {
   const resolutions = deriveAnchors(props.plan.body, props.doc.anchoredRoots.value);
   const resolution = resolutions.get(thread.root.id);
   if (viewMode.value !== 'Pretty') viewMode.value = 'Pretty';
-  void nextTick(() => commentLayer.locate(resolution?.line ?? null));
+  // Markdown→Pretty 切换后 data-line 注入要等 rebuild（nextTick+rAF），与 locateCommentId watch 同约定（终审 I1）
+  void nextTick(() => window.requestAnimationFrame(() => commentLayer.locate(resolution?.line ?? null)));
 }
 
 /** 评审工作台跨 Tab 定位（Task 10）：切 Pretty 后等 data-line 注入（同 rebuild 的 nextTick+rAF 约定）再滚动闪烁。 */

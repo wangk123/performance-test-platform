@@ -1,6 +1,6 @@
 import { ref, type Ref } from 'vue';
 import type { PlanCommentThread } from '../types';
-import { listItemOffsets, splitBlocks, type Section } from '../utils/plan-markdown';
+import { blockAnchorLines, splitBlocks, type DocBlock, type Section } from '../utils/plan-markdown';
 import { deriveAnchors } from '../utils/plan-anchors';
 
 export interface ComposerTarget {
@@ -43,22 +43,19 @@ export function useDocCommentLayer(options: {
     return preview.querySelector<HTMLElement>(':scope > .markdown-body') ?? preview;
   }
 
-  function blockLinesOf(raw: string, baseLine: number, el: HTMLElement): number[] {
-    const blocks = splitBlocks(raw);
-    const block = blocks[0];
-    if (!block) return [];
+  /** 块的注入行号：与 anchorBlocks 共用 blockAnchorLines（终审 C1），行号/文本同源；DOM 目标选择不变。 */
+  function blockLinesOf(block: DocBlock, baseLine: number, el: HTMLElement): number[] {
+    const anchorLines = blockAnchorLines(block).map(({ line }) => baseLine + line);
     if (el.tagName === 'TABLE') {
-      // 表格：数据行逐行映射（表头+分隔行占块首两行，spec §5.1）
+      // 表格仍只注入 tbody tr；DOM 行多于源数据行时不注入（宁缺勿错位，spec §5.4）
       const rows = el.querySelectorAll<HTMLElement>('tbody tr');
-      return [...rows].map((_, i) => baseLine + block.startLine + 2 + i);
+      return [...rows].map((_, i) => anchorLines[i] ?? -1).filter((line) => line >= 0);
     }
     if (el.tagName === 'UL' || el.tagName === 'OL') {
-      const offsets = listItemOffsets(block.raw);
       const items = el.querySelectorAll<HTMLElement>('li');
-      return [...items].map((_, i) => (offsets[i] == null ? -1 : baseLine + block.startLine + offsets[i]))
-        .filter((line) => line >= 0);
+      return [...items].map((_, i) => anchorLines[i] ?? -1).filter((line) => line >= 0);
     }
-    return [baseLine + block.startLine];
+    return anchorLines;
   }
 
   /** 映射注入：数量不一致（Markdown 边界形态）则整章跳过，宁可少注入也不错位（spec §5.4）。 */
@@ -77,7 +74,7 @@ export function useDocCommentLayer(options: {
       if (children.length !== blocks.length) continue;
       const baseLine = section.line + 1;
       children.forEach((child, i) => {
-        const lines = blockLinesOf(blocks[i].raw, baseLine, child);
+        const lines = blockLinesOf(blocks[i], baseLine, child);
         const line = lines.length === 1 ? lines[0] : -1;
         if (line >= 0) child.dataset.line = String(line);
         // 表格行/列表项：映射到子元素

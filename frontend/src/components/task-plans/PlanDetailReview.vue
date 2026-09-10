@@ -35,7 +35,9 @@
           @remove="removeComment"
         />
       </template>
-      <div v-if="visibleGroups.length === 0" class="plan-empty">暂无批注。到文档 Tab 悬浮任意行即可添加。</div>
+      <div v-if="visibleGroups.length === 0" class="plan-empty">
+        {{ activeFilter === 'all' ? '暂无批注。到文档 Tab 悬浮任意行即可添加。' : '该筛选下暂无批注' }}
+      </div>
     </div>
 
     <div class="workbench-flow">

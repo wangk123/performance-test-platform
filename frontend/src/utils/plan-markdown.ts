@@ -356,6 +356,22 @@ export function listItemOffsets(raw: string): number[] {
     .filter((offset) => offset >= 0);
 }
 
+/**
+ * 块的行级锚点映射（spec §5.3，终审 C1）：anchorBlocks 与 useDocCommentLayer 的 data-line 注入共用，
+ * 保证两侧行粒度同源。TABLE：表头+分隔行之后的每个源行（startLine+2 … endLine）；
+ * LIST：每个项首行（listItemOffsets 口径，含清单项 `- [ ] x`）；其余：块首行整块 raw。
+ */
+export function blockAnchorLines(block: DocBlock): { line: number; text: string }[] {
+  const lines = block.raw.split('\n');
+  if (TABLE_RE.test(lines[0] ?? '')) {
+    return lines.slice(2).map((text, offset) => ({ line: block.startLine + 2 + offset, text }));
+  }
+  if (LIST_ITEM_RE.test(lines[0] ?? '')) {
+    return listItemOffsets(block.raw).map((offset) => ({ line: block.startLine + offset, text: lines[offset] ?? '' }));
+  }
+  return [{ line: block.startLine, text: block.raw }];
+}
+
 /** 清单项行的局部行号，序与 parseChecklistGroups 的 index 口径一致（spec §5.1 六章映射）。 */
 export function checklistItemLines(content: string | null | undefined): number[] {
   if (!content) return [];
