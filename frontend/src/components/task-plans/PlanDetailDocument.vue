@@ -1,137 +1,153 @@
 <template>
   <section class="plan-document">
-    <div class="doc-body">
-      <nav class="doc-toc" aria-label="章节导航">
-        <h4>章节导航</h4>
-        <a
-          v-for="section in sections"
-          :key="section.title"
-          class="toc-item"
-          :class="{ current: currentSection === section.title }"
-          href="#"
-          :aria-current="currentSection === section.title ? 'true' : undefined"
-          @click.prevent="jumpTo(section.title)"
-        >
-          <span class="toc-label">{{ section.title }}</span>
-        </a>
-      </nav>
+    <div class="doc-shell" :class="{ 'with-panel': doc.panelEffective.value }">
+      <div class="doc-body">
+        <nav class="doc-toc" aria-label="章节导航">
+          <h4>章节导航</h4>
+          <a
+            v-for="section in sections"
+            :key="section.title"
+            class="toc-item"
+            :class="{ current: currentSection === section.title }"
+            href="#"
+            :aria-current="currentSection === section.title ? 'true' : undefined"
+            @click.prevent="jumpTo(section.title)"
+          >
+            <span class="toc-label">{{ section.title }}</span>
+          </a>
+        </nav>
 
-      <div
-        ref="docMainRef"
-        class="doc-main"
-        tabindex="0"
-        role="region"
-        aria-label="计划文档内容"
-        @scroll="onDocScroll"
-        @mouseover="commentLayer.onHover"
-        @mouseleave="commentLayer.hideButton"
-      >
-        <template v-if="viewMode === 'Pretty'">
-          <div id="doc-panel-Pretty" class="doc-flow">
-            <section
-              v-for="section in sections"
-              :key="section.title"
-              class="doc-section"
-              :data-section="section.title"
-            >
-              <header class="doc-section-head">
-                <h3 :data-line="section.title === '八、场景设计' ? section.line : undefined">{{ section.title }}</h3>
-                <a-button
-                  v-if="canEdit"
-                  class="doc-section-edit"
-                  size="small"
-                  type="text"
-                  title="编辑章节"
-                  @click="openSectionEditor(section.title)"
-                >
-                  <template #icon>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
-                  </template>
-                  编辑
-                </a-button>
-              </header>
-              <div
-                v-for="group in commentLayer.brokenGroups.value.filter((g) => g.sectionTitle === section.title)"
-                :key="`broken-${section.title}`"
-                class="doc-anno-broken"
+        <div
+          ref="docMainRef"
+          class="doc-main"
+          tabindex="0"
+          role="region"
+          aria-label="计划文档内容"
+          @scroll="onDocScroll"
+          @mouseover="commentLayer.onHover"
+          @mouseleave="commentLayer.hideButton"
+        >
+          <template v-if="viewMode === 'Pretty'">
+            <div id="doc-panel-Pretty" class="doc-flow">
+              <section
+                v-for="section in sections"
+                :key="section.title"
+                class="doc-section"
+                :data-section="section.title"
               >
-                <details>
-                  <summary>⚠ {{ group.threads.length }} 条批注的锚点因内容变更失效</summary>
-                  <div v-for="thread in group.threads" :key="thread.root.id" class="doc-anno-broken-item">
-                    <b>{{ thread.root.author }}</b>：{{ thread.root.content }}
-                    <span class="doc-anno-broken-quote">原位置「{{ thread.root.anchorText }}」</span>
-                  </div>
-                </details>
+                <header class="doc-section-head">
+                  <h3 :data-line="section.title === '八、场景设计' ? section.line : undefined">{{ section.title }}</h3>
+                  <a-button
+                    v-if="canEdit"
+                    class="doc-section-edit"
+                    size="small"
+                    type="text"
+                    title="编辑章节"
+                    @click="openSectionEditor(section.title)"
+                  >
+                    <template #icon>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
+                    </template>
+                    编辑
+                  </a-button>
+                </header>
+                <div
+                  v-for="group in commentLayer.brokenGroups.value.filter((g) => g.sectionTitle === section.title)"
+                  :key="`broken-${section.title}`"
+                  class="doc-anno-broken"
+                >
+                  <details>
+                    <summary>⚠ {{ group.threads.length }} 条批注的锚点因内容变更失效</summary>
+                    <div v-for="thread in group.threads" :key="thread.root.id" class="doc-anno-broken-item">
+                      <b>{{ thread.root.author }}</b>：{{ thread.root.content }}
+                      <span class="doc-anno-broken-quote">原位置「{{ thread.root.anchorText }}」</span>
+                    </div>
+                  </details>
+                </div>
+                <ChecklistView
+                  v-if="section.title === '六、测试约束'"
+                  :content="section.content"
+                  :editable="canEdit"
+                  :anchor-lines="checklistAnchorLines(section)"
+                  @toggle="toggleChecklist(section.content, $event)"
+                />
+                <ScenarioDesignModule
+                  v-else-if="section.title === '八、场景设计'"
+                  :doc-plan="doc"
+                  :plan="plan"
+                  :scenarios="scenarios"
+                  @changed="emit('changed')"
+                  @request-add="emit('request-add')"
+                  @request-edit="(scenario) => emit('request-edit', scenario)"
+                />
+                <MdPreview
+                  v-else
+                  class="plan-md"
+                  :model-value="section.content || '（本章暂无内容）'"
+                  :theme="mdTheme"
+                  :md-heading-id="headingId"
+                  language="zh-CN"
+                />
+              </section>
+            </div>
+
+            <template v-if="commentLayer.addButton.value.visible && canComment">
+              <button type="button" class="doc-anno-add" :style="{ top: `${commentLayer.addButton.value.top}px` }" @click="commentLayer.openComposerFor">＋ 批注</button>
+            </template>
+            <template v-if="commentLayer.composer.value">
+              <div class="doc-anno-composer-wrap" :style="{ top: `${commentLayer.composer.value.top}px` }">
+                <PlanCommentComposer
+                  :busy="composerBusy"
+                  @submit="submitAnchorComment"
+                  @cancel="commentLayer.closeComposer"
+                />
               </div>
-              <ChecklistView
-                v-if="section.title === '六、测试约束'"
-                :content="section.content"
-                :editable="canEdit"
-                :anchor-lines="checklistAnchorLines(section)"
-                @toggle="toggleChecklist(section.content, $event)"
-              />
-              <ScenarioDesignModule
-                v-else-if="section.title === '八、场景设计'"
-                :doc-plan="doc"
-                :plan="plan"
-                :scenarios="scenarios"
-                @changed="emit('changed')"
-                @request-add="emit('request-add')"
-                @request-edit="(scenario) => emit('request-edit', scenario)"
-              />
+            </template>
+          </template>
+
+          <template v-else>
+            <div id="doc-panel-Markdown" class="doc-md-panel">
+              <div v-if="canEdit" class="md-edit-actions">
+                <a-button v-if="!editing" size="small" type="primary" @click="beginEdit">编辑全文</a-button>
+                <template v-else>
+                  <a-button size="small" @click="cancelEdit">取消</a-button>
+                  <a-button size="small" type="primary" :disabled="!dirty" @click="saveEdit">保存全文</a-button>
+                </template>
+              </div>
               <MdPreview
-                v-else
+                v-if="!editing"
                 class="plan-md"
-                :model-value="section.content || '（本章暂无内容）'"
+                :model-value="plan.body ?? ''"
                 :theme="mdTheme"
                 :md-heading-id="headingId"
                 language="zh-CN"
               />
-            </section>
-          </div>
-
-          <template v-if="commentLayer.addButton.value.visible && canComment">
-            <button type="button" class="doc-anno-add" :style="{ top: `${commentLayer.addButton.value.top}px` }" @click="commentLayer.openComposerFor">＋ 批注</button>
-          </template>
-          <template v-if="commentLayer.composer.value">
-            <div class="doc-anno-composer-wrap" :style="{ top: `${commentLayer.composer.value.top}px` }">
-              <PlanCommentComposer
-                :busy="composerBusy"
-                @submit="submitAnchorComment"
-                @cancel="commentLayer.closeComposer"
+              <MdEditor
+                v-else
+                v-model="editDraft"
+                class="plan-md plan-md-editor"
+                :theme="mdTheme"
+                :style="{ flex: '1', minHeight: '420px' }"
+                language="zh-CN"
               />
             </div>
           </template>
-        </template>
-
-        <template v-else>
-          <div id="doc-panel-Markdown" class="doc-md-panel">
-            <div v-if="canEdit" class="md-edit-actions">
-              <a-button v-if="!editing" size="small" type="primary" @click="beginEdit">编辑全文</a-button>
-              <template v-else>
-                <a-button size="small" @click="cancelEdit">取消</a-button>
-                <a-button size="small" type="primary" :disabled="!dirty" @click="saveEdit">保存全文</a-button>
-              </template>
-            </div>
-            <MdPreview
-              v-if="!editing"
-              class="plan-md"
-              :model-value="plan.body ?? ''"
-              :theme="mdTheme"
-              :md-heading-id="headingId"
-              language="zh-CN"
-            />
-            <MdEditor
-              v-else
-              v-model="editDraft"
-              class="plan-md plan-md-editor"
-              :theme="mdTheme"
-              :style="{ flex: '1', minHeight: '420px' }"
-              language="zh-CN"
-            />
-          </div>
-        </template>
+        </div>
       </div>
+
+      <PlanCommentPanel
+        v-if="doc.panelEffective.value"
+        class="doc-anno-panel-col"
+        :groups="panelGroups"
+        :unresolved="doc.unresolvedCount.value"
+        :resolved="resolvedCount"
+        :doc="doc"
+        @close="doc.togglePanel"
+        @locate="locateThread"
+        @resolve="(t, r) => doc.resolveComment(t.root.id, r)"
+        @reply="(t, c) => doc.addAnchoredComment({ content: c, parentId: t.root.id })"
+        @remove="removeComment"
+      />
     </div>
 
     <PlanSectionEditor
@@ -162,14 +178,18 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { MdEditor, MdPreview } from 'md-editor-v3';
 import 'md-editor-v3/lib/style.css';
-import type { TaskPlan, TaskScenario } from '../../types';
+import type { PlanComment, PlanCommentThread, TaskPlan, TaskScenario } from '../../types';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
+import type { PlanCommentPanelGroup } from './PlanCommentPanel.vue';
 import { useTheme } from '../../composables/useTheme';
-import { checklistItemLines, extractSection, parseMarkdownTable, replaceSection, splitSections, toggleChecklistItem, type Section } from '../../utils/plan-markdown';
+import { CANONICAL_HEADINGS, checklistItemLines, extractSection, parseMarkdownTable, replaceSection, splitSections, toggleChecklistItem, type Section } from '../../utils/plan-markdown';
+import { deriveAnchors } from '../../utils/plan-anchors';
 import { planTableCompatible, planTableSchemaOf } from '../../utils/plan-table-schemas';
+import { deleteCommentApi } from '../../api/plan-doc';
 import { useDocCommentLayer } from '../../composables/useDocCommentLayer';
 import PlanConflictDialog from './PlanConflictDialog.vue';
 import PlanCommentComposer from './PlanCommentComposer.vue';
+import PlanCommentPanel from './PlanCommentPanel.vue';
 import PlanSectionEditor from './PlanSectionEditor.vue';
 import SectionTableEditor from './SectionTableEditor.vue';
 import ChecklistView from './ChecklistView.vue';
@@ -250,6 +270,54 @@ async function submitAnchorComment(content: string) {
   });
   composerBusy.value = false;
   if (ok) commentLayer.closeComposer();
+}
+
+/* ---------- 批注面板（Task 9）：未锚定置顶 → 章节序 → 已解决折叠 ---------- */
+
+const resolvedCount = computed(() => props.doc.threads.value.filter((t) => t.root.resolved).length);
+
+const panelGroups = computed<PlanCommentPanelGroup[]>(() => {
+  const resolutions = deriveAnchors(props.plan.body, props.doc.anchoredRoots.value);
+  const sectionOf = (thread: PlanCommentThread): string | null => {
+    const r = resolutions.get(thread.root.id);
+    if (!r) return null; // 未锚定
+    return r.sectionTitle;
+  };
+  const unanchored = props.doc.unanchoredThreads.value;
+  const bySection = new Map<string, PlanCommentThread[]>();
+  const resolvedThreads: PlanCommentThread[] = [];
+  for (const thread of props.doc.threads.value) {
+    if (unanchored.includes(thread)) continue;
+    if (thread.root.resolved) { resolvedThreads.push(thread); continue; }
+    const section = sectionOf(thread) ?? CANONICAL_HEADINGS[0];
+    bySection.set(section, [...(bySection.get(section) ?? []), thread]);
+  }
+  const groups: PlanCommentPanelGroup[] = [];
+  if (unanchored.length) {
+    groups.push({ key: 'unanchored', title: '未锚定', tone: 'grey', threads: unanchored });
+  }
+  for (const heading of CANONICAL_HEADINGS) {
+    const threads = bySection.get(heading);
+    if (threads?.length) groups.push({ key: heading, title: heading, tone: 'normal', threads });
+  }
+  if (resolvedThreads.length) {
+    groups.push({ key: 'resolved', title: `已解决 ${resolvedThreads.length}`, tone: 'grey', threads: resolvedThreads });
+  }
+  return groups;
+});
+
+function locateThread(thread: PlanCommentThread) {
+  const resolutions = deriveAnchors(props.plan.body, props.doc.anchoredRoots.value);
+  const resolution = resolutions.get(thread.root.id);
+  if (viewMode.value !== 'Pretty') viewMode.value = 'Pretty';
+  void nextTick(() => commentLayer.locate(resolution?.line ?? null));
+}
+
+async function removeComment(thread: PlanCommentThread, comment: PlanComment) {
+  if (!props.doc.plan.value) return;
+  await deleteCommentApi(props.doc.plan.value.id, comment.id);
+  await props.doc.refresh();
+  message.success('批注已删除');
 }
 
 /** 六章清单项的全局行号（spec §5.1）：章标题下一行起 + 清单项局部行号。 */

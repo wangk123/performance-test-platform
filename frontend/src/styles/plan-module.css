@@ -883,3 +883,75 @@
 }
 
 .doc-anno-flash { animation: doc-anno-flash 1.5s ease; }
+
+/* ---------- 批注面板右栏（spec §3.2） ---------- */
+/* flex: 1 接管原 .doc-body 在 .plan-document 列内的撑满职责（doc-body 现为 shell 的横向子列） */
+.doc-shell { display: flex; gap: 0; min-height: 0; flex: 1; }
+.doc-shell .doc-body { flex: 1; min-width: 0; }
+
+.doc-anno-panel-col {
+  width: 340px;
+  flex: none;
+  border-left: 1px solid var(--line);
+  background: var(--canvas);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 220px);
+}
+
+.anno-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.anno-panel-count { color: var(--muted); font-size: 11.5px; }
+
+.anno-panel-close {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.anno-panel-scroll { overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+
+.anno-panel-group {
+  margin: 6px 0 2px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.4px;
+}
+
+.anno-panel-group.grey { opacity: 0.75; }
+.anno-panel-toggle { color: var(--muted); font-size: 11.5px; }
+
+.anno-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 9px 11px;
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
+.anno-card.grey { opacity: 0.62; }
+.anno-card-head { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11.5px; }
+.anno-card-author { color: var(--ink); font-weight: 600; }
+.anno-card-rev, .anno-card-state { border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 10.5px; }
+.anno-card-quote { margin: 6px 0; padding: 2px 8px; border-left: 2px solid var(--anno-accent, #ffd591); background: var(--anno-chip-bg, #fff7e6); color: var(--muted); font-size: 11.5px; border-radius: 0 4px 4px 0; }
+:root[data-theme='dark'] .anno-card-quote { --anno-chip-bg: rgb(255 197 61 / 10%); }
+.anno-card-body { white-space: pre-wrap; word-break: break-word; }
+.anno-card-reply { border-top: 1px dashed var(--line); margin-top: 6px; padding-top: 6px; color: var(--ink); }
+.anno-card-reply-del { float: right; }
+.anno-card-reply-entry { margin-top: 6px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; color: var(--muted); font-size: 11.5px; cursor: pointer; background: var(--canvas); }
+.anno-card-locked { margin-top: 6px; color: var(--muted); font-size: 11px; }
+.anno-card-actions { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+.anno-card-link { color: var(--accent); font-size: 12px; margin-right: auto; }
+
+.anno-toggle { margin-right: 8px; }

@@ -38,6 +38,13 @@
     <a-tabs v-model:active-key="activeTab">
       <template #rightExtra>
         <div v-if="activeTab === 'document'" class="plan-doc-toolbar">
+          <button
+            type="button"
+            class="segmented-item anno-toggle"
+            :class="{ active: doc.panelEffective.value }"
+            :aria-pressed="doc.panelEffective.value"
+            @click="doc.togglePanel"
+          >💬 批注 {{ doc.threads.value.length }}</button>
           <div
             class="segmented"
             role="tablist"
