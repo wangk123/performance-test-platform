@@ -56,15 +56,10 @@
               @click="docView = mode"
             >{{ mode }}</button>
           </div>
-          <div class="doc-toolbar-right">
-            <span class="doc-rev">revision {{ doc.plan.value?.revision ?? plan.revision }}</span>
-            <a-button size="small" title="环境检查等执行前设置" @click="documentRef?.openPrecheck()">执行设置</a-button>
-          </div>
         </div>
       </template>
       <a-tab-pane key="document" tab="文档">
         <PlanDetailDocument
-          ref="documentRef"
           v-model:view-mode="docView"
           :doc="doc"
           :plan="doc.plan.value ?? plan"
@@ -117,7 +112,6 @@ const editingScenario = ref<TaskScenario | null>(null);
 /** 文档视图状态上提至 Tabs 行工具条（rightExtra），经 v-model 下发组件内部使用。 */
 const DOC_VIEWS = ['Pretty', 'Markdown'] as const;
 const docView = ref<'Pretty' | 'Markdown'>('Pretty');
-const documentRef = ref<InstanceType<typeof PlanDetailDocument> | null>(null);
 
 /** tablist 左右方向键切换视图（按钮本身仍可 Tab 逐一到达）。 */
 function onDocViewKeydown(event: KeyboardEvent) {

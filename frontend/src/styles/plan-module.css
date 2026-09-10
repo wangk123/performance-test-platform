@@ -125,12 +125,6 @@
   gap: 12px;
 }
 
-.plan-doc-toolbar .doc-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .plan-detail .segmented {
   display: inline-flex;
   gap: 2px;
@@ -162,17 +156,6 @@
 
 :root[data-theme='dark'] .plan-detail .segmented-item.active {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-}
-
-/* revision 徽标：轻容器化，与按钮并排不显突兀 */
-.plan-detail .doc-rev {
-  padding: 2px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface-soft);
-  color: var(--muted);
-  font: 500 12px var(--font-data);
-  white-space: nowrap;
 }
 
 /* TOC：软卡片（与右侧文档白卡同语言），current 态 = 墨字 + 白底 + 墨色左条 */

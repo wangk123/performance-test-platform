@@ -117,21 +117,6 @@
       :server-revision="plan.revision"
       @resolve="resolveConflict"
     />
-
-    <a-drawer v-model:open="precheckDrawerOpen" title="执行设置（环境检查）" width="420">
-      <p class="drawer-hint">环境检查是测试前的执行动作，不进文档、不参与评审。</p>
-      <a-form layout="vertical">
-        <a-form-item label="首执行前自动运行环境检查">
-          <a-switch v-model:checked="precheck.enabled" :disabled="!canPrecheck" @change="savePrecheck" />
-        </a-form-item>
-        <a-form-item label="检测清单（每行一项；自动项：指标已定义/场景已配置/脚本已关联）">
-          <a-textarea v-model:value="precheckItemsText" :rows="8" :disabled="!canPrecheck" @blur="savePrecheck" />
-        </a-form-item>
-        <a-form-item v-if="plan.precheckExecutedAt" label="首次运行时间">
-          <span>{{ new Date(plan.precheckExecutedAt).toLocaleString() }}</span>
-        </a-form-item>
-      </a-form>
-    </a-drawer>
   </section>
 </template>
 
@@ -145,7 +130,6 @@ import type { usePlanDoc } from '../../composables/usePlanDoc';
 import { useTheme } from '../../composables/useTheme';
 import { extractSection, parseMarkdownTable, replaceSection, splitSections, toggleChecklistItem } from '../../utils/plan-markdown';
 import { planTableCompatible, planTableSchemaOf } from '../../utils/plan-table-schemas';
-import { updatePrecheckSettingsApi } from '../../api/plan-doc';
 import PlanConflictDialog from './PlanConflictDialog.vue';
 import PlanSectionEditor from './PlanSectionEditor.vue';
 import SectionTableEditor from './SectionTableEditor.vue';
@@ -182,13 +166,9 @@ const sectionEditorOpen = ref(false);
 const tableEditorOpen = ref(false);
 const editingSectionTitle = ref('');
 const editingSectionContent = ref('');
-const precheckDrawerOpen = ref(false);
-const precheck = ref<{ enabled: boolean; items: string[] }>({ enabled: false, items: [] });
-const precheckItemsText = ref('');
 
 const sections = computed(() => splitSections(props.plan.body));
 const canEdit = computed(() => Boolean(props.doc.permissions.value.EDIT));
-const canPrecheck = computed(() => Boolean(props.doc.permissions.value.PRECHECK_RUN));
 const docMainRef = ref<HTMLElement | null>(null);
 const currentSection = ref('');
 const dirty = computed(() => editing.value && editDraft.value !== (props.plan.body ?? ''));
@@ -200,33 +180,9 @@ function anchorDomId(title: string) {
   return ANCHOR_PREFIX + encodeURIComponent(title.trim());
 }
 
-watch(() => props.plan.precheckJson, parsePrecheck, { immediate: true });
-
 watch([viewMode, () => props.plan.body, editing], () => {
   void nextTick(updateCurrentSection);
 }, { immediate: true });
-
-function parsePrecheck() {
-  try {
-    const parsed = props.plan.precheckJson ? JSON.parse(props.plan.precheckJson) : { enabled: false, items: [] };
-    precheck.value = { enabled: Boolean(parsed.enabled), items: parsed.items ?? [] };
-    precheckItemsText.value = precheck.value.items.join('\n');
-  } catch {
-    precheck.value = { enabled: false, items: [] };
-  }
-}
-
-async function savePrecheck() {
-  const items = precheckItemsText.value.split('\n').map((line) => line.trim()).filter(Boolean);
-  precheck.value.items = items;
-  try {
-    await updatePrecheckSettingsApi(props.plan.id, { enabled: precheck.value.enabled, items });
-    message.success('执行设置已保存（不影响文档 revision）');
-    emit('changed');
-  } catch (error) {
-    message.error(error instanceof Error ? error.message : '保存失败');
-  }
-}
 
 function beginEdit() {
   editDraft.value = props.plan.body ?? '';
@@ -294,13 +250,6 @@ function openSectionEditor(title: string) {
   }
   sectionEditorOpen.value = true;
 }
-
-/** 执行设置抽屉由父级 Tabs 行工具条触发（按钮已上移，抽屉仍属文档组件）。 */
-function openPrecheck() {
-  precheckDrawerOpen.value = true;
-}
-
-defineExpose({ openPrecheck });
 
 async function saveSection(content: string) {
   const body = props.plan.body ?? '';
