@@ -3,7 +3,7 @@
     <div class="versions-toolbar">
       <span v-if="dirty" class="versions-dirty">有未发布的变更：当前文档与最新版本快照不一致</span>
       <span v-else-if="versions.length" class="versions-clean">文档与最新版本快照一致</span>
-      <a-button v-if="canEdit" size="small" type="primary" @click="emit('request-publish')">发布版本</a-button>
+      <a-button size="small" type="primary" @click="emit('request-publish')">发布版本</a-button>
     </div>
 
     <div v-if="versions.length === 0" class="plan-empty">（暂无版本，发布第一个版本以建立修订记录）</div>
@@ -64,6 +64,7 @@ const canEdit = computed(() => Boolean(props.doc.permissions.value.EDIT));
 
 onMounted(() => void reload());
 watch(() => props.refreshTick, () => void reload());
+watch(() => props.doc.plan.value?.id, (id) => { if (id) void reload(); });
 
 async function reload() {
   const planId = props.doc.plan.value?.id;

@@ -159,6 +159,7 @@ const { loadScenarios } = useTaskPlans();
 function onDocChanged() {
   void doc.refresh();
   void loadScenarios(props.plan.id);
+  versionRefreshTick.value += 1;
 }
 
 function can(action: string) {

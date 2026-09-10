@@ -42,7 +42,7 @@
 
 - 文档工具条「发布版本」按钮（Pretty/Markdown 切换右侧，替代原 revision 徽标位置）；
 - 「版本」Tab 顶部「发布版本」按钮。
-- 可见性：EDIT 权限；任意阶段可用。
+- 可见性：项目成员即可（服务端拒绝非成员）；任意阶段可用。
 
 ### 3.2 发布弹窗
 
@@ -108,7 +108,7 @@ CREATE TABLE plan_versions (
 | GET | `/api/task-plans/{id}/versions/{versionId}` | 版本详情（含 snapshot_body） |
 | POST | `/api/task-plans/{id}/versions` | 发布：`{ versionNo, changeNote }`；等于最新即覆盖（幂等语义由服务端判定） |
 
-- 权限：发布=EDIT；列表/详情=计划可见（READ）即可；回滚复用现有文档保存接口的权限。
+- 权限：发布/回滚同口径：发布=项目成员（任意阶段）；回滚=复用文档保存接口的既有编辑校验；列表/详情=计划可见（READ）即可。
 - 错误码沿用现有风格（校验失败/冲突类），前端按 code 给中文提示。
 
 ## 6. 前端设计
@@ -122,7 +122,7 @@ CREATE TABLE plan_versions (
 
 ## 7. 测试
 
-- 后端单测：发布新版本；版本号低于最新被拒；重号（非最新）被拒；覆盖最新版本（快照/author/updated_at 更新、created_by 不变）；必填校验；列表排序；权限（无 EDIT 不可发布）。
+- 后端单测：发布新版本；版本号低于最新被拒；重号（非最新）被拒；覆盖最新版本（快照/author/updated_at 更新、created_by 不变）；必填校验；列表排序；权限（非项目成员不可发布/读取）。
 - 前端：`npm run build`（vue-tsc）；浏览器冒烟：首版发布 → 小修覆盖发布（告警确认）→ 新版本发布 → 未发布变更提示条 → 查看全文 → 回滚 → 回滚后提示条复现。
 
 ## 8. 明确不做（YAGNI）
@@ -132,3 +132,5 @@ CREATE TABLE plan_versions (
 - 发布审批流 / 发版后锁文档；
 - 历史 revision 数据回填映射为版本；
 - 版本删除。
+
+2026-09-10 终审修订：发布权限口径定为项目成员即可（任意阶段），消除与 PlanAccess.EDIT 阶段门控的互斥。
