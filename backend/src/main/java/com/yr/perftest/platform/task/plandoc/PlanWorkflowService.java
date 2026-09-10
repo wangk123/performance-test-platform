@@ -19,17 +19,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 
-/** 计划状态机流转与批注（设计 §4/§6）。报告/发布/分享/预检分任务追加；模板 CRUD 自本任务起。 */
+/** 计划状态机流转（设计 §4/§6）；批注域见 PlanCommentService。报告/发布/分享/预检分任务追加；模板 CRUD 自本任务起。 */
 @Service
 public class PlanWorkflowService {
-
-    public record CommentView(long id, long planId, String author, String content, PlanCommentKind kind, Instant createdAt) {
-    }
 
     private final PersistentTaskPlanRepository planRepository;
     private final PersistentTaskScenarioRepository scenarioRepository;
     private final PersistentScenarioExecutionRepository executionRepository;
-    private final PersistentPlanCommentRepository commentRepository;
+    private final PlanCommentService commentService;
     private final ProjectAccessResolver accessResolver;
     private final PersistentPlanTemplateRepository templateRepository;
     private final ObjectMapper objectMapper;
@@ -45,7 +42,7 @@ public class PlanWorkflowService {
             PersistentTaskPlanRepository planRepository,
             PersistentTaskScenarioRepository scenarioRepository,
             PersistentScenarioExecutionRepository executionRepository,
-            PersistentPlanCommentRepository commentRepository,
+            PlanCommentService commentService,
             ProjectAccessResolver accessResolver,
             PersistentPlanTemplateRepository templateRepository,
             ObjectMapper objectMapper,
@@ -60,7 +57,7 @@ public class PlanWorkflowService {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
         this.executionRepository = executionRepository;
-        this.commentRepository = commentRepository;
+        this.commentService = commentService;
         this.accessResolver = accessResolver;
         this.templateRepository = templateRepository;
         this.objectMapper = objectMapper;
@@ -77,9 +74,9 @@ public class PlanWorkflowService {
     public void submit(long planId, HumanPrincipal actor, String comment) {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "SUBMIT");
         plan.transitionTo(PlanPhase.REVIEW, PlanStatus.PENDING);
-        systemComment(planId, actor.username() + " 提交评审");
+        commentService.systemComment(planId, actor.username() + " 提交评审");
         if (comment != null && !comment.isBlank()) {
-            commentRepository.save(new PersistentPlanCommentRecord(planId, actor.username(), comment.trim(), PlanCommentKind.REVIEW));
+            commentService.appendReviewNote(planId, actor.username(), comment.trim());
         }
     }
 
@@ -87,16 +84,16 @@ public class PlanWorkflowService {
     public void startReview(long planId, HumanPrincipal actor) {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "START_REVIEW");
         plan.transitionTo(PlanPhase.REVIEW, PlanStatus.IN_REVIEW);
-        systemComment(planId, actor.username() + " 开始评审");
+        commentService.systemComment(planId, actor.username() + " 开始评审");
     }
 
     @Transactional
     public void approve(long planId, HumanPrincipal actor, String comment) {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "APPROVE");
         plan.transitionTo(PlanPhase.REVIEW, PlanStatus.APPROVED);
-        systemComment(planId, "评审通过（审批人：" + actor.username() + "）");
+        commentService.systemComment(planId, "评审通过（审批人：" + actor.username() + "）");
         if (comment != null && !comment.isBlank()) {
-            commentRepository.save(new PersistentPlanCommentRecord(planId, actor.username(), comment.trim(), PlanCommentKind.REVIEW));
+            commentService.appendReviewNote(planId, actor.username(), comment.trim());
         }
     }
 
@@ -107,15 +104,15 @@ public class PlanWorkflowService {
         }
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "REJECT");
         plan.transitionTo(PlanPhase.DRAFT, PlanStatus.DRAFT);
-        commentRepository.save(new PersistentPlanCommentRecord(planId, actor.username(), comment.trim(), PlanCommentKind.REVIEW));
-        systemComment(planId, actor.username() + " 驳回，退回草稿");
+        commentService.appendReviewNote(planId, actor.username(), comment.trim());
+        commentService.systemComment(planId, actor.username() + " 驳回，退回草稿");
     }
 
     @Transactional
     public void withdraw(long planId, HumanPrincipal actor) {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "WITHDRAW");
         plan.transitionTo(PlanPhase.DRAFT, PlanStatus.DRAFT);
-        systemComment(planId, actor.username() + " 撤回评审，退回草稿");
+        commentService.systemComment(planId, actor.username() + " 撤回评审，退回草稿");
     }
 
     @Transactional
@@ -127,21 +124,21 @@ public class PlanWorkflowService {
                     plan.getPhase(), plan.getStatus(), List.of("TO_REPORT", "GENERATE_REPORT"));
         }
         plan.transitionTo(PlanPhase.DRAFT, PlanStatus.DRAFT);
-        systemComment(planId, actor.username() + " 退回草稿");
+        commentService.systemComment(planId, actor.username() + " 退回草稿");
     }
 
     @Transactional
     public void startExecution(long planId, HumanPrincipal actor) {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "START_EXECUTION");
         plan.transitionTo(PlanPhase.EXECUTION, PlanStatus.PENDING);
-        systemComment(planId, actor.username() + " 进入执行阶段");
+        commentService.systemComment(planId, actor.username() + " 进入执行阶段");
     }
 
     @Transactional
     public void toReport(long planId, HumanPrincipal actor) {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "TO_REPORT");
         plan.transitionTo(PlanPhase.REPORT, PlanStatus.PENDING);
-        systemComment(planId, actor.username() + " 进入报告阶段");
+        commentService.systemComment(planId, actor.username() + " 进入报告阶段");
     }
 
     public record PrecheckReport(boolean ok, List<String> failures, List<String> autoPassed) {
@@ -297,7 +294,7 @@ public class PlanWorkflowService {
     public void precheckSkip(long planId, HumanPrincipal actor) {
         PersistentTaskPlanRecord plan = requirePlan(planId);
         plan.markPrecheckExecuted(Instant.now());
-        systemComment(planId, "跳过环境检查继续执行（操作人：" + (actor == null ? "?" : actor.username()) + "）");
+        commentService.systemComment(planId, "跳过环境检查继续执行（操作人：" + (actor == null ? "?" : actor.username()) + "）");
     }
 
     @Transactional(readOnly = true)
@@ -326,48 +323,6 @@ public class PlanWorkflowService {
         } catch (Exception exception) {
             throw new PlanValidationException("PLAN_INVALID：precheck 设置序列化失败");
         }
-    }
-
-    @Transactional(readOnly = true)
-    public List<CommentView> listComments(long planId) {
-        return commentRepository.findAllByPlanIdOrderByIdAsc(planId).stream()
-                .map(c -> new CommentView(c.getId(), c.getPlanId(), c.getAuthor(), c.getContent(), c.getKind(), c.getCreatedAt()))
-                .toList();
-    }
-
-    @Transactional
-    public CommentView addComment(long planId, HumanPrincipal actor, String content) {
-        if (content == null || content.isBlank()) {
-            throw new PlanValidationException("PLAN_INVALID：批注内容不能为空");
-        }
-        PersistentTaskPlanRecord plan = requireActor(planId, actor, "COMMENT");
-        PersistentPlanCommentRecord saved = commentRepository.save(
-                new PersistentPlanCommentRecord(planId, actor.username(), content.trim(), PlanCommentKind.REVIEW));
-        return new CommentView(saved.getId(), saved.getPlanId(), saved.getAuthor(), saved.getContent(), saved.getKind(), saved.getCreatedAt());
-    }
-
-    @Transactional
-    public void deleteComment(long planId, long commentId, HumanPrincipal actor) {
-        PersistentTaskPlanRecord plan = requirePlan(planId);
-        PersistentPlanCommentRecord comment = commentRepository.findById(commentId)
-                .filter(c -> c.getPlanId() == planId)
-                .orElseThrow(() -> new PlanValidationException("PLAN_INVALID：批注不存在"));
-        if (comment.getKind() == PlanCommentKind.SYSTEM) {
-            throw new PlanValidationException("PLAN_INVALID：系统批注不可删除");
-        }
-        ProjectAccessResolver.PlanActorRole role = accessResolver.resolve(plan.getProjectId(), actor, plan.getCreatedBy());
-        boolean ownerLike = role == ProjectAccessResolver.PlanActorRole.SYSTEM_ADMIN
-                || role == ProjectAccessResolver.PlanActorRole.PROJECT_OWNER
-                || role == ProjectAccessResolver.PlanActorRole.PLAN_OWNER;
-        if (!ownerLike && !comment.getAuthor().equals(actor.username())) {
-            throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：仅批注作者/负责人/项目 OWNER/系统管理员可删除批注");
-        }
-        commentRepository.delete(comment);
-    }
-
-    @Transactional
-    public void systemComment(long planId, String content) {
-        commentRepository.save(new PersistentPlanCommentRecord(planId, "system", content, PlanCommentKind.SYSTEM));
     }
 
     @Transactional(readOnly = true)
@@ -490,7 +445,7 @@ public class PlanWorkflowService {
         }
         plan.updateBody(body);
         plan.transitionTo(PlanPhase.REPORT, PlanStatus.DONE);
-        systemComment(planId, "生成报告（revision=" + plan.getRevision() + "）");
+        commentService.systemComment(planId, "生成报告（revision=" + plan.getRevision() + "）");
         return planService.getPlan(planId);
     }
 
@@ -519,7 +474,7 @@ public class PlanWorkflowService {
         Instant now = Instant.now();
         buildPublishSnapshot(plan, actor.username(), now);
         plan.applyPublish(now);
-        systemComment(planId, "已发布（revision=" + plan.getRevision() + "，发布人：" + actor.username() + "）");
+        commentService.systemComment(planId, "已发布（revision=" + plan.getRevision() + "，发布人：" + actor.username() + "）");
         return planService.getPlan(planId);
     }
 
@@ -527,7 +482,7 @@ public class PlanWorkflowService {
     public TaskPlan newRevision(long planId, HumanPrincipal actor) {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "NEW_REVISION");
         plan.applyNewRevision();
-        systemComment(planId, actor.username() + " 发起新修订（revision=" + plan.getRevision() + "）");
+        commentService.systemComment(planId, actor.username() + " 发起新修订（revision=" + plan.getRevision() + "）");
         return planService.getPlan(planId);
     }
 

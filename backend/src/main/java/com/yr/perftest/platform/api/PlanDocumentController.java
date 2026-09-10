@@ -9,13 +9,13 @@ import com.yr.perftest.platform.task.TaskPlan;
 import com.yr.perftest.platform.task.TaskPlanService;
 import com.yr.perftest.platform.task.plandoc.PlanAccess;
 import com.yr.perftest.platform.task.plandoc.PlanAccessDeniedException;
+import com.yr.perftest.platform.task.plandoc.PlanCommentService;
 import com.yr.perftest.platform.task.plandoc.PlanDocumentService;
 import com.yr.perftest.platform.task.plandoc.PlanQuickExecuteService;
 import com.yr.perftest.platform.task.plandoc.PlanSectionPolishService;
 import com.yr.perftest.platform.task.plandoc.PlanVerdictService;
 import com.yr.perftest.platform.task.plandoc.PlanVersionService;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService;
-import com.yr.perftest.platform.task.plandoc.PlanWorkflowService.CommentView;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService.PrecheckReport;
 import com.yr.perftest.platform.task.plandoc.PrecheckSettings;
 import jakarta.validation.Valid;
@@ -33,6 +33,7 @@ import java.util.Map;
 public class PlanDocumentController {
     private final PlanDocumentService documentService;
     private final PlanWorkflowService workflowService;
+    private final PlanCommentService commentService;
     private final PlanQuickExecuteService quickExecuteService;
     private final TaskPlanService planService;
     private final ProjectAccessResolver accessResolver;
@@ -43,6 +44,7 @@ public class PlanDocumentController {
 
     public PlanDocumentController(PlanDocumentService documentService,
                                   PlanWorkflowService workflowService,
+                                  PlanCommentService commentService,
                                   PlanQuickExecuteService quickExecuteService,
                                   TaskPlanService planService,
                                   ProjectAccessResolver accessResolver,
@@ -52,6 +54,7 @@ public class PlanDocumentController {
                                   PlanVersionService versionService) {
         this.documentService = documentService;
         this.workflowService = workflowService;
+        this.commentService = commentService;
         this.quickExecuteService = quickExecuteService;
         this.planService = planService;
         this.accessResolver = accessResolver;
@@ -189,21 +192,22 @@ public class PlanDocumentController {
     }
 
     @GetMapping("/task-plans/{planId}/comments")
-    public List<CommentView> listComments(@PathVariable long planId) {
+    public List<PlanCommentService.CommentView> listComments(@PathVariable long planId) {
         requireMember(planService.getPlan(planId));
-        return workflowService.listComments(planId);
+        return commentService.listComments(planId, requireHuman());
     }
 
     @PostMapping("/task-plans/{planId}/comments")
     @ResponseStatus(HttpStatus.CREATED)
-    public CommentView addComment(@PathVariable long planId, @RequestBody AddCommentRequest request) {
-        return workflowService.addComment(planId, requireHuman(), request.content());
+    public PlanCommentService.CommentView addComment(@PathVariable long planId, @RequestBody AddCommentRequest request) {
+        return commentService.addComment(planId, requireHuman(),
+                new PlanCommentService.AddCommentCommand(request.content(), null, null));
     }
 
     @DeleteMapping("/task-plans/{planId}/comments/{commentId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteComment(@PathVariable long planId, @PathVariable long commentId) {
-        workflowService.deleteComment(planId, commentId, requireHuman());
+        commentService.deleteComment(planId, commentId, requireHuman());
     }
 
     @GetMapping("/task-plans/{planId}/snapshots")

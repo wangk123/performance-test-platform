@@ -34,6 +34,8 @@ class PlanWorkflowServiceTest {
     @Autowired
     private PlanWorkflowService workflow;
     @Autowired
+    private PlanCommentService comments;
+    @Autowired
     private PersistentTaskPlanRepository planRepository;
     @Autowired
     private PersistentProjectRepository projectRepository;
@@ -108,7 +110,7 @@ class PlanWorkflowServiceTest {
         workflow.startReview(planId, REVIEWER);
         workflow.withdraw(planId, OWNER);
         assertThat(phase()).isEqualTo(PlanPhase.DRAFT);
-        assertThat(workflow.listComments(planId))
+        assertThat(comments.listComments(planId, OWNER))
                 .anySatisfy(c -> {
                     assertThat(c.kind()).isEqualTo(PlanCommentKind.SYSTEM);
                     assertThat(c.content()).contains("撤回");
@@ -130,12 +132,14 @@ class PlanWorkflowServiceTest {
 
     @Test
     void reviewCommentLifecycle() {
-        PlanWorkflowService.CommentView comment = workflow.addComment(planId, REVIEWER, "第二章表格补口径");
+        PlanCommentService.CommentView comment = comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("第二章表格补口径", null, null));
         assertThat(comment.kind()).isEqualTo(PlanCommentKind.REVIEW);
-        workflow.deleteComment(planId, comment.id(), REVIEWER);
-        assertThat(workflow.listComments(planId)).noneMatch(c -> c.id() == comment.id());
-        PlanWorkflowService.CommentView system = workflow.addComment(planId, OWNER, "成员批注");
-        assertThatThrownBy(() -> workflow.deleteComment(planId, system.id(), REVIEWER)) // 非作者且非负责人
+        comments.deleteComment(planId, comment.id(), REVIEWER);
+        assertThat(comments.listComments(planId, OWNER)).noneMatch(c -> c.id() == comment.id());
+        PlanCommentService.CommentView otherMember = comments.addComment(
+                planId, OWNER, new PlanCommentService.AddCommentCommand("成员批注", null, null));
+        assertThatThrownBy(() -> comments.deleteComment(planId, otherMember.id(), REVIEWER)) // 非作者且非负责人
                 .isInstanceOf(PlanAccessDeniedException.class);
     }
 }

@@ -39,6 +39,8 @@ class PlanExecutionGateTest {
     @Autowired
     private PlanWorkflowService workflow;
     @Autowired
+    private PlanCommentService comments;
+    @Autowired
     private PersistentTaskPlanRepository planRepository;
     @Autowired
     private PersistentTaskScenarioRepository scenarioRepository;
@@ -110,7 +112,7 @@ class PlanExecutionGateTest {
         // 跳过后放行且不再重跑
         workflow.precheckSkip(planId, OWNER);
         workflow.assertExecutionAllowed(scenarioId);
-        assertThat(workflow.listComments(planId)).anySatisfy(c -> {
+        assertThat(comments.listComments(planId, OWNER)).anySatisfy(c -> {
             assertThat(c.kind()).isEqualTo(PlanCommentKind.SYSTEM);
             assertThat(c.content()).contains("跳过环境检查");
         });

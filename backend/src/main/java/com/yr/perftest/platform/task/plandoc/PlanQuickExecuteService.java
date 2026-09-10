@@ -28,7 +28,7 @@ public class PlanQuickExecuteService {
     private final TaskPlanService planService;
     private final TaskScenarioService scenarioService;
     private final ExecutionControlService executionControlService;
-    private final PlanWorkflowService workflowService;
+    private final PlanCommentService commentService;
 
     public PlanQuickExecuteService(
             PersistentScriptVersionRepository scriptVersionRepository,
@@ -37,7 +37,7 @@ public class PlanQuickExecuteService {
             TaskPlanService planService,
             TaskScenarioService scenarioService,
             ExecutionControlService executionControlService,
-            PlanWorkflowService workflowService
+            PlanCommentService commentService
     ) {
         this.scriptVersionRepository = scriptVersionRepository;
         this.executionNodeRepository = executionNodeRepository;
@@ -45,7 +45,7 @@ public class PlanQuickExecuteService {
         this.planService = planService;
         this.scenarioService = scenarioService;
         this.executionControlService = executionControlService;
-        this.workflowService = workflowService;
+        this.commentService = commentService;
     }
 
     @Transactional
@@ -60,7 +60,7 @@ public class PlanQuickExecuteService {
         PersistentTaskPlanRecord raw = planRepository.findById(plan.id()).orElseThrow();
         raw.forceState(PlanPhase.EXECUTION, PlanStatus.PENDING);
         planRepository.save(raw);
-        workflowService.systemComment(plan.id(), "快捷执行自动通过评审（操作人：" + username + "）");
+        commentService.systemComment(plan.id(), "快捷执行自动通过评审（操作人：" + username + "）");
         com.yr.perftest.platform.task.TaskScenario scenario = scenarioService.createScenario(
                 plan.id(), scriptVersionId, scriptDisplayName(script), null, null, null, null, null, null, null);
         ExecutionControlService.StartOutcome outcome = executionControlService.start(
