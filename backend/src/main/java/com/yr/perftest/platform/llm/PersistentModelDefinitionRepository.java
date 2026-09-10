@@ -22,6 +22,8 @@ public interface PersistentModelDefinitionRepository extends JpaRepository<Persi
 
     Optional<PersistentModelDefinitionRecord> findFirstByProviderIdAndEnabledTrueAndIsDefaultTrue(Long providerId);
 
+    Optional<PersistentModelDefinitionRecord> findFirstByEnabledTrueAndIsDefaultTrueOrderByIdAsc();
+
     Optional<PersistentModelDefinitionRecord> findFirstByProviderIdAndEnabledTrueOrderByIdAsc(Long providerId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)

@@ -25,6 +25,24 @@ export function updatePlanDocumentApi(planId: number, baseRevision: number, mark
   });
 }
 
+export type PolishSectionResult = {
+  content: string;
+  latencyMs: number;
+  callRecordId: number;
+  promptVersion: string;
+  modelId: number;
+  modelName: string;
+};
+
+/** 章节 AI 润色：只生成建议文本，不落文档；采纳与保存由编辑弹窗完成。 */
+export function polishPlanSectionApi(planId: number, sectionTitle: string, content: string) {
+  return request<PolishSectionResult>(`/api/task-plans/${planId}/sections/polish`, {
+    method: 'POST',
+    headers: json,
+    body: JSON.stringify({ sectionTitle, content }),
+  });
+}
+
 type TransitionAction =
   | 'submit' | 'start-review' | 'approve' | 'reject' | 'withdraw' | 'back-to-draft'
   | 'start-execution' | 'to-report' | 'generate-report' | 'publish' | 'new-revision';

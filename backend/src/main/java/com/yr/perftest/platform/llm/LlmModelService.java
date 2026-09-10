@@ -160,6 +160,12 @@ public class LlmModelService {
                 .orElseThrow(() -> new LlmValidationException("no enabled model under provider"));
     }
 
+    @Transactional(readOnly = true)
+    public PersistentModelDefinitionRecord requireDefaultEnabled() {
+        return modelRepository.findFirstByEnabledTrueAndIsDefaultTrueOrderByIdAsc()
+                .orElseThrow(() -> new LlmValidationException("no enabled default model configured"));
+    }
+
     private PersistentModelDefinitionRecord require(long id) {
         return modelRepository.findById(id)
                 .orElseThrow(() -> new LlmValidationException("model not found: " + id));

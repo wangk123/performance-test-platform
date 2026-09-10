@@ -11,7 +11,9 @@ import com.yr.perftest.platform.task.plandoc.PlanAccess;
 import com.yr.perftest.platform.task.plandoc.PlanAccessDeniedException;
 import com.yr.perftest.platform.task.plandoc.PlanDocumentService;
 import com.yr.perftest.platform.task.plandoc.PlanQuickExecuteService;
+import com.yr.perftest.platform.task.plandoc.PlanSectionPolishService;
 import com.yr.perftest.platform.task.plandoc.PlanVerdictService;
+import com.yr.perftest.platform.task.plandoc.PlanVersionService;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService.CommentView;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService.PrecheckReport;
@@ -36,6 +38,8 @@ public class PlanDocumentController {
     private final ProjectAccessResolver accessResolver;
     private final ReportDataService reportDataService;
     private final PlanVerdictService verdictService;
+    private final PlanSectionPolishService polishService;
+    private final PlanVersionService versionService;
 
     public PlanDocumentController(PlanDocumentService documentService,
                                   PlanWorkflowService workflowService,
@@ -43,7 +47,9 @@ public class PlanDocumentController {
                                   TaskPlanService planService,
                                   ProjectAccessResolver accessResolver,
                                   ReportDataService reportDataService,
-                                  PlanVerdictService verdictService) {
+                                  PlanVerdictService verdictService,
+                                  PlanSectionPolishService polishService,
+                                  PlanVersionService versionService) {
         this.documentService = documentService;
         this.workflowService = workflowService;
         this.quickExecuteService = quickExecuteService;
@@ -51,6 +57,8 @@ public class PlanDocumentController {
         this.accessResolver = accessResolver;
         this.reportDataService = reportDataService;
         this.verdictService = verdictService;
+        this.polishService = polishService;
+        this.versionService = versionService;
     }
 
     public record PlanResponse(TaskPlan plan, Map<String, Boolean> permissions) {
@@ -66,6 +74,15 @@ public class PlanDocumentController {
     @PutMapping("/task-plans/{planId}/document")
     public TaskPlan updateDocument(@PathVariable long planId, @RequestBody UpdateDocumentRequest request) {
         return documentService.updateMarkdown(planId, request.baseRevision(), request.markdown(), requireHuman());
+    }
+
+    /** 章节 AI 润色：只生成建议文本，不落文档；采纳与保存由前端编辑弹窗完成。 */
+    @PostMapping("/task-plans/{planId}/sections/polish")
+    public PlanSectionPolishService.PolishResult polishSection(@PathVariable long planId,
+                                                               @RequestBody PolishSectionRequest request) {
+        TaskPlan plan = documentService.getDocument(planId);
+        requireMember(plan);
+        return polishService.polish(request.sectionTitle(), request.content(), requireHuman().username());
     }
 
     @PutMapping("/task-plans/{planId}")
@@ -194,6 +211,24 @@ public class PlanDocumentController {
         return workflowService.listSnapshots(planId, requireHuman());
     }
 
+    @GetMapping("/task-plans/{planId}/versions")
+    public PlanVersionService.PlanVersionListResponse listVersions(@PathVariable long planId) {
+        return versionService.list(planId, requireHuman());
+    }
+
+    @GetMapping("/task-plans/{planId}/versions/{versionId}")
+    public PlanVersionService.PlanVersionDetail getVersion(
+            @PathVariable long planId, @PathVariable long versionId) {
+        return versionService.get(planId, versionId, requireHuman());
+    }
+
+    @PostMapping("/task-plans/{planId}/versions")
+    @ResponseStatus(HttpStatus.CREATED)
+    public PlanVersionService.PlanVersionView publishVersion(
+            @PathVariable long planId, @RequestBody PublishVersionRequest request) {
+        return versionService.publish(planId, requireHuman(), request.versionNo(), request.changeNote());
+    }
+
     @GetMapping("/task-plans/{planId}/report")
     public PlanReportResponse report(@PathVariable long planId) {
         requireMember(planService.getPlan(planId));
@@ -315,6 +350,9 @@ public class PlanDocumentController {
     public record UpdateDocumentRequest(long baseRevision, String markdown) {
     }
 
+    public record PolishSectionRequest(String sectionTitle, String content) {
+    }
+
     public record UpdatePlanConfigRequest(
             @NotBlank String name,
             String remark,
@@ -336,5 +374,8 @@ public class PlanDocumentController {
     }
 
     public record TemplateRequest(String name, String description, String content) {
+    }
+
+    public record PublishVersionRequest(String versionNo, String changeNote) {
     }
 }

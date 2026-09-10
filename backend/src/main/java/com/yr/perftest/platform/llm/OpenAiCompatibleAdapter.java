@@ -65,7 +65,7 @@ public class OpenAiCompatibleAdapter implements LlmAdapter {
         }
         String rawRequest = objectMapper.writeValueAsString(payload);
         HttpRequest request = HttpRequest.newBuilder(URI.create(join(baseUrl, "/chat/completions")))
-                .timeout(Duration.ofSeconds(60))
+                .timeout(Duration.ofSeconds(180))
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(rawRequest))

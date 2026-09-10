@@ -60,7 +60,7 @@ public class AnthropicAdapter implements LlmAdapter {
     public LlmChatResult chat(String baseUrl, String apiKey, String modelName, List<LlmChatMessage> messages) throws Exception {
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("model", modelName);
-        payload.put("max_tokens", 256);
+        payload.put("max_tokens", 8192);
         ArrayNode msgNode = payload.putArray("messages");
         for (LlmChatMessage message : messages) {
             ObjectNode item = msgNode.addObject();
@@ -69,7 +69,7 @@ public class AnthropicAdapter implements LlmAdapter {
         }
         String rawRequest = objectMapper.writeValueAsString(payload);
         HttpRequest request = HttpRequest.newBuilder(URI.create(join(baseUrl, "/v1/messages")))
-                .timeout(Duration.ofSeconds(60))
+                .timeout(Duration.ofSeconds(180))
                 .header("x-api-key", apiKey)
                 .header("anthropic-version", ANTHROPIC_VERSION)
                 .header("Content-Type", "application/json")

@@ -100,6 +100,7 @@
 
     <PlanSectionEditor
       v-model:open="sectionEditorOpen"
+      :plan-id="plan.id"
       :title="editingSectionTitle"
       :content="editingSectionContent"
       @save="saveSection"
