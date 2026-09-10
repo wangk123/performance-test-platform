@@ -107,6 +107,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import type { TaskPlan, TaskScenario } from '../../types';
 import { usePlanDoc, statusLabel } from '../../composables/usePlanDoc';
@@ -126,6 +127,8 @@ const props = defineProps<{ plan: TaskPlan; scenarios: TaskScenario[] }>();
 defineEmits<{ (e: 'back'): void }>();
 
 const doc = usePlanDoc();
+const route = useRoute();
+const router = useRouter();
 const activeTab = ref('document');
 const planDialogVisible = ref(false);
 const scenarioDialogVisible = ref(false);
@@ -149,12 +152,27 @@ function onDocViewKeydown(event: KeyboardEvent) {
   docView.value = event.key === 'ArrowRight' ? 'Markdown' : 'Pretty';
 }
 
-/** 评审工作台「↧ 定位」：切到文档 Tab，待定位批注经 prop 下发（Task 11 再叠加 URL 持久化）。 */
+/** 评审工作台「↧ 定位」与 ?comment= 深链共用：待定位批注经 prop 下发，文档组件定位完成后置空。 */
 const pendingLocate = ref<number | null>(null);
+
+/** query 同步（Task 11）：?tab= 四键白名单（versions 不入 URL，刷新回落 document）；?comment= 深链。 */
+const TAB_KEYS = ['document', 'review', 'report', 'publish'] as const;
+
+function tabOfQuery(): string {
+  const tab = route.query.tab;
+  return typeof tab === 'string' && (TAB_KEYS as readonly string[]).includes(tab) ? tab : 'document';
+}
+
+/** locateComment 自写的 query 在途时抑制 watch(activeTab) 的补写：watcher（pre-flush 微任务）
+ *  早于 vue-router 提交执行，读到旧 route.query 会误判 tab 不一致并覆盖掉 ?comment=。 */
+let syncingTabQuery = false;
 
 function locateComment(commentId: number) {
   pendingLocate.value = commentId;
   activeTab.value = 'document';
+  syncingTabQuery = true;
+  void router.replace({ query: { ...route.query, tab: 'document', comment: String(commentId) } })
+    .finally(() => { syncingTabQuery = false; });
 }
 
 const PHASE_TEXT: Record<string, string> = {
@@ -168,7 +186,24 @@ const statusText = computed(() => statusLabel(phase.value, status.value));
 const isRunning = computed(() => phase.value === 'EXECUTION' && status.value === 'RUNNING');
 const phaseBadgeClass = computed(() => `is-${phase.value.toLowerCase()}`);
 
-onMounted(() => void doc.load(props.plan.id));
+onMounted(async () => {
+  activeTab.value = tabOfQuery();
+  const comment = route.query.comment;
+  const deepLinkCommentId = typeof comment === 'string' && /^\d+$/.test(comment) ? Number(comment) : null;
+  if (deepLinkCommentId != null) activeTab.value = 'document';
+  await doc.load(props.plan.id);
+  // 深链定位必须等文档+批注数据就绪再下发：子组件 watch 回调里 deriveAnchors 依赖
+  // anchoredRoots（来自 comments 接口），若在 load 完成前置位，locate(null) 后即 emit('located')
+  // 置空，深链定位会静默失效。子组件 watch 非 immediate 依然能命中——prop 由 null→N 是后续变更。
+  if (deepLinkCommentId != null) pendingLocate.value = deepLinkCommentId;
+});
+
+// Tab 状态入 URL（replaceState 语义，不产生历史记录）；恢复值与 query 已一致时条件短路，直链不多余 replace。
+watch(activeTab, (tab) => {
+  if (syncingTabQuery || tab === tabOfQuery()) return;
+  void router.replace({ query: { ...route.query, tab } });
+});
+
 watch(() => props.plan.id, (id) => void doc.load(id));
 
 /** 文档或场景实体变更后，除刷新文档外还需重载场景列表（绑定徽标/执行状态取自场景实体）。 */
