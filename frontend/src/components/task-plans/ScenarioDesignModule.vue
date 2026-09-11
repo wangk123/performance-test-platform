@@ -123,9 +123,10 @@ const bindDialogScenario = ref('');
 const canEditScenario = computed(() => {
   const status = props.docPlan.plan.value?.status;
   const active = props.docPlan.activeExecutions.value;
-  // PUBLISHED（终态）与未知状态不在可编辑列表中，天然排除；执行中仅在无活跃执行时可编辑。
+  // 与后端一致（TaskScenarioService.requireScenarioMutationAllowed 仅在有活跃执行时冻结）：
+  // PUBLISHED 不冻结，无活跃执行即放行；执行中仅在无活跃执行时可编辑。
   return status === 'PLANNING' || status === 'IN_REVIEW' || status === 'REPORTING'
-    || (status === 'EXECUTING' && active === 0);
+    || ((status === 'EXECUTING' || status === 'PUBLISHED') && active === 0);
 });
 const canBindScript = computed(() => canEditScenario.value);
 const canExecute = computed(() => {

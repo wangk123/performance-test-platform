@@ -125,7 +125,7 @@
         </a-form-item>
       </a-form>
       <p class="publish-transition-hint">
-        发布将冻结当前文档全文，按版本号登记「报告发布」版本，并将计划置为已发布（终态）。
+        发布将按版本号登记「发布」版本并固化当时正文快照；文档不冻结，仍可编辑与新增版本。
       </p>
     </a-modal>
   </section>

@@ -417,7 +417,7 @@ public class PlanWorkflowService {
 
     @Transactional(readOnly = true)
     public List<SnapshotView> listSnapshots(long planId, HumanPrincipal actor) {
-        requireActor(planId, actor, "SHARE"); // 发布域只读，沿用 owner 级动作门槛
+        requireActor(planId, actor, "SHARE"); // 成员级门槛（非成员 403）+ 状态门槛：SHARE 仅 PUBLISHED 开放
         return snapshotRepository.findAllByPlanIdOrderByRevisionDesc(planId).stream()
                 .map(s -> new SnapshotView(s.getId(), s.getRevision(), s.getPublishedBy(), s.getPublishedAt()))
                 .toList();
@@ -615,11 +615,6 @@ public class PlanWorkflowService {
         } catch (Exception exception) {
             return "{}";
         }
-    }
-
-    public boolean hasAnyExecution(long planId) {
-        return scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(planId).stream()
-                .anyMatch(scenario -> executionRepository.existsByScenarioId(scenario.getId()));
     }
 
     public PersistentTaskPlanRecord requirePlan(long planId) {

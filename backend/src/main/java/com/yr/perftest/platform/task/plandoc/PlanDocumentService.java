@@ -1,6 +1,5 @@
 package com.yr.perftest.platform.task.plandoc;
 
-import com.yr.perftest.platform.execution.ExecutionStatus;
 import com.yr.perftest.platform.identity.HumanPrincipal;
 import com.yr.perftest.platform.project.ProjectAccessResolver;
 import com.yr.perftest.platform.task.PersistentScenarioExecutionRepository;
@@ -72,17 +71,6 @@ public class PlanDocumentService {
             return; // 幂等：标记已存在，不动 revision
         }
         plan.updateBody(updated);
-    }
-
-    public boolean hasActiveExecution(long planId) {
-        List<Long> scenarioIds = scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(planId).stream()
-                .map(com.yr.perftest.platform.task.PersistentTaskScenarioRecord::getId)
-                .toList();
-        if (scenarioIds.isEmpty()) {
-            return false;
-        }
-        return executionRepository.countByScenarioIdInAndStatusIn(scenarioIds,
-                List.of(ExecutionStatus.QUEUED, ExecutionStatus.RUNNING, ExecutionStatus.STOPPING)) > 0;
     }
 
     public PersistentTaskPlanRecord requirePlan(long planId) {

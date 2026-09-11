@@ -7,8 +7,12 @@ import com.yr.perftest.platform.project.PersistentProjectMemberRepository;
 import com.yr.perftest.platform.project.PersistentProjectRecord;
 import com.yr.perftest.platform.project.PersistentProjectRepository;
 import com.yr.perftest.platform.project.ProjectRole;
+import com.yr.perftest.platform.task.PersistentScenarioExecutionRecord;
+import com.yr.perftest.platform.task.PersistentScenarioExecutionRepository;
 import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
 import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
+import com.yr.perftest.platform.task.PersistentTaskScenarioRecord;
+import com.yr.perftest.platform.task.PersistentTaskScenarioRepository;
 import com.yr.perftest.platform.task.TaskPlan;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +43,13 @@ class PlanWorkflowServiceTest {
     @Autowired
     private PlanCommentService comments;
     @Autowired
+    private PlanDocumentService documentService;
+    @Autowired
     private PersistentTaskPlanRepository planRepository;
+    @Autowired
+    private PersistentTaskScenarioRepository scenarioRepository;
+    @Autowired
+    private PersistentScenarioExecutionRepository executionRepository;
     @Autowired
     private PersistentProjectRepository projectRepository;
     @Autowired
@@ -65,6 +75,17 @@ class PlanWorkflowServiceTest {
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
         plan.forceState(status);
         return planRepository.save(plan); // forceState 后需 save 持久化
+    }
+
+    /** 造一个 RUNNING 活跃执行（工厂方法同 PlanScenarioMutationGateTest，QUEUED/RUNNING/STOPPING 视为活跃）。 */
+    private void startActiveExecution() {
+        PersistentTaskScenarioRecord scenario = scenarioRepository.save(
+                new PersistentTaskScenarioRecord(planId, null, "场景A", 0));
+        PersistentScenarioExecutionRecord execution = executionRepository.save(
+                new PersistentScenarioExecutionRecord(scenario.getId(),
+                        "{\"threads\":1,\"rampUp\":0,\"duration\":1,\"loops\":1,\"jmeterProperties\":{}}"));
+        execution.markRunning("result.jtl", "jmeter.log"); // RUNNING = 活跃执行
+        executionRepository.save(execution);
     }
 
     @Test
@@ -119,10 +140,22 @@ class PlanWorkflowServiceTest {
     }
 
     @Test
+    void finishExecutionSucceedsWithActiveExecution() {
+        forceState(PlanStatus.EXECUTING);
+        startActiveExecution();
+        // 软门禁（spec §4.3）：真实存在 RUNNING 活跃执行，后端仍放行执行完成（不 409，前端二次确认兜底）
+        assertThat(documentService.countActiveExecutions(planId)).isPositive();
+        workflow.finishExecution(planId, REVIEWER);
+        assertThat(planRepository.findById(planId).orElseThrow().getStatus())
+                .isEqualTo(PlanStatus.REPORTING);
+    }
+
+    @Test
     void publishSucceedsEvenWithActiveExecution() {
         forceState(PlanStatus.REPORTING);
-        // 软门禁（spec §4.3）：后端不再因活跃执行拒绝发布；本测试无场景表数据即无活跃执行，
-        // 活跃执行放行语义由 PlanReportPublishTest 一并覆盖（原拦截用例反转）
+        startActiveExecution();
+        // 软门禁（spec §4.3）：真实存在 RUNNING 活跃执行，后端仍放行发布（原 409 拦截已删除，回归即本用例红）
+        assertThat(documentService.countActiveExecutions(planId)).isPositive();
         workflow.publish(planId, OWNER, "结论：通过", "V1.0");
         assertThat(planRepository.findById(planId).orElseThrow().getStatus())
                 .isEqualTo(PlanStatus.PUBLISHED);
