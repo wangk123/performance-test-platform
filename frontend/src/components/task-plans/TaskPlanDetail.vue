@@ -87,9 +87,6 @@
       <a-tab-pane key="report" tab="报告">
         <div class="plan-tab-scroll"><PlanDetailReport :doc="doc" :scenarios="scenarios" /></div>
       </a-tab-pane>
-      <a-tab-pane key="publish" tab="发布">
-        <div class="plan-tab-scroll"><PlanDetailPublish :doc="doc" /></div>
-      </a-tab-pane>
       <a-tab-pane key="versions" tab="版本">
         <div class="plan-tab-scroll"><PlanDetailVersions :doc="doc" :refresh-tick="versionRefreshTick" @request-publish="publishOpen = true" /></div>
       </a-tab-pane>
@@ -117,7 +114,6 @@ import PlanPhaseStepper from './PlanPhaseStepper.vue';
 import PlanDetailDocument from './PlanDetailDocument.vue';
 import PlanDetailReview from './PlanDetailReview.vue';
 import PlanDetailReport from './PlanDetailReport.vue';
-import PlanDetailPublish from './PlanDetailPublish.vue';
 import TaskPlanDialog from './TaskPlanDialog.vue';
 import ScenarioDialog from './ScenarioDialog.vue';
 import PlanDetailVersions from './PlanDetailVersions.vue';
@@ -155,8 +151,8 @@ function onDocViewKeydown(event: KeyboardEvent) {
 /** 评审工作台「↧ 定位」与 ?comment= 深链共用：待定位批注经 prop 下发，文档组件定位完成后置空。 */
 const pendingLocate = ref<number | null>(null);
 
-/** query 同步（Task 11）：?tab= 四键白名单（versions 不入 URL，刷新回落 document）；?comment= 深链。 */
-const TAB_KEYS = ['document', 'review', 'report', 'publish'] as const;
+/** query 同步（Task 11）：?tab= 三键白名单（publish 已并入 versions；versions 不入 URL，刷新回落 document）；?comment= 深链。 */
+const TAB_KEYS = ['document', 'review', 'report'] as const;
 
 function tabOfQuery(): string {
   const tab = route.query.tab;
