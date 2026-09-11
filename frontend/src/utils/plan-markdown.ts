@@ -384,3 +384,33 @@ export function checklistItemLines(content: string | null | undefined): number[]
   }
   return result;
 }
+
+/** 归一化锚点匹配文本（spec §5.3）：去空白与 Markdown 修饰符（含全角逗号）、转小写。plan-anchors 同源复用。 */
+export function normalizeForMatch(text: string): string {
+  return text.replace(/[\s#*>`|~_[\]()\\，-]/g, '').toLowerCase();
+}
+
+/**
+ * 渲染子元素 ↔ 源码块的容错对齐：markdown-it 与 splitBlocks 在边界形态（文字行紧贴表格/列表行等）
+ * 下顶层子元素数会不一致，逐 child 按「归一化文本前缀相等」顺序匹配（前视窗口 +3），
+ * 匹配不上的 child 返回 null（跳过注入），不再整章放弃——对齐结果供 data-line 注入消费。
+ */
+export function alignBlocks(childrenTexts: string[], blocks: DocBlock[]): (number | null)[] {
+  const blockNorms = blocks.map((block) => normalizeForMatch(block.raw));
+  const result: (number | null)[] = [];
+  let cursor = 0;
+  for (const text of childrenTexts) {
+    const childNorm = normalizeForMatch(text);
+    let matched: number | null = null;
+    for (let k = cursor; k < Math.min(blocks.length, cursor + 3); k++) {
+      const len = Math.min(16, blockNorms[k].length, childNorm.length);
+      if (len >= 1 && blockNorms[k].slice(0, len) === childNorm.slice(0, len)) {
+        matched = k;
+        break;
+      }
+    }
+    result.push(matched);
+    if (matched != null) cursor = matched + 1;
+  }
+  return result;
+}

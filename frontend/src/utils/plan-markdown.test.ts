@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checklistItemLines, listItemOffsets, splitBlocks } from './plan-markdown';
+import { alignBlocks, checklistItemLines, listItemOffsets, splitBlocks } from './plan-markdown';
 
 describe('splitBlocks', () => {
   it('段落以空行分界并携带局部行号', () => {
@@ -51,5 +51,34 @@ describe('checklistItemLines', () => {
   it('清单项行号序与 parseChecklistGroups 的 index 一致（跳过标题与空行）', () => {
     const content = '### 入口准则\n\n- [ ] 指标已定义（自动）\n\n普通文字\n- [x] 脚本已关联';
     expect(checklistItemLines(content)).toEqual([2, 5]);
+  });
+});
+
+describe('alignBlocks', () => {
+  it('一一对应时按顺序全配', () => {
+    const blocks = splitBlocks('第一段\n\n- 甲\n- 乙');
+    expect(alignBlocks(['第一段', '甲乙'], blocks)).toEqual([0, 1]);
+  });
+
+  it('文字行紧贴表格（markdown-it 合并渲染为一个段落）时，合并块匹配首块', () => {
+    const blocks = splitBlocks('范围如下：\n| a | b |\n|---|---|\n| 1 | 2 |');
+    expect(blocks).toHaveLength(2);
+    // markdown-it 渲染成一个 <p>（管道行并入段落文本）
+    expect(alignBlocks(['范围如下：a b 1 2'], blocks)).toEqual([0]);
+  });
+
+  it('徽标等追加文本在尾部，不影响前缀匹配', () => {
+    const blocks = splitBlocks('登录接口 TPS ≥ 1000。');
+    expect(alignBlocks(['登录接口 TPS ≥ 1000。💬 1'], blocks)).toEqual([0]);
+  });
+
+  it('同文块按顺序各配各的，不重复消耗', () => {
+    const blocks = splitBlocks('- 无\n\n- 无');
+    expect(alignBlocks(['无', '无'], blocks)).toEqual([0, 1]);
+  });
+
+  it('无匹配与零块安全返回 null', () => {
+    expect(alignBlocks(['（本章暂无内容）'], [])).toEqual([null]);
+    expect(alignBlocks([], splitBlocks('第一段'))).toEqual([]);
   });
 });

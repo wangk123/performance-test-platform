@@ -768,7 +768,6 @@
 
 .doc-anno-add {
   position: absolute;
-  right: 8px;
   z-index: 6;
   padding: 1px 10px;
   border: 1px dashed var(--line-strong);

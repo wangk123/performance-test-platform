@@ -1,5 +1,8 @@
 import type { PlanComment } from '../types';
-import { blockAnchorLines, CANONICAL_HEADINGS, splitBlocks, splitSections } from './plan-markdown';
+import { blockAnchorLines, CANONICAL_HEADINGS, normalizeForMatch, splitBlocks, splitSections } from './plan-markdown';
+
+// 归一化口径已收敛到 plan-markdown（alignBlocks 与 deriveAnchors 共用）；保持既有导出位置不变
+export { normalizeForMatch };
 
 export type AnchorState = 'ok' | 'remounted' | 'broken';
 
@@ -14,11 +17,6 @@ export interface AnchorResolution {
 
 /** spec §5.3 阈值：归一化相似度 ≥ 0.6 视为同一内容（算法用字符 bigram Dice，O(n) 优于 LCS）。 */
 const SIMILARITY_THRESHOLD = 0.6;
-
-/** 去空白与 Markdown 修饰符（含全角逗号）、转小写——锚点匹配的归一化口径。 */
-export function normalizeForMatch(text: string): string {
-  return text.replace(/[\s#*>`|~_[\]()\\，-]/g, '').toLowerCase();
-}
 
 function bigramsOf(normalized: string): Set<string> {
   const grams = new Set<string>();

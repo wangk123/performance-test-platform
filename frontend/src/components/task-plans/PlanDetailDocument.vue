@@ -106,7 +106,7 @@
             </div>
 
             <template v-if="commentLayer.addButton.value.visible && canComment">
-              <button type="button" class="doc-anno-add" :style="{ top: `${commentLayer.addButton.value.top}px` }" @click="commentLayer.openComposerFor">＋ 批注</button>
+              <button type="button" class="doc-anno-add" :style="{ top: `${commentLayer.addButton.value.top}px`, left: `${commentLayer.addButton.value.left}px` }" @click="commentLayer.openComposerFor">＋ 批注</button>
             </template>
             <template v-if="commentLayer.composer.value">
               <div class="doc-anno-composer-wrap" :style="{ top: `${commentLayer.composer.value.top}px` }">

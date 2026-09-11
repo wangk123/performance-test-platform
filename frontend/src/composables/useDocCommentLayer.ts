@@ -1,6 +1,6 @@
 import { ref, type Ref } from 'vue';
 import type { PlanCommentThread } from '../types';
-import { blockAnchorLines, splitBlocks, type DocBlock, type Section } from '../utils/plan-markdown';
+import { alignBlocks, blockAnchorLines, splitBlocks, type DocBlock, type Section } from '../utils/plan-markdown';
 import { deriveAnchors } from '../utils/plan-anchors';
 
 export interface ComposerTarget {
@@ -26,7 +26,7 @@ export function useDocCommentLayer(options: {
   /** 徽标点击回调（面板联动，spec §3.2；本任务不传） */
   onBadgeClick?: (line: number) => void;
 }) {
-  const addButton = ref({ visible: false, top: 0 });
+  const addButton = ref({ visible: false, top: 0, left: 0 });
   const composer = ref<ComposerTarget | null>(null);
   // 悬浮目标（实现裁决）：不用 dataset 挂载，line/section 以 ref 承载，openComposerFor 从这里读
   const hoverTarget = ref<{ line: number; section: string } | null>(null);
@@ -58,7 +58,8 @@ export function useDocCommentLayer(options: {
     return anchorLines;
   }
 
-  /** 映射注入：数量不一致（Markdown 边界形态）则整章跳过，宁可少注入也不错位（spec §5.4）。 */
+  /** 映射注入：逐 child 容错对齐（alignBlocks），匹配不上的跳过——markdown-it 与 splitBlocks
+   *  在边界形态（文字行紧贴表格/列表等）下子元素数不一致，旧「计数不等整章跳过」会让整章无法批注。 */
   function injectDataLines(): void {
     for (const sectionEl of sectionEls()) {
       const host = previewHost(sectionEl);
@@ -71,10 +72,15 @@ export function useDocCommentLayer(options: {
       if (!section || !section.content.trim()) continue;
       const blocks = splitBlocks(section.content);
       const children = [...host.children] as HTMLElement[];
-      if (children.length !== blocks.length) continue;
+      const alignment = alignBlocks(
+        children.map((child) => child.textContent ?? ''),
+        blocks,
+      );
       const baseLine = section.line + 1;
       children.forEach((child, i) => {
-        const lines = blockLinesOf(blocks[i], baseLine, child);
+        const matched = alignment[i];
+        if (matched == null) return;
+        const lines = blockLinesOf(blocks[matched], baseLine, child);
         const line = lines.length === 1 ? lines[0] : -1;
         if (line >= 0) child.dataset.line = String(line);
         // 表格行/列表项：映射到子元素
@@ -96,17 +102,19 @@ export function useDocCommentLayer(options: {
     if ((event.target as HTMLElement).closest?.('.doc-anno-add')) return;
     if (!options.enabled.value || !options.canComment.value || composer.value) return;
     const target = (event.target as HTMLElement).closest<HTMLElement>('[data-line]');
-    if (!target || !options.containerRef.value?.contains(target)) {
-      addButton.value.visible = false;
-      hoverTarget.value = null;
-      return;
-    }
+    // 非锚定区域（块间隙/表头/表格右侧空白）：保持现状——按钮只在移出文档容器或打开输入框时收起，
+    // 否则从窄表格行移向右侧按钮途中经过空白区就会被隐藏，永远点不到（用户实测）
+    if (!target || !options.containerRef.value?.contains(target)) return;
     // .doc-main 既是滚动容器又是定位容器：绝对定位 top 属内容坐标，
-    // getBoundingClientRect 差值是可视偏移（内容坐标 − scrollTop），需补回 scrollTop
-    const containerTop = options.containerRef.value.getBoundingClientRect().top;
+    // getBoundingClientRect 差值是可视偏移（内容坐标 − scrollTop），需补回 scrollTop；
+    // left 贴块右缘（窄表格时按钮就在表格右侧近处，clamp 到容器内）
+    const container = options.containerRef.value;
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
     addButton.value = {
       visible: true,
-      top: target.getBoundingClientRect().top - containerTop + options.containerRef.value.scrollTop,
+      top: targetRect.top - containerRect.top + container.scrollTop,
+      left: Math.max(0, Math.min(targetRect.right - containerRect.left + 12, containerRect.width - 72)),
     };
     hoverTarget.value = { line: Number(target.dataset.line), section: sectionOf(target) };
   }
@@ -166,8 +174,11 @@ export function useDocCommentLayer(options: {
       const el = container.querySelector<HTMLElement>(`[data-line="${line}"]`);
       if (!el) continue;
       const unresolved = threadsAtLine.filter((t) => !t.root.resolved).length;
-      el.dataset.anno = String(threadsAtLine.length);
-      if (unresolved > 0) el.classList.add('doc-anno-hl');
+      // 黄色背景与高亮只挂有未解决线程的行（spec §3.3：全部解决后高亮褪去，留灰色 ✓ 徽标）
+      if (unresolved > 0) {
+        el.dataset.anno = String(threadsAtLine.length);
+        el.classList.add('doc-anno-hl');
+      }
       const badge = document.createElement('span');
       badge.className = `doc-anno-badge${unresolved > 0 ? '' : ' resolved'}`;
       badge.textContent = unresolved > 0 ? `💬 ${threadsAtLine.length}` : `✓ ${threadsAtLine.length}`;
