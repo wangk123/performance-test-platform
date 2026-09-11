@@ -36,7 +36,7 @@
                 :data-section="section.title"
               >
                 <header class="doc-section-head">
-                  <h3 :data-line="section.title === '八、场景设计' ? section.line : undefined">{{ section.title }}</h3>
+                  <h3>{{ section.title }}</h3>
                   <a-button
                     v-if="canEdit"
                     class="doc-section-edit"
@@ -68,7 +68,6 @@
                   v-if="section.title === '六、测试约束'"
                   :content="section.content"
                   :editable="canEdit"
-                  :anchor-lines="checklistAnchorLines(section)"
                   @toggle="toggleChecklist(section.content, $event)"
                 />
                 <ScenarioDesignModule
@@ -205,8 +204,8 @@ import type { PlanComment, PlanCommentThread, TaskPlan, TaskScenario } from '../
 import type { usePlanDoc } from '../../composables/usePlanDoc';
 import type { PlanCommentPanelGroup } from './PlanCommentPanel.vue';
 import { useTheme } from '../../composables/useTheme';
-import { CANONICAL_HEADINGS, checklistItemLines, extractSection, parseMarkdownTable, replaceSection, splitSections, toggleChecklistItem, type Section } from '../../utils/plan-markdown';
-import { deriveAnchors } from '../../utils/plan-anchors';
+import { CANONICAL_HEADINGS, extractSection, parseMarkdownTable, replaceSection, splitSections, toggleChecklistItem } from '../../utils/plan-markdown';
+import { findBestLine } from '../../utils/plan-anchors';
 import { planTableCompatible, planTableSchemaOf } from '../../utils/plan-table-schemas';
 import { deleteCommentApi } from '../../api/plan-doc';
 import { useDocCommentLayer } from '../../composables/useDocCommentLayer';
@@ -270,11 +269,10 @@ watch([viewMode, () => props.plan.body, editing], () => {
   void nextTick(updateCurrentSection);
 }, { immediate: true });
 
-/* ---------- 行级批注层（Task 7）：data-line 注入 + 悬浮「＋批注」入口 ---------- */
+/* ---------- 行级批注层：悬浮「＋批注」入口（DOM 直连，spec §5.2） ---------- */
 
 const commentLayer = useDocCommentLayer({
   containerRef: docMainRef,
-  sections,
   threads: props.doc.threads,
   canComment,
   enabled: computed(() => viewMode.value === 'Pretty' && !editing.value),
@@ -290,9 +288,13 @@ async function submitAnchorComment(content: string) {
   const target = commentLayer.composer.value;
   if (!target) return;
   composerBusy.value = true;
+  // 锚定源行在提交时用文本相似度行扫描解析（spec §5.3）——DOM 悬浮不携带任何行号
+  const section = sections.value.find((s) => s.title === target.section);
+  const best = findBestLine(props.plan.body, target.text);
+  const line = best?.line ?? section?.line ?? 0;
   const ok = await props.doc.addAnchoredComment({
     content,
-    anchor: { line: target.line, text: target.text, section: target.section },
+    anchor: { line, text: target.text, section: target.section },
   });
   composerBusy.value = false;
   if (ok) commentLayer.closeComposer();
@@ -308,11 +310,9 @@ const orphanBrokenGroups = computed(() =>
 );
 
 const panelGroups = computed<PlanCommentPanelGroup[]>(() => {
-  const resolutions = deriveAnchors(props.plan.body, props.doc.anchoredRoots.value);
   const sectionOf = (thread: PlanCommentThread): string | null => {
-    const r = resolutions.get(thread.root.id);
-    if (!r) return null; // 未锚定
-    return r.sectionTitle;
+    if (thread.root.anchorText == null) return null; // 未锚定
+    return findBestLine(props.plan.body, thread.root.anchorText)?.sectionTitle ?? null;
   };
   const unanchored = props.doc.unanchoredThreads.value;
   const bySection = new Map<string, PlanCommentThread[]>();
@@ -338,20 +338,24 @@ const panelGroups = computed<PlanCommentPanelGroup[]>(() => {
 });
 
 function locateThread(thread: PlanCommentThread) {
-  const resolutions = deriveAnchors(props.plan.body, props.doc.anchoredRoots.value);
-  const resolution = resolutions.get(thread.root.id);
   if (viewMode.value !== 'Pretty') viewMode.value = 'Pretty';
-  // Markdown→Pretty 切换后 data-line 注入要等 rebuild（nextTick+rAF），与 locateCommentId watch 同约定（终审 I1）
-  void nextTick(() => window.requestAnimationFrame(() => commentLayer.locate(resolution?.line ?? null)));
+  // Markdown→Pretty 切换后渲染要等一个渲染帧，与 rebuild 的 nextTick+rAF 约定一致
+  void nextTick(() => window.requestAnimationFrame(
+    () => commentLayer.locate(thread.root.anchorText, thread.root.sectionTitle),
+  ));
 }
 
-/** 评审工作台跨 Tab 定位（Task 10）：切 Pretty 后等 data-line 注入（同 rebuild 的 nextTick+rAF 约定）再滚动闪烁。 */
+/** 评审工作台跨 Tab 定位（Task 10）：切 Pretty 后等一个渲染帧再按锚文本定位。 */
 watch(() => props.locateCommentId, (id) => {
   if (id == null) return;
+  const thread = props.doc.threads.value.find((t) => t.root.id === id);
+  if (!thread) {
+    emit('located');
+    return;
+  }
   if (viewMode.value !== 'Pretty') viewMode.value = 'Pretty';
   void nextTick(() => window.requestAnimationFrame(() => {
-    const resolutions = deriveAnchors(props.plan.body, props.doc.anchoredRoots.value);
-    commentLayer.locate(resolutions.get(id)?.line ?? null);
+    commentLayer.locate(thread.root.anchorText, thread.root.sectionTitle);
     emit('located');
   }));
 });
@@ -363,10 +367,7 @@ async function removeComment(thread: PlanCommentThread, comment: PlanComment) {
   message.success('批注已删除');
 }
 
-/** 六章清单项的全局行号（spec §5.1）：章标题下一行起 + 清单项局部行号。 */
-function checklistAnchorLines(section: Section): number[] {
-  return checklistItemLines(section.content).map((local) => section.line + 1 + local);
-}
+
 
 function beginEdit() {
   editDraft.value = props.plan.body ?? '';

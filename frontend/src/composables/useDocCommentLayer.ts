@@ -1,125 +1,76 @@
 import { ref, type Ref } from 'vue';
 import type { PlanCommentThread } from '../types';
-import { alignBlocks, blockAnchorLines, splitBlocks, type DocBlock, type Section } from '../utils/plan-markdown';
-import { deriveAnchors } from '../utils/plan-anchors';
+import { deriveAnchors, findBestLine, matchScore } from '../utils/plan-anchors';
 
 export interface ComposerTarget {
   top: number;
-  line: number;
   text: string;
   section: string;
 }
 
+/** 可悬浮加批注的内容块（纯 DOM 判定，无任何前置模型）：表格行以行级为粒度，表头不可批注。 */
+const HOVER_SELECTOR = 'p, li, tr, h1, h2, h3, h4, h5, h6, blockquote, pre, .check-item';
+const ADD_BUTTON_SIZE = 28;
+/** 锚定匹配阈值（spec §5.3） */
+const MATCH_THRESHOLD = 0.6;
+
 /**
- * 文档批注层（spec §5.1/§5.2）：MdPreview 渲染后按「顶层子元素 ↔ splitBlocks 块」对齐注入 data-line；
- * 表格行/列表项细化映射。锚定状态纯派生、不回写（spec §4）。
+ * 文档批注层（spec §5.2/§5.3，DOM 直连版）：按钮显隐只看「悬浮的是不是内容块」，零算法；
+ * 批注与源码行的对应只在提交/展示两个时刻用「文本相似度行扫描」完成——渲染器怎么排版都不影响。
  */
 export function useDocCommentLayer(options: {
   containerRef: Ref<HTMLElement | null>;
-  sections: Ref<Section[]>;
   threads: Ref<PlanCommentThread[]>;
   canComment: Ref<boolean>;
   /** Pretty 视图且非编辑态才生效 */
   enabled: Ref<boolean>;
-  /** 当前文档正文：deriveAnchors 的输入（spec §5.3 纯派生不回写） */
+  /** 当前文档正文：提交时定位源行、展示时断链判定（spec §5.3 纯派生不回写） */
   body: Ref<string | null>;
   /** 徽标点击回调（面板联动，spec §3.2；本任务不传） */
   onBadgeClick?: (line: number) => void;
 }) {
   const addButton = ref({ visible: false, top: 0, left: 0 });
   const composer = ref<ComposerTarget | null>(null);
-  // 悬浮目标（实现裁决）：不用 dataset 挂载，line/section 以 ref 承载，openComposerFor 从这里读
-  const hoverTarget = ref<{ line: number; section: string } | null>(null);
-  /** 断链分组（spec §3.3）：deriveAnchors 判 broken 的批注按展示章归组，模板渲染折叠条 */
+  // 悬浮目标：直接持有元素本身（提交时快照文本，无中间模型）
+  const hoverTarget = ref<{ el: HTMLElement; section: string } | null>(null);
+  /** 断链分组（spec §3.3）：DOM 中找不到命中块的批注按展示章归组，模板渲染折叠条 */
   const brokenGroups = ref<{ sectionTitle: string; threads: PlanCommentThread[] }[]>([]);
 
   const sectionEls = () =>
     [...(options.containerRef.value?.querySelectorAll<HTMLElement>('[data-section]') ?? [])];
 
-  /** MdPreview 内容宿主：优先 .markdown-body 内层，回退 .md-editor-preview 本身。 */
-  function previewHost(sectionEl: HTMLElement): HTMLElement | null {
-    const preview = sectionEl.querySelector<HTMLElement>('.md-editor-preview');
-    if (!preview) return null;
-    return preview.querySelector<HTMLElement>(':scope > .markdown-body') ?? preview;
+  function sectionOf(target: HTMLElement): string {
+    return target.closest<HTMLElement>('[data-section]')?.dataset.section ?? '';
   }
 
-  /** 块的注入行号：与 anchorBlocks 共用 blockAnchorLines（终审 C1），行号/文本同源；DOM 目标选择不变。 */
-  function blockLinesOf(block: DocBlock, baseLine: number, el: HTMLElement): number[] {
-    const anchorLines = blockAnchorLines(block).map(({ line }) => baseLine + line);
-    if (el.tagName === 'TABLE') {
-      // 表格仍只注入 tbody tr；DOM 行多于源数据行时不注入（宁缺勿错位，spec §5.4）
-      const rows = el.querySelectorAll<HTMLElement>('tbody tr');
-      return [...rows].map((_, i) => anchorLines[i] ?? -1).filter((line) => line >= 0);
-    }
-    if (el.tagName === 'UL' || el.tagName === 'OL') {
-      const items = el.querySelectorAll<HTMLElement>('li');
-      return [...items].map((_, i) => anchorLines[i] ?? -1).filter((line) => line >= 0);
-    }
-    return anchorLines;
-  }
-
-  /** 映射注入：逐 child 容错对齐（alignBlocks），匹配不上的跳过——markdown-it 与 splitBlocks
-   *  在边界形态（文字行紧贴表格/列表等）下子元素数不一致，旧「计数不等整章跳过」会让整章无法批注。 */
-  function injectDataLines(): void {
-    for (const sectionEl of sectionEls()) {
-      const host = previewHost(sectionEl);
-      // 无 MdPreview 的章节（六章清单/八章场景模块）：行锚点由模板绑定（h3/check-item data-line），
-      // 注入层不得触碰——旧实现整节清除会抹掉 Vue 绑定的 data-line
-      if (!host) continue;
-      host.querySelectorAll('[data-line]').forEach((el) => el.removeAttribute('data-line'));
-      const title = sectionEl.dataset.section ?? '';
-      const section = options.sections.value.find((s) => s.title === title);
-      if (!section || !section.content.trim()) continue;
-      const blocks = splitBlocks(section.content);
-      const children = [...host.children] as HTMLElement[];
-      const alignment = alignBlocks(
-        children.map((child) => child.textContent ?? ''),
-        blocks,
-      );
-      const baseLine = section.line + 1;
-      children.forEach((child, i) => {
-        const matched = alignment[i];
-        if (matched == null) return;
-        const lines = blockLinesOf(blocks[matched], baseLine, child);
-        const line = lines.length === 1 ? lines[0] : -1;
-        if (line >= 0) child.dataset.line = String(line);
-        // 表格行/列表项：映射到子元素
-        if (lines.length > 1) {
-          const targets = child.tagName === 'TABLE'
-            ? ([...child.querySelectorAll<HTMLElement>('tbody tr')])
-            : ([...child.querySelectorAll<HTMLElement>('li')]);
-          targets.forEach((target, k) => {
-            if (lines[k] >= 0) target.dataset.line = String(lines[k]);
-          });
-        }
-      });
-    }
-  }
-
-  // ---- 悬浮「＋批注」（spec §3.1）：事件委托，单实例按钮跟随悬浮块 ----
-  const ADD_BUTTON_SIZE = 28;
-
+  // ---- 悬浮「＋批注」（spec §3.1）：纯 DOM 判定，单实例按钮跟随悬浮块 ----
   function onHover(event: MouseEvent): void {
-    // 指针落在「＋批注」按钮上：保持现状，避免 closest('[data-line]') 落空导致按钮卸载→重挂交替闪烁
+    // 指针落在「＋批注」按钮上：保持现状（否则按钮卸载→重挂交替闪烁）
     if ((event.target as HTMLElement).closest?.('.doc-anno-add')) return;
     if (!options.enabled.value || !options.canComment.value || composer.value) return;
-    const target = (event.target as HTMLElement).closest<HTMLElement>('[data-line]');
-    // 非锚定区域（块间隙/表头/表格右侧空白）：保持现状——按钮只在移出文档容器或打开输入框时收起，
-    // 否则从窄表格行移向右侧按钮途中经过空白区就会被隐藏，永远点不到（用户实测）
-    if (!target || !options.containerRef.value?.contains(target)) return;
-    // .doc-main 既是滚动容器又是定位容器：绝对定位 top 属内容坐标，
-    // getBoundingClientRect 差值是可视偏移（内容坐标 − scrollTop），需补回 scrollTop；
-    // left 贴块右缘（窄表格时按钮就在表格右侧近处，clamp 到容器内）；top 对悬浮行垂直居中
+    const target = (event.target as HTMLElement).closest<HTMLElement>(HOVER_SELECTOR);
+    // 非内容块（块间隙/表头/空白区）：保持现状——按钮只在移出文档容器或打开输入框时收起
+    if (!target || !options.containerRef.value?.contains(target) || target.closest('thead')) return;
     const container = options.containerRef.value;
     const containerRect = container.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
+    // 按钮贴「文字实际结束处」：文本块用 Range 取最后一个文本行的右缘；表格行用表格右缘
+    let anchorRight = targetRect.right;
+    if (target.tagName !== 'TR' && target.tagName !== 'TABLE') {
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      const rects = [...range.getClientRects()].filter((r) => r.width > 1);
+      const last = rects[rects.length - 1];
+      if (last) anchorRight = last.right;
+    }
     addButton.value = {
       visible: true,
       top: targetRect.top - containerRect.top + container.scrollTop
         + Math.min(Math.max((targetRect.height - ADD_BUTTON_SIZE) / 2, 0), 24),
-      left: Math.max(0, Math.min(targetRect.right - containerRect.left + 12, containerRect.width - ADD_BUTTON_SIZE - 12)),
+      left: Math.max(container.clientWidth - ADD_BUTTON_SIZE - 4,
+        Math.min(anchorRight - containerRect.left + 8, container.clientWidth - ADD_BUTTON_SIZE - 4)),
     };
-    hoverTarget.value = { line: Number(target.dataset.line), section: sectionOf(target) };
+    hoverTarget.value = { el: target, section: sectionOf(target) };
   }
 
   /** 鼠标移出文档容器：收起入口并清掉悬浮目标。 */
@@ -128,24 +79,17 @@ export function useDocCommentLayer(options: {
     hoverTarget.value = null;
   }
 
-  function sectionOf(target: HTMLElement): string {
-    return target.closest<HTMLElement>('[data-section]')?.dataset.section ?? '';
-  }
-
   function openComposerFor(): void {
     const target = hoverTarget.value;
-    if (!target || !Number.isFinite(target.line)) return;
-    const line = target.line;
     const container = options.containerRef.value;
-    if (!container) return;
-    const el = container.querySelector<HTMLElement>(`[data-line="${line}"]`);
-    const blockText = (el?.textContent ?? '').trim().slice(0, 200);
+    if (!target || !container) return;
+    const text = (target.el.textContent ?? '').trim().slice(0, 200);
     const containerTop = container.getBoundingClientRect().top;
-    // 同 onHover：补回 scrollTop 换算到内容坐标，否则滚动后 composer 渲染在可视区外
-    const blockBottom = el
-      ? el.getBoundingClientRect().bottom - containerTop + container.scrollTop
-      : addButton.value.top;
-    composer.value = { top: blockBottom + 6, line, text: blockText, section: sectionOf(el ?? container) };
+    composer.value = {
+      top: target.el.getBoundingClientRect().bottom - containerTop + container.scrollTop + 6,
+      text,
+      section: target.section,
+    };
     addButton.value.visible = false;
   }
 
@@ -153,64 +97,79 @@ export function useDocCommentLayer(options: {
     composer.value = null;
   }
 
+  /** 章内最优命中块：按锚文本与渲染文本的匹配分选最大者。 */
+  function bestElementFor(sectionEl: HTMLElement, anchorText: string): { el: HTMLElement; score: number } | null {
+    let best: { el: HTMLElement; score: number } | null = null;
+    for (const el of sectionEl.querySelectorAll<HTMLElement>(HOVER_SELECTOR)) {
+      if (el.closest('thead')) continue;
+      const score = matchScore(anchorText, el.textContent ?? '');
+      if (score >= MATCH_THRESHOLD && (!best || score > best.score)) best = { el, score };
+    }
+    return best;
+  }
+
   /** 徽标图标（SVG，禁 emoji）：未解决=对话气泡，已解决=对勾。 */
   const BADGE_BUBBLE_SVG = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9.4L5 21.4A1 1 0 0 1 3 20.6V5a1 1 0 0 1 1-1z"/></svg>';
   const BADGE_CHECK_SVG = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
 
-  /** 渲染已有批注（spec §3.3/§5.3）：徽标 + 高亮 + 断链分组；先清后挂，幂等。 */
+  /** 渲染已有批注（spec §3.3/§5.3）：徽标 + 高亮 + 断链分组；先清后挂，幂等。
+   *  命中 = 章内按锚文本匹配分最高的内容块（DOM 直连，无中间模型）；找不到 → 断链分组。 */
   function renderAnnotations(): void {
     const container = options.containerRef.value;
     if (!container) return;
     container.querySelectorAll('.doc-anno-badge').forEach((el) => el.remove());
     container.querySelectorAll('[data-anno]').forEach((el) => el.removeAttribute('data-anno'));
-    const roots = options.threads.value.map((t) => t.root);
-    const resolutions = deriveAnchors(options.body.value, roots);
-    const byLine = new Map<number, PlanCommentThread[]>();
-    const broken: Map<string, PlanCommentThread[]> = new Map();
+    const hits = new Map<HTMLElement, PlanCommentThread[]>();
+    const broken = new Map<string, PlanCommentThread[]>();
     for (const thread of options.threads.value) {
-      const resolution = resolutions.get(thread.root.id);
-      if (!resolution || resolution.line == null) continue; // 无锚点/断链 → 面板与断链条呈现
-      if (resolution.state === 'broken') {
-        broken.set(resolution.sectionTitle, [...(broken.get(resolution.sectionTitle) ?? []), thread]);
+      const root = thread.root;
+      if (root.anchorText == null) continue; // 无锚点（历史批注/流转附言）→ 面板与工作台呈现
+      const sectionEl = sectionEls().find((el) => el.dataset.section === root.sectionTitle);
+      const hit = sectionEl ? bestElementFor(sectionEl, root.anchorText) : null;
+      if (!sectionEl || !hit) {
+        const key = root.sectionTitle ?? '';
+        broken.set(key, [...(broken.get(key) ?? []), thread]);
         continue;
       }
-      byLine.set(resolution.line, [...(byLine.get(resolution.line) ?? []), thread]);
+      hits.set(hit.el, [...(hits.get(hit.el) ?? []), thread]);
     }
-    for (const [line, threadsAtLine] of byLine) {
-      const el = container.querySelector<HTMLElement>(`[data-line="${line}"]`);
-      if (!el) continue;
-      const unresolved = threadsAtLine.filter((t) => !t.root.resolved).length;
+    for (const [el, threadsAtEl] of hits) {
+      const unresolved = threadsAtEl.filter((t) => !t.root.resolved).length;
       // 黄色背景只挂有未解决线程的行（spec §3.3：全部解决后高亮褪去，留灰色 ✓ 徽标）
-      if (unresolved > 0) el.dataset.anno = String(threadsAtLine.length);
+      if (unresolved > 0) el.dataset.anno = String(threadsAtEl.length);
       const badge = document.createElement('span');
       badge.className = `doc-anno-badge${unresolved > 0 ? '' : ' resolved'}`;
-      badge.innerHTML = `${unresolved > 0 ? BADGE_BUBBLE_SVG : BADGE_CHECK_SVG}<span class="doc-anno-badge-count">${threadsAtLine.length}</span>`;
-      badge.title = threadsAtLine.map((t) => `${t.root.author}：${t.root.content}`).join('\n');
-      badge.setAttribute('aria-label', `${threadsAtLine.length} 条批注`);
+      badge.innerHTML = `${unresolved > 0 ? BADGE_BUBBLE_SVG : BADGE_CHECK_SVG}<span class="doc-anno-badge-count">${threadsAtEl.length}</span>`;
+      badge.title = threadsAtEl.map((t) => `${t.root.author}：${t.root.content}`).join('\n');
+      badge.setAttribute('aria-label', `${threadsAtEl.length} 条批注`);
       badge.addEventListener('click', (event) => {
         event.stopPropagation();
-        options.onBadgeClick?.(line);
+        options.onBadgeClick?.(threadsAtEl[0].root.id);
       });
       // 表格行的徽标放进最后一个单元格（span 直接挂 tr 是无效 HTML，会被表格布局摆到奇怪的位置）
-      const host = el.tagName === 'TR' ? (el.lastElementChild as HTMLElement | null) ?? el : el;
-      if (host !== el) badge.classList.add('in-td');
-      host.appendChild(badge);
+      const badgeHost = el.tagName === 'TR' ? (el.lastElementChild as HTMLElement | null) ?? el : el;
+      if (badgeHost !== el) badge.classList.add('in-td');
+      badgeHost.appendChild(badge);
     }
     brokenGroups.value = [...broken.entries()].map(([sectionTitle, threads]) => ({ sectionTitle, threads }));
   }
 
   async function rebuild(): Promise<void> {
-    injectDataLines();
     renderAnnotations();
   }
 
-  /** 面板/工作台定位（spec §3.2）：滚动到块并闪烁高亮。 */
-  function locate(line: number | null): void {
+  /** 面板/工作台定位（spec §3.2）：按锚文本在章内找到命中块，滚动并闪烁。 */
+  function locate(anchorText: string | null, sectionTitle: string | null): void {
     const container = options.containerRef.value;
-    if (!container || line == null) return;
-    const el = container.querySelector<HTMLElement>(`[data-line="${line}"]`);
+    if (!container || !anchorText) return;
+    const sectionEl = sectionEls().find((el) => el.dataset.section === sectionTitle);
+    const hit = sectionEl ? bestElementFor(sectionEl, anchorText) : null;
+    const el = hit?.el;
     if (!el) return;
-    container.scrollTo({ top: container.scrollTop + el.getBoundingClientRect().top - container.getBoundingClientRect().top - 96, behavior: 'smooth' });
+    container.scrollTo({
+      top: container.scrollTop + el.getBoundingClientRect().top - container.getBoundingClientRect().top - 96,
+      behavior: 'smooth',
+    });
     el.classList.add('doc-anno-flash');
     window.setTimeout(() => el.classList.remove('doc-anno-flash'), 1600);
   }

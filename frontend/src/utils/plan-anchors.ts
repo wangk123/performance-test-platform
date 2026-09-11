@@ -1,15 +1,15 @@
 import type { PlanComment } from '../types';
-import { blockAnchorLines, CANONICAL_HEADINGS, normalizeForMatch, splitBlocks, splitSections } from './plan-markdown';
+import { CANONICAL_HEADINGS, normalizeForMatch, splitSections } from './plan-markdown';
 
-// 归一化口径已收敛到 plan-markdown（alignBlocks 与 deriveAnchors 共用）；保持既有导出位置不变
+// 归一化口径定义在 plan-markdown（与历史测试的导入路径保持兼容）
 export { normalizeForMatch };
 
-export type AnchorState = 'ok' | 'remounted' | 'broken';
+export type AnchorState = 'ok' | 'broken';
 
 export interface AnchorResolution {
   commentId: number;
   state: AnchorState;
-  /** 命中块的全局行号（body 0 基）；broken 时为 null */
+  /** 命中源行（body 0 基）；broken 时为 null */
   line: number | null;
   /** 展示分组归属（broken 回原章；spec §5.3） */
   sectionTitle: string;
@@ -17,6 +17,8 @@ export interface AnchorResolution {
 
 /** spec §5.3 阈值：归一化相似度 ≥ 0.6 视为同一内容（算法用字符 bigram Dice，O(n) 优于 LCS）。 */
 const SIMILARITY_THRESHOLD = 0.6;
+/** 归一化包含判定的最短长度：双向包含且较短方 ≥ 8 字符视为完全一致（有序列表标记、徽标尾部等噪声免疫）。 */
+const CONTAINMENT_MIN = 8;
 
 function bigramsOf(normalized: string): Set<string> {
   const grams = new Set<string>();
@@ -37,82 +39,60 @@ export function similarity(a: string, b: string): number {
   return (2 * intersect) / (ga.size + gb.size);
 }
 
-interface AnchorBlock {
-  line: number;
-  sectionTitle: string;
-  text: string;
+/**
+ * 锚定匹配评分（spec §5.3）：双向归一化包含（较短方 ≥ 8 字符）直接满分——
+ * 渲染文本与源行的差异（列表标记「1. / - 」、徽标尾部计数）天然被包含关系吸收；
+否则落入 bigram Dice。
+ */
+export function matchScore(a: string, b: string): number {
+  const na = normalizeForMatch(a);
+  const nb = normalizeForMatch(b);
+  if (na.length < CONTAINMENT_MIN || nb.length < CONTAINMENT_MIN) return similarity(a, b);
+  if (na.includes(nb) || nb.includes(na)) return 1;
+  return similarity(a, b);
 }
 
-function anchorBlocks(body: string | null | undefined): AnchorBlock[] {
-  const blocks: AnchorBlock[] = [];
+/**
+ * 全文行扫描：为渲染文本找最相似的源行（spec §5.3 锚定匹配的唯一实现——
+ * 不依赖任何中间块模型，与 markdown-it 渲染语义零耦合）。
+ */
+export function findBestLine(
+  body: string | null | undefined,
+  text: string,
+): { line: number; sectionTitle: string; score: number } | null {
+  if (!text.trim()) return null;
+  let best: { line: number; sectionTitle: string; score: number } | null = null;
   for (const section of splitSections(body)) {
-    // 标题行块：章级批注（章级入口 hover 标题，anchorLine = 标题行、anchorText = 章标题）精确命中，不误报断链
-    blocks.push({ line: section.line, sectionTitle: section.title, text: `## ${section.title}` });
     const offset = section.line + 1; // 章内容从标题行下一行开始
-    for (const block of splitBlocks(section.content)) {
-      // 行级展开（终审 C1）：表格数据行/列表项/清单项逐行建锚，与 useDocCommentLayer 的
-      // data-line 注入共用 blockAnchorLines，两侧行号同源，行级批注不再一出生就断链
-      for (const { line, text } of blockAnchorLines(block)) {
-        blocks.push({ line: offset + line, sectionTitle: section.title, text });
+    const lines = section.content.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      const score = matchScore(text, lines[i]);
+      if (score >= SIMILARITY_THRESHOLD && (!best || score > best.score)) {
+        best = { line: offset + i, sectionTitle: section.title, score };
       }
     }
   }
-  return blocks;
+  return best;
 }
 
 /**
- * 精确行命中判定（spec §5.3，终审 I3）：相似度 ≥ 0.6 **或前缀/包含**。
- * 快照截断 200 字符，未改长块的 bigram Dice 会退化（>500 归一化字符即低于阈值），
- * 故补充归一化包含判断；较短方 ≥ 8 归一化字符才启用，防短文本误包含。
- */
-function snapshotMatches(anchorText: string, blockText: string): boolean {
-  if (similarity(anchorText, blockText) >= SIMILARITY_THRESHOLD) return true;
-  const na = normalizeForMatch(anchorText);
-  const nb = normalizeForMatch(blockText);
-  if (na.length < 8 || nb.length < 8) return false;
-  return na.includes(nb) || nb.includes(na);
-}
-
-/**
- * 锚定派生（spec §5.3，不回写）：精确行号 → 章内模糊 → 全文模糊 → 断链。
- * 只接受带完整锚点的根批注；返回 commentId → 分辨结果。
+ * 锚定解析（spec §5.3，不回写）：对每个带完整锚点的根批注做全文行扫描；
+ * 找不到即断链，归属回原章（章标题也失效时回首章）。返回 commentId → 分辨结果。
  */
 export function deriveAnchors(body: string | null | undefined, roots: PlanComment[]): Map<number, AnchorResolution> {
   const result = new Map<number, AnchorResolution>();
-  const blocks = anchorBlocks(body);
-  const byLine = new Map(blocks.map((b) => [b.line, b]));
   for (const comment of roots) {
     if (comment.anchorLine == null || comment.anchorText == null || comment.sectionTitle == null) continue;
-    const resolution = (state: AnchorState, line: number | null, sectionTitle: string): AnchorResolution =>
-      ({ commentId: comment.id, state, line, sectionTitle });
-    const exact = byLine.get(comment.anchorLine);
-    if (exact && snapshotMatches(comment.anchorText, exact.text)) {
-      result.set(comment.id, resolution('ok', exact.line, exact.sectionTitle));
-      continue;
-    }
-    const inSection = blocks.filter((b) => b.sectionTitle === comment.sectionTitle);
-    const globalBest = bestMatch(comment.anchorText, inSection) ?? bestMatch(comment.anchorText, blocks);
-    if (globalBest) {
-      result.set(comment.id, resolution('remounted', globalBest.line, globalBest.sectionTitle));
-      continue;
-    }
     const fallbackSection = CANONICAL_HEADINGS.includes(comment.sectionTitle)
       ? comment.sectionTitle
       : CANONICAL_HEADINGS[0];
-    result.set(comment.id, resolution('broken', null, fallbackSection));
-  }
-  return result;
-}
-
-function bestMatch(anchorText: string, candidates: AnchorBlock[]): AnchorBlock | null {
-  let best: AnchorBlock | null = null;
-  let bestScore = 0; // 阈值统一在下面卡（≥ 0.6 才可入选，终审 A），0 分候选不会入选
-  for (const candidate of candidates) {
-    const score = similarity(anchorText, candidate.text);
-    if (score >= SIMILARITY_THRESHOLD && score > bestScore) {
-      best = candidate;
-      bestScore = score;
+    const best = findBestLine(body, comment.anchorText);
+    if (best) {
+      result.set(comment.id, { commentId: comment.id, state: 'ok', line: best.line, sectionTitle: best.sectionTitle });
+    } else {
+      result.set(comment.id, { commentId: comment.id, state: 'broken', line: null, sectionTitle: fallbackSection });
     }
   }
-  return best;
+  return result;
 }
