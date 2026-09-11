@@ -42,6 +42,7 @@ class PlanDocumentServiceTest {
 
     private static final HumanPrincipal OWNER = new HumanPrincipal("owner", java.util.Set.of(SystemRole.PROJECT_MEMBER));
     private static final HumanPrincipal OTHER_MEMBER = new HumanPrincipal("member-b", java.util.Set.of(SystemRole.PROJECT_MEMBER));
+    private static final HumanPrincipal OUTSIDER = new HumanPrincipal("outsider", java.util.Set.of(SystemRole.PROJECT_MEMBER));
 
     @Autowired
     private PlanDocumentService documentService;
@@ -89,18 +90,21 @@ class PlanDocumentServiceTest {
     }
 
     @Test
-    void editAllowedOutsideDraftPhase() {
-        // 用户决策（2026-09-11）：EDIT 任意阶段放开，评审期编辑不再拒绝
+    void editAllowedOutsidePlanning() {
+        // spec §4.4：EDIT 任意状态放开（含已发布），revision 冲突保护兜底
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
-        plan.forceState(PlanPhase.REVIEW, PlanStatus.PENDING);
+        plan.forceState(PlanStatus.IN_REVIEW);
         planRepository.save(plan);
         TaskPlan edited = documentService.updateMarkdown(planId, 2, "x", OWNER);
         assertThat(edited.revision()).isEqualTo(3);
     }
 
     @Test
-    void memberOtherThanOwnerCannotEdit() {
-        assertThatThrownBy(() -> documentService.updateMarkdown(planId, 2, "x", OTHER_MEMBER))
+    void memberCanEditButOutsiderCannot() {
+        // 无角色维度（spec §10）：门槛=登录且为项目成员
+        TaskPlan edited = documentService.updateMarkdown(planId, 2, "x", OTHER_MEMBER);
+        assertThat(edited.revision()).isEqualTo(3);
+        assertThatThrownBy(() -> documentService.updateMarkdown(planId, 2, "x", OUTSIDER))
                 .isInstanceOf(PlanAccessDeniedException.class);
     }
 
@@ -113,16 +117,6 @@ class PlanDocumentServiceTest {
         assertThat(plan.body()).contains("吞吐 100 TPS");
         assertThat(plan.body()).doesNotContain("- 重复");
         assertThat(plan.revision()).isEqualTo(3); // 初建 +1，第二次幂等不 bump
-    }
-
-    @Test
-    void lazyCorrectionDemotesRunningToDoneWhenNoActiveExecution() {
-        PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
-        plan.forceState(PlanPhase.EXECUTION, PlanStatus.RUNNING);
-        planRepository.save(plan);
-        TaskPlan corrected = documentService.getDocument(planId);
-        assertThat(corrected.phase()).isEqualTo(PlanPhase.EXECUTION);
-        assertThat(corrected.status()).isEqualTo(PlanStatus.DONE);
     }
 
     @Test

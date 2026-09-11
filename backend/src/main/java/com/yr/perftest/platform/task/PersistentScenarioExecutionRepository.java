@@ -10,6 +10,9 @@ public interface PersistentScenarioExecutionRepository extends JpaRepository<Per
 
     boolean existsByScenarioId(Long scenarioId);
 
+    boolean existsByScenarioIdAndStatusIn(Long scenarioId,
+            java.util.List<com.yr.perftest.platform.execution.ExecutionStatus> statuses);
+
     Optional<PersistentScenarioExecutionRecord> findFirstByScenarioIdOrderByIdDesc(Long scenarioId);
 
     void deleteAllByScenarioId(Long scenarioId);

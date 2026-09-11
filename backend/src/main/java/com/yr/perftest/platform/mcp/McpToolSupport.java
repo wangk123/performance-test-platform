@@ -63,7 +63,6 @@ public final class McpToolSupport {
         }
         if (exception instanceof PlanStateException state) {
             Map<String, Object> details = new LinkedHashMap<>();
-            details.put("phase", state.getPhase().name());
             details.put("status", state.getStatus().name());
             details.put("allowedActions", state.getAllowedActions());
             return details;

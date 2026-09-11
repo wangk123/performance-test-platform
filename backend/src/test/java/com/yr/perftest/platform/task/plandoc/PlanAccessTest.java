@@ -1,67 +1,77 @@
 package com.yr.perftest.platform.task.plandoc;
 
-import com.yr.perftest.platform.project.ProjectAccessResolver.PlanActorRole;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** 无角色维度：动作可见性只由单一状态决定（spec §4.1/§4.4/§10）。 */
 class PlanAccessTest {
 
+    private Map<String, Boolean> of(PlanStatus status) {
+        return PlanAccess.compute(status);
+    }
+
     @Test
-    void memberCanReviewAndExecuteButNotEditOrPublish() {
-        Map<String, Boolean> p = PlanAccess.compute(PlanActorRole.MEMBER, PlanPhase.REVIEW, PlanStatus.IN_REVIEW, false);
-        // START_REVIEW 的前置是 REVIEW/PENDING（设计 §4.4），与 APPROVE/REJECT（IN_REVIEW）互斥——brief 原断言状态有误，此处按设计修正。
-        assertThat(PlanAccess.compute(PlanActorRole.MEMBER, PlanPhase.REVIEW, PlanStatus.PENDING, false).get("START_REVIEW")).isTrue();
-        assertThat(p.get("APPROVE")).isTrue();
-        assertThat(p.get("REJECT")).isTrue();
-        assertThat(p.get("COMMENT")).isTrue();
-        assertThat(p.get("EDIT")).isFalse();
-        assertThat(p.get("SUBMIT")).isFalse();
+    void planningOnlyAllowsSubmit() {
+        Map<String, Boolean> p = of(PlanStatus.PLANNING);
+        assertThat(p.get("SUBMIT")).isTrue();
+        assertThat(p.get("APPROVE")).isFalse();
+        assertThat(p.get("FINISH")).isFalse();
         assertThat(p.get("PUBLISH")).isFalse();
-        assertThat(p.get("DELETE")).isFalse();
-        assertThat(p.get("SHARE")).isFalse();
     }
 
     @Test
-    void ownerCanEditInAnyPhase() {
-        // 用户决策（2026-09-11）：EDIT 放开阶段限制——任意阶段负责人均可编辑，角色门槛不变
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.DRAFT, PlanStatus.DRAFT, false).get("EDIT")).isTrue();
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.REVIEW, PlanStatus.PENDING, false).get("EDIT")).isTrue();
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.EXECUTION, PlanStatus.DONE, true).get("EDIT")).isTrue();
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.PUBLISH, PlanStatus.PUBLISHED, true).get("EDIT")).isTrue();
-        assertThat(PlanAccess.compute(PlanActorRole.MEMBER, PlanPhase.DRAFT, PlanStatus.DRAFT, false).get("EDIT")).isFalse();
+    void inReviewOnlyAllowsApprove() {
+        Map<String, Boolean> p = of(PlanStatus.IN_REVIEW);
+        assertThat(p.get("APPROVE")).isTrue();
+        assertThat(p.get("SUBMIT")).isFalse();
+        assertThat(p.get("FINISH")).isFalse();
     }
 
     @Test
-    void backToDraftRequiresNoExecution() {
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.EXECUTION, PlanStatus.PENDING, false).get("BACK_TO_DRAFT")).isTrue();
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.EXECUTION, PlanStatus.PENDING, true).get("BACK_TO_DRAFT")).isFalse();
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.REVIEW, PlanStatus.APPROVED, false).get("BACK_TO_DRAFT")).isTrue();
+    void executingOnlyAllowsFinish() {
+        Map<String, Boolean> p = of(PlanStatus.EXECUTING);
+        assertThat(p.get("FINISH")).isTrue();
+        assertThat(p.get("APPROVE")).isFalse();
+        assertThat(p.get("PUBLISH")).isFalse();
+        assertThat(p.get("EXECUTE")).isTrue();
     }
 
     @Test
-    void publishRequiresExecutionOrReportDone() {
-        // 新链路：执行全部完成即可发布（报告阶段已取消手动进入）
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.EXECUTION, PlanStatus.DONE, true).get("PUBLISH")).isTrue();
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.EXECUTION, PlanStatus.PENDING, true).get("PUBLISH")).isFalse();
-        assertThat(PlanAccess.compute(PlanActorRole.MEMBER, PlanPhase.EXECUTION, PlanStatus.DONE, true).get("PUBLISH")).isFalse();
-        // REPORT·DONE 分支兼容存量已进入报告阶段的计划
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.REPORT, PlanStatus.DONE, true).get("PUBLISH")).isTrue();
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.REPORT, PlanStatus.PENDING, true).get("PUBLISH")).isFalse();
-        assertThat(PlanAccess.compute(PlanActorRole.MEMBER, PlanPhase.REPORT, PlanStatus.DONE, true).get("PUBLISH")).isFalse();
+    void reportingAllowsPublishAndExecute() {
+        Map<String, Boolean> p = of(PlanStatus.REPORTING);
+        assertThat(p.get("PUBLISH")).isTrue();
+        assertThat(p.get("FINISH")).isFalse();
+        assertThat(p.get("EXECUTE")).isTrue(); // 报告阶段支持复测
     }
 
     @Test
-    void newRevisionOnlyFromPublishedForOwner() {
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.PUBLISH, PlanStatus.PUBLISHED, true).get("NEW_REVISION")).isTrue();
-        assertThat(PlanAccess.compute(PlanActorRole.MEMBER, PlanPhase.PUBLISH, PlanStatus.PUBLISHED, true).get("NEW_REVISION")).isFalse();
+    void publishedIsTerminalButUnfrozen() {
+        Map<String, Boolean> p = of(PlanStatus.PUBLISHED);
+        assertThat(p.get("PUBLISH")).isFalse();
+        assertThat(p.get("SHARE")).isTrue();
+        assertThat(p.get("EDIT")).isTrue();       // 发布后不冻结文档
+        assertThat(p.get("NEW_VERSION")).isTrue();
     }
 
     @Test
-    void nonMemberHasNothing() {
-        Map<String, Boolean> p = PlanAccess.compute(PlanActorRole.NONE, PlanPhase.DRAFT, PlanStatus.DRAFT, false);
-        assertThat(p.values()).allMatch(v -> !v);
+    void globalActionsAvailableInEveryStatus() {
+        for (PlanStatus status : PlanStatus.values()) {
+            Map<String, Boolean> p = of(status);
+            assertThat(p.get("EDIT")).as("EDIT in %s", status).isTrue();
+            assertThat(p.get("COMMENT")).as("COMMENT in %s", status).isTrue();
+            assertThat(p.get("NEW_VERSION")).as("NEW_VERSION in %s", status).isTrue();
+            assertThat(p.get("DELETE")).as("DELETE in %s", status).isTrue();
+            assertThat(p.get("PRECHECK_RUN")).as("PRECHECK_RUN in %s", status).isTrue();
+            assertThat(p.get("PRECHECK_SKIP")).as("PRECHECK_SKIP in %s", status).isTrue();
+        }
+    }
+
+    @Test
+    void executeForbiddenBeforeApproved() {
+        assertThat(of(PlanStatus.PLANNING).get("EXECUTE")).isFalse();
+        assertThat(of(PlanStatus.IN_REVIEW).get("EXECUTE")).isFalse();
     }
 }

@@ -58,10 +58,9 @@ class PlanShareTest {
     }
 
     @Test
-    void shareCreationRestrictedToPublishedPlanAndOwner() {
-        assertThatThrownBy(() -> workflow.createShare(planId, MEMBER, null))
-                .isInstanceOf(PlanAccessDeniedException.class);
-        PlanWorkflowService.ShareView share = workflow.createShare(planId, OWNER, 7);
+    void shareCreationRestrictedToPublishedPlan() {
+        // 无角色维度（spec §10）：SHARE 全员=项目成员，门槛由 frozen 改为终态判定
+        PlanWorkflowService.ShareView share = workflow.createShare(planId, MEMBER, 7);
         assertThat(share.token()).hasSize(36);
         PlanWorkflowService.SharedPlanView view = workflow.getSharedPlan(share.token());
         assertThat(view.name()).isEqualTo("已发布计划");
@@ -71,7 +70,7 @@ class PlanShareTest {
     @Test
     void unpublishedPlanCannotShare() {
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
-        plan.forceState(PlanPhase.REPORT, PlanStatus.DONE);
+        plan.forceState(PlanStatus.REPORTING);
         planRepository.save(plan);
         assertThatThrownBy(() -> workflow.createShare(planId, OWNER, null))
                 .isInstanceOf(PlanStateException.class);

@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * 快捷执行集成测试（设计 §10.4）：单事务建计划(EXECUTION)→系统批注→建场景(带脚本)→start。
+ * 快捷执行集成测试（设计 §10.4）：单事务建计划(直接置 EXECUTING)→系统批注→建场景(带脚本)→start。
  * 不加 @Transactional：quickExecute 需真实提交以触发 afterCommit 的执行提交；
  * 异步 runner 在测试环境必然失败并终态化（此处只断言同步可见的状态，终态转化容忍异步）。
  */
@@ -83,10 +83,9 @@ class PlanQuickExecuteServiceTest {
         assertThat(result.scenarioId()).isPositive();
         assertThat(result.executionId()).isPositive();
 
-        // 计划：直接进入执行阶段；异步 runner 失败后可能已置 DONE，故只断言阶段与状态集合
+        // 计划：直接置 EXECUTING；执行生命周期与计划状态解耦（spec §4.5），状态恒为 EXECUTING
         PersistentTaskPlanRecord plan = planRepository.findById(result.planId()).orElseThrow();
-        assertThat(plan.getPhase()).isEqualTo(PlanPhase.EXECUTION);
-        assertThat(plan.getStatus()).isIn(PlanStatus.RUNNING, PlanStatus.DONE);
+        assertThat(plan.getStatus()).isEqualTo(PlanStatus.EXECUTING);
         assertThat(plan.getDefaultControllerNodeId()).isNotNull();
         // 环境检查默认不启用 → 未执行过预检
         assertThat(plan.getPrecheckExecutedAt()).isNull();

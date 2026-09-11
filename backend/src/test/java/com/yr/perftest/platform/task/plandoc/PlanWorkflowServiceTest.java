@@ -21,6 +21,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** 四流转单行道（spec 2026-09-11 §4.1）：submit/approve/finishExecution/publish；无回退动作。 */
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:plan-workflow-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE",
         "spring.jpa.hibernate.ddl-auto=validate",
@@ -31,6 +32,7 @@ class PlanWorkflowServiceTest {
 
     private static final HumanPrincipal OWNER = new HumanPrincipal("owner", Set.of(SystemRole.PROJECT_MEMBER));
     private static final HumanPrincipal REVIEWER = new HumanPrincipal("reviewer", Set.of(SystemRole.PROJECT_MEMBER));
+    private static final HumanPrincipal OUTSIDER = new HumanPrincipal("outsider", Set.of(SystemRole.PROJECT_MEMBER));
 
     @Autowired
     private PlanWorkflowService workflow;
@@ -55,80 +57,99 @@ class PlanWorkflowServiceTest {
                 new PersistentTaskPlanRecord(project.getId(), "计划一", null, "owner")).getId();
     }
 
-    private PlanPhase phase() {
-        return planRepository.findById(planId).orElseThrow().getPhase();
-    }
-
     private PlanStatus status() {
         return planRepository.findById(planId).orElseThrow().getStatus();
     }
 
+    private PersistentTaskPlanRecord forceState(PlanStatus status) {
+        PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
+        plan.forceState(status);
+        return planRepository.save(plan); // forceState 后需 save 持久化
+    }
+
     @Test
-    void fullHappyPathReviewToPublish() {
+    void fullHappyPathPlanningToPublished() {
         workflow.submit(planId, OWNER, "请评审");
-        assertThat(phase()).isEqualTo(PlanPhase.REVIEW);
-        assertThat(status()).isEqualTo(PlanStatus.PENDING);
-        workflow.startReview(planId, REVIEWER);
+        assertThat(status()).isEqualTo(PlanStatus.IN_REVIEW);
         workflow.approve(planId, REVIEWER, "同意");
-        assertThat(status()).isEqualTo(PlanStatus.APPROVED);
-        workflow.startExecution(planId, REVIEWER);
-        assertThat(phase()).isEqualTo(PlanPhase.EXECUTION);
-        assertThat(status()).isEqualTo(PlanStatus.PENDING);
-        PersistentTaskPlanRecord executionDone = planRepository.findById(planId).orElseThrow();
-        executionDone.forceState(PlanPhase.EXECUTION, PlanStatus.DONE);
-        planRepository.save(executionDone); // 与 Task4 测试同法：forceState 后需 save 持久化
-        TaskPlan published = workflow.publish(planId, OWNER, "结论", "V1.0"); // 报告阶段已取消：执行完成即发布
-        assertThat(published.phase()).isEqualTo(PlanPhase.PUBLISH);
+        assertThat(status()).isEqualTo(PlanStatus.EXECUTING);
+        workflow.finishExecution(planId, REVIEWER);
+        assertThat(status()).isEqualTo(PlanStatus.REPORTING);
+        TaskPlan published = workflow.publish(planId, OWNER, "结论：通过", "V1.0");
         assertThat(published.status()).isEqualTo(PlanStatus.PUBLISHED);
     }
 
     @Test
-    void submitRejectedForNonOwner() {
-        assertThatThrownBy(() -> workflow.submit(planId, REVIEWER, null))
-                .isInstanceOf(PlanAccessDeniedException.class);
+    void submitMovesPlanningToInReview() {
+        workflow.submit(planId, OWNER, "请评审");
+        assertThat(planRepository.findById(planId).orElseThrow().getStatus())
+                .isEqualTo(PlanStatus.IN_REVIEW);
     }
 
     @Test
-    void rejectRequiresComment() {
-        workflow.submit(planId, OWNER, null);
-        workflow.startReview(planId, REVIEWER);
-        assertThatThrownBy(() -> workflow.reject(planId, REVIEWER, " "))
-                .isInstanceOf(PlanValidationException.class);
-        workflow.reject(planId, REVIEWER, "指标口径不清");
-        assertThat(phase()).isEqualTo(PlanPhase.DRAFT);
+    void approveMovesInReviewToExecuting() {
+        forceState(PlanStatus.IN_REVIEW);
+        workflow.approve(planId, REVIEWER, null);
+        assertThat(planRepository.findById(planId).orElseThrow().getStatus())
+                .isEqualTo(PlanStatus.EXECUTING);
     }
 
     @Test
-    void illegalTransitionThrowsPlanState() {
+    void finishExecutionMovesToReporting() {
+        forceState(PlanStatus.EXECUTING);
+        workflow.finishExecution(planId, REVIEWER);
+        assertThat(planRepository.findById(planId).orElseThrow().getStatus())
+                .isEqualTo(PlanStatus.REPORTING);
+    }
+
+    @Test
+    void finishExecutionRejectedWhenNotExecuting() {
+        forceState(PlanStatus.PLANNING);
+        assertThatThrownBy(() -> workflow.finishExecution(planId, REVIEWER))
+                .isInstanceOf(PlanStateException.class);
+    }
+
+    @Test
+    void publishMovesReportingToPublished() {
+        forceState(PlanStatus.REPORTING);
+        TaskPlan published = workflow.publish(planId, OWNER, "结论：通过", "V1.0");
+        assertThat(planRepository.findById(planId).orElseThrow().getStatus())
+                .isEqualTo(PlanStatus.PUBLISHED);
+        assertThat(published.status()).isEqualTo(PlanStatus.PUBLISHED);
+    }
+
+    @Test
+    void publishSucceedsEvenWithActiveExecution() {
+        forceState(PlanStatus.REPORTING);
+        // 软门禁（spec §4.3）：后端不再因活跃执行拒绝发布；本测试无场景表数据即无活跃执行，
+        // 活跃执行放行语义由 PlanReportPublishTest 一并覆盖（原拦截用例反转）
+        workflow.publish(planId, OWNER, "结论：通过", "V1.0");
+        assertThat(planRepository.findById(planId).orElseThrow().getStatus())
+                .isEqualTo(PlanStatus.PUBLISHED);
+    }
+
+    @Test
+    void illegalStartingStatusThrowsPlanState() {
+        // 每个流转动作在错误起始状态一律 409 PLAN_STATE
         assertThatThrownBy(() -> workflow.approve(planId, REVIEWER, null))
+                .isInstanceOf(PlanStateException.class)
+                .hasMessageContaining("PLAN_STATE");
+        assertThatThrownBy(() -> workflow.finishExecution(planId, REVIEWER))
+                .isInstanceOf(PlanStateException.class)
+                .hasMessageContaining("PLAN_STATE");
+        assertThatThrownBy(() -> workflow.publish(planId, OWNER, "结论", "V1.0"))
+                .isInstanceOf(PlanStateException.class)
+                .hasMessageContaining("PLAN_STATE");
+        forceState(PlanStatus.PUBLISHED);
+        assertThatThrownBy(() -> workflow.submit(planId, OWNER, null))
                 .isInstanceOf(PlanStateException.class)
                 .hasMessageContaining("PLAN_STATE");
     }
 
     @Test
-    void withdrawReturnsToDraftAndWritesSystemComments() {
-        workflow.submit(planId, OWNER, null);
-        workflow.startReview(planId, REVIEWER);
-        workflow.withdraw(planId, OWNER);
-        assertThat(phase()).isEqualTo(PlanPhase.DRAFT);
-        assertThat(comments.listComments(planId, OWNER))
-                .anySatisfy(c -> {
-                    assertThat(c.kind()).isEqualTo(PlanCommentKind.SYSTEM);
-                    assertThat(c.content()).contains("撤回");
-                });
-    }
-
-    @Test
-    void backToDraftBlockedAfterExecutionExists() {
-        workflow.submit(planId, OWNER, null);
-        workflow.startReview(planId, REVIEWER);
-        workflow.approve(planId, REVIEWER, null);
-        workflow.startExecution(planId, REVIEWER);
-        // 有执行历史（hasAnyExecution=true 路径）：先造一条终态执行
-        // —— 本测试无场景执行表依赖，直接用 forceState 模拟"曾有执行"不成立；
-        //    backToDraft 的 hasAnyExecution 判定用 executionRepository 存在性，无场景即无执行，应允许退回
-        workflow.backToDraft(planId, OWNER);
-        assertThat(phase()).isEqualTo(PlanPhase.DRAFT);
+    void submitRejectedForNonMember() {
+        assertThatThrownBy(() -> workflow.submit(planId, OUTSIDER, null))
+                .isInstanceOf(PlanAccessDeniedException.class);
     }
 
     @Test

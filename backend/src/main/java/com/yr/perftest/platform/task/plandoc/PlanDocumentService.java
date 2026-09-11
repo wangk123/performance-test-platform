@@ -39,7 +39,7 @@ public class PlanDocumentService {
 
     @Transactional
     public TaskPlan getDocument(long planId) {
-        correctExecutionState(planId);
+        requirePlan(planId); // 不存在 → PLAN_INVALID（原 correctExecutionState 前置存在性校验保留，执行态纠偏已删除）
         return planService.getPlan(planId);
     }
 
@@ -74,20 +74,6 @@ public class PlanDocumentService {
         plan.updateBody(updated);
     }
 
-    @Transactional
-    public void correctExecutionState(long planId) {
-        PersistentTaskPlanRecord plan = requirePlan(planId);
-        if (plan.getPhase() != PlanPhase.EXECUTION) {
-            return;
-        }
-        boolean active = hasActiveExecution(planId);
-        if (plan.getStatus() == PlanStatus.RUNNING && !active) {
-            plan.transitionTo(PlanPhase.EXECUTION, PlanStatus.DONE);
-        } else if ((plan.getStatus() == PlanStatus.PENDING || plan.getStatus() == PlanStatus.DONE) && active) {
-            plan.transitionTo(PlanPhase.EXECUTION, PlanStatus.RUNNING);
-        }
-    }
-
     public boolean hasActiveExecution(long planId) {
         List<Long> scenarioIds = scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(planId).stream()
                 .map(com.yr.perftest.platform.task.PersistentTaskScenarioRecord::getId)
@@ -104,11 +90,29 @@ public class PlanDocumentService {
                 .orElseThrow(() -> new PlanValidationException("PLAN_INVALID：task plan does not exist"));
     }
 
+    /** 活跃执行数（QUEUED/RUNNING/STOPPING）：执行完成/发布前的二次确认告警数据源（spec §4.3）。 */
+    @Transactional(readOnly = true)
+    public int countActiveExecutions(long planId) {
+        List<Long> scenarioIds = scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(planId).stream()
+                .map(com.yr.perftest.platform.task.PersistentTaskScenarioRecord::getId)
+                .toList();
+        int count = 0;
+        for (Long scenarioId : scenarioIds) {
+            if (executionRepository.existsByScenarioIdAndStatusIn(scenarioId, List.of(
+                    com.yr.perftest.platform.execution.ExecutionStatus.QUEUED,
+                    com.yr.perftest.platform.execution.ExecutionStatus.RUNNING,
+                    com.yr.perftest.platform.execution.ExecutionStatus.STOPPING))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     private void requireEditAllowed(PersistentTaskPlanRecord plan, HumanPrincipal actor) {
         ProjectAccessResolver.PlanActorRole role = accessResolver.resolve(plan.getProjectId(), actor, plan.getCreatedBy());
-        // EDIT 已放开为任意阶段（PlanAccess），不满足只剩角色不足一种情形
-        if (!PlanAccess.compute(role, plan.getPhase(), plan.getStatus(), true).get("EDIT")) {
-            throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：仅负责人/项目 OWNER/系统管理员可编辑文档");
+        // 无角色维度（spec §10）：门槛=登录且为项目成员；EDIT 任意状态开放，revision 冲突保护兜底
+        if (actor == null || role == ProjectAccessResolver.PlanActorRole.NONE) {
+            throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：非项目成员");
         }
     }
 }

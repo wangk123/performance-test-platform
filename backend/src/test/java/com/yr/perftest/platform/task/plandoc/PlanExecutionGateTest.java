@@ -60,7 +60,7 @@ class PlanExecutionGateTest {
                 new PersistentTaskPlanRecord(project.getId(), "计划", null, "owner"));
         plan.updateBody("## 三、测试指标\n\n| 交易 | 指标 | 目标值 | 口径 |\n|---|---|---|---|\n| 查询 | TPS | 200 | 均值 |\n\n"
                 + "## 六、测试约束\n\n### 入口准则\n\n- [ ] 指标已定义（自动）\n- [ ] 环境就绪（人工）\n\n## 八、场景设计\n");
-        plan.forceState(PlanPhase.EXECUTION, PlanStatus.PENDING);
+        plan.forceState(PlanStatus.EXECUTING);
         planId = planRepository.save(plan).getId();
         PersistentTaskScenarioRecord scenario = scenarioRepository.save(
                 new PersistentTaskScenarioRecord(planId, null, "场景A", 0));
@@ -76,11 +76,24 @@ class PlanExecutionGateTest {
     @Test
     void gateRejectsWhenPlanNotPastReview() {
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
-        plan.forceState(PlanPhase.REVIEW, PlanStatus.IN_REVIEW);
+        plan.forceState(PlanStatus.IN_REVIEW);
         planRepository.save(plan);
         assertThatThrownBy(() -> workflow.assertExecutionAllowed(scenarioId))
                 .isInstanceOf(PlanStateException.class)
-                .hasMessageContaining("请先通过评审并进入执行阶段");
+                .hasMessageContaining("请先通过评审进入执行阶段");
+    }
+
+    @Test
+    void gateAllowsExecutingAndReporting() {
+        // 先关联脚本（未关联脚本的拦截由 gateRejectsUnboundScript 单独覆盖）
+        PersistentTaskScenarioRecord bound = scenarioRepository.findById(scenarioId).orElseThrow();
+        bound.bindScript(9L);
+        scenarioRepository.save(bound);
+        assertThat(workflow.assertExecutionAllowed(scenarioId)).isEqualTo(planId); // setUp 已置 EXECUTING
+        PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
+        plan.forceState(PlanStatus.REPORTING);
+        planRepository.save(plan);
+        assertThat(workflow.assertExecutionAllowed(scenarioId)).isEqualTo(planId); // 报告阶段支持复测
     }
 
     @Test
@@ -116,22 +129,6 @@ class PlanExecutionGateTest {
             assertThat(c.kind()).isEqualTo(PlanCommentKind.SYSTEM);
             assertThat(c.content()).contains("跳过环境检查");
         });
-    }
-
-    @Test
-    void onExecutionStartedResetsReportPhaseAndRuns() {
-        PersistentTaskPlanRecord reset = planRepository.findById(planId).orElseThrow();
-        reset.forceState(PlanPhase.REPORT, PlanStatus.DONE);
-        planRepository.save(reset);
-        workflow.onExecutionStarted(planId);
-        PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
-        assertThat(plan.getPhase()).isEqualTo(PlanPhase.EXECUTION);
-        assertThat(plan.getStatus()).isEqualTo(PlanStatus.RUNNING);
-        // 先改 detached 实体再 save，确保 DONE 真正落库（save 返回值上调 forceState 不会写库）
-        plan.forceState(PlanPhase.EXECUTION, PlanStatus.DONE);
-        planRepository.save(plan);
-        workflow.onExecutionStarted(planId);
-        assertThat(planRepository.findById(planId).orElseThrow().getStatus()).isEqualTo(PlanStatus.RUNNING);
     }
 
     @Test

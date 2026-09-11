@@ -218,7 +218,7 @@ class McpServerApiTest {
         long planId = createdPayload.at("/data/planId").asLong();
         assertThat(planId).isPositive();
         assertThat(createdPayload.at("/data/revision").asInt()).isEqualTo(1);
-        assertThat(createdPayload.at("/data/phase").asText()).isEqualTo("DRAFT");
+        assertThat(createdPayload.at("/data/status").asText()).isEqualTo("PLANNING");
 
         // get 全文回读
         HttpResponse<String> got = rpc("tools/call",
@@ -324,8 +324,7 @@ class McpServerApiTest {
 
     private long scenarioWithControllerNode() {
         PersistentTaskPlanRecord plan = planRepository.save(new PersistentTaskPlanRecord(1L, "plan-a", null, "admin"));
-        plan.forceState(com.yr.perftest.platform.task.plandoc.PlanPhase.EXECUTION,
-                com.yr.perftest.platform.task.plandoc.PlanStatus.PENDING);
+        plan.forceState(com.yr.perftest.platform.task.plandoc.PlanStatus.EXECUTING);
         planRepository.save(plan);
         PersistentTaskScenarioRecord scenario = scenarioRepository.save(
                 new PersistentTaskScenarioRecord(plan.getId(), 1L, "scenario-a", 0));

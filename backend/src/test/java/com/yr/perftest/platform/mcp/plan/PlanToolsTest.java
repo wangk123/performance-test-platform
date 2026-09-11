@@ -91,8 +91,7 @@ class PlanToolsTest {
                 "title", "电商容量验证",
                 "markdown", "# 一、背景\n全文"), AGENT);
         assertThat(created.get("revision")).isEqualTo(1);
-        assertThat(created.get("phase")).isEqualTo("DRAFT");
-        assertThat(created.get("status")).isEqualTo("DRAFT");
+        assertThat(created.get("status")).isEqualTo("PLANNING");
         long planId = ((Number) created.get("planId")).longValue();
 
         // 不可见模板 → PLAN_INVALID（杜绝服务端静默空正文）
@@ -117,7 +116,7 @@ class PlanToolsTest {
         Map<String, Object> payload = (Map<String, Object>) getTool.call(Map.of("planId", planId), AGENT);
         assertThat(payload.get("planId")).isEqualTo(planId);
         assertThat((String) payload.get("markdown")).contains("一、背景");
-        assertThat(payload.get("phase")).isEqualTo("DRAFT");
+        assertThat(payload.get("status")).isEqualTo("PLANNING");
         assertThat(payload.get("createdBy")).isEqualTo("agent");
         assertThat(((Number) payload.get("revision")).intValue()).isEqualTo(1);
         // 不存在 → PLAN_INVALID
@@ -157,7 +156,7 @@ class PlanToolsTest {
         assertThat(((Number) all.get("total")).intValue()).isEqualTo(2);
 
         Map<String, Object> reviewOnly = (Map<String, Object>) queryTool.call(
-                Map.of("projectId", projectId, "phase", "review"), AGENT);
+                Map.of("projectId", projectId, "status", "IN_REVIEW"), AGENT);
         assertThat(((Number) reviewOnly.get("total")).intValue()).isEqualTo(1);
 
         Map<String, Object> keyword = (Map<String, Object>) queryTool.call(

@@ -202,7 +202,7 @@ public class PlanCommentService {
         }
     }
 
-    /** COMMENT 门禁（PlanAccess 唯一真相源）：非成员 403；成员但阶段不允许 409。COMMENT 不受 hasAnyExecution 影响。 */
+    /** COMMENT 门禁（PlanAccess 唯一真相源）：非成员 403；批注任意状态可用（spec §4.4，不再限评审域）。 */
     private void requireCommenter(PersistentTaskPlanRecord plan, HumanPrincipal actor) {
         if (actor == null) {
             throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：未登录");
@@ -211,11 +211,6 @@ public class PlanCommentService {
                 accessResolver.resolve(plan.getProjectId(), actor, plan.getCreatedBy());
         if (role == ProjectAccessResolver.PlanActorRole.NONE) {
             throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：非项目成员");
-        }
-        var permissions = PlanAccess.compute(role, plan.getPhase(), plan.getStatus(), false);
-        if (!Boolean.TRUE.equals(permissions.get("COMMENT"))) {
-            throw new PlanStateException("PLAN_STATE：当前阶段不可批注（当前 "
-                    + plan.getPhase() + "/" + plan.getStatus() + "）", plan.getPhase(), plan.getStatus(), List.of());
         }
     }
 

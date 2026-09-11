@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 计划工具：读取计划当前全文与阶段状态（spec §6）。正文即唯一数据源，不另设摘要提取层。
+ * 计划工具：读取计划当前全文与状态（spec §6）。正文即唯一数据源，不另设摘要提取层。
  */
 @Component
 public class PlanGetTool implements McpTool {
@@ -33,7 +33,7 @@ public class PlanGetTool implements McpTool {
 
     @Override
     public String description() {
-        return "读取性能测试计划的完整 Markdown 文档，附带阶段/状态与 revision，用于本地展示或继续编辑。";
+        return "读取性能测试计划的完整 Markdown 文档，附带状态与 revision，用于本地展示或继续编辑。";
     }
 
     @Override
@@ -63,7 +63,7 @@ public class PlanGetTool implements McpTool {
                 plan_get({ "planId": 42 })
 
                 → { "planId": 42, "projectId": 1, "title": "电商核心链路容量验证",
-                     "revision": 3, "phase": "DRAFT", "status": "DRAFT",
+                     "revision": 3, "status": "PLANNING",
                      "markdown": "# 一、背景\\n…全文",
                      "scenarioCount": 2, "createdBy": "agent", "updatedAt": "2026-09-07T10:00:00Z" }""";
     }
@@ -78,7 +78,6 @@ public class PlanGetTool implements McpTool {
         payload.put("title", plan.name());
         payload.put("markdown", plan.body() == null ? "" : plan.body());
         payload.put("revision", plan.revision());
-        payload.put("phase", plan.phase().name());
         payload.put("status", plan.status().name());
         payload.put("scenarioCount", plan.scenarioCount());
         payload.put("createdBy", plan.createdBy());

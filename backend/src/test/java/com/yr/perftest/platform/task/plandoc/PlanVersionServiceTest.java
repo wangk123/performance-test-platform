@@ -59,7 +59,7 @@ class PlanVersionServiceTest {
         assertThat(view.versionNo()).isEqualTo("V1.0");
         assertThat(view.createdBy()).isEqualTo("owner");
         assertThat(view.author()).isEqualTo("owner");
-        assertThat(view.planPhase()).isEqualTo("DRAFT");
+        assertThat(view.planPhase()).isEqualTo("PLANNING"); // plan_phase 历史快照列写入发布时状态（spec §9）
 
         PlanVersionService.PlanVersionDetail detail = versionService.get(planId, view.id(), OWNER);
         assertThat(detail.snapshotBody()).contains("初始内容");

@@ -97,11 +97,9 @@ public class PlanVerdictService {
         if (plan == null) {
             throw new PlanValidationException("PLAN_INVALID：task plan does not exist");
         }
-        // 执行全部完成即可判读（发布预填依赖，报告阶段已取消手动生成）；REPORT·DONE 兼容存量；
-        // 复测重置（回 RUNNING）/新修订后返回未生成（spec §6.1），杜绝"接口算新执行、文档达成表还是旧的"
-        boolean available = (plan.getPhase() == PlanPhase.EXECUTION || plan.getPhase() == PlanPhase.REPORT)
-                && plan.getStatus() == PlanStatus.DONE
-                || (plan.getPhase() == PlanPhase.PUBLISH && plan.getStatus() == PlanStatus.PUBLISHED);
+        // 报告编辑中即可判读（发布预填依赖）；已发布后维持可读（spec §4.1 迁移 4 / §5）
+        boolean available = plan.getStatus() == PlanStatus.REPORTING
+                || plan.getStatus() == PlanStatus.PUBLISHED;
         if (!available) {
             // 复测重置后返回未生成（spec §6.1），杜绝"接口算新执行、文档达成表还是旧的"
             PlanAcceptanceParser.AcceptanceSection acceptance =

@@ -13,7 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * 计划工具：按项目/阶段/关键词查询计划列表（spec §6）。过滤与分页在 listPlans 结果上内存完成。
+ * 计划工具：按项目/状态/关键词查询计划列表（spec §6）。过滤与分页在 listPlans 结果上内存完成。
  */
 @Component
 public class PlanQueryTool implements McpTool {
@@ -37,7 +37,7 @@ public class PlanQueryTool implements McpTool {
 
     @Override
     public String description() {
-        return "按项目查询性能测试计划，支持可选阶段过滤（DRAFT/REVIEW/EXECUTION/REPORT/PUBLISH）、"
+        return "按项目查询性能测试计划，支持可选状态过滤（PLANNING/IN_REVIEW/EXECUTING/REPORTING/PUBLISHED）、"
                 + "标题关键词（不区分大小写）与内存分页。";
     }
 
@@ -55,8 +55,8 @@ public class PlanQueryTool implements McpTool {
     public Map<String, Object> inputSchema() {
         Map<String, Object> properties = new LinkedHashMap<>();
         properties.put("projectId", Map.of("type", "integer", "description", "项目 id"));
-        properties.put("phase", Map.of("type", "string",
-                "description", "阶段过滤：DRAFT / REVIEW / EXECUTION / REPORT / PUBLISH（不区分大小写）"));
+        properties.put("status", Map.of("type", "string",
+                "description", "状态过滤：PLANNING / IN_REVIEW / EXECUTING / REPORTING / PUBLISHED（不区分大小写）"));
         properties.put("keyword", Map.of("type", "string", "description", "标题关键词，不区分大小写的包含匹配"));
         properties.put("page", Map.of("type", "integer", "description", "页码，从 1 起，默认 1"));
         properties.put("pageSize", Map.of("type", "integer", "description", "每页条数 1-100，默认 20"));
@@ -70,10 +70,10 @@ public class PlanQueryTool implements McpTool {
     @Override
     public String usageExample() {
         return """
-                plan_query({ "projectId": 1, "phase": "REVIEW", "keyword": "容量", "page": 1, "pageSize": 20 })
+                plan_query({ "projectId": 1, "status": "IN_REVIEW", "keyword": "容量", "page": 1, "pageSize": 20 })
 
                 → { "plans": [ { "planId": 42, "title": "电商核心链路容量验证",
-                                 "phase": "REVIEW", "status": "IN_REVIEW",
+                                 "status": "IN_REVIEW",
                                  "revision": 7, "updatedAt": "2026-09-07T10:00:00Z" } ],
                     "total": 3, "page": 1, "pageSize": 20 }""";
     }
@@ -81,13 +81,13 @@ public class PlanQueryTool implements McpTool {
     @Override
     public Object call(Map<String, Object> args, Principal principal) {
         long projectId = PlanToolsSupport.requiredLong(args, "projectId");
-        String phase = PlanToolsSupport.optionalString(args, "phase");
+        String status = PlanToolsSupport.optionalString(args, "status");
         String keyword = PlanToolsSupport.optionalString(args, "keyword");
         int page = PlanToolsSupport.optionalInt(args, "page", 1);
         int pageSize = Math.min(PlanToolsSupport.optionalInt(args, "pageSize", 20), MAX_PAGE_SIZE);
 
         List<TaskPlan> matched = taskPlanService.listPlans(projectId).stream()
-                .filter(plan -> phase == null || plan.phase().name().equalsIgnoreCase(phase))
+                .filter(plan -> status == null || plan.status().name().equalsIgnoreCase(status))
                 .filter(plan -> keyword == null || plan.name().toLowerCase(Locale.ROOT)
                         .contains(keyword.toLowerCase(Locale.ROOT)))
                 .toList();
@@ -99,7 +99,6 @@ public class PlanQueryTool implements McpTool {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("planId", plan.id());
             item.put("title", plan.name());
-            item.put("phase", plan.phase().name());
             item.put("status", plan.status().name());
             item.put("revision", plan.revision());
             item.put("updatedAt", plan.updatedAt().toString());

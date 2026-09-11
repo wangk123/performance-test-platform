@@ -66,8 +66,7 @@ class UiExecutionControlApiTest {
     void setUp() throws Exception {
         adminToken = loginToken();
         PersistentTaskPlanRecord plan = planRepository.save(new PersistentTaskPlanRecord(1L, "plan-a", null, "admin"));
-        plan.forceState(com.yr.perftest.platform.task.plandoc.PlanPhase.EXECUTION,
-                com.yr.perftest.platform.task.plandoc.PlanStatus.PENDING);
+        plan.forceState(com.yr.perftest.platform.task.plandoc.PlanStatus.EXECUTING);
         planRepository.save(plan);
         PersistentTaskScenarioRecord scenario = scenarioRepository.save(
                 new PersistentTaskScenarioRecord(plan.getId(), 1L, "scenario-a", 0));

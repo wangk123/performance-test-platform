@@ -79,7 +79,7 @@ public class PlanCreateTool implements McpTool {
                   "markdown": "# 一、背景\\n…（12 章节全文）"
                 })
 
-                → { "planId": 42, "revision": 1, "phase": "DRAFT", "status": "DRAFT",
+                → { "planId": 42, "revision": 1, "status": "PLANNING",
                      "title": "电商核心链路容量验证" }
 
                 # markdown 缺省时由模板渲染：templateId 省略则用内置模板""";
@@ -100,7 +100,6 @@ public class PlanCreateTool implements McpTool {
         return Map.of(
                 "planId", plan.id(),
                 "revision", plan.revision(),
-                "phase", plan.phase().name(),
                 "status", plan.status().name(),
                 "title", plan.name()
         );

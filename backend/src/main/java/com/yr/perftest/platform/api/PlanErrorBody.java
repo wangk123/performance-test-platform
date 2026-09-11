@@ -5,11 +5,10 @@ public record PlanErrorBody(
         String message,
         Integer currentRevision,
         String serverMarkdown,
-        String phase,
         String status,
         java.util.List<String> allowedActions
 ) {
     public static PlanErrorBody of(String code, String message) {
-        return new PlanErrorBody(code, message, null, null, null, null, null);
+        return new PlanErrorBody(code, message, null, null, null, null);
     }
 }

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.mcp.McpToolSupport;
 import com.yr.perftest.platform.project.ProjectValidationException;
-import com.yr.perftest.platform.task.plandoc.PlanPhase;
 import com.yr.perftest.platform.task.plandoc.PlanRevisionConflictException;
 import com.yr.perftest.platform.task.plandoc.PlanStateException;
 import com.yr.perftest.platform.task.plandoc.PlanStatus;
@@ -29,14 +28,13 @@ class McpToolSupportPlanErrorTest {
     }
 
     @Test
-    void planStateCarriesPhaseStatusAndAllowedActions() throws Exception {
+    void planStateCarriesStatusAndAllowedActions() throws Exception {
         JsonNode body = text(McpToolSupport.failure(objectMapper, new PlanStateException(
-                "PLAN_STATE：仅草稿可编辑", PlanPhase.REVIEW, PlanStatus.IN_REVIEW,
-                java.util.List.of("WITHDRAW"))));
+                "PLAN_STATE：当前状态不允许", PlanStatus.IN_REVIEW,
+                java.util.List.of("APPROVE"))));
         assertThat(body.at("/error/code").asText()).isEqualTo("PLAN_STATE");
-        assertThat(body.at("/error/details/phase").asText()).isEqualTo("REVIEW");
         assertThat(body.at("/error/details/status").asText()).isEqualTo("IN_REVIEW");
-        assertThat(body.at("/error/details/allowedActions/0").asText()).isEqualTo("WITHDRAW");
+        assertThat(body.at("/error/details/allowedActions/0").asText()).isEqualTo("APPROVE");
     }
 
     @Test

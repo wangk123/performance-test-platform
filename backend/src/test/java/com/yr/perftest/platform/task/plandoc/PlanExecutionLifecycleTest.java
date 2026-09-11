@@ -53,7 +53,7 @@ class PlanExecutionLifecycleTest {
                 new PersistentTaskPlanRecord(project.getId(), "计划", null, "owner"));
         plan.updateBody("## 八、场景设计\n\n### S1 场景A · SINGLE_TXN\n\n**场景目的**：p\n\n"
                 + "**场景设置**（由场景执行配置生成，勿手改）：\n\n| 用户数 | 持续时长 | 加载方式 | 退出方式 |\n|---|---|---|---|\n| 50 | 300 秒 | 同时加载 | 同时退出 |\n\n#### 执行记录\n");
-        plan.forceState(PlanPhase.EXECUTION, PlanStatus.RUNNING);
+        plan.forceState(PlanStatus.EXECUTING); // 执行生命周期与计划状态解耦（spec §4.5）：终态只回填不迁移
         planId = planRepository.save(plan).getId();
         PersistentTaskScenarioRecord scenario = scenarioRepository.save(
                 new PersistentTaskScenarioRecord(planId, 9L, "场景A", 0));
@@ -62,7 +62,7 @@ class PlanExecutionLifecycleTest {
     }
 
     @Test
-    void terminalEventBackfillsScenarioBlockAndMarksDone() {
+    void terminalEventBackfillsScenarioBlockWithoutStatusTransition() {
         PersistentScenarioExecutionRecord execution = executionRepository.save(
                 new PersistentScenarioExecutionRecord(scenarioId, CONFIG_JSON));
         execution.markRunning("result.jtl", "jmeter.log");
@@ -75,9 +75,9 @@ class PlanExecutionLifecycleTest {
         assertThat(body).contains("<!-- backfill:execution:" + execution.getId() + " -->");
         assertThat(body).contains("· SUCCESS ·");
         assertThat(body).contains("50 并发");
+        // 终态后 status 不变（spec §4.5）：执行生命周期不再回写计划状态
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
-        assertThat(plan.getStatus()).isEqualTo(PlanStatus.DONE);
-        assertThat(plan.getPhase()).isEqualTo(PlanPhase.EXECUTION);
+        assertThat(plan.getStatus()).isEqualTo(PlanStatus.EXECUTING);
     }
 
     @Test
@@ -97,18 +97,15 @@ class PlanExecutionLifecycleTest {
     }
 
     @Test
-    void stillActiveStaysRunning() {
+    void terminalEventDoesNotTouchStatusEvenWhenAllDone() {
         PersistentScenarioExecutionRecord done = executionRepository.save(
                 new PersistentScenarioExecutionRecord(scenarioId, CONFIG_JSON));
         done.markRunning("a.jtl", "a.log");
         done.markSuccess(0);
         executionRepository.save(done);
-        PersistentScenarioExecutionRecord active = executionRepository.save(
-                new PersistentScenarioExecutionRecord(scenarioId, CONFIG_JSON));
-        active.markRunning("b.jtl", "b.log");
-        executionRepository.save(active);
 
         listener.onExecutionTerminal(new ExecutionLifecycleEvent(done.getId(), ExecutionStatus.SUCCESS));
-        assertThat(planRepository.findById(planId).orElseThrow().getStatus()).isEqualTo(PlanStatus.RUNNING);
+        // 全部执行结束后也只回填正文，状态保持 EXECUTING（迁移由人工 finish-execution 推进，spec §4.1 迁移 3）
+        assertThat(planRepository.findById(planId).orElseThrow().getStatus()).isEqualTo(PlanStatus.EXECUTING);
     }
 }

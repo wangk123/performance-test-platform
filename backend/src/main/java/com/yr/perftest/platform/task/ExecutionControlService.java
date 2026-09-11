@@ -67,7 +67,6 @@ public class ExecutionControlService {
                 )
         );
         ScenarioExecution execution = executionQueryService.getExecution(result.executionId());
-        planWorkflowService.onExecutionStarted(planId); // 置 EXECUTION/RUNNING + 报告作废
         audit(result.executionId(), "START", result.replayed());
         return new StartOutcome(execution.id(), execution.status(), result.replayed());
     }

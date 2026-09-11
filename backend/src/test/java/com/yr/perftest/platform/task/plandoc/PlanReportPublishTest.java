@@ -73,7 +73,7 @@ class PlanReportPublishTest {
 
                 **总体结论**：（发布时填写）
                 """);
-        plan.forceState(PlanPhase.EXECUTION, PlanStatus.DONE); // 新链路：执行全部完成即可发布（报告阶段已取消）
+        plan.forceState(PlanStatus.REPORTING); // 发布门槛=REPORTING（spec §4.1 迁移 4）
         planId = planRepository.save(plan).getId();
     }
 
@@ -93,7 +93,6 @@ class PlanReportPublishTest {
         assertThatThrownBy(() -> workflow.publish(planId, OWNER, " ", "V1.0"))
                 .isInstanceOf(PlanValidationException.class);
         TaskPlan published = workflow.publish(planId, OWNER, "核心指标全部达成，可上线。", "V1.0");
-        assertThat(published.phase()).isEqualTo(PlanPhase.PUBLISH);
         assertThat(published.status()).isEqualTo(PlanStatus.PUBLISHED);
         String body = planRepository.findById(planId).orElseThrow().getBody();
         assertThat(body).contains("**总体结论**：核心指标全部达成，可上线。");
@@ -107,7 +106,7 @@ class PlanReportPublishTest {
         assertThat(versions.get(0).getVersionNo()).isEqualTo("V1.0");
         assertThat(versions.get(0).getChangeNote()).isEqualTo("核心指标全部达成，可上线。");
         assertThat(versions.get(0).getSnapshotBody()).contains("总体结论");
-        assertThat(versions.get(0).getPlanPhase()).isEqualTo("PUBLISH");
+        assertThat(versions.get(0).getPlanPhase()).isEqualTo("PUBLISHED"); // plan_phase 历史快照列写入发布时状态
         // 用户决策（2026-09-11）：放开「发布后冻结编辑」——发布后仍可编辑（新 revision 追加，发布快照/版本登记不变）
         TaskPlan edited = documentService.updateMarkdown(planId, published.revision(), "x", OWNER);
         assertThat(edited.revision()).isEqualTo(published.revision() + 1);
@@ -117,11 +116,11 @@ class PlanReportPublishTest {
     void publishWithoutConclusionSectionDoesNotWriteNullLiteral() {
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
         plan.updateBody("## 一、背景\n\n内容\n"); // 无「十二、结论」章节
-        plan.forceState(PlanPhase.REPORT, PlanStatus.DONE);
+        plan.forceState(PlanStatus.REPORTING);
         planRepository.save(plan);
 
         TaskPlan published = workflow.publish(planId, OWNER, "结论文本", "V1.0");
-        assertThat(published.phase()).isEqualTo(PlanPhase.PUBLISH);
+        assertThat(published.status()).isEqualTo(PlanStatus.PUBLISHED);
         String body = planRepository.findById(planId).orElseThrow().getBody();
         assertThat(body).contains("**总体结论**：结论文本");
         assertThat(body).contains("## 十二、结论");
@@ -129,17 +128,5 @@ class PlanReportPublishTest {
         var snapshot = snapshotRepository.findAllByPlanIdOrderByRevisionDesc(planId).get(0);
         assertThat(snapshot.getDocJson()).contains("总体结论");
         assertThat(snapshot.getDocJson()).doesNotContain("null");
-    }
-
-    @Test
-    void newRevisionResetsToDraftAndBumps() {
-        TaskPlan published = workflow.publish(planId, OWNER, "结论", "V1.0");
-        int revision = published.revision();
-        TaskPlan next = workflow.newRevision(planId, OWNER);
-        assertThat(next.phase()).isEqualTo(PlanPhase.DRAFT);
-        assertThat(next.status()).isEqualTo(PlanStatus.DRAFT);
-        assertThat(next.revision()).isEqualTo(revision + 1);
-        assertThat(planRepository.findById(planId).orElseThrow().getPrecheckExecutedAt()).isNull();
-        assertThat(snapshotRepository.findAllByPlanIdOrderByRevisionDesc(planId)).hasSize(1); // 旧快照保留
     }
 }

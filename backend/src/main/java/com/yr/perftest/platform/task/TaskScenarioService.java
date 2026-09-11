@@ -7,7 +7,6 @@ import com.yr.perftest.platform.execution.aggregate.AggregateReportService;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
 import com.yr.perftest.platform.script.ScriptStepDefinition;
-import com.yr.perftest.platform.task.plandoc.PlanPhase;
 import com.yr.perftest.platform.task.plandoc.PlanScenarioDocSync;
 import com.yr.perftest.platform.task.plandoc.PlanStateException;
 import com.yr.perftest.platform.task.plandoc.PlanStatus;
@@ -178,35 +177,36 @@ public class TaskScenarioService {
         docSync.onScenarioDeleted(planId, scenarioName);
     }
 
-    /** 评审通过后才允许关联脚本：REVIEW/APPROVED 或 EXECUTION|REPORT 且非 RUNNING（设计 §3.4/§4.5）。 */
+    /** 评审通过后才允许关联脚本（spec §4.1 迁移 2）：EXECUTING/REPORTING/PUBLISHED 放行。 */
     @Transactional
     public TaskScenario bindScript(long scenarioId, long scriptVersionId) {
         PersistentTaskScenarioRecord scenario = requireScenario(scenarioId);
         PersistentTaskPlanRecord plan = requirePlan(scenario.getPlanId());
-        boolean afterApproval = (plan.getPhase() == PlanPhase.REVIEW
-                && plan.getStatus() == PlanStatus.APPROVED)
-                || ((plan.getPhase() == PlanPhase.EXECUTION
-                || plan.getPhase() == PlanPhase.REPORT)
-                && plan.getStatus() != PlanStatus.RUNNING);
+        boolean afterApproval = plan.getStatus() == PlanStatus.EXECUTING
+                || plan.getStatus() == PlanStatus.REPORTING
+                || plan.getStatus() == PlanStatus.PUBLISHED;
         if (!afterApproval) {
             throw new PlanStateException(
-                    "PLAN_STATE：评审通过后才可关联脚本（当前 " + plan.getPhase() + "/" + plan.getStatus() + "）",
-                    plan.getPhase(), plan.getStatus(), List.of("APPROVE", "START_EXECUTION"));
+                    "PLAN_STATE：评审通过后才可关联脚本（当前 " + plan.getStatus() + "）",
+                    plan.getStatus(), List.of("APPROVE"));
         }
         validateScript(plan.getProjectId(), scriptVersionId);
         scenario.bindScript(scriptVersionId);
         return toScenario(scenario);
     }
 
-    /** 场景增删改阶段门禁（设计 §4.5）：PUBLISH 与 EXECUTION/RUNNING 冻结；其余阶段放行。 */
+    /** 场景增删改门禁（spec §4.4）：存在活跃执行则冻结；发布后不冻结。 */
     private void requireScenarioMutationAllowed(PersistentTaskPlanRecord plan) {
-        boolean frozen = plan.getPhase() == com.yr.perftest.platform.task.plandoc.PlanPhase.PUBLISH
-                || (plan.getPhase() == com.yr.perftest.platform.task.plandoc.PlanPhase.EXECUTION
-                    && plan.getStatus() == com.yr.perftest.platform.task.plandoc.PlanStatus.RUNNING);
-        if (frozen) {
-            throw new com.yr.perftest.platform.task.plandoc.PlanStateException(
-                    "PLAN_STATE：场景在执行中/已发布阶段禁止增删改（当前 " + plan.getPhase() + "/" + plan.getStatus() + "）",
-                    plan.getPhase(), plan.getStatus(), java.util.List.of("PUBLISH", "NEW_REVISION"));
+        for (PersistentTaskScenarioRecord scenario : scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(plan.getId())) {
+            boolean active = executionRepository.findAllByScenarioIdOrderByIdDesc(scenario.getId()).stream()
+                    .anyMatch(e -> e.getStatus() == com.yr.perftest.platform.execution.ExecutionStatus.QUEUED
+                            || e.getStatus() == com.yr.perftest.platform.execution.ExecutionStatus.RUNNING
+                            || e.getStatus() == com.yr.perftest.platform.execution.ExecutionStatus.STOPPING);
+            if (active) {
+                throw new com.yr.perftest.platform.task.plandoc.PlanStateException(
+                        "PLAN_STATE：存在活跃执行，场景禁止增删改（当前 " + plan.getStatus() + "）",
+                        plan.getStatus(), java.util.List.of("FINISH"));
+            }
         }
     }
 

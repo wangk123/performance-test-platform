@@ -170,12 +170,12 @@ class PlanVerdictReportTest {
 
     private void forceExecutionDone() {
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
-        plan.forceState(PlanPhase.EXECUTION, PlanStatus.DONE);
+        plan.forceState(PlanStatus.REPORTING);
         planRepository.save(plan);
     }
 
     @Test
-    void verdictAvailabilityFollowsExecutionPublishAndNewRevisionChain() {
+    void verdictAvailabilityFollowsReportingPublishChain() {
         docWithMetrics("""
                 ### 指标达成表
 
@@ -184,24 +184,18 @@ class PlanVerdictReportTest {
                 | 登录 TPS | ≥ 200 | 待执行 | 待判定 |
                 """);
         finishedExecution("登录场景");
-        PersistentTaskPlanRecord running = planRepository.findById(planId).orElseThrow();
-        running.forceState(PlanPhase.EXECUTION, PlanStatus.RUNNING);
-        planRepository.save(running);
-        assertThat(verdictService.view(planId).available()).isFalse(); // 执行中不可读
+        PersistentTaskPlanRecord executing = planRepository.findById(planId).orElseThrow();
+        executing.forceState(PlanStatus.EXECUTING);
+        planRepository.save(executing);
+        assertThat(verdictService.view(planId).available()).isFalse(); // 执行中未进入报告编辑不可读
 
-        forceExecutionDone(); // 执行全部完成即可判读（发布预填依赖）
+        forceExecutionDone(); // 人工确认执行完成进入报告编辑即可判读（发布预填依赖）
         PlanVerdictService.VerdictView generated = verdictService.view(planId);
         assertThat(generated.available()).isTrue();
         assertThat(generated.present()).isTrue();
         assertThat(generated.overall()).isEqualTo("FAILED"); // 真实判等：TPS 623.5 < 700
 
-        workflow.publish(planId, OWNER, "结论", "V1.0"); // PUBLISH/PUBLISHED
+        workflow.publish(planId, OWNER, "结论", "V1.0"); // REPORTING→PUBLISHED
         assertThat(verdictService.view(planId).available()).isTrue();
-
-        workflow.newRevision(planId, OWNER); // 复测重置回 DRAFT
-        PlanVerdictService.VerdictView reset = verdictService.view(planId);
-        assertThat(reset.available()).isFalse();
-        assertThat(reset.overall()).isEqualTo("NONE");
-        assertThat(reset.rows()).isEmpty();
     }
 }

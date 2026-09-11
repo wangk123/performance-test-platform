@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
 import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
-import com.yr.perftest.platform.task.plandoc.PlanPhase;
 import com.yr.perftest.platform.task.plandoc.PlanStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +23,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/** 计划 REST 面（spec 2026-09-11 §4.1/§6）：四流转 + finish-execution 新增 + 六废弃端点删除。 */
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:plan-api-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE",
         "spring.jpa.hibernate.ddl-auto=validate",
@@ -59,25 +59,31 @@ class PlanDocumentApiTest {
                 .andReturn();
     }
 
+    private void forceStatus(PlanStatus status) {
+        PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
+        plan.forceState(status);
+        planRepository.save(plan);
+    }
+
     @Test
-    void getPlanReturnsPermissionsAlongside() throws Exception {
+    void getPlanReturnsPermissionsAndActiveExecutions() throws Exception {
         mockMvc.perform(get("/api/task-plans/" + planId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.plan.name").value("计划A"))
-                .andExpect(jsonPath("$.plan.phase").value("DRAFT"))
+                .andExpect(jsonPath("$.plan.status").value("PLANNING"))
                 .andExpect(jsonPath("$.permissions.SUBMIT").value(true))
-                .andExpect(jsonPath("$.permissions.PUBLISH").value(false));
+                .andExpect(jsonPath("$.permissions.PUBLISH").value(false))
+                .andExpect(jsonPath("$.activeExecutions").value(0));
     }
 
     @Test
     void fullTransitionChainOverRest() throws Exception {
-        transition("submit", "{\"comment\":\"请评审\"}").getResponse().getStatus();
-        transition("start-review", null);
+        transition("submit", "{\"comment\":\"请评审\"}");
         transition("approve", null);
-        transition("start-execution", null);
+        transition("finish-execution", null);
         mockMvc.perform(get("/api/task-plans/" + planId).header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.plan.phase").value("EXECUTION"))
-                .andExpect(jsonPath("$.plan.status").value("PENDING"));
+                .andExpect(jsonPath("$.plan.status").value("REPORTING"))
+                .andExpect(jsonPath("$.permissions.PUBLISH").value(true));
     }
 
     @Test
@@ -87,6 +93,31 @@ class PlanDocumentApiTest {
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
         assertThat(body.get("code").asText()).isEqualTo("PLAN_STATE");
         assertThat(body.get("allowedActions").toString()).contains("SUBMIT");
+        assertThat(body.has("phase")).isFalse();
+        assertThat(body.get("status").asText()).isEqualTo("PLANNING");
+    }
+
+    @Test
+    void finishExecutionRequiresExecutingStatus() throws Exception {
+        MvcResult result = transition("finish-execution", null);
+        assertThat(result.getResponse().getStatus()).isEqualTo(409);
+        forceStatus(PlanStatus.EXECUTING);
+        mockMvc.perform(post("/api/task-plans/" + planId + "/finish-execution")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.plan.status").value("REPORTING"));
+    }
+
+    @Test
+    void deprecatedTransitionEndpointsAreRemoved() throws Exception {
+        for (String action : new String[]{"start-review", "reject", "withdraw",
+                "back-to-draft", "start-execution", "new-revision"}) {
+            mockMvc.perform(post("/api/task-plans/" + planId + "/" + action)
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isNotFound());
+        }
     }
 
     @Test
@@ -110,21 +141,12 @@ class PlanDocumentApiTest {
     }
 
     @Test
-    void rejectRequiresCommentOverRest() throws Exception {
-        transition("submit", null);
-        transition("start-review", null);
-        assertThat(transition("reject", "{\"comment\":\"\"}").getResponse().getStatus()).isEqualTo(400);
-    }
-
-    @Test
     void publishRequiresConclusionOverRest() throws Exception {
-        PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
-        plan.forceState(PlanPhase.REPORT, PlanStatus.DONE);
-        planRepository.save(plan);
+        forceStatus(PlanStatus.REPORTING);
         assertThat(transition("publish", "{\"conclusion\":\" \"}").getResponse().getStatus()).isEqualTo(400);
         transition("publish", "{\"conclusion\":\"达成，可发布\",\"versionNo\":\"V1.0\"}");
         mockMvc.perform(get("/api/task-plans/" + planId).header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.plan.phase").value("PUBLISH"))
+                .andExpect(jsonPath("$.plan.status").value("PUBLISHED"))
                 .andExpect(jsonPath("$.plan.body").value(org.hamcrest.Matchers.containsString("**总体结论**：达成，可发布")));
     }
 
@@ -187,7 +209,7 @@ class PlanDocumentApiTest {
     }
 
     @Test
-    void updateDefaultConfigGuardsBlankNameAndNonOwner() throws Exception {
+    void updateDefaultConfigGuardsBlankNameAndNonMember() throws Exception {
         String outsider = AuthTestSupport.loginToken(mockMvc, objectMapper, "tester", "tester123");
         mockMvc.perform(put("/api/task-plans/" + planId)
                         .header("Authorization", "Bearer " + outsider)

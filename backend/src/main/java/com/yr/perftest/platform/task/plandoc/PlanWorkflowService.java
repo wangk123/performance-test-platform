@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 /** 计划状态机流转（设计 §4/§6）；批注域见 PlanCommentService。报告/发布/分享/预检分任务追加；模板 CRUD 自本任务起。 */
 @Service
@@ -76,7 +77,8 @@ public class PlanWorkflowService {
     @Transactional
     public void submit(long planId, HumanPrincipal actor, String comment) {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "SUBMIT");
-        plan.transitionTo(PlanPhase.REVIEW, PlanStatus.PENDING);
+        requireStatus(plan, PlanStatus.PLANNING, "SUBMIT");
+        plan.transitionTo(PlanStatus.IN_REVIEW);
         commentService.systemComment(planId, actor.username() + " 提交评审");
         if (comment != null && !comment.isBlank()) {
             commentService.appendReviewNote(planId, actor.username(), comment.trim());
@@ -84,74 +86,38 @@ public class PlanWorkflowService {
     }
 
     @Transactional
-    public void startReview(long planId, HumanPrincipal actor) {
-        PersistentTaskPlanRecord plan = requireActor(planId, actor, "START_REVIEW");
-        plan.transitionTo(PlanPhase.REVIEW, PlanStatus.IN_REVIEW);
-        commentService.systemComment(planId, actor.username() + " 开始评审");
-    }
-
-    @Transactional
     public void approve(long planId, HumanPrincipal actor, String comment) {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "APPROVE");
-        plan.transitionTo(PlanPhase.REVIEW, PlanStatus.APPROVED);
-        commentService.systemComment(planId, "评审通过（审批人：" + actor.username() + "）");
+        requireStatus(plan, PlanStatus.IN_REVIEW, "APPROVE");
+        plan.transitionTo(PlanStatus.EXECUTING);
+        commentService.systemComment(planId, "评审通过，进入执行阶段（审批人：" + actor.username() + "）");
         if (comment != null && !comment.isBlank()) {
             commentService.appendReviewNote(planId, actor.username(), comment.trim());
         }
     }
 
+    /** 执行完成：人工确认进入报告阶段（spec §4.1 迁移 3）。活跃执行只由前端二次确认告警，后端不拦截。 */
     @Transactional
-    public void reject(long planId, HumanPrincipal actor, String comment) {
-        if (comment == null || comment.isBlank()) {
-            throw new PlanValidationException("PLAN_INVALID：驳回必须附批注");
-        }
-        PersistentTaskPlanRecord plan = requireActor(planId, actor, "REJECT");
-        plan.transitionTo(PlanPhase.DRAFT, PlanStatus.DRAFT);
-        commentService.appendReviewNote(planId, actor.username(), comment.trim());
-        commentService.systemComment(planId, actor.username() + " 驳回，退回草稿");
-    }
-
-    @Transactional
-    public void withdraw(long planId, HumanPrincipal actor) {
-        PersistentTaskPlanRecord plan = requireActor(planId, actor, "WITHDRAW");
-        plan.transitionTo(PlanPhase.DRAFT, PlanStatus.DRAFT);
-        commentService.systemComment(planId, actor.username() + " 撤回评审，退回草稿");
-    }
-
-    @Transactional
-    public void backToDraft(long planId, HumanPrincipal actor) {
-        PersistentTaskPlanRecord plan = requireActor(planId, actor, "BACK_TO_DRAFT");
-        if (hasAnyExecution(planId)) {
-            throw new PlanStateException("PLAN_STATE：已产生执行，不可退回草稿（当前 "
-                    + plan.getPhase() + "/" + plan.getStatus() + "）",
-                    plan.getPhase(), plan.getStatus(), List.of("PUBLISH"));
-        }
-        plan.transitionTo(PlanPhase.DRAFT, PlanStatus.DRAFT);
-        commentService.systemComment(planId, actor.username() + " 退回草稿");
-    }
-
-    @Transactional
-    public void startExecution(long planId, HumanPrincipal actor) {
-        PersistentTaskPlanRecord plan = requireActor(planId, actor, "START_EXECUTION");
-        plan.transitionTo(PlanPhase.EXECUTION, PlanStatus.PENDING);
-        commentService.systemComment(planId, actor.username() + " 进入执行阶段");
+    public void finishExecution(long planId, HumanPrincipal actor) {
+        PersistentTaskPlanRecord plan = requireActor(planId, actor, "FINISH");
+        requireStatus(plan, PlanStatus.EXECUTING, "FINISH");
+        plan.transitionTo(PlanStatus.REPORTING);
+        commentService.systemComment(planId, actor.username() + " 执行完成，进入报告阶段");
     }
 
     public record PrecheckReport(boolean ok, List<String> failures, List<String> autoPassed) {
     }
 
-    /** 执行门禁（设计 §10.1）：阶段 + 脚本 + 首执行环境检查。返回 planId。 */
+    /** 执行门禁（设计 §10.1）：状态 + 脚本 + 首执行环境检查。返回 planId。 */
     @Transactional
     public long assertExecutionAllowed(long scenarioId) {
         PersistentTaskScenarioRecord scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new PlanValidationException("PLAN_INVALID：scenario does not exist"));
         PersistentTaskPlanRecord plan = requirePlan(scenario.getPlanId());
-        boolean phaseOk = plan.getPhase() == PlanPhase.EXECUTION
-                || (plan.getPhase() == PlanPhase.REPORT && plan.getStatus() != PlanStatus.GENERATING);
+        boolean phaseOk = plan.getStatus() == PlanStatus.EXECUTING || plan.getStatus() == PlanStatus.REPORTING;
         if (!phaseOk) {
-            throw new PlanStateException("PLAN_STATE：请先通过评审并进入执行阶段（当前 "
-                    + plan.getPhase() + "/" + plan.getStatus() + "）",
-                    plan.getPhase(), plan.getStatus(), List.of("SUBMIT", "START_REVIEW", "APPROVE", "START_EXECUTION"));
+            throw new PlanStateException("PLAN_STATE：请先通过评审进入执行阶段（当前 " + plan.getStatus() + "）",
+                    plan.getStatus(), List.of("SUBMIT", "APPROVE"));
         }
         if (scenario.getScriptVersionId() == null) {
             throw new PlanValidationException("PLAN_INVALID：场景「" + scenario.getName() + "」未关联脚本，无法执行");
@@ -168,18 +134,7 @@ public class PlanWorkflowService {
         return plan.getId();
     }
 
-    @Transactional
-    public void onExecutionStarted(long planId) {
-        PersistentTaskPlanRecord plan = requirePlan(planId);
-        if (plan.getPhase() == PlanPhase.REPORT) {
-            plan.transitionTo(PlanPhase.EXECUTION, PlanStatus.RUNNING); // 报告作废（设计 §4.3）
-        } else if (plan.getPhase() == PlanPhase.EXECUTION
-                && (plan.getStatus() == PlanStatus.PENDING || plan.getStatus() == PlanStatus.DONE)) {
-            plan.transitionTo(PlanPhase.EXECUTION, PlanStatus.RUNNING);
-        }
-    }
-
-    /** 终态联动：回填执行摘要 + 全部结束时置 DONE（设计 §4.3/§8）。 */
+    /** 终态联动：回填执行摘要（设计 §4.5 执行生命周期不再回写计划状态）。 */
     @Transactional
     public void onExecutionTerminal(long executionId) {
         PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId).orElse(null);
@@ -193,10 +148,6 @@ public class PlanWorkflowService {
         PersistentTaskPlanRecord plan = requirePlan(scenario.getPlanId());
         String entryLine = buildEntryLine(execution);
         documentService.backfillExecutionRecord(plan.getId(), scenario.getName(), executionId, entryLine);
-        if (plan.getPhase() == PlanPhase.EXECUTION && plan.getStatus() == PlanStatus.RUNNING
-                && !documentService.hasActiveExecution(plan.getId())) {
-            plan.transitionTo(PlanPhase.EXECUTION, PlanStatus.DONE);
-        }
     }
 
     private String buildEntryLine(PersistentScenarioExecutionRecord execution) {
@@ -413,7 +364,7 @@ public class PlanWorkflowService {
             throw new PlanValidationException("SHARE_NOT_FOUND：分享链接不存在");
         }
         PersistentTaskPlanRecord plan = requirePlan(record.getPlanId());
-        if (plan.getPhase() != PlanPhase.PUBLISH) {
+        if (plan.getStatus() != PlanStatus.PUBLISHED) {
             throw new PlanValidationException("SHARE_NOT_FOUND：分享链接不存在");
         }
         return new SharedPlanView(plan.getName(), plan.getBody(), plan.getPublishedAt());
@@ -430,12 +381,9 @@ public class PlanWorkflowService {
     @Transactional
     public TaskPlan publish(long planId, HumanPrincipal actor, String conclusion, String versionNo) {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "PUBLISH");
+        requireStatus(plan, PlanStatus.REPORTING, "PUBLISH");
         if (conclusion == null || conclusion.isBlank()) {
             throw new PlanValidationException("PLAN_INVALID：发布必须填写总体结论");
-        }
-        if (documentService.hasActiveExecution(planId)) {
-            throw new PlanStateException("PLAN_STATE：存在活跃执行，不可发布",
-                    plan.getPhase(), plan.getStatus(), List.of());
         }
         String body = plan.getBody() == null ? "" : plan.getBody();
         // 发布即生成（报告 Tab 手动动作并入）：冻结前回填执行结果总览，
@@ -461,17 +409,9 @@ public class PlanWorkflowService {
         Instant now = Instant.now();
         buildPublishSnapshot(plan, actor.username(), now);
         plan.applyPublish(now);
-        // 修订记录合并（spec §9）：发布动作登记为 kind=PUBLISH 版本，快照=含结论正文、阶段=PUBLISH
+        // 修订记录合并（spec §9）：发布动作登记为 kind=PUBLISH 版本，快照=含结论正文、plan_phase 历史快照列写入当前状态
         versionService.publishForWorkflow(planId, actor, versionNo, conclusion);
         commentService.systemComment(planId, "已发布（revision=" + plan.getRevision() + "，发布人：" + actor.username() + "）");
-        return planService.getPlan(planId);
-    }
-
-    @Transactional
-    public TaskPlan newRevision(long planId, HumanPrincipal actor) {
-        PersistentTaskPlanRecord plan = requireActor(planId, actor, "NEW_REVISION");
-        plan.applyNewRevision();
-        commentService.systemComment(planId, actor.username() + " 发起新修订（revision=" + plan.getRevision() + "）");
         return planService.getPlan(planId);
     }
 
@@ -687,30 +627,32 @@ public class PlanWorkflowService {
                 .orElseThrow(() -> new PlanValidationException("PLAN_INVALID：task plan does not exist"));
     }
 
-    /** 校验动作权限并返回计划记录；角色不足抛 403，角色可而状态不允许抛 409（附允许动作）。 */
+    /** 校验动作权限并返回计划记录；非项目成员 403；成员但状态不允许 409（附允许动作）。 */
     private PersistentTaskPlanRecord requireActor(long planId, HumanPrincipal actor, String action) {
         PersistentTaskPlanRecord plan = requirePlan(planId);
         if (actor == null) {
             throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：未登录");
         }
         ProjectAccessResolver.PlanActorRole role = accessResolver.resolve(plan.getProjectId(), actor, plan.getCreatedBy());
-        java.util.Map<String, Boolean> permissions = PlanAccess.compute(role, plan.getPhase(), plan.getStatus(), hasAnyExecution(planId));
+        if (role == ProjectAccessResolver.PlanActorRole.NONE) {
+            throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：非项目成员");
+        }
+        Map<String, Boolean> permissions = PlanAccess.compute(plan.getStatus());
         if (!Boolean.TRUE.equals(permissions.get(action))) {
-            if (role == ProjectAccessResolver.PlanActorRole.NONE) {
-                throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：非项目成员");
-            }
-            // 同状态下高权限角色可执行 → 属角色不足（403）；否则属状态不允许（409），与 PlanDocumentService 口径一致
-            java.util.Map<String, Boolean> privileged = PlanAccess.compute(
-                    ProjectAccessResolver.PlanActorRole.PLAN_OWNER, plan.getPhase(), plan.getStatus(), hasAnyExecution(planId));
-            if (Boolean.TRUE.equals(privileged.get(action))) {
-                throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：当前角色无权执行「" + action + "」");
-            }
             throw new PlanStateException("PLAN_STATE：当前状态不允许「" + action + "」（当前 "
-                    + plan.getPhase() + "/" + plan.getStatus() + "，允许："
-                    + allowedActions(permissions) + "）",
-                    plan.getPhase(), plan.getStatus(), allowedActions(permissions));
+                    + plan.getStatus() + "，允许：" + allowedActions(permissions) + "）",
+                    plan.getStatus(), allowedActions(permissions));
         }
         return plan;
+    }
+
+    private void requireStatus(PersistentTaskPlanRecord plan, PlanStatus expected, String action) {
+        if (plan.getStatus() != expected) {
+            Map<String, Boolean> permissions = PlanAccess.compute(plan.getStatus());
+            throw new PlanStateException("PLAN_STATE：当前状态不允许「" + action + "」（当前 "
+                    + plan.getStatus() + "，允许：" + allowedActions(permissions) + "）",
+                    plan.getStatus(), allowedActions(permissions));
+        }
     }
 
     private List<String> allowedActions(java.util.Map<String, Boolean> permissions) {

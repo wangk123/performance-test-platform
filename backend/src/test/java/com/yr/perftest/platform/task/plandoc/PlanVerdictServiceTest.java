@@ -223,13 +223,13 @@ class PlanVerdictServiceTest {
     }
 
     @Test
-    void viewGatesByPhaseAndResetsAfterNewRevision() {
+    void viewAvailableOnlyInReportingAndPublished() {
         doc("""
                 | 对象 | 指标 | 目标值 | 口径 |
                 |---|---|---|---|
                 | 登录场景 | TPS | ≥ 500 | 口径 |""");
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
-        plan.forceState(PlanPhase.REPORT, PlanStatus.PENDING); // 报告未生成
+        plan.forceState(PlanStatus.IN_REVIEW); // 报告未进入
         planRepository.save(plan);
         PlanVerdictService.VerdictView before = verdictService.view(planId);
         assertThat(before.present()).isTrue();
@@ -237,14 +237,14 @@ class PlanVerdictServiceTest {
         assertThat(before.overall()).isEqualTo("NONE");
         assertThat(before.rows()).isEmpty();
 
-        plan.forceState(PlanPhase.REPORT, PlanStatus.DONE);
+        plan.forceState(PlanStatus.REPORTING);
         planRepository.save(plan);
         PlanVerdictService.VerdictView after = verdictService.view(planId);
         assertThat(after.available()).isTrue();
         assertThat(after.overall()).isEqualTo("INDETERMINATE"); // 有指标行、场景无执行 → 无法判定
         assertThat(after.prefillConclusion()).contains("无法判定");
 
-        plan.forceState(PlanPhase.PUBLISH, PlanStatus.PUBLISHED);
+        plan.forceState(PlanStatus.PUBLISHED);
         planRepository.save(plan);
         assertThat(verdictService.view(planId).available()).isTrue();
     }

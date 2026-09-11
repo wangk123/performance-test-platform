@@ -75,7 +75,7 @@ public class PlanVersionService {
             PersistentPlanVersionRecord latest = existing.get(0);
             if (latest.getVersionNo().equals(no)) {
                 latest.applyOverwrite(plan.getBody() == null ? "" : plan.getBody(), note, actor.username(),
-                        plan.getPhase().name(), plan.getRevision(), Instant.now());
+                        plan.getStatus().name(), plan.getRevision(), Instant.now());
                 return toView(versionRepository.save(latest));
             }
             Integer comparison = compareVersionNumbers(no, latest.getVersionNo());
@@ -89,7 +89,7 @@ public class PlanVersionService {
         }
         PersistentPlanVersionRecord created = new PersistentPlanVersionRecord(planId, no, note,
                 actor.username(), actor.username(), plan.getBody() == null ? "" : plan.getBody(),
-                plan.getPhase().name(), plan.getRevision(), kind, Instant.now());
+                plan.getStatus().name(), plan.getRevision(), kind, Instant.now());
         return toView(versionRepository.save(created));
     }
 

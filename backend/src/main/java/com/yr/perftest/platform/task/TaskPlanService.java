@@ -161,11 +161,6 @@ public class TaskPlanService {
     ) {
         PersistentTaskPlanRecord plan = planRepository.findById(planId)
                 .orElseThrow(() -> new ExecutionValidationException("task plan does not exist"));
-        if (plan.getPhase() != com.yr.perftest.platform.task.plandoc.PlanPhase.DRAFT) {
-            throw new com.yr.perftest.platform.task.plandoc.PlanStateException(
-                    "PLAN_STATE：默认执行配置仅草稿阶段可修改（当前 " + plan.getPhase() + "/" + plan.getStatus() + "）",
-                    plan.getPhase(), plan.getStatus(), java.util.List.of("WITHDRAW", "BACK_TO_DRAFT"));
-        }
         plan.updateProfile(
                 name,
                 remark,
@@ -221,7 +216,6 @@ public class TaskPlanService {
                 taskJson.readLongList(plan.getDefaultWorkerNodeIdsJson()),
                 taskJson.readLongList(plan.getDefaultMonitorTargetIdsJson()),
                 scenarioRepository.countByPlanId(plan.getId()),
-                plan.getPhase(),
                 plan.getStatus(),
                 plan.getBody(),
                 plan.getRevision(),

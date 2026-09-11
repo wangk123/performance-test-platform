@@ -91,14 +91,14 @@ public class PlatformExceptionHandler {
     public ResponseEntity<PlanErrorBody> handlePlanState(com.yr.perftest.platform.task.plandoc.PlanStateException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new PlanErrorBody(
                 "PLAN_STATE", exception.getMessage(), null, null,
-                exception.getPhase().name(), exception.getStatus().name(), exception.getAllowedActions()));
+                exception.getStatus().name(), exception.getAllowedActions()));
     }
 
     @ExceptionHandler(com.yr.perftest.platform.task.plandoc.PlanRevisionConflictException.class)
     public ResponseEntity<PlanErrorBody> handlePlanRevisionConflict(com.yr.perftest.platform.task.plandoc.PlanRevisionConflictException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new PlanErrorBody(
                 "PLAN_REVISION_CONFLICT", exception.getMessage(),
-                exception.getCurrentRevision(), exception.getServerMarkdown(), null, null, null));
+                exception.getCurrentRevision(), exception.getServerMarkdown(), null, null));
     }
 
     @ExceptionHandler(com.yr.perftest.platform.task.plandoc.PlanPrecheckFailedException.class)

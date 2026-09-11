@@ -16,11 +16,10 @@ class PlanEntityExtensionTest {
     private TestEntityManager entityManager;
 
     @Test
-    void newPlanDefaultsToDraftPhaseAndRevisionOne() {
+    void newPlanDefaultsToPlanningStatusAndRevisionOne() {
         PersistentTaskPlanRecord plan = entityManager.persistFlushFind(
                 new PersistentTaskPlanRecord(1L, "plan-a", null, "admin"));
-        assertThat(plan.getPhase()).isEqualTo(PlanPhase.DRAFT);
-        assertThat(plan.getStatus()).isEqualTo(PlanStatus.DRAFT);
+        assertThat(plan.getStatus()).isEqualTo(PlanStatus.PLANNING);
         assertThat(plan.getRevision()).isEqualTo(1);
         assertThat(plan.getBody()).isNull();
         assertThat(plan.getPublishedAt()).isNull();

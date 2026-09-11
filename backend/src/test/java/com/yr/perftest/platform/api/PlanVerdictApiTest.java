@@ -8,7 +8,6 @@ import com.yr.perftest.platform.project.PersistentProjectRepository;
 import com.yr.perftest.platform.project.ProjectRole;
 import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
 import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
-import com.yr.perftest.platform.task.plandoc.PlanPhase;
 import com.yr.perftest.platform.task.plandoc.PlanStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,13 +57,13 @@ class PlanVerdictApiTest {
                 |---|---|---|---|
                 | 登录场景 | TPS | ≥ 500 | 口径 |
                 """);
-        plan.forceState(PlanPhase.REPORT, PlanStatus.DONE);
+        plan.forceState(PlanStatus.REPORTING);
         planId = planRepository.save(plan).getId();
         token = authTokenService.issue("admin");
     }
 
     @Test
-    void verdictReadableByProjectMemberWhenReportDone() throws Exception {
+    void verdictReadableByProjectMemberWhenReporting() throws Exception {
         mockMvc.perform(get("/api/task-plans/{id}/verdict", planId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())

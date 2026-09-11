@@ -1,6 +1,5 @@
 package com.yr.perftest.platform.task;
 
-import com.yr.perftest.platform.task.plandoc.PlanPhase;
 import com.yr.perftest.platform.task.plandoc.PlanStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -32,11 +31,7 @@ public class PersistentTaskPlanRecord {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private PlanPhase phase = PlanPhase.DRAFT;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private PlanStatus status = PlanStatus.DRAFT;
+    private PlanStatus status = PlanStatus.PLANNING;
 
     @Lob
     private String body;
@@ -120,7 +115,6 @@ public class PersistentTaskPlanRecord {
         return updatedAt;
     }
 
-    public PlanPhase getPhase() { return phase; }
     public PlanStatus getStatus() { return status; }
     public String getBody() { return body; }
     public int getRevision() { return revision; }
@@ -142,15 +136,13 @@ public class PersistentTaskPlanRecord {
     }
 
     /** 仅供测试与数据订正直接置状态；正常流转走 PlanWorkflowService。 */
-    public void forceState(PlanPhase phase, PlanStatus status) {
-        this.phase = phase;
+    public void forceState(PlanStatus status) {
         this.status = status;
         this.updatedAt = Instant.now();
     }
 
     /** 状态机流转写入（前置校验在 PlanWorkflowService）。 */
-    public void transitionTo(PlanPhase phase, PlanStatus status) {
-        this.phase = phase;
+    public void transitionTo(PlanStatus status) {
         this.status = status;
         this.updatedAt = Instant.now();
     }
@@ -179,18 +171,8 @@ public class PersistentTaskPlanRecord {
     }
 
     public void applyPublish(Instant publishedAt) {
-        this.phase = PlanPhase.PUBLISH;
-        this.status = PlanStatus.PUBLISHED;
+        transitionTo(PlanStatus.PUBLISHED);
         this.publishedAt = publishedAt;
-        this.updatedAt = Instant.now();
-    }
-
-    public void applyNewRevision() {
-        this.phase = PlanPhase.DRAFT;
-        this.status = PlanStatus.DRAFT;
-        this.revision = this.revision + 1;
-        this.precheckExecutedAt = null;
-        this.updatedAt = Instant.now();
     }
 
     public void markPrecheckExecuted(Instant at) {

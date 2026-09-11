@@ -15,7 +15,7 @@ import com.yr.perftest.platform.task.TaskScenarioService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 快捷执行：单事务内 建计划(EXECUTION/PENDING)→系统批注→建场景(带脚本)→start（设计 §10.4）。 */
+/** 快捷执行：单事务内 建计划(直接置 EXECUTING)→系统批注→建场景(带脚本)→start（设计 §10.4）。 */
 @Service
 public class PlanQuickExecuteService {
 
@@ -58,7 +58,7 @@ public class PlanQuickExecuteService {
                 script.getProjectId(), planName, "从脚本列表直接执行", firstAvailableControllerNodeId(),
                 null, null, username, null);
         PersistentTaskPlanRecord raw = planRepository.findById(plan.id()).orElseThrow();
-        raw.forceState(PlanPhase.EXECUTION, PlanStatus.PENDING);
+        raw.forceState(PlanStatus.EXECUTING);
         planRepository.save(raw);
         commentService.systemComment(plan.id(), "快捷执行自动通过评审（操作人：" + username + "）");
         com.yr.perftest.platform.task.TaskScenario scenario = scenarioService.createScenario(

@@ -1,47 +1,31 @@
 package com.yr.perftest.platform.task.plandoc;
 
-import com.yr.perftest.platform.project.ProjectAccessResolver.PlanActorRole;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** 动作可见性矩阵（设计 §13.2 + §4.4 + §4.5）。键集合见 Global Constraints。 */
+/**
+ * 动作可见性矩阵（spec 2026-09-11 §4）：无角色维度（权限专项前全员=项目成员门槛在服务层校验）。
+ * 键集见 Global Constraints；流转键 SUBMIT/APPROVE/FINISH/PUBLISH 每状态至多一个为 true（单行道）。
+ */
 public final class PlanAccess {
 
     private PlanAccess() {
     }
 
-    public static Map<String, Boolean> compute(PlanActorRole role, PlanPhase phase, PlanStatus status, boolean hasAnyExecution) {
-        boolean ownerLike = role == PlanActorRole.SYSTEM_ADMIN
-                || role == PlanActorRole.PROJECT_OWNER
-                || role == PlanActorRole.PLAN_OWNER;
-        boolean memberLike = ownerLike || role == PlanActorRole.MEMBER;
-        // 用户决策（2026-09-11）：EDIT 不再限 DRAFT 阶段——任意阶段负责人均可编辑文档（评审/执行/发布中改文档走
-        // revision 冲突保护兜底）；角色门槛保留（MEMBER 只读）。
-        boolean editable = ownerLike;
-        boolean frozen = phase == PlanPhase.PUBLISH;
-
+    public static Map<String, Boolean> compute(PlanStatus status) {
         Map<String, Boolean> p = new LinkedHashMap<>();
-        p.put("EDIT", editable);
-        p.put("SUBMIT", ownerLike && phase == PlanPhase.DRAFT);
-        p.put("START_REVIEW", memberLike && phase == PlanPhase.REVIEW && status == PlanStatus.PENDING);
-        p.put("APPROVE", memberLike && phase == PlanPhase.REVIEW && status == PlanStatus.IN_REVIEW);
-        p.put("REJECT", memberLike && phase == PlanPhase.REVIEW && status == PlanStatus.IN_REVIEW);
-        p.put("WITHDRAW", ownerLike && phase == PlanPhase.REVIEW && (status == PlanStatus.PENDING || status == PlanStatus.IN_REVIEW));
-        p.put("BACK_TO_DRAFT", ownerLike && !hasAnyExecution
-                && ((phase == PlanPhase.REVIEW && status == PlanStatus.APPROVED)
-                || (phase == PlanPhase.EXECUTION && status == PlanStatus.PENDING)));
-        p.put("START_EXECUTION", memberLike && phase == PlanPhase.REVIEW && status == PlanStatus.APPROVED);
-        // 报告阶段不再手动进入（报告 Tab 已删）：执行全部完成即可发布；REPORT·DONE 分支兼容存量数据
-        p.put("PUBLISH", ownerLike
-                && (phase == PlanPhase.EXECUTION || phase == PlanPhase.REPORT)
-                && status == PlanStatus.DONE);
-        p.put("NEW_REVISION", ownerLike && frozen);
-        p.put("PRECHECK_RUN", memberLike && !frozen);
-        p.put("PRECHECK_SKIP", memberLike && !frozen);
-        p.put("DELETE", ownerLike);
-        p.put("COMMENT", memberLike && (phase == PlanPhase.DRAFT || phase == PlanPhase.REVIEW));
-        p.put("SHARE", ownerLike && frozen);
+        p.put("EDIT", true);                 // 任意状态可编辑，revision 冲突保护兜底
+        p.put("COMMENT", true);              // 批注不再限评审域
+        p.put("NEW_VERSION", true);          // 新增版本与状态解耦
+        p.put("DELETE", true);
+        p.put("PRECHECK_RUN", true);
+        p.put("PRECHECK_SKIP", true);
+        p.put("SUBMIT", status == PlanStatus.PLANNING);
+        p.put("APPROVE", status == PlanStatus.IN_REVIEW);
+        p.put("FINISH", status == PlanStatus.EXECUTING);
+        p.put("PUBLISH", status == PlanStatus.REPORTING);
+        p.put("EXECUTE", status == PlanStatus.EXECUTING || status == PlanStatus.REPORTING);
+        p.put("SHARE", status == PlanStatus.PUBLISHED);
         return p;
     }
 }

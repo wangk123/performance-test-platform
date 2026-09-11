@@ -196,15 +196,15 @@ class PlanCommentServiceTest {
     }
 
     @Test
-    void resolveBlockedAfterExecution() {
+    void resolveAllowedAfterApproval() {
         PlanCommentService.CommentView root = comments.addComment(
                 planId, REVIEWER, new PlanCommentService.AddCommentCommand("根", null, null));
         workflow.submit(planId, OWNER, null);
-        workflow.startReview(planId, REVIEWER);
-        workflow.approve(planId, REVIEWER, null);
-        workflow.startExecution(planId, REVIEWER);
-        assertThatThrownBy(() -> comments.resolveComment(planId, root.id(), REVIEWER, true))
-                .isInstanceOf(PlanStateException.class);
+        workflow.approve(planId, REVIEWER, null); // 进入 EXECUTING
+        // 批注/解决/重开任意状态可用（spec §4.4）
+        comments.resolveComment(planId, root.id(), REVIEWER, true);
+        assertThat(comments.listComments(planId, OWNER).stream()
+                .filter(c -> c.id() == root.id()).findFirst().orElseThrow().resolved()).isTrue();
     }
 
     @Test
@@ -217,14 +217,13 @@ class PlanCommentServiceTest {
     }
 
     @Test
-    void commentBlockedOutsideReviewPhases() {
+    void commentAllowedInAnyStatus() {
+        // 批注不再限评审域（spec §4.4）：执行阶段仍可批注
         workflow.submit(planId, OWNER, null);
-        workflow.startReview(planId, REVIEWER);
-        workflow.approve(planId, REVIEWER, null);
-        workflow.startExecution(planId, REVIEWER);
-        assertThatThrownBy(() -> comments.addComment(
-                planId, REVIEWER, new PlanCommentService.AddCommentCommand("迟到", null, null)))
-                .isInstanceOf(PlanStateException.class);
+        workflow.approve(planId, REVIEWER, null); // 进入 EXECUTING
+        PlanCommentService.CommentView late = comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("迟到", null, null));
+        assertThat(late.content()).isEqualTo("迟到");
     }
 
     @Test
@@ -270,14 +269,13 @@ class PlanCommentServiceTest {
     }
 
     @Test
-    void editBlockedAfterExecution() {
+    void editAllowedAfterApproval() {
         PlanCommentService.CommentView root = comments.addComment(
                 planId, REVIEWER, new PlanCommentService.AddCommentCommand("根", null, null));
         workflow.submit(planId, OWNER, null);
-        workflow.startReview(planId, REVIEWER);
-        workflow.approve(planId, REVIEWER, null);
-        workflow.startExecution(planId, REVIEWER);
-        assertThatThrownBy(() -> comments.editComment(planId, root.id(), REVIEWER, "迟到编辑"))
-                .isInstanceOf(PlanStateException.class);
+        workflow.approve(planId, REVIEWER, null); // 进入 EXECUTING
+        // 批注编辑任意状态可用（spec §4.4）
+        PlanCommentService.CommentView edited = comments.editComment(planId, root.id(), REVIEWER, "迟到编辑");
+        assertThat(edited.content()).isEqualTo("迟到编辑");
     }
 }

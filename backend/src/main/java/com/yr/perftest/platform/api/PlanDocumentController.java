@@ -64,14 +64,14 @@ public class PlanDocumentController {
         this.versionService = versionService;
     }
 
-    public record PlanResponse(TaskPlan plan, Map<String, Boolean> permissions) {
+    public record PlanResponse(TaskPlan plan, Map<String, Boolean> permissions, int activeExecutions) {
     }
 
     @GetMapping("/task-plans/{planId}")
     public PlanResponse getPlan(@PathVariable long planId) {
         TaskPlan plan = documentService.getDocument(planId);
         requireMember(plan);
-        return new PlanResponse(plan, permissionsOf(plan));
+        return new PlanResponse(plan, permissionsOf(plan), documentService.countActiveExecutions(planId));
     }
 
     @PutMapping("/task-plans/{planId}/document")
@@ -91,7 +91,7 @@ public class PlanDocumentController {
     @PutMapping("/task-plans/{planId}")
     public TaskPlan updateDefaultConfig(@PathVariable long planId, @Valid @RequestBody UpdatePlanConfigRequest request) {
         TaskPlan plan = planService.getPlan(planId);
-        requirePlanOwnerLike(plan);
+        requireMember(plan);
         return planService.updatePlan(planId, request.name(), request.remark(),
                 request.controllerNodeId(), request.workerNodeIds(), request.monitorTargetIds());
     }
@@ -103,7 +103,7 @@ public class PlanDocumentController {
         Map<String, Boolean> permissions = permissionsOf(plan);
         if (!Boolean.TRUE.equals(permissions.get("DELETE"))) {
             throw new com.yr.perftest.platform.task.plandoc.PlanAccessDeniedException(
-                    "PLAN_ACCESS_DENIED：仅负责人/项目 OWNER/系统管理员可删除计划");
+                    "PLAN_ACCESS_DENIED：非项目成员不可删除计划");
         }
         planService.deletePlan(planId);
     }
@@ -114,51 +114,21 @@ public class PlanDocumentController {
         return getPlan(planId);
     }
 
-    @PostMapping("/task-plans/{planId}/start-review")
-    public PlanResponse startReview(@PathVariable long planId) {
-        workflowService.startReview(planId, requireHuman());
-        return getPlan(planId);
-    }
-
     @PostMapping("/task-plans/{planId}/approve")
     public PlanResponse approve(@PathVariable long planId, @RequestBody(required = false) CommentRequest request) {
         workflowService.approve(planId, requireHuman(), request == null ? null : request.comment());
         return getPlan(planId);
     }
 
-    @PostMapping("/task-plans/{planId}/reject")
-    public PlanResponse reject(@PathVariable long planId, @RequestBody CommentRequest request) {
-        workflowService.reject(planId, requireHuman(), request.comment());
-        return getPlan(planId);
-    }
-
-    @PostMapping("/task-plans/{planId}/withdraw")
-    public PlanResponse withdraw(@PathVariable long planId) {
-        workflowService.withdraw(planId, requireHuman());
-        return getPlan(planId);
-    }
-
-    @PostMapping("/task-plans/{planId}/back-to-draft")
-    public PlanResponse backToDraft(@PathVariable long planId) {
-        workflowService.backToDraft(planId, requireHuman());
-        return getPlan(planId);
-    }
-
-    @PostMapping("/task-plans/{planId}/start-execution")
-    public PlanResponse startExecution(@PathVariable long planId) {
-        workflowService.startExecution(planId, requireHuman());
+    @PostMapping("/task-plans/{planId}/finish-execution")
+    public PlanResponse finishExecution(@PathVariable long planId) {
+        workflowService.finishExecution(planId, requireHuman());
         return getPlan(planId);
     }
 
     @PostMapping("/task-plans/{planId}/publish")
     public PlanResponse publish(@PathVariable long planId, @RequestBody PublishRequest request) {
         workflowService.publish(planId, requireHuman(), request.conclusion(), request.versionNo());
-        return getPlan(planId);
-    }
-
-    @PostMapping("/task-plans/{planId}/new-revision")
-    public PlanResponse newRevision(@PathVariable long planId) {
-        workflowService.newRevision(planId, requireHuman());
         return getPlan(planId);
     }
 
@@ -311,8 +281,7 @@ public class PlanDocumentController {
         if (principal == null) {
             return Map.of();
         }
-        ProjectAccessResolver.PlanActorRole role = accessResolver.resolve(plan.projectId(), principal, plan.createdBy());
-        return PlanAccess.compute(role, plan.phase(), plan.status(), workflowService.hasAnyExecution(plan.id()));
+        return PlanAccess.compute(plan.status());
     }
 
     /** 计划域读门禁（设计 §13.1）：未登录 401；登录但非项目成员（NONE）403。 */
@@ -331,18 +300,6 @@ public class PlanDocumentController {
         ProjectAccessResolver.PlanActorRole role = accessResolver.resolve(projectId, principal, null);
         if (role == ProjectAccessResolver.PlanActorRole.NONE) {
             throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：非项目成员");
-        }
-    }
-
-    /** 默认执行配置属 owner 级改动（与 DELETE 同级）：负责人/项目 OWNER/系统 ADMIN。 */
-    private void requirePlanOwnerLike(TaskPlan plan) {
-        HumanPrincipal principal = requireHuman();
-        ProjectAccessResolver.PlanActorRole role =
-                accessResolver.resolve(plan.projectId(), principal, plan.createdBy());
-        if (role != ProjectAccessResolver.PlanActorRole.SYSTEM_ADMIN
-                && role != ProjectAccessResolver.PlanActorRole.PROJECT_OWNER
-                && role != ProjectAccessResolver.PlanActorRole.PLAN_OWNER) {
-            throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：仅负责人/项目 OWNER/系统管理员可修改默认执行配置");
         }
     }
 

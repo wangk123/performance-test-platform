@@ -34,8 +34,7 @@ class PlanInitialMarkdownCreateTest {
                 "agent", null, "# 一、背景\nagent 全文\n三、测试指标\n…");
         assertThat(plan.revision()).isEqualTo(1);
         assertThat(plan.body()).isEqualTo("# 一、背景\nagent 全文\n三、测试指标\n…");
-        assertThat(plan.phase()).isEqualTo(PlanPhase.DRAFT);
-        assertThat(plan.status()).isEqualTo(PlanStatus.DRAFT);
+        assertThat(plan.status()).isEqualTo(PlanStatus.PLANNING);
     }
 
     @Test
