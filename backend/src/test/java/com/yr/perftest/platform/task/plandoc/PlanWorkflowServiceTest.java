@@ -9,6 +9,7 @@ import com.yr.perftest.platform.project.PersistentProjectRepository;
 import com.yr.perftest.platform.project.ProjectRole;
 import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
 import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
+import com.yr.perftest.platform.task.TaskPlan;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,7 +64,7 @@ class PlanWorkflowServiceTest {
     }
 
     @Test
-    void fullHappyPathDraftToReportPending() {
+    void fullHappyPathReviewToPublish() {
         workflow.submit(planId, OWNER, "请评审");
         assertThat(phase()).isEqualTo(PlanPhase.REVIEW);
         assertThat(status()).isEqualTo(PlanStatus.PENDING);
@@ -76,9 +77,9 @@ class PlanWorkflowServiceTest {
         PersistentTaskPlanRecord executionDone = planRepository.findById(planId).orElseThrow();
         executionDone.forceState(PlanPhase.EXECUTION, PlanStatus.DONE);
         planRepository.save(executionDone); // 与 Task4 测试同法：forceState 后需 save 持久化
-        workflow.toReport(planId, REVIEWER);
-        assertThat(phase()).isEqualTo(PlanPhase.REPORT);
-        assertThat(status()).isEqualTo(PlanStatus.PENDING);
+        TaskPlan published = workflow.publish(planId, OWNER, "结论", "V1.0"); // 报告阶段已取消：执行完成即发布
+        assertThat(published.phase()).isEqualTo(PlanPhase.PUBLISH);
+        assertThat(published.status()).isEqualTo(PlanStatus.PUBLISHED);
     }
 
     @Test

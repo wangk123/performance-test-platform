@@ -124,7 +124,7 @@ public class PlanWorkflowService {
         if (hasAnyExecution(planId)) {
             throw new PlanStateException("PLAN_STATE：已产生执行，不可退回草稿（当前 "
                     + plan.getPhase() + "/" + plan.getStatus() + "）",
-                    plan.getPhase(), plan.getStatus(), List.of("TO_REPORT", "GENERATE_REPORT"));
+                    plan.getPhase(), plan.getStatus(), List.of("PUBLISH"));
         }
         plan.transitionTo(PlanPhase.DRAFT, PlanStatus.DRAFT);
         commentService.systemComment(planId, actor.username() + " 退回草稿");
@@ -135,13 +135,6 @@ public class PlanWorkflowService {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "START_EXECUTION");
         plan.transitionTo(PlanPhase.EXECUTION, PlanStatus.PENDING);
         commentService.systemComment(planId, actor.username() + " 进入执行阶段");
-    }
-
-    @Transactional
-    public void toReport(long planId, HumanPrincipal actor) {
-        PersistentTaskPlanRecord plan = requireActor(planId, actor, "TO_REPORT");
-        plan.transitionTo(PlanPhase.REPORT, PlanStatus.PENDING);
-        commentService.systemComment(planId, actor.username() + " 进入报告阶段");
     }
 
     public record PrecheckReport(boolean ok, List<String> failures, List<String> autoPassed) {
@@ -435,24 +428,6 @@ public class PlanWorkflowService {
     }
 
     @Transactional
-    public TaskPlan generateReport(long planId, HumanPrincipal actor) {
-        PersistentTaskPlanRecord plan = requireActor(planId, actor, "GENERATE_REPORT");
-        plan.transitionTo(PlanPhase.REPORT, PlanStatus.GENERATING); // 瞬态（设计 §4.1）
-        String body = plan.getBody() == null ? "" : plan.getBody();
-        PlanAcceptanceParser.AcceptanceSection acceptance = PlanAcceptanceParser.parseLeniently(body);
-        body = upsertReportOverview(body, buildScenarioOverviews(planId));
-        if (acceptance.present()) {
-            body = upsertVerdictTable(body, verdictService.compute(planId));
-        } else {
-            body = fillConclusionActualColumn(body, latestScenarioSummaries(planId));
-        }
-        plan.updateBody(body);
-        plan.transitionTo(PlanPhase.REPORT, PlanStatus.DONE);
-        commentService.systemComment(planId, "生成报告（revision=" + plan.getRevision() + "）");
-        return planService.getPlan(planId);
-    }
-
-    @Transactional
     public TaskPlan publish(long planId, HumanPrincipal actor, String conclusion, String versionNo) {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "PUBLISH");
         if (conclusion == null || conclusion.isBlank()) {
@@ -460,9 +435,18 @@ public class PlanWorkflowService {
         }
         if (documentService.hasActiveExecution(planId)) {
             throw new PlanStateException("PLAN_STATE：存在活跃执行，不可发布",
-                    plan.getPhase(), plan.getStatus(), List.of("GENERATE_REPORT"));
+                    plan.getPhase(), plan.getStatus(), List.of());
         }
         String body = plan.getBody() == null ? "" : plan.getBody();
+        // 发布即生成（报告 Tab 手动动作并入）：冻结前回填执行结果总览，
+        // 有验收指标重绘判等表，无指标维持 P0-1 结论实际列填充
+        PlanAcceptanceParser.AcceptanceSection acceptance = PlanAcceptanceParser.parseLeniently(body);
+        body = upsertReportOverview(body, buildScenarioOverviews(planId));
+        if (acceptance.present()) {
+            body = upsertVerdictTable(body, verdictService.compute(planId));
+        } else {
+            body = fillConclusionActualColumn(body, latestScenarioSummaries(planId));
+        }
         String line = "**总体结论**：" + conclusion.trim();
         if (body.contains("**总体结论**：")) {
             int start = body.indexOf("**总体结论**：");

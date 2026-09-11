@@ -110,7 +110,7 @@ class PlanVerdictReportTest {
     }
 
     @Test
-    void reportWithMetricsRedrawsVerdictTableAndSkipsLegacyFill() {
+    void publishRedrawsVerdictTableAndSkipsLegacyFill() {
         docWithMetrics("""
                 ### 指标达成表
 
@@ -125,10 +125,10 @@ class PlanVerdictReportTest {
                 **总体结论**：（发布时填写）
                 """);
         finishedExecution("登录场景");
-        forceReportPhase();
+        forceExecutionDone();
 
-        TaskPlan report = workflow.generateReport(planId, OWNER);
-        assertThat(report.status()).isEqualTo(PlanStatus.DONE);
+        TaskPlan report = workflow.publish(planId, OWNER, "自动判定确认", "V1.0");
+        assertThat(report.status()).isEqualTo(PlanStatus.PUBLISHED);
         String body = planRepository.findById(planId).orElseThrow().getBody();
         assertThat(body).contains("<!-- backfill:verdict -->");
         assertThat(body).contains("#### 指标达成表（生成于");
@@ -137,28 +137,7 @@ class PlanVerdictReportTest {
         assertThat(body).doesNotContain("| 登录 TPS | ≥ 200 | 待执行 | 待判定 |"); // 旧占位表被重绘
         assertThat(body).doesNotContain("待执行"); // 有指标路径不再跑 fillConclusionActualColumn 场景摘要
         assertThat(body).contains("### 风险与建议"); // 块外内容保留
-        assertThat(body).contains("**总体结论**：（发布时填写）"); // 总体结论不预写（V7）
-    }
-
-    @Test
-    void regenerateIsIdempotentBlockReplace() {
-        docWithMetrics("""
-                ### 指标达成表
-
-                | 指标 | 目标 | 实际结果 | 状态 |
-                |---|---|---|---|
-                | 登录 TPS | ≥ 200 | 待执行 | 待判定 |
-                """);
-        finishedExecution("登录场景");
-        forceReportPhase();
-        workflow.generateReport(planId, OWNER);
-        int revisionAfterFirst = planRepository.findById(planId).orElseThrow().getRevision();
-        workflow.generateReport(planId, OWNER);
-        String body = planRepository.findById(planId).orElseThrow().getBody();
-        assertThat(body.split("<!-- backfill:verdict -->", -1).length - 1).isEqualTo(1);
-        assertThat(body.split("#### 指标达成表（生成于", -1).length - 1).isEqualTo(1);
-        assertThat(planRepository.findById(planId).orElseThrow().getRevision())
-                .isEqualTo(revisionAfterFirst + 1); // 系统回填每次 revision+1
+        assertThat(body).contains("**总体结论**：自动判定确认"); // 发布写入确认结论
     }
 
     @Test
@@ -181,22 +160,22 @@ class PlanVerdictReportTest {
                 """);
         planRepository.save(plan);
         finishedExecution("登录场景");
-        forceReportPhase();
-        workflow.generateReport(planId, OWNER);
+        forceExecutionDone();
+        workflow.publish(planId, OWNER, "结论", "V1.0");
         String body = planRepository.findById(planId).orElseThrow().getBody();
         assertThat(body).doesNotContain("<!-- backfill:verdict -->"); // 无指标不重绘
         assertThat(body).contains("<!-- backfill:report -->");        // 总览照旧
         assertThat(body).contains("登录场景");                          // 实际列照 P0-1 现状填场景摘要
     }
 
-    private void forceReportPhase() {
+    private void forceExecutionDone() {
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
-        plan.forceState(PlanPhase.REPORT, PlanStatus.PENDING);
+        plan.forceState(PlanPhase.EXECUTION, PlanStatus.DONE);
         planRepository.save(plan);
     }
 
     @Test
-    void verdictAvailabilityFollowsRealGeneratePublishAndNewRevisionChain() {
+    void verdictAvailabilityFollowsExecutionPublishAndNewRevisionChain() {
         docWithMetrics("""
                 ### 指标达成表
 
@@ -205,10 +184,12 @@ class PlanVerdictReportTest {
                 | 登录 TPS | ≥ 200 | 待执行 | 待判定 |
                 """);
         finishedExecution("登录场景");
-        forceReportPhase();
-        assertThat(verdictService.view(planId).available()).isFalse(); // REPORT/PENDING 未生成不可读
+        PersistentTaskPlanRecord running = planRepository.findById(planId).orElseThrow();
+        running.forceState(PlanPhase.EXECUTION, PlanStatus.RUNNING);
+        planRepository.save(running);
+        assertThat(verdictService.view(planId).available()).isFalse(); // 执行中不可读
 
-        workflow.generateReport(planId, OWNER); // REPORT/DONE
+        forceExecutionDone(); // 执行全部完成即可判读（发布预填依赖）
         PlanVerdictService.VerdictView generated = verdictService.view(planId);
         assertThat(generated.available()).isTrue();
         assertThat(generated.present()).isTrue();

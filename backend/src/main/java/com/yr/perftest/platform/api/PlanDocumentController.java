@@ -150,18 +150,6 @@ public class PlanDocumentController {
         return getPlan(planId);
     }
 
-    @PostMapping("/task-plans/{planId}/to-report")
-    public PlanResponse toReport(@PathVariable long planId) {
-        workflowService.toReport(planId, requireHuman());
-        return getPlan(planId);
-    }
-
-    @PostMapping("/task-plans/{planId}/generate-report")
-    public PlanResponse generateReport(@PathVariable long planId) {
-        workflowService.generateReport(planId, requireHuman());
-        return getPlan(planId);
-    }
-
     @PostMapping("/task-plans/{planId}/publish")
     public PlanResponse publish(@PathVariable long planId, @RequestBody PublishRequest request) {
         workflowService.publish(planId, requireHuman(), request.conclusion(), request.versionNo());

@@ -1,7 +1,7 @@
 <template>
   <a-modal
     :open="open"
-    :title="`编辑章节：${title}`"
+    :title="`编辑章节：${displayTitle ?? title}`"
     :width="editorWidth"
     ok-text="保存章节"
     cancel-text="取消"
@@ -42,7 +42,7 @@
       :preview="false"
       :toolbars="TOOLBARS"
       :footers="['markdownTotal']"
-      :placeholder="`输入「${title}」章节内容（Markdown）…`"
+      :placeholder="`输入「${displayTitle ?? title}」章节内容（Markdown）…`"
       :style="{ height: editorHeight }"
       :disabled="polishing"
       language="zh-CN"
@@ -99,7 +99,7 @@ const TOOLBARS: ToolbarNames[] = [
   'revoke', 'next',
 ];
 
-const props = defineProps<{ open: boolean; planId: number; title: string; content: string }>();
+const props = defineProps<{ open: boolean; planId: number; title: string; content: string; /** 弹窗标题展示用真实标题；润色接口与写回仍按规范标题 title。 */ displayTitle?: string }>();
 const emit = defineEmits<{ (e: 'update:open', value: boolean): void; (e: 'save', content: string): void }>();
 
 const { themeMode } = useTheme();

@@ -40,7 +40,12 @@ class PlanAccessTest {
     }
 
     @Test
-    void publishRequiresReportDone() {
+    void publishRequiresExecutionOrReportDone() {
+        // 新链路：执行全部完成即可发布（报告阶段已取消手动进入）
+        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.EXECUTION, PlanStatus.DONE, true).get("PUBLISH")).isTrue();
+        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.EXECUTION, PlanStatus.PENDING, true).get("PUBLISH")).isFalse();
+        assertThat(PlanAccess.compute(PlanActorRole.MEMBER, PlanPhase.EXECUTION, PlanStatus.DONE, true).get("PUBLISH")).isFalse();
+        // REPORT·DONE 分支兼容存量已进入报告阶段的计划
         assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.REPORT, PlanStatus.DONE, true).get("PUBLISH")).isTrue();
         assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.REPORT, PlanStatus.PENDING, true).get("PUBLISH")).isFalse();
         assertThat(PlanAccess.compute(PlanActorRole.MEMBER, PlanPhase.REPORT, PlanStatus.DONE, true).get("PUBLISH")).isFalse();

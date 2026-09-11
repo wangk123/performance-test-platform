@@ -73,28 +73,23 @@ class PlanReportPublishTest {
 
                 **总体结论**：（发布时填写）
                 """);
-        plan.forceState(PlanPhase.REPORT, PlanStatus.PENDING);
+        plan.forceState(PlanPhase.EXECUTION, PlanStatus.DONE); // 新链路：执行全部完成即可发布（报告阶段已取消）
         planId = planRepository.save(plan).getId();
     }
 
     @Test
-    void generateReportWritesOverviewAndActualColumn() {
-        TaskPlan plan = workflow.generateReport(planId, OWNER);
-        assertThat(plan.status()).isEqualTo(PlanStatus.DONE);
+    void publishBackfillsOverviewBeforeFreeze() {
+        TaskPlan plan = workflow.publish(planId, OWNER, "结论", "V1.0");
+        assertThat(plan.status()).isEqualTo(PlanStatus.PUBLISHED);
         String body = planRepository.findById(planId).orElseThrow().getBody();
         assertThat(body).contains("<!-- backfill:report -->");
         assertThat(body).contains("#### 执行结果总览");
         assertThat(body).contains("| 登录 TPS | ≥ 200 | 待执行 | 待判定 |"); // 无执行时实际列不被改写
-        // 再生成：整块替换，不重复堆叠
-        workflow.generateReport(planId, OWNER);
-        String again = planRepository.findById(planId).orElseThrow().getBody();
-        assertThat(again.split("<!-- backfill:report -->", -1).length - 1).isEqualTo(1);
-        assertThat(again.split("#### 执行结果总览", -1).length - 1).isEqualTo(1);
+        assertThat(body).contains("**总体结论**：结论");
     }
 
     @Test
     void publishRequiresConclusionAndWritesItAndSnapshot() {
-        workflow.generateReport(planId, OWNER);
         assertThatThrownBy(() -> workflow.publish(planId, OWNER, " ", "V1.0"))
                 .isInstanceOf(PlanValidationException.class);
         TaskPlan published = workflow.publish(planId, OWNER, "核心指标全部达成，可上线。", "V1.0");
@@ -138,7 +133,6 @@ class PlanReportPublishTest {
 
     @Test
     void newRevisionResetsToDraftAndBumps() {
-        workflow.generateReport(planId, OWNER);
         TaskPlan published = workflow.publish(planId, OWNER, "结论", "V1.0");
         int revision = published.revision();
         TaskPlan next = workflow.newRevision(planId, OWNER);

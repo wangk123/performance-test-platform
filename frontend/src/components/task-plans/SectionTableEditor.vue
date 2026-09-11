@@ -1,7 +1,7 @@
 <template>
   <a-modal
     :open="open"
-    :title="`编辑章节：${sectionTitle}`"
+    :title="`编辑章节：${displayTitle ?? sectionTitle}`"
     :width="880"
     ok-text="保存"
     cancel-text="取消"
@@ -9,7 +9,7 @@
     @ok="save"
   >
     <p v-if="schema?.hint" class="sec-table-hint">{{ schema.hint }}</p>
-    <div v-if="schema" class="sec-table-grid" role="table" :aria-label="`${sectionTitle}表`">
+    <div v-if="schema" class="sec-table-grid" role="table" :aria-label="`${displayTitle ?? sectionTitle}表`">
       <div class="sec-table-row sec-table-head" role="row" :style="gridStyle">
         <span v-for="col in schema.columns" :key="col.label">{{ col.label }}</span>
         <span class="grid-op" aria-hidden="true"></span>
@@ -60,7 +60,7 @@ import { planTableSchemaOf, type PlanTableSectionSchema } from '../../utils/plan
  * 列映射：指标章与后端 PlanAcceptanceParser 列契约对齐（canonicalHeader）；
  * 其余章节按表头名匹配、位置兜底，保存保留文档原表头。
  */
-const props = defineProps<{ open: boolean; sectionTitle: string; content: string }>();
+const props = defineProps<{ open: boolean; sectionTitle: string; content: string; /** 弹窗标题展示用真实标题；schema/写回仍按规范标题 sectionTitle。 */ displayTitle?: string }>();
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void;
   (e: 'save', content: string): void;

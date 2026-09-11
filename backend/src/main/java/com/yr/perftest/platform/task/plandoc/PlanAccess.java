@@ -30,9 +30,10 @@ public final class PlanAccess {
                 && ((phase == PlanPhase.REVIEW && status == PlanStatus.APPROVED)
                 || (phase == PlanPhase.EXECUTION && status == PlanStatus.PENDING)));
         p.put("START_EXECUTION", memberLike && phase == PlanPhase.REVIEW && status == PlanStatus.APPROVED);
-        p.put("TO_REPORT", memberLike && phase == PlanPhase.EXECUTION && status == PlanStatus.DONE);
-        p.put("GENERATE_REPORT", memberLike && phase == PlanPhase.REPORT && (status == PlanStatus.PENDING || status == PlanStatus.DONE));
-        p.put("PUBLISH", ownerLike && phase == PlanPhase.REPORT && status == PlanStatus.DONE);
+        // 报告阶段不再手动进入（报告 Tab 已删）：执行全部完成即可发布；REPORT·DONE 分支兼容存量数据
+        p.put("PUBLISH", ownerLike
+                && (phase == PlanPhase.EXECUTION || phase == PlanPhase.REPORT)
+                && status == PlanStatus.DONE);
         p.put("NEW_REVISION", ownerLike && frozen);
         p.put("PRECHECK_RUN", memberLike && !frozen);
         p.put("PRECHECK_SKIP", memberLike && !frozen);

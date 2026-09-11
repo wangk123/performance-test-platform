@@ -32,7 +32,7 @@
         <div v-if="can('PUBLISH')" class="card side-card">
           <h4>报告发布</h4>
           <div class="plan-note warn publish-precondition">
-            前置条件：报告已生成、总体结论已确认、无活跃执行。发布将冻结文档并固化快照，并按下方版本号登记「报告发布」版本。
+            前置条件：执行已全部完成、总体结论已确认、无活跃执行。发布将自动回填执行总览与判等表后冻结文档并固化快照，按下方版本号登记「报告发布」版本。
           </div>
           <label class="publish-label">版本号（手填，同计划内唯一；低于最新版本不允许提交）</label>
           <a-input v-model:value="publishVersionNo" placeholder="如：V1.0" :maxlength="32" />

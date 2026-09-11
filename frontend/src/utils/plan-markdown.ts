@@ -6,7 +6,10 @@ export const CANONICAL_HEADINGS = [
 const EXECUTION_RECORD_HEADING = '#### 执行记录';
 
 export interface Section {
+  /** 规范标题（平台逻辑用：批注锚定、结构化编辑、模块激活；改名章节按序号容错映射）。 */
   title: string;
+  /** 文档真实标题文本（展示用：章节导航与正文标题跟随文档，而非规范注册表）。 */
+  heading: string;
   content: string;
   line: number; // 标题行行号（0 基），TOC 滚动定位用
 }
@@ -53,7 +56,7 @@ export function splitSections(body: string | null | undefined): Section[] {
     const title = canonicalTitleOf(line);
     if (title) {
       if (current) sections.push(current);
-      current = { title, content: '', line: index };
+      current = { title, heading: line.slice(3).trim(), content: '', line: index };
     } else if (current) {
       current.content += line + '\n';
     }

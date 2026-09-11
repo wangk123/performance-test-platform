@@ -6,14 +6,14 @@
           <h4>章节导航</h4>
           <a
             v-for="section in sections"
-            :key="section.title"
+            :key="section.line"
             class="toc-item"
             :class="{ current: currentSection === section.title }"
             href="#"
             :aria-current="currentSection === section.title ? 'true' : undefined"
-            @click.prevent="jumpTo(section.title)"
+            @click.prevent="jumpTo(section)"
           >
-            <span class="toc-label">{{ section.title }}</span>
+            <span class="toc-label">{{ section.heading }}</span>
           </a>
         </nav>
 
@@ -36,14 +36,14 @@
                 :data-section="section.title"
               >
                 <header class="doc-section-head">
-                  <h3>{{ section.title }}</h3>
+                  <h3>{{ section.heading }}</h3>
                   <a-button
                     v-if="canEdit"
                     class="doc-section-edit"
                     size="small"
                     type="text"
                     title="编辑章节"
-                    @click="openSectionEditor(section.title)"
+                    @click="openSectionEditor(section.title, section.heading)"
                   >
                     <template #icon>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
@@ -71,7 +71,7 @@
                   @toggle="toggleChecklist(section.content, $event)"
                 />
                 <ScenarioDesignModule
-                  v-else-if="section.title === '八、场景设计'"
+                  v-else-if="section.title === '八、场景设计' && section.heading.startsWith('八、场景设计')"
                   :doc-plan="doc"
                   :plan="plan"
                   :scenarios="scenarios"
@@ -176,12 +176,14 @@
       v-model:open="sectionEditorOpen"
       :plan-id="plan.id"
       :title="editingSectionTitle"
+      :display-title="editingSectionHeading"
       :content="editingSectionContent"
       @save="saveSection"
     />
     <SectionTableEditor
       v-model:open="tableEditorOpen"
       :section-title="editingSectionTitle"
+      :display-title="editingSectionHeading"
       :content="editingSectionContent"
       @save="saveSection"
     />
@@ -205,6 +207,7 @@ import type { usePlanDoc } from '../../composables/usePlanDoc';
 import type { PlanCommentPanelGroup } from './PlanCommentPanel.vue';
 import { useTheme } from '../../composables/useTheme';
 import { CANONICAL_HEADINGS, extractSection, parseMarkdownTable, replaceSection, splitSections, toggleChecklistItem } from '../../utils/plan-markdown';
+import type { Section } from '../../utils/plan-markdown';
 import { findBestLine } from '../../utils/plan-anchors';
 import { planTableCompatible, planTableSchemaOf } from '../../utils/plan-table-schemas';
 import { deleteCommentApi } from '../../api/plan-doc';
@@ -249,6 +252,7 @@ const conflictOpen = ref(false);
 const sectionEditorOpen = ref(false);
 const tableEditorOpen = ref(false);
 const editingSectionTitle = ref('');
+const editingSectionHeading = ref('');
 const editingSectionContent = ref('');
 
 const sections = computed(() => splitSections(props.plan.body));
@@ -424,8 +428,9 @@ async function resolveConflict(kind: 'keep-server' | 'take-local' | 'manual') {
   }
 }
 
-function openSectionEditor(title: string) {
+function openSectionEditor(title: string, heading: string) {
   editingSectionTitle.value = title;
+  editingSectionHeading.value = heading;
   editingSectionContent.value = extractSection(props.plan.body, title) ?? '';
   // 表格型章节走结构化表单（固定列、行增删）；首表与列 schema 不兼容（如模板「人员」子表）回落 Markdown 编辑
   const schema = planTableSchemaOf(title);
@@ -454,21 +459,22 @@ async function toggleChecklist(content: string, index: number) {
 
 /* ---------- TOC 跳转与 scrollspy（相对 .doc-main 唯一滚动容器定位） ---------- */
 
-function jumpTo(title: string) {
+/** Pretty 视图按规范标题的 data-section 定位；Markdown 视图 h2 锚点由真实标题生成。 */
+function jumpTo(section: Section) {
   const main = docMainRef.value;
   if (!main) return;
   let el: HTMLElement | null = null;
   if (viewMode.value === 'Pretty') {
-    el = main.querySelector(`[data-section="${title}"]`);
+    el = main.querySelector(`[data-section="${section.title}"]`);
   } else if (!editing.value) {
-    el = document.getElementById(anchorDomId(title));
+    el = document.getElementById(anchorDomId(section.heading));
   }
   if (!el || !main.contains(el)) return;
   main.scrollTo({
     top: main.scrollTop + el.getBoundingClientRect().top - main.getBoundingClientRect().top - 8,
     behavior: 'smooth',
   });
-  currentSection.value = title;
+  currentSection.value = section.title;
 }
 
 let scrollRaf: number | null = null;
@@ -492,7 +498,12 @@ function anchorElements(): { el: HTMLElement; title: string }[] {
   if (!editing.value) {
     return [...main.querySelectorAll<HTMLElement>('.md-editor-preview h2')]
       .filter((el) => el.id.startsWith(ANCHOR_PREFIX))
-      .map((el) => ({ el, title: decodeURIComponent(el.id.slice(ANCHOR_PREFIX.length)) }));
+      .map((el) => {
+        const heading = decodeURIComponent(el.id.slice(ANCHOR_PREFIX.length));
+        // Markdown 视图 h2 锚点由真实标题生成，scrollspy 归一到规范标题（与 TOC 高亮同口径）
+        const section = sections.value.find((s) => s.heading === heading);
+        return { el, title: section?.title ?? heading };
+      });
   }
   return [];
 }

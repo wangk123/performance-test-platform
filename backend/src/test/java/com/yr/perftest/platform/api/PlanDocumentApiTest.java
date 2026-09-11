@@ -121,7 +121,7 @@ class PlanDocumentApiTest {
         plan.forceState(PlanPhase.REPORT, PlanStatus.DONE);
         planRepository.save(plan);
         assertThat(transition("publish", "{\"conclusion\":\" \"}").getResponse().getStatus()).isEqualTo(400);
-        transition("publish", "{\"conclusion\":\"达成，可发布\"}");
+        transition("publish", "{\"conclusion\":\"达成，可发布\",\"versionNo\":\"V1.0\"}");
         mockMvc.perform(get("/api/task-plans/" + planId).header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.plan.phase").value("PUBLISH"))
                 .andExpect(jsonPath("$.plan.body").value(org.hamcrest.Matchers.containsString("**总体结论**：达成，可发布")));

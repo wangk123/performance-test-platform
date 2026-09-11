@@ -206,7 +206,7 @@ public class TaskScenarioService {
         if (frozen) {
             throw new com.yr.perftest.platform.task.plandoc.PlanStateException(
                     "PLAN_STATE：场景在执行中/已发布阶段禁止增删改（当前 " + plan.getPhase() + "/" + plan.getStatus() + "）",
-                    plan.getPhase(), plan.getStatus(), java.util.List.of("TO_REPORT", "GENERATE_REPORT", "NEW_REVISION"));
+                    plan.getPhase(), plan.getStatus(), java.util.List.of("PUBLISH", "NEW_REVISION"));
         }
     }
 
