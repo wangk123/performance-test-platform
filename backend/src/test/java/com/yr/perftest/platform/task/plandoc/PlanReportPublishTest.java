@@ -42,6 +42,8 @@ class PlanReportPublishTest {
     @Autowired
     private PersistentPlanPublishSnapshotRepository snapshotRepository;
     @Autowired
+    private PersistentPlanVersionRepository versionRepository;
+    @Autowired
     private PlanDocumentService documentService;
 
     private long planId;
@@ -93,9 +95,9 @@ class PlanReportPublishTest {
     @Test
     void publishRequiresConclusionAndWritesItAndSnapshot() {
         workflow.generateReport(planId, OWNER);
-        assertThatThrownBy(() -> workflow.publish(planId, OWNER, " "))
+        assertThatThrownBy(() -> workflow.publish(planId, OWNER, " ", "V1.0"))
                 .isInstanceOf(PlanValidationException.class);
-        TaskPlan published = workflow.publish(planId, OWNER, "核心指标全部达成，可上线。");
+        TaskPlan published = workflow.publish(planId, OWNER, "核心指标全部达成，可上线。", "V1.0");
         assertThat(published.phase()).isEqualTo(PlanPhase.PUBLISH);
         assertThat(published.status()).isEqualTo(PlanStatus.PUBLISHED);
         String body = planRepository.findById(planId).orElseThrow().getBody();
@@ -103,6 +105,14 @@ class PlanReportPublishTest {
         var snapshots = workflow.listSnapshots(planId, OWNER);
         assertThat(snapshots).hasSize(1);
         assertThat(snapshotRepository.findAllByPlanIdOrderByRevisionDesc(planId).get(0).getDocJson()).contains("总体结论");
+        // 修订记录合并（spec §9）：发布动作登记 kind=PUBLISH 版本，快照=含结论正文
+        var versions = versionRepository.findByPlanIdOrderByCreatedAtDescIdDesc(planId);
+        assertThat(versions).hasSize(1);
+        assertThat(versions.get(0).getKind()).isEqualTo(PersistentPlanVersionRecord.KIND_PUBLISH);
+        assertThat(versions.get(0).getVersionNo()).isEqualTo("V1.0");
+        assertThat(versions.get(0).getChangeNote()).isEqualTo("核心指标全部达成，可上线。");
+        assertThat(versions.get(0).getSnapshotBody()).contains("总体结论");
+        assertThat(versions.get(0).getPlanPhase()).isEqualTo("PUBLISH");
         // 冻结：编辑被拒
         assertThatThrownBy(() -> documentService.updateMarkdown(planId, published.revision(), "x", OWNER))
                 .isInstanceOf(PlanStateException.class);
@@ -115,7 +125,7 @@ class PlanReportPublishTest {
         plan.forceState(PlanPhase.REPORT, PlanStatus.DONE);
         planRepository.save(plan);
 
-        TaskPlan published = workflow.publish(planId, OWNER, "结论文本");
+        TaskPlan published = workflow.publish(planId, OWNER, "结论文本", "V1.0");
         assertThat(published.phase()).isEqualTo(PlanPhase.PUBLISH);
         String body = planRepository.findById(planId).orElseThrow().getBody();
         assertThat(body).contains("**总体结论**：结论文本");
@@ -129,7 +139,7 @@ class PlanReportPublishTest {
     @Test
     void newRevisionResetsToDraftAndBumps() {
         workflow.generateReport(planId, OWNER);
-        TaskPlan published = workflow.publish(planId, OWNER, "结论");
+        TaskPlan published = workflow.publish(planId, OWNER, "结论", "V1.0");
         int revision = published.revision();
         TaskPlan next = workflow.newRevision(planId, OWNER);
         assertThat(next.phase()).isEqualTo(PlanPhase.DRAFT);

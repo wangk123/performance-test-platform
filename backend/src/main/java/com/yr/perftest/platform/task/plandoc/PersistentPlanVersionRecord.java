@@ -11,10 +11,14 @@ import jakarta.persistence.UniqueConstraint;
 
 import java.time.Instant;
 
-/** 计划版本：发布时冻结的正文快照 + 修订记录（spec 2026-09-10 §2）。 */
+/** 计划版本：发布时冻结的正文快照 + 修订记录（spec 2026-09-10 §2、§9）。 */
 @Entity
 @Table(name = "plan_versions", uniqueConstraints = @UniqueConstraint(columnNames = {"planId", "versionNo"}))
 public class PersistentPlanVersionRecord {
+    /** 来源：手动发版 / 报告发布（工作流 publish 转换登记）。 */
+    public static final String KIND_MANUAL = "MANUAL";
+    public static final String KIND_PUBLISH = "PUBLISH";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -44,6 +48,9 @@ public class PersistentPlanVersionRecord {
     @Column(nullable = false)
     private int planRevision;
 
+    @Column(nullable = false, length = 20)
+    private String kind;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -56,6 +63,13 @@ public class PersistentPlanVersionRecord {
     public PersistentPlanVersionRecord(Long planId, String versionNo, String changeNote, String createdBy,
                                        String author, String snapshotBody, String planPhase, int planRevision,
                                        Instant createdAt) {
+        this(planId, versionNo, changeNote, createdBy, author, snapshotBody, planPhase, planRevision,
+                KIND_MANUAL, createdAt);
+    }
+
+    public PersistentPlanVersionRecord(Long planId, String versionNo, String changeNote, String createdBy,
+                                       String author, String snapshotBody, String planPhase, int planRevision,
+                                       String kind, Instant createdAt) {
         this.planId = planId;
         this.versionNo = versionNo;
         this.changeNote = changeNote;
@@ -64,11 +78,12 @@ public class PersistentPlanVersionRecord {
         this.snapshotBody = snapshotBody;
         this.planPhase = planPhase;
         this.planRevision = planRevision;
+        this.kind = kind;
         this.createdAt = createdAt;
         this.updatedAt = createdAt;
     }
 
-    /** 覆盖发布（版本号不变的小修复）：刷新正文快照与修订元数据，createdBy/createdAt 不变。 */
+    /** 覆盖发布（版本号不变的小修复）：刷新正文快照与修订元数据，createdBy/createdAt/kind 不变。 */
     public void applyOverwrite(String snapshotBody, String changeNote, String author, String planPhase,
                                int planRevision, Instant updatedAt) {
         this.snapshotBody = snapshotBody;
@@ -88,6 +103,7 @@ public class PersistentPlanVersionRecord {
     public String getSnapshotBody() { return snapshotBody; }
     public String getPlanPhase() { return planPhase; }
     public int getPlanRevision() { return planRevision; }
+    public String getKind() { return kind; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

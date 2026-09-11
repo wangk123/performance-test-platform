@@ -51,7 +51,7 @@ type TransitionAction =
   | 'submit' | 'start-review' | 'approve' | 'reject' | 'withdraw' | 'back-to-draft'
   | 'start-execution' | 'to-report' | 'generate-report' | 'publish' | 'new-revision';
 
-export function transitionPlanApi(planId: number, action: TransitionAction, payload?: { comment?: string; conclusion?: string }) {
+export function transitionPlanApi(planId: number, action: TransitionAction, payload?: { comment?: string; conclusion?: string; versionNo?: string }) {
   return request<PlanDocumentResponse>(`/api/task-plans/${planId}/${action}`, {
     method: 'POST',
     headers: json,

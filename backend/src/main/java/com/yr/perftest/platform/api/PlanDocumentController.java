@@ -164,7 +164,7 @@ public class PlanDocumentController {
 
     @PostMapping("/task-plans/{planId}/publish")
     public PlanResponse publish(@PathVariable long planId, @RequestBody PublishRequest request) {
-        workflowService.publish(planId, requireHuman(), request.conclusion());
+        workflowService.publish(planId, requireHuman(), request.conclusion(), request.versionNo());
         return getPlan(planId);
     }
 
@@ -386,7 +386,7 @@ public class PlanDocumentController {
     public record ResolveCommentRequest(boolean resolved) {
     }
 
-    public record PublishRequest(String conclusion) {
+    public record PublishRequest(String conclusion, String versionNo) {
     }
 
     public record ShareRequest(Integer expiresInDays) {

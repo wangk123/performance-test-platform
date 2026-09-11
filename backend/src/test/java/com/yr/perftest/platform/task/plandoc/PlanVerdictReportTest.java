@@ -214,7 +214,7 @@ class PlanVerdictReportTest {
         assertThat(generated.present()).isTrue();
         assertThat(generated.overall()).isEqualTo("FAILED"); // 真实判等：TPS 623.5 < 700
 
-        workflow.publish(planId, OWNER, "结论"); // PUBLISH/PUBLISHED
+        workflow.publish(planId, OWNER, "结论", "V1.0"); // PUBLISH/PUBLISHED
         assertThat(verdictService.view(planId).available()).isTrue();
 
         workflow.newRevision(planId, OWNER); // 复测重置回 DRAFT

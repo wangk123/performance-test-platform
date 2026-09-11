@@ -61,7 +61,7 @@ export function usePlanDoc() {
 
   async function transition(
     action: Parameters<typeof transitionPlanApi>[1],
-    payload?: { comment?: string; conclusion?: string },
+    payload?: { comment?: string; conclusion?: string; versionNo?: string },
     successText = '操作成功',
   ) {
     if (!plan.value) return false;

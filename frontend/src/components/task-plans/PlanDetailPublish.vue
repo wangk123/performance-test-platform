@@ -5,9 +5,15 @@
         <div v-if="can('PUBLISH')" class="card publish-form-card">
           <h4>发布</h4>
           <div class="plan-note warn publish-precondition">
-            前置条件：报告已生成、总体结论已确认、无活跃执行。发布将冻结文档并固化快照。
+            前置条件：报告已生成、总体结论已确认、无活跃执行。发布将冻结文档并固化快照，同时登记为「报告发布」版本。
           </div>
-          <label class="publish-label">总体结论（发布人确认，必填；已预填自动判定文本，可修改）</label>
+          <label class="publish-label">版本号（手填，同计划内唯一；低于最新版本不允许提交）</label>
+          <a-input
+            v-model:value="versionNo"
+            placeholder="如：V1.0"
+            :maxlength="32"
+          />
+          <label class="publish-label publish-conclusion-label">总体结论（发布人确认，必填；已预填自动判定文本，可修改）</label>
           <a-textarea
             v-model:value="conclusion"
             :rows="3"
@@ -15,7 +21,7 @@
           />
           <div class="publish-actions">
             <a-button v-if="can('NEW_REVISION')" @click="doc.transition('new-revision', undefined, '已发起新修订')">发起新修订</a-button>
-            <a-button type="primary" :disabled="!conclusion.trim()" @click="publish">发布</a-button>
+            <a-button type="primary" :disabled="!conclusion.trim() || !versionNo.trim()" @click="publish">发布</a-button>
           </div>
         </div>
         <div v-else-if="doc.plan.value?.phase === 'PUBLISH'" class="plan-note ok">
@@ -26,18 +32,8 @@
           <a-button @click="doc.transition('new-revision', undefined, '已发起新修订')">发起新修订</a-button>
         </div>
 
-        <div class="card publish-history">
-          <h4>发布历史（快照）</h4>
-          <template v-if="snapshots.length">
-            <div v-for="snapshot in snapshots" :key="snapshot.id" class="snapshot">
-              <div class="snapshot-icon mono">v{{ snapshot.revision }}</div>
-              <div class="snapshot-info">
-                <div class="snapshot-title">发布快照 · revision {{ snapshot.revision }}</div>
-                <div class="snapshot-meta">{{ formatDate(snapshot.publishedAt) }} · 发布人 {{ snapshot.publishedBy }}</div>
-              </div>
-            </div>
-          </template>
-          <div v-else class="plan-empty">暂无发布快照。</div>
+        <div class="card publish-merged-note">
+          <p class="side-note">发布记录已并入「版本」Tab 的修订记录（带「报告发布」徽章），此处不再单列发布快照历史。</p>
         </div>
       </div>
 
@@ -85,16 +81,15 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { message } from 'ant-design-vue';
-import { createShareApi, getPlanVerdictApi, listSharesApi, listSnapshotsApi, revokeShareApi } from '../../api/plan-doc';
+import { createShareApi, getPlanVerdictApi, listSharesApi, revokeShareApi } from '../../api/plan-doc';
 import { copyToClipboard } from '../../utils/clipboard';
-import { formatDate } from '../../utils/format';
-import type { PlanShareTokenView, PlanSnapshotView } from '../../types';
+import type { PlanShareTokenView } from '../../types';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
 
 const props = defineProps<{ doc: ReturnType<typeof usePlanDoc> }>();
 
 const conclusion = ref('');
-const snapshots = ref<PlanSnapshotView[]>([]);
+const versionNo = ref('');
 const shares = ref<PlanShareTokenView[]>([]);
 
 onMounted(() => void reload());
@@ -115,12 +110,19 @@ function can(action: string) {
 async function reload() {
   const planId = props.doc.plan.value?.id;
   if (!planId) return;
-  snapshots.value = await listSnapshotsApi(planId).catch(() => []);
   shares.value = await listSharesApi(planId).catch(() => []);
 }
 
 async function publish() {
-  const ok = await props.doc.transition('publish', { conclusion: conclusion.value.trim() }, '已发布');
+  if (!versionNo.value.trim()) {
+    message.warning('请填写版本号');
+    return;
+  }
+  const ok = await props.doc.transition(
+    'publish',
+    { conclusion: conclusion.value.trim(), versionNo: versionNo.value.trim() },
+    '已发布',
+  );
   if (ok) await reload();
 }
 
@@ -254,55 +256,12 @@ function shareStateText(record: PlanShareTokenView) {
   padding: 16px 18px;
 }
 
-.publish-history h4 {
-  margin: 0 0 10px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
+.publish-merged-note {
+  padding: 14px 18px;
 }
 
-.snapshot {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 4px;
-  border-bottom: 1px solid var(--line);
-}
-
-.snapshot:last-of-type {
-  border-bottom: none;
-}
-
-.snapshot-icon {
-  flex: none;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: var(--ink);
-  color: var(--accent-ink);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.snapshot-info {
-  min-width: 0;
-}
-
-.snapshot-title {
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.snapshot-meta {
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 12px;
+.publish-conclusion-label {
+  margin-top: 12px;
 }
 
 .publish-side {

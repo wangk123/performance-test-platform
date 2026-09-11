@@ -31,19 +31,31 @@ public class PlanVersionService {
     }
 
     public record PlanVersionView(long id, String versionNo, String changeNote, String createdBy, String author,
-                                  String planPhase, int planRevision, Instant createdAt, Instant updatedAt) {
+                                  String planPhase, int planRevision, String kind, Instant createdAt, Instant updatedAt) {
     }
 
     public record PlanVersionDetail(long id, String versionNo, String changeNote, String createdBy, String author,
-                                    String planPhase, int planRevision, Instant createdAt, Instant updatedAt,
+                                    String planPhase, int planRevision, String kind, Instant createdAt, Instant updatedAt,
                                     String snapshotBody) {
     }
 
     public record PlanVersionListResponse(List<PlanVersionView> versions, boolean bodyDiffersFromLatest) {
     }
 
+    /** 手动发版入口（版本 Tab / MCP 后续）。 */
     @Transactional
     public PlanVersionView publish(long planId, HumanPrincipal actor, String versionNo, String changeNote) {
+        return doPublish(planId, actor, versionNo, changeNote, PersistentPlanVersionRecord.KIND_MANUAL);
+    }
+
+    /** 报告发布登记（spec §9）：工作流 publish 转换在 applyPublish 之后调用，kind=PUBLISH。 */
+    @Transactional
+    public PlanVersionView publishForWorkflow(long planId, HumanPrincipal actor, String versionNo, String changeNote) {
+        return doPublish(planId, actor, versionNo, changeNote, PersistentPlanVersionRecord.KIND_PUBLISH);
+    }
+
+    private PlanVersionView doPublish(long planId, HumanPrincipal actor, String versionNo, String changeNote,
+                                      String kind) {
         PersistentTaskPlanRecord plan = planRepository.findWithLockingById(planId)
                 .orElseThrow(() -> new PlanValidationException("PLAN_INVALID：task plan does not exist"));
         requireReadable(plan, actor);
@@ -54,6 +66,9 @@ public class PlanVersionService {
         }
         if (note.isEmpty()) {
             throw new PlanValidationException("PLAN_VERSION_INVALID：变更内容不能为空");
+        }
+        if (note.length() > 1000) {
+            note = note.substring(0, 997) + "…"; // 发布结论可超长，修订记录截断保底
         }
         List<PersistentPlanVersionRecord> existing = versionRepository.findByPlanIdOrderByCreatedAtDescIdDesc(planId);
         if (!existing.isEmpty()) {
@@ -74,7 +89,7 @@ public class PlanVersionService {
         }
         PersistentPlanVersionRecord created = new PersistentPlanVersionRecord(planId, no, note,
                 actor.username(), actor.username(), plan.getBody() == null ? "" : plan.getBody(),
-                plan.getPhase().name(), plan.getRevision(), Instant.now());
+                plan.getPhase().name(), plan.getRevision(), kind, Instant.now());
         return toView(versionRepository.save(created));
     }
 
@@ -100,7 +115,7 @@ public class PlanVersionService {
                 .orElseThrow(() -> new PlanValidationException("PLAN_VERSION_INVALID：版本不存在"));
         return new PlanVersionDetail(version.getId(), version.getVersionNo(), version.getChangeNote(),
                 version.getCreatedBy(), version.getAuthor(), version.getPlanPhase(), version.getPlanRevision(),
-                version.getCreatedAt(), version.getUpdatedAt(), version.getSnapshotBody());
+                version.getKind(), version.getCreatedAt(), version.getUpdatedAt(), version.getSnapshotBody());
     }
 
     /** 数值版本比较：`v?数字[.数字]*` 逐段比较（缺段补 0，V1 == 1.0）；任一侧不合规返回 null（不可比）。 */
@@ -156,6 +171,6 @@ public class PlanVersionService {
     private PlanVersionView toView(PersistentPlanVersionRecord version) {
         return new PlanVersionView(version.getId(), version.getVersionNo(), version.getChangeNote(),
                 version.getCreatedBy(), version.getAuthor(), version.getPlanPhase(), version.getPlanRevision(),
-                version.getCreatedAt(), version.getUpdatedAt());
+                version.getKind(), version.getCreatedAt(), version.getUpdatedAt());
     }
 }

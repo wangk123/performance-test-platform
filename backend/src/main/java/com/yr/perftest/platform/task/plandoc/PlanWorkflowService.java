@@ -37,6 +37,7 @@ public class PlanWorkflowService {
     private final TaskPlanService planService;
     private final ScenarioThreadGroupConfigSupport configSupport;
     private final PlanVerdictService verdictService;
+    private final PlanVersionService versionService;
 
     public PlanWorkflowService(
             PersistentTaskPlanRepository planRepository,
@@ -52,7 +53,8 @@ public class PlanWorkflowService {
             PersistentPlanPublishSnapshotRepository snapshotRepository,
             TaskPlanService planService,
             ScenarioThreadGroupConfigSupport configSupport,
-            PlanVerdictService verdictService
+            PlanVerdictService verdictService,
+            PlanVersionService versionService
     ) {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
@@ -68,6 +70,7 @@ public class PlanWorkflowService {
         this.planService = planService;
         this.configSupport = configSupport;
         this.verdictService = verdictService;
+        this.versionService = versionService;
     }
 
     @Transactional
@@ -450,7 +453,7 @@ public class PlanWorkflowService {
     }
 
     @Transactional
-    public TaskPlan publish(long planId, HumanPrincipal actor, String conclusion) {
+    public TaskPlan publish(long planId, HumanPrincipal actor, String conclusion, String versionNo) {
         PersistentTaskPlanRecord plan = requireActor(planId, actor, "PUBLISH");
         if (conclusion == null || conclusion.isBlank()) {
             throw new PlanValidationException("PLAN_INVALID：发布必须填写总体结论");
@@ -474,6 +477,8 @@ public class PlanWorkflowService {
         Instant now = Instant.now();
         buildPublishSnapshot(plan, actor.username(), now);
         plan.applyPublish(now);
+        // 修订记录合并（spec §9）：发布动作登记为 kind=PUBLISH 版本，快照=含结论正文、阶段=PUBLISH
+        versionService.publishForWorkflow(planId, actor, versionNo, conclusion);
         commentService.systemComment(planId, "已发布（revision=" + plan.getRevision() + "，发布人：" + actor.username() + "）");
         return planService.getPlan(planId);
     }

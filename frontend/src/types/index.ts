@@ -489,6 +489,8 @@ export interface PlanVersionView {
   author: string;
   planPhase: string;
   planRevision: number;
+  /** 来源：MANUAL 手动发版 / PUBLISH 报告发布登记。 */
+  kind: string;
   createdAt: string;
   updatedAt: string;
 }

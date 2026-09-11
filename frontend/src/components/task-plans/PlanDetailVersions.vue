@@ -11,6 +11,7 @@
     <div v-for="version in versions" :key="version.id" class="version-row">
       <div class="version-main">
         <span class="version-no">{{ version.versionNo }}</span>
+        <span v-if="version.kind === 'PUBLISH'" class="version-kind">报告发布</span>
         <span class="version-note">{{ version.changeNote }}</span>
       </div>
       <div class="version-meta">
@@ -170,6 +171,17 @@ function rollback(version: PlanVersionView) {
   flex: none;
   color: var(--ink);
   font: 650 13.5px var(--font-ui);
+}
+
+.version-kind {
+  flex: none;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--plan-accent-text);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .version-note {

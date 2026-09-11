@@ -139,6 +139,21 @@ class PlanVersionServiceTest {
     }
 
     @Test
+    void manualPublishRecordsManualKind() {
+        PlanVersionService.PlanVersionView view = versionService.publish(planId, OWNER, "V1.0", "手动发版");
+        assertThat(view.kind()).isEqualTo(PersistentPlanVersionRecord.KIND_MANUAL);
+    }
+
+    @Test
+    void workflowPublishRecordsPublishKindAndTruncatesLongNote() {
+        PlanVersionService.PlanVersionView view =
+                versionService.publishForWorkflow(planId, OWNER, "V1.0", "结".repeat(1200));
+        assertThat(view.kind()).isEqualTo(PersistentPlanVersionRecord.KIND_PUBLISH);
+        assertThat(view.changeNote()).hasSize(998); // 997 字 + 省略号
+        assertThat(view.changeNote()).endsWith("…");
+    }
+
+    @Test
     void listOrdersMultipleVersionsByCreatedDesc() {
         versionService.publish(planId, OWNER, "V1.0", "首版");
         versionService.publish(planId, OWNER, "V1.1", "补充");
