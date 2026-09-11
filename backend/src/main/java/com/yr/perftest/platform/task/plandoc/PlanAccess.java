@@ -16,7 +16,9 @@ public final class PlanAccess {
                 || role == PlanActorRole.PROJECT_OWNER
                 || role == PlanActorRole.PLAN_OWNER;
         boolean memberLike = ownerLike || role == PlanActorRole.MEMBER;
-        boolean editable = ownerLike && phase == PlanPhase.DRAFT;
+        // 用户决策（2026-09-11）：EDIT 不再限 DRAFT 阶段——任意阶段负责人均可编辑文档（评审/执行/发布中改文档走
+        // revision 冲突保护兜底）；角色门槛保留（MEMBER 只读）。
+        boolean editable = ownerLike;
         boolean frozen = phase == PlanPhase.PUBLISH;
 
         Map<String, Boolean> p = new LinkedHashMap<>();

@@ -89,12 +89,13 @@ class PlanDocumentServiceTest {
     }
 
     @Test
-    void editOutsideDraftPhaseRejected() {
+    void editAllowedOutsideDraftPhase() {
+        // 用户决策（2026-09-11）：EDIT 任意阶段放开，评审期编辑不再拒绝
         PersistentTaskPlanRecord plan = planRepository.findById(planId).orElseThrow();
         plan.forceState(PlanPhase.REVIEW, PlanStatus.PENDING);
         planRepository.save(plan);
-        assertThatThrownBy(() -> documentService.updateMarkdown(planId, 2, "x", OWNER))
-                .isInstanceOf(PlanStateException.class);
+        TaskPlan edited = documentService.updateMarkdown(planId, 2, "x", OWNER);
+        assertThat(edited.revision()).isEqualTo(3);
     }
 
     @Test

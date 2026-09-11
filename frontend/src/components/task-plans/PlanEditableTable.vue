@@ -29,37 +29,39 @@
       <div class="et-op" aria-hidden="true"></div>
     </div>
 
-    <div
-      v-for="(row, rowIdx) in rows"
-      :key="rowIdx"
-      class="et-row"
-      role="row"
-      :style="gridStyle"
-    >
+    <div class="et-body">
       <div
-        v-for="(col, colIdx) in rowCells(row)"
-        :key="colIdx"
-        class="et-cell"
-        role="cell"
-        :class="{ 'is-dirty': touched.has(`${rowIdx}:${colIdx}`) }"
+        v-for="(row, rowIdx) in rows"
+        :key="rowIdx"
+        class="et-row"
+        role="row"
+        :style="gridStyle"
       >
-        <input
-          :value="row[colIdx]"
-          :aria-label="`第 ${rowIdx + 1} 行 ${columnLabel(colIdx)}`"
-          :placeholder="schema?.columns[colIdx]?.placeholder ?? ''"
-          @input="setCell(rowIdx, colIdx, $event)"
-        />
-      </div>
-      <div class="et-op" role="cell">
-        <button
-          class="et-row-del"
-          type="button"
-          :aria-label="`删除第 ${rowIdx + 1} 行`"
-          title="删除本行"
-          @click="removeRow(rowIdx)"
+        <div
+          v-for="(col, colIdx) in rowCells(row)"
+          :key="colIdx"
+          class="et-cell"
+          role="cell"
+          :class="{ 'is-dirty': touched.has(`${rowIdx}:${colIdx}`) }"
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
-        </button>
+          <input
+            :value="row[colIdx]"
+            :aria-label="`第 ${rowIdx + 1} 行 ${columnLabel(colIdx)}`"
+            :placeholder="schema?.columns[colIdx]?.placeholder ?? ''"
+            @input="setCell(rowIdx, colIdx, $event)"
+          />
+        </div>
+        <div class="et-op" role="cell">
+          <button
+            class="et-row-del"
+            type="button"
+            :aria-label="`删除第 ${rowIdx + 1} 行`"
+            title="删除本行"
+            @click="removeRow(rowIdx)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -168,7 +170,14 @@ function removeColumn(colIdx: number) {
   transition: background 0.15s;
 }
 
-.et-row:last-of-type {
+/* 表体行数多时限高滚动（表头与加行按钮固定在外） */
+.et-body {
+  max-height: 48vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.et-body .et-row:last-child {
   border-bottom: 0;
 }
 

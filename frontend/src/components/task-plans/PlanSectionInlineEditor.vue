@@ -583,7 +583,8 @@ onMounted(() => {
 .ie-textarea {
   display: block;
   width: 100%;
-  min-height: 44px;
+  min-height: 120px;
+  max-height: 55vh;
   padding: 11px 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -592,7 +593,8 @@ onMounted(() => {
   font-family: var(--font-data, ui-monospace, monospace);
   font-size: 12.5px;
   line-height: 1.8;
-  overflow: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
   resize: none;
   outline: none;
   caret-color: var(--accent);

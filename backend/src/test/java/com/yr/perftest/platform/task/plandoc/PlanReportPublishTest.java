@@ -108,9 +108,9 @@ class PlanReportPublishTest {
         assertThat(versions.get(0).getChangeNote()).isEqualTo("核心指标全部达成，可上线。");
         assertThat(versions.get(0).getSnapshotBody()).contains("总体结论");
         assertThat(versions.get(0).getPlanPhase()).isEqualTo("PUBLISH");
-        // 冻结：编辑被拒
-        assertThatThrownBy(() -> documentService.updateMarkdown(planId, published.revision(), "x", OWNER))
-                .isInstanceOf(PlanStateException.class);
+        // 用户决策（2026-09-11）：放开「发布后冻结编辑」——发布后仍可编辑（新 revision 追加，发布快照/版本登记不变）
+        TaskPlan edited = documentService.updateMarkdown(planId, published.revision(), "x", OWNER);
+        assertThat(edited.revision()).isEqualTo(published.revision() + 1);
     }
 
     @Test

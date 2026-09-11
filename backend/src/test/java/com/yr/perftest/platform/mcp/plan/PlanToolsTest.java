@@ -9,7 +9,6 @@ import com.yr.perftest.platform.project.PersistentProjectRepository;
 import com.yr.perftest.platform.task.TaskPlan;
 import com.yr.perftest.platform.task.TaskPlanService;
 import com.yr.perftest.platform.task.plandoc.PlanRevisionConflictException;
-import com.yr.perftest.platform.task.plandoc.PlanStateException;
 import com.yr.perftest.platform.task.plandoc.PlanValidationException;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService;
 import org.junit.jupiter.api.Test;
@@ -127,7 +126,7 @@ class PlanToolsTest {
     }
 
     @Test
-    void updateSucceedsThenConflictsAndStateGuards() {
+    void updateSucceedsThenConflictsAndEditableAcrossPhases() {
         long projectId = newProject();
         long planId = createPlan(projectId);
         Map<String, Object> updated = (Map<String, Object>) updateTool.call(Map.of(
@@ -139,11 +138,11 @@ class PlanToolsTest {
                 "planId", planId, "markdown", "# 一、背景\nv3", "baseRevision", 1L), AGENT))
                 .isInstanceOf(PlanRevisionConflictException.class);
 
-        // 提交评审后 → PLAN_STATE（skill 停止改稿依据）
+        // 提交评审后仍可编辑（用户决策 2026-09-11：EDIT 任意阶段放开，仅靠 revision 冲突保护）
         workflowService.submit(planId, new HumanPrincipal("owner", java.util.Set.of(SystemRole.PROJECT_MEMBER)), null);
-        assertThatThrownBy(() -> updateTool.call(Map.of(
-                "planId", planId, "markdown", "# 一、背景\nv4", "baseRevision", 2L), AGENT))
-                .isInstanceOf(PlanStateException.class);
+        Map<String, Object> afterSubmit = (Map<String, Object>) updateTool.call(Map.of(
+                "planId", planId, "markdown", "# 一、背景\nv4", "baseRevision", 2L), AGENT);
+        assertThat(((Number) afterSubmit.get("revision")).intValue()).isEqualTo(3);
     }
 
     @Test

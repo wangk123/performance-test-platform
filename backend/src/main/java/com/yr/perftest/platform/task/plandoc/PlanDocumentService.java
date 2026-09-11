@@ -106,12 +106,8 @@ public class PlanDocumentService {
 
     private void requireEditAllowed(PersistentTaskPlanRecord plan, HumanPrincipal actor) {
         ProjectAccessResolver.PlanActorRole role = accessResolver.resolve(plan.getProjectId(), actor, plan.getCreatedBy());
+        // EDIT 已放开为任意阶段（PlanAccess），不满足只剩角色不足一种情形
         if (!PlanAccess.compute(role, plan.getPhase(), plan.getStatus(), true).get("EDIT")) {
-            if (plan.getPhase() != PlanPhase.DRAFT) {
-                throw new PlanStateException("PLAN_STATE：文档仅草稿阶段可编辑（当前 "
-                        + plan.getPhase() + "/" + plan.getStatus() + "）",
-                        plan.getPhase(), plan.getStatus(), List.of("WITHDRAW", "BACK_TO_DRAFT"));
-            }
             throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：仅负责人/项目 OWNER/系统管理员可编辑文档");
         }
     }

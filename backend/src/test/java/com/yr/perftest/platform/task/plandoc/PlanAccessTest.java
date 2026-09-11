@@ -25,11 +25,13 @@ class PlanAccessTest {
     }
 
     @Test
-    void ownerCanEditOnlyInDraftPhase() {
+    void ownerCanEditInAnyPhase() {
+        // 用户决策（2026-09-11）：EDIT 放开阶段限制——任意阶段负责人均可编辑，角色门槛不变
         assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.DRAFT, PlanStatus.DRAFT, false).get("EDIT")).isTrue();
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.REVIEW, PlanStatus.PENDING, false).get("EDIT")).isFalse();
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.EXECUTION, PlanStatus.DONE, true).get("EDIT")).isFalse();
-        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.PUBLISH, PlanStatus.PUBLISHED, true).get("EDIT")).isFalse();
+        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.REVIEW, PlanStatus.PENDING, false).get("EDIT")).isTrue();
+        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.EXECUTION, PlanStatus.DONE, true).get("EDIT")).isTrue();
+        assertThat(PlanAccess.compute(PlanActorRole.PLAN_OWNER, PlanPhase.PUBLISH, PlanStatus.PUBLISHED, true).get("EDIT")).isTrue();
+        assertThat(PlanAccess.compute(PlanActorRole.MEMBER, PlanPhase.DRAFT, PlanStatus.DRAFT, false).get("EDIT")).isFalse();
     }
 
     @Test
