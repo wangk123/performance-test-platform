@@ -1,9 +1,9 @@
 <template>
   <a-modal
     :open="open"
-    title="发布版本"
+    title="新增版本"
     :width="520"
-    ok-text="发布"
+    ok-text="新增"
     cancel-text="取消"
     :confirm-loading="submitting"
     @cancel="close"
@@ -43,9 +43,9 @@ import { listPlanVersionsApi, publishPlanVersionApi } from '../../api/plan-doc';
 import type { PlanVersionView } from '../../types';
 
 /**
- * 发布版本弹窗（spec 2026-09-10 §3.2/§3.3）：
- * 版本号默认显示最新版本号（无版本时留空）；与最新同号 → 确认告警后覆盖；
- * 低于最新/历史重号由服务端拒绝，错误信息直接透出。
+ * 新增版本弹窗（spec 2026-09-10 §3.2/§3.3；2026-09-11 §3.3 版本与状态解耦）：
+ * 版本号手输、不自动生成（缺省显示最新版本号便于覆盖，绝不 +1 预生成）；
+ * 与最新同号 → 确认告警后覆盖；低于最新/历史重号由服务端拒绝，错误信息直接透出。
  */
 const props = defineProps<{ open: boolean; planId: number }>();
 const emit = defineEmits<{

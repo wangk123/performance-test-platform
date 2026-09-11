@@ -540,7 +540,7 @@
   text-decoration: underline;
 }
 
-/* 阶段语义徽章家族（与原型 badge 家族同源；DRAFT 灰以 canvas+line 近似 #EEF0F3，token 化） */
+/* 状态语义徽章家族（spec 2026-09-11 §3.1：PLANNING 灰以 canvas+line 近似 #EEF0F3，token 化） */
 .phase-badge {
   display: inline-flex;
   align-items: center;
@@ -568,40 +568,52 @@
   50% { opacity: 0.25; }
 }
 
-.phase-badge.is-draft {
+.phase-badge.is-planning {
   background: var(--canvas);
   border: 1px solid var(--line);
   color: var(--muted);
 }
 
-.phase-badge.is-review {
+.phase-badge.is-in_review {
   background: var(--accent-soft);
   border: 1px solid var(--accent);
   color: var(--ink);
 }
 
-.phase-badge.is-review .dot { background: var(--accent); }
+.phase-badge.is-in_review .dot { background: var(--accent); }
 
-.phase-badge.is-execution {
+.phase-badge.is-executing {
   background: var(--warning-soft);
   border: 1px solid var(--warn);
   color: var(--ink);
 }
 
-.phase-badge.is-execution .dot { background: var(--warn); }
+.phase-badge.is-executing .dot { background: var(--warn); }
 
-.phase-badge.is-report {
+.phase-badge.is-reporting {
   background: var(--ok-soft);
   border: 1px solid var(--ok);
   color: var(--ink);
 }
 
-.phase-badge.is-report .dot { background: var(--ok); }
+.phase-badge.is-reporting .dot { background: var(--ok); }
 
-.phase-badge.is-publish {
+.phase-badge.is-published {
   background: var(--ink);
   border: 1px solid var(--ink);
   color: var(--accent-ink);
+}
+
+/* 发布弹窗（spec 2026-09-11 §4.3：总体结论 + 版本号，均必填） */
+.publish-transition-form {
+  margin-bottom: 4px;
+}
+
+.publish-transition-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
 }
 
 /* a-tabs 行卡：Tabs 与文档工具条合并为一行（rightExtra 挂右）；active 墨色（强调色预算） */

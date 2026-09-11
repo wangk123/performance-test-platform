@@ -121,15 +121,16 @@ const bindDialogOpen = ref(false);
 const bindDialogScenario = ref('');
 
 const canEditScenario = computed(() => {
-  const phase = props.docPlan.plan.value?.phase;
   const status = props.docPlan.plan.value?.status;
-  // PUBLISH（终态）与未知阶段不在可编辑列表中，天然排除。
-  return phase === 'DRAFT' || phase === 'REVIEW' || (phase === 'EXECUTION' && status !== 'RUNNING') || phase === 'REPORT';
+  const active = props.docPlan.activeExecutions.value;
+  // PUBLISHED（终态）与未知状态不在可编辑列表中，天然排除；执行中仅在无活跃执行时可编辑。
+  return status === 'PLANNING' || status === 'IN_REVIEW' || status === 'REPORTING'
+    || (status === 'EXECUTING' && active === 0);
 });
 const canBindScript = computed(() => canEditScenario.value);
 const canExecute = computed(() => {
-  const phase = props.docPlan.plan.value?.phase;
-  return phase === 'EXECUTION' || phase === 'REPORT';
+  const status = props.docPlan.plan.value?.status;
+  return status === 'EXECUTING' || status === 'REPORTING';
 });
 
 function scenarioOf(name: string) {

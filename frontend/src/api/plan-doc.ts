@@ -47,9 +47,8 @@ export function polishPlanSectionApi(planId: number, sectionTitle: string, conte
   });
 }
 
-type TransitionAction =
-  | 'submit' | 'start-review' | 'approve' | 'reject' | 'withdraw' | 'back-to-draft'
-  | 'start-execution' | 'publish' | 'new-revision';
+/** 流转单行道（spec 2026-09-11 §4）：每状态至多一个动作；「新增版本」走 publishPlanVersionApi，不在此列。 */
+export type TransitionAction = 'submit' | 'approve' | 'finish-execution' | 'publish';
 
 export function transitionPlanApi(planId: number, action: TransitionAction, payload?: { comment?: string; conclusion?: string; versionNo?: string }) {
   return request<PlanDocumentResponse>(`/api/task-plans/${planId}/${action}`, {

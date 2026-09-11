@@ -415,10 +415,8 @@ export type ExecutionConfig = {
   stepName?: string | null;
 };
 
-export type PlanPhase = 'DRAFT' | 'REVIEW' | 'EXECUTION' | 'REPORT' | 'PUBLISH';
-export type PlanStatus =
-  | 'DRAFT' | 'PENDING' | 'IN_REVIEW' | 'APPROVED'
-  | 'RUNNING' | 'DONE' | 'GENERATING' | 'PUBLISHED';
+/** 计划单一状态（spec 2026-09-11 §3.1）：单行道，无回退。 */
+export type PlanStatus = 'PLANNING' | 'IN_REVIEW' | 'EXECUTING' | 'REPORTING' | 'PUBLISHED';
 export type PlanCommentKind = 'REVIEW' | 'SYSTEM';
 
 export interface PlanCommentAnchor {
@@ -515,6 +513,8 @@ export type PlanPermissions = Record<string, boolean>;
 export interface PlanDocumentResponse {
   plan: TaskPlan;
   permissions: PlanPermissions;
+  /** 软门禁数据：QUEUED/RUNNING/STOPPING 执行数，执行完成/发布前二次确认用。 */
+  activeExecutions: number;
 }
 
 export interface PrecheckRunReport {
@@ -556,7 +556,6 @@ export type TaskPlan = {
   defaultWorkerNodeIds: number[];
   defaultMonitorTargetIds: number[];
   scenarioCount: number;
-  phase: PlanPhase;
   status: PlanStatus;
   body: string | null;
   revision: number;

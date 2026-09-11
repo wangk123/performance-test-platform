@@ -5,9 +5,9 @@
         <div class="plan-head-info">
           <h1 class="plan-head-title">
             {{ doc.plan.value?.name ?? plan.name }}
-            <span class="phase-badge" :class="phaseBadgeClass">
-              <span v-if="isRunning" class="dot" />
-              {{ phaseText === statusText ? phaseText : `${phaseText} · ${statusText}` }}
+            <span class="phase-badge" :class="statusBadgeClass">
+              <span v-if="isExecuting" class="dot" />
+              {{ statusText }}
             </span>
           </h1>
           <p class="plan-head-meta">
@@ -26,11 +26,15 @@
         <div class="plan-head-side">
           <div class="script-assets-actions">
             <a-button v-if="can('EDIT')" @click="openPlanConfig">编辑默认配置</a-button>
-            <a-button v-if="can('SUBMIT')" type="primary" @click="submitForReview">提交评审</a-button>
-            <a-button v-if="can('WITHDRAW')" @click="doc.transition('withdraw', undefined, '已撤回')">撤回</a-button>
-            <a-button v-if="can('BACK_TO_DRAFT')" @click="doc.transition('back-to-draft', undefined, '已退回草稿')">退回草稿</a-button>
+            <a-button
+              v-for="action in flowActions"
+              :key="action"
+              type="primary"
+              @click="onFlowAction(action)"
+            >{{ ACTION_TEXT[action] ?? action }}</a-button>
+            <a-button @click="publishOpen = true">新增版本</a-button>
           </div>
-          <PlanPhaseStepper :phase="doc.plan.value?.phase ?? 'DRAFT'" />
+          <PlanPhaseStepper :status="status" />
         </div>
       </div>
     </div>
@@ -64,7 +68,7 @@
             >{{ mode }}</button>
           </div>
           <div class="doc-toolbar-right">
-            <a-button size="small" type="primary" ghost @click="publishOpen = true">发布版本</a-button>
+            <a-button size="small" type="primary" ghost @click="publishOpen = true">新增版本</a-button>
           </div>
         </div>
       </template>
@@ -96,16 +100,47 @@
       :plan-id="(doc.plan.value ?? plan).id"
       @published="onVersionPublished"
     />
+    <a-modal
+      v-model:open="publishTransitionOpen"
+      title="发布"
+      :width="520"
+      ok-text="确认发布"
+      cancel-text="取消"
+      :confirm-loading="publishing"
+      @ok="confirmPublish"
+    >
+      <a-form layout="vertical" class="publish-transition-form">
+        <a-form-item label="版本号" required>
+          <a-input v-model:value="publishVersionNo" placeholder="如：V1.0" :maxlength="32" aria-label="版本号" />
+        </a-form-item>
+        <a-form-item label="总体结论" required>
+          <a-textarea
+            v-model:value="publishConclusion"
+            :rows="4"
+            :maxlength="1000"
+            show-count
+            placeholder="发布人确认的总体结论（已预填自动判定文本，可修改）"
+            aria-label="总体结论"
+          />
+        </a-form-item>
+      </a-form>
+      <p class="publish-transition-hint">
+        发布将冻结当前文档全文，按版本号登记「报告发布」版本，并将计划置为已发布（终态）。
+      </p>
+    </a-modal>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { message } from 'ant-design-vue';
+import { Modal, message } from 'ant-design-vue';
 import type { TaskPlan, TaskScenario } from '../../types';
-import { usePlanDoc, statusLabel } from '../../composables/usePlanDoc';
+import type { TransitionAction } from '../../api/plan-doc';
+import { getPlanVerdictApi } from '../../api/plan-doc';
+import { usePlanDoc } from '../../composables/usePlanDoc';
 import { useTaskPlans } from '../../composables/useTaskPlans';
+import { activeWarning, STATUS_LABEL, visibleActions } from '../../utils/plan-status';
 import { formatDate } from '../../utils/format';
 import PlanPhaseStepper from './PlanPhaseStepper.vue';
 import PlanDetailDocument from './PlanDetailDocument.vue';
@@ -167,16 +202,83 @@ function locateComment(commentId: number) {
     .finally(() => { syncingTabQuery = false; });
 }
 
-const PHASE_TEXT: Record<string, string> = {
-  DRAFT: '草稿', REVIEW: '评审', EXECUTION: '执行', REPORT: '报告', PUBLISH: '发布',
-};
+/** 单一状态 → 徽标文案与执行中脉冲点（spec 2026-09-11 §3.1）。 */
+const status = computed(() => doc.plan.value?.status ?? 'PLANNING');
+const statusText = computed(() => STATUS_LABEL[status.value] ?? status.value);
+const statusBadgeClass = computed(() => `is-${status.value.toLowerCase()}`);
+const isExecuting = computed(() => status.value === 'EXECUTING');
 
-const phase = computed(() => doc.plan.value?.phase ?? 'DRAFT');
-const status = computed(() => doc.plan.value?.status ?? 'DRAFT');
-const phaseText = computed(() => PHASE_TEXT[phase.value] ?? phase.value);
-const statusText = computed(() => statusLabel(phase.value, status.value));
-const isRunning = computed(() => phase.value === 'EXECUTION' && status.value === 'RUNNING');
-const phaseBadgeClass = computed(() => `is-${phase.value.toLowerCase()}`);
+/** 流转按钮区（单行道）：由状态推导，每状态至多一个；「新增版本」为全局常驻，不在此列。 */
+const ACTION_TEXT: Record<string, string> = {
+  submit: '提交评审',
+  approve: '评审通过',
+  'finish-execution': '执行完成',
+  publish: '发布',
+};
+const flowActions = computed(() => visibleActions(status.value) as TransitionAction[]);
+
+/** 软门禁：执行完成/发布点击时若有活跃执行，先二次确认（spec 2026-09-11 §4.3）。 */
+function onFlowAction(action: TransitionAction) {
+  if ((action === 'finish-execution' || action === 'publish') && doc.activeExecutions.value > 0) {
+    Modal.confirm({
+      title: '未完成执行告警',
+      content: activeWarning(doc.activeExecutions.value) ?? undefined,
+      okText: '继续',
+      cancelText: '取消',
+      onOk: () => runFlowAction(action),
+    });
+    return;
+  }
+  void runFlowAction(action);
+}
+
+async function runFlowAction(action: TransitionAction) {
+  if (action === 'publish') {
+    await openPublishTransition();
+    return;
+  }
+  const successText = { submit: '已提交评审', approve: '评审已通过', 'finish-execution': '已进入报告编辑' }[action];
+  await doc.transition(action, undefined, successText ?? '操作成功');
+}
+
+// ---- 发布弹窗（总体结论 + 版本号，均必填；版本号后端 publishForWorkflow 仍校验） ----
+const publishTransitionOpen = ref(false);
+const publishVersionNo = ref('');
+const publishConclusion = ref('');
+const publishing = ref(false);
+
+async function openPublishTransition() {
+  publishVersionNo.value = '';
+  if (!publishConclusion.value.trim()) {
+    const verdict = await getPlanVerdictApi(props.plan.id).catch(() => null);
+    if (verdict?.prefillConclusion) publishConclusion.value = verdict.prefillConclusion; // 预填自动判定文本，可修改
+  }
+  publishTransitionOpen.value = true;
+}
+
+async function confirmPublish() {
+  const versionNo = publishVersionNo.value.trim();
+  const conclusion = publishConclusion.value.trim();
+  if (!versionNo) {
+    message.warning('请填写版本号');
+    return;
+  }
+  if (!conclusion) {
+    message.warning('请填写总体结论');
+    return;
+  }
+  publishing.value = true;
+  try {
+    const ok = await doc.transition('publish', { conclusion, versionNo }, '已发布');
+    if (ok) {
+      publishTransitionOpen.value = false;
+      publishConclusion.value = '';
+      versionRefreshTick.value += 1; // 发布登记了「报告发布」版本，刷新版本 Tab
+    }
+  } finally {
+    publishing.value = false;
+  }
+}
 
 onMounted(async () => {
   activeTab.value = tabOfQuery();
@@ -222,9 +324,5 @@ function openAddScenario() {
 function openEditScenario(scenario: TaskScenario) {
   editingScenario.value = scenario;
   scenarioDialogVisible.value = true;
-}
-
-async function submitForReview() {
-  await doc.transition('submit', undefined, '已提交评审');
 }
 </script>

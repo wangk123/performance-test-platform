@@ -1,12 +1,10 @@
 <template>
   <section class="review-tab">
     <div class="workbench-actions">
-      <span class="workbench-badge">{{ phaseText }} · rev {{ doc.plan.value?.revision ?? '-' }}</span>
+      <span class="workbench-badge">{{ statusText }}</span>
       <span class="workbench-hint" v-if="unresolvedCount > 0 && can('APPROVE')">未解决批注 {{ unresolvedCount }} 条</span>
       <span style="flex: 1" />
-      <a-button v-if="can('START_REVIEW')" type="primary" @click="run('start-review', '已开始评审')">开始评审</a-button>
       <a-button v-if="can('APPROVE')" type="primary" @click="approve">评审通过</a-button>
-      <a-button v-if="can('REJECT')" danger @click="openReject">驳回</a-button>
       <span v-if="!can('COMMENT') && !can('APPROVE')" class="review-hint">当前阶段批注只读</span>
     </div>
 
@@ -49,18 +47,6 @@
         class="workbench-flow-item"
       >· {{ comment.author }} {{ comment.content }} —— {{ new Date(comment.createdAt).toLocaleString() }}</div>
     </div>
-
-    <a-modal
-      v-model:open="rejectOpen"
-      title="驳回评审"
-      ok-text="驳回"
-      :ok-button-props="{ danger: true, disabled: !rejectReason.trim() }"
-      :confirm-loading="rejecting"
-      @ok="confirmReject"
-    >
-      <p class="reject-hint">驳回原因必填，将作为批注留存并退回草稿。</p>
-      <a-textarea v-model:value="rejectReason" :rows="4" placeholder="填写驳回原因（必填）" />
-    </a-modal>
   </section>
 </template>
 
@@ -70,21 +56,16 @@ import { Modal, message } from 'ant-design-vue';
 import type { PlanComment, PlanCommentThread } from '../../types';
 import { deleteCommentApi } from '../../api/plan-doc';
 import { deriveAnchors } from '../../utils/plan-anchors';
+import { STATUS_LABEL } from '../../utils/plan-status';
 import PlanCommentCard from './PlanCommentCard.vue';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
 
 const props = defineProps<{ doc: ReturnType<typeof usePlanDoc> }>();
 const emit = defineEmits<{ (e: 'locate', commentId: number): void }>();
 
-const rejectOpen = ref(false);
-const rejectReason = ref('');
-const rejecting = ref(false);
 const activeFilter = ref<'all' | 'unresolved' | 'resolved' | 'broken' | 'unanchored'>('all');
 
-const PHASE_TEXT: Record<string, string> = {
-  DRAFT: '草稿', REVIEW: '评审', EXECUTION: '执行', REPORT: '报告', PUBLISH: '发布',
-};
-const phaseText = computed(() => PHASE_TEXT[props.doc.plan.value?.phase ?? 'DRAFT'] ?? '草稿');
+const statusText = computed(() => STATUS_LABEL[props.doc.plan.value?.status ?? 'PLANNING'] ?? '计划中');
 
 function can(action: string) {
   return Boolean(props.doc.permissions.value[action]);
@@ -126,10 +107,6 @@ const visibleGroups = computed(() => {
   return [...bySection.entries()].map(([title, threads]) => ({ key: title, title, threads }));
 });
 
-function run(action: 'start-review', text: string) {
-  void props.doc.transition(action, undefined, text);
-}
-
 function approve() {
   if (unresolvedCount.value > 0) {
     Modal.confirm({
@@ -142,20 +119,6 @@ function approve() {
     return;
   }
   void props.doc.transition('approve', undefined, '评审已通过');
-}
-
-function openReject() {
-  rejectReason.value = '';
-  rejectOpen.value = true;
-}
-
-async function confirmReject() {
-  const comment = rejectReason.value.trim();
-  if (!comment) return;
-  rejecting.value = true;
-  const ok = await props.doc.transition('reject', { comment }, '已驳回，退回草稿');
-  rejecting.value = false;
-  if (ok) rejectOpen.value = false;
 }
 
 async function removeComment(thread: PlanCommentThread, comment: PlanComment) {

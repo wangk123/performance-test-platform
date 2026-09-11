@@ -40,8 +40,8 @@
         :locale="{ emptyText: '暂无任务计划。' }"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'phase'">
-            <span class="phase-badge" :class="`is-${record.phase.toLowerCase()}`">{{ phaseText(record.phase) }} · {{ statusLabel(record.phase, record.status) }}</span>
+          <template v-if="column.key === 'status'">
+            <span class="phase-badge" :class="`is-${record.status.toLowerCase()}`">{{ STATUS_LABEL[record.status] ?? record.status }}</span>
           </template>
           <template v-else-if="column.key === 'name'">
             <strong>{{ record.name }}</strong>
@@ -68,7 +68,7 @@ import type { TableColumnsType } from 'ant-design-vue';
 import type { TaskPlan } from '../../types';
 import { formatDate } from '../../utils/format';
 import { useTaskPlans } from '../../composables/useTaskPlans';
-import { statusLabel } from '../../composables/usePlanDoc';
+import { STATUS_LABEL } from '../../utils/plan-status';
 import TaskPlanDialog from './TaskPlanDialog.vue';
 import TaskPlanDetail from './TaskPlanDetail.vue';
 import ExecutionDetailView from './ExecutionDetailView.vue';
@@ -94,19 +94,11 @@ const {
 
 const columns: TableColumnsType<TaskPlan> = [
   { title: '计划名称', key: 'name', minWidth: 220 },
-  { title: '阶段', key: 'phase', width: 140 },
+  { title: '状态', key: 'status', width: 140 },
   { title: '场景数', key: 'scenarios', width: 100 },
   { title: '更新时间', key: 'updatedAt', width: 160 },
   { title: '操作', key: 'actions', width: 200 },
 ];
-
-const PHASE_TEXT: Record<string, string> = {
-  DRAFT: '草稿', REVIEW: '评审', EXECUTION: '执行', REPORT: '报告', PUBLISH: '发布',
-};
-
-function phaseText(phase: string) {
-  return PHASE_TEXT[phase] ?? phase;
-}
 
 function openCreatePlan() {
   editingPlan.value = null;

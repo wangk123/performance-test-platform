@@ -8,7 +8,7 @@
   >
     <div class="conflict-note">
       <span class="conflict-note-icon">⚠</span>
-      <span>你的本地草稿基于较旧 revision，服务器当前已是 revision <b>{{ serverRevision }}</b>。
+      <span>他人已修改此文档，你的本地草稿基于较旧内容。
       平台不做自动覆盖与行级合并，请选择处理方式。</span>
     </div>
 
@@ -45,12 +45,12 @@
 
     <div class="conflict-actions">
       <a-button @click="$emit('resolve', 'keep-server')">保留平台版（放弃本地修改）</a-button>
-      <a-button type="primary" @click="$emit('resolve', 'take-local')">采纳本地版（以最新 revision 重放）</a-button>
+      <a-button type="primary" @click="$emit('resolve', 'take-local')">采纳本地版（整篇覆盖平台版）</a-button>
       <a-button @click="$emit('resolve', 'manual')">手改（以平台版为基底继续编辑）</a-button>
       <a-button type="text" @click="$emit('update:open', false)">取消</a-button>
     </div>
     <p class="conflict-footnote">
-      采纳本地版 = 整篇原文覆盖（非行级合并），以服务器最新 revision 重新提交。
+      采纳本地版 = 整篇原文覆盖（非行级合并），提交时按冲突保护重新校验。
     </p>
   </a-modal>
 </template>
@@ -63,6 +63,7 @@ const props = defineProps<{
   open: boolean;
   serverMarkdown: string;
   localMarkdown: string;
+  /** 保留接线（详情页传入），弹窗按 spec 2026-09-11 不再展示 revision 数值。 */
   serverRevision?: number;
 }>();
 defineEmits<{
@@ -87,8 +88,6 @@ function diffParts(from: string, to: string): DiffPart[] {
 const serverParts = computed(() => diffParts(props.localMarkdown, props.serverMarkdown));
 /** 本地栏：平台 → 本地（added=本地独有 ok）。 */
 const localParts = computed(() => diffParts(props.serverMarkdown, props.localMarkdown));
-
-const serverRevision = computed(() => props.serverRevision ?? '最新');
 </script>
 
 <style scoped>
@@ -104,10 +103,6 @@ const serverRevision = computed(() => props.serverRevision ?? '最新');
   background: var(--warning-soft);
   color: var(--plan-warn-text);
   font-size: 13px;
-}
-
-.conflict-note b {
-  font-family: var(--font-data);
 }
 
 .conflict-note-icon {

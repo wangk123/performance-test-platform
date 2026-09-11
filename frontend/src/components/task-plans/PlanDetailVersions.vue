@@ -5,7 +5,7 @@
         <div class="versions-toolbar">
           <span v-if="dirty" class="versions-dirty">有未发布的变更：当前文档与最新版本快照不一致</span>
           <span v-else-if="versions.length" class="versions-clean">文档与最新版本快照一致</span>
-          <a-button size="small" type="primary" @click="emit('request-publish')">发布版本</a-button>
+          <a-button size="small" type="primary" @click="emit('request-publish')">新增版本</a-button>
         </div>
 
         <div v-if="versions.length === 0" class="plan-empty">（暂无版本，发布第一个版本以建立修订记录）</div>
@@ -19,7 +19,7 @@
           <div class="version-meta">
             <span>修订人 {{ version.author }}</span>
             <span>{{ timeLabel(version) }}</span>
-            <span>{{ phaseLabel(version.planPhase) }}</span>
+            <span>{{ statusLabel(version.planPhase) }}</span>
           </div>
           <div class="version-actions">
             <a-button size="small" type="text" @click="openView(version)">查看全文</a-button>
@@ -29,26 +29,7 @@
       </div>
 
       <aside class="versions-side">
-        <div v-if="can('PUBLISH')" class="card side-card">
-          <h4>报告发布</h4>
-          <div class="plan-note warn publish-precondition">
-            前置条件：执行已全部完成、总体结论已确认、无活跃执行。发布将自动回填执行总览与判等表后冻结文档并固化快照，按下方版本号登记「报告发布」版本。
-          </div>
-          <label class="publish-label">版本号（手填，同计划内唯一；低于最新版本不允许提交）</label>
-          <a-input v-model:value="publishVersionNo" placeholder="如：V1.0" :maxlength="32" />
-          <label class="publish-label publish-conclusion-label">总体结论（发布人确认，必填；已预填自动判定文本，可修改）</label>
-          <a-textarea v-model:value="publishConclusion" :rows="3" placeholder="总体结论（发布人确认，必填）" />
-          <div class="publish-actions">
-            <a-button v-if="can('NEW_REVISION')" @click="newRevision">发起新修订</a-button>
-            <a-button type="primary" :disabled="!publishConclusion.trim() || !publishVersionNo.trim()" @click="publishPlan">发布</a-button>
-          </div>
-        </div>
-        <div v-else-if="phase === 'PUBLISH'" class="plan-note ok">该计划已发布（终态）。变更请发起修订。</div>
-
-        <div v-if="can('NEW_REVISION') && !can('PUBLISH')" class="card side-card">
-          <h4>修订</h4>
-          <a-button @click="newRevision">发起新修订</a-button>
-        </div>
+        <div v-if="status === 'PUBLISHED'" class="plan-note ok">该计划已发布（终态）。变更请新增版本。</div>
 
         <div class="card side-card">
           <h4>只读分享链接</h4>
@@ -75,7 +56,7 @@
           <div v-if="can('SHARE')" class="share-create">
             <a-button
               size="small"
-              :disabled="phase !== 'PUBLISH'"
+              :disabled="status !== 'PUBLISHED'"
               title="仅已发布计划可创建分享链接"
               @click="createShare"
             >创建分享链接（默认 30 天）</a-button>
@@ -99,9 +80,9 @@ import type { usePlanDoc } from '../../composables/usePlanDoc';
 import { useTheme } from '../../composables/useTheme';
 import { formatDate } from '../../utils/format';
 import { copyToClipboard } from '../../utils/clipboard';
+import { STATUS_LABEL } from '../../utils/plan-status';
 import {
   createShareApi,
-  getPlanVerdictApi,
   getPlanVersionApi,
   listPlanVersionsApi,
   listSharesApi,
@@ -110,9 +91,10 @@ import {
 import type { PlanShareTokenView, PlanVersionView } from '../../types';
 
 /**
- * 版本 Tab：修订记录唯一展示处（spec 2026-09-10 §4、§9）——发布时间倒序列表 +
- * 未发布变更提示 + 查看全文 + 回滚（走 saveDocument 既有链路，不产生版本记录）；
- * 报告发布表单与只读分享管理并入本 Tab（原「发布」Tab 已删除）。
+ * 版本 Tab：修订记录唯一展示处（spec 2026-09-10 §4、§9；2026-09-11 §3.3 版本与状态解耦）——
+ * 发布时间倒序列表 + 未发布变更提示 + 查看全文 + 回滚（走 saveDocument 既有链路，不产生版本记录）；
+ * 「新增版本」与状态解耦（弹窗由详情页持有）；流转「发布」收口到详情页按钮区；
+ * 只读分享管理留在本 Tab（仅已发布计划）。
  */
 const props = defineProps<{
   doc: ReturnType<typeof usePlanDoc>;
@@ -128,12 +110,10 @@ const dirty = ref(false);
 const viewOpen = ref(false);
 const viewing = ref<PlanVersionView | null>(null);
 const viewBody = ref('');
-const publishVersionNo = ref('');
-const publishConclusion = ref('');
 const shares = ref<PlanShareTokenView[]>([]);
 
 const canEdit = computed(() => Boolean(props.doc.permissions.value.EDIT));
-const phase = computed(() => props.doc.plan.value?.phase ?? 'DRAFT');
+const status = computed(() => props.doc.plan.value?.status ?? 'PLANNING');
 
 function can(action: string) {
   return Boolean(props.doc.permissions.value[action]);
@@ -149,15 +129,11 @@ async function reload() {
   const response = await listPlanVersionsApi(planId).catch(() => null);
   versions.value = response?.versions ?? [];
   dirty.value = response?.bodyDiffersFromLatest ?? false;
-  // 分享链接仅已发布计划存在（SHARE 动作后端按阶段门控），非 PUBLISH 阶段不发请求
-  if (phase.value === 'PUBLISH') {
+  // 分享链接仅已发布计划存在（SHARE 键仅 PUBLISHED 为 true），非已发布不发请求
+  if (status.value === 'PUBLISHED') {
     shares.value = await listSharesApi(planId).catch(() => []);
   } else {
     shares.value = [];
-  }
-  const verdict = await getPlanVerdictApi(planId).catch(() => null);
-  if (verdict?.prefillConclusion && !publishConclusion.value.trim()) {
-    publishConclusion.value = verdict.prefillConclusion; // 预填可改（后端不预写文档）
   }
 }
 
@@ -167,8 +143,8 @@ function timeLabel(version: PlanVersionView): string {
     : formatDate(version.createdAt);
 }
 
-function phaseLabel(planPhase: string): string {
-  return ({ DRAFT: '草稿', REVIEW: '评审', EXECUTION: '执行', REPORT: '报告', PUBLISH: '已发布' })[planPhase] ?? planPhase;
+function statusLabel(planStatus: string): string {
+  return STATUS_LABEL[planStatus] ?? planStatus;
 }
 
 async function openView(version: PlanVersionView) {
@@ -208,19 +184,6 @@ function rollback(version: PlanVersionView) {
       }
     },
   });
-}
-
-async function publishPlan() {
-  const ok = await props.doc.transition(
-    'publish',
-    { conclusion: publishConclusion.value.trim(), versionNo: publishVersionNo.value.trim() },
-    '已发布',
-  );
-  if (ok) await reload();
-}
-
-async function newRevision() {
-  await props.doc.transition('new-revision', undefined, '已发起新修订');
 }
 
 async function createShare() {
@@ -347,38 +310,10 @@ function shareStateText(record: PlanShareTokenView) {
   font-size: 13px;
 }
 
-.plan-note.warn {
-  background: var(--warning-soft);
-  border: 1px solid var(--warn);
-  color: var(--plan-warn-text);
-}
-
 .plan-note.ok {
   background: var(--ok-soft);
   border: 1px solid var(--ok);
   color: var(--plan-ok-text);
-}
-
-.publish-precondition {
-  margin-bottom: 12px;
-}
-
-.publish-label {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.publish-conclusion-label {
-  margin-top: 12px;
-}
-
-.publish-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 10px;
 }
 
 .version-row {

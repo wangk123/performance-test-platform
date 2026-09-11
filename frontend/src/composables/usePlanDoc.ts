@@ -10,19 +10,19 @@ import {
   transitionPlanApi,
   updatePlanDocumentApi,
 } from '../api/plan-doc';
+import { STATUS_LABEL } from '../utils/plan-status';
 
-export function statusLabel(phase: string, status: string): string {
-  if (phase === 'REVIEW') return { PENDING: '待评审', IN_REVIEW: '评审中', APPROVED: '评审通过' }[status] ?? status;
-  if (phase === 'EXECUTION') return { PENDING: '待执行', RUNNING: '执行中', DONE: '执行完成' }[status] ?? status;
-  if (phase === 'REPORT') return { PENDING: '待生成', GENERATING: '生成中', DONE: '已生成' }[status] ?? status;
-  if (phase === 'PUBLISH') return '已发布';
-  return '草稿';
+/** 单一状态 → 展示文案（spec 2026-09-11 §3.1），推导规则收敛于 utils/plan-status。 */
+export function statusLabel(status: string): string {
+  return STATUS_LABEL[status] ?? status;
 }
 
 export function usePlanDoc() {
   const plan = ref<TaskPlan | null>(null);
   const permissions = ref<PlanPermissions>({});
   const comments = ref<PlanComment[]>([]);
+  /** 软门禁数据：活跃执行数（QUEUED/RUNNING/STOPPING），执行完成/发布前二次确认用。 */
+  const activeExecutions = ref(0);
   const loading = ref(false);
 
   async function load(planId: number) {
@@ -31,6 +31,7 @@ export function usePlanDoc() {
       const response = await getPlanDocumentApi(planId);
       plan.value = response.plan;
       permissions.value = response.permissions;
+      activeExecutions.value = response.activeExecutions ?? 0;
       comments.value = await listCommentsApi(planId).catch(() => []);
     } finally {
       loading.value = false;
@@ -70,6 +71,7 @@ export function usePlanDoc() {
       const response = await transitionPlanApi(plan.value.id, action, payload);
       plan.value = response.plan;
       permissions.value = response.permissions;
+      activeExecutions.value = response.activeExecutions ?? 0;
       message.success(successText);
       return true;
     } catch (error) {
@@ -105,10 +107,10 @@ export function usePlanDoc() {
   const anchoredRoots = computed(() =>
     REVIEW_ROOTS(comments.value).filter((c) => c.anchorLine != null && c.sectionTitle != null));
 
-  // ---- 面板开关（spec §3.2）：REVIEW 阶段缺省开；手动选择记 localStorage ----
+  // ---- 面板开关（spec §3.2）：评审中缺省开；手动选择记 localStorage ----
   const PANEL_KEY = 'plan-comment-panel-open';
   const panelOpen = ref<boolean | null>(readPanelPref());
-  const panelEffective = computed(() => panelOpen.value ?? (plan.value?.phase === 'REVIEW'));
+  const panelEffective = computed(() => panelOpen.value ?? (plan.value?.status === 'IN_REVIEW'));
 
   function readPanelPref(): boolean | null {
     const stored = localStorage.getItem(PANEL_KEY);
@@ -164,7 +166,7 @@ export function usePlanDoc() {
   }
 
   return {
-    plan, permissions, comments, loading, load, refresh, saveDocument, transition, addComment,
+    plan, permissions, comments, loading, activeExecutions, load, refresh, saveDocument, transition, addComment,
     threads, unresolvedCount, unanchoredThreads, anchoredRoots,
     panelOpen, panelEffective, togglePanel, addAnchoredComment, resolveComment, editComment,
   };
