@@ -769,19 +769,28 @@
 .doc-anno-add {
   position: absolute;
   z-index: 6;
-  padding: 1px 10px;
-  border: 1px dashed var(--line-strong);
-  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
   background: var(--surface);
   color: var(--muted);
-  font-size: 12px;
   cursor: pointer;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 10%);
+  transition: color 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
 }
 
 .doc-anno-add:hover {
   border-color: var(--anno-accent, #d46b08);
   color: var(--anno-accent, #d46b08);
-  border-style: solid;
+  transform: scale(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doc-anno-add { transition: none; }
 }
 
 :root[data-theme='dark'] .doc-anno-add:hover { --anno-accent: #ffc53d; }
@@ -832,16 +841,29 @@
 /* ---------- 已有批注呈现（spec §3.3） ---------- */
 .doc-flow [data-anno] {
   background: var(--anno-hl-bg, #fff3bf);
-  border-radius: 3px;
+  border-radius: 4px;
   box-decoration-break: clone;
+  transition: background-color 0.15s ease;
 }
 
-:root[data-theme='dark'] .doc-flow [data-anno] { --anno-hl-bg: rgb(255 213 145 / 18%); }
+/* 表格行：底色铺在单元格上（tr 背景无圆角），首尾单元格收圆角，覆盖斑马纹 */
+.doc-flow tr[data-anno] { background: transparent; }
 
-.doc-flow .doc-anno-hl { outline: 1px dashed var(--anno-accent, #ffd591); outline-offset: 2px; }
+.doc-flow tr[data-anno] td {
+  background: var(--anno-hl-bg, #fff3bf);
+  transition: background-color 0.15s ease;
+}
+
+.doc-flow tr[data-anno] td:first-child { border-radius: 6px 0 0 6px; }
+
+.doc-flow tr[data-anno] td:last-child { border-radius: 0 6px 6px 0; }
+
+:root[data-theme='dark'] .doc-flow [data-anno] { --anno-hl-bg: rgb(255 213 145 / 16%); }
 
 .doc-anno-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   margin-left: 6px;
   padding: 0 7px;
   border: 1px solid var(--anno-accent, #ffd591);
@@ -852,7 +874,10 @@
   line-height: 17px;
   cursor: pointer;
   white-space: nowrap;
+  vertical-align: 1px;
 }
+
+.doc-anno-badge.in-td { float: right; }
 
 .doc-anno-badge.resolved {
   border-color: var(--line);

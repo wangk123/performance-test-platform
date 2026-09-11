@@ -346,7 +346,33 @@ export function splitBlocks(content: string | null | undefined): DocBlock[] {
       blocks.push(paragraph);
     }
   }
-  return blocks;
+  return mergeLooseLists(blocks, lines);
+}
+
+/**
+ * 相邻列表块间仅隔空行时合并为一个块（markdown-it 松散列表语义）：渲染器会把空行分隔的
+ * 两个列表合并成同一个 <ul>，块模型不同步会导致列表后半段的行注入不到 DOM（用户实测：
+ * 同一章列表前几行可批注、后几行不行）。合并保持 raw 与行号区间逐行对齐，空行保留在 raw 内。
+ */
+function mergeLooseLists(blocks: DocBlock[], lines: string[]): DocBlock[] {
+  const result: DocBlock[] = [];
+  for (const block of blocks) {
+    const prev = result[result.length - 1];
+    const prevFirst = prev?.raw.split('\n')[0] ?? '';
+    const currFirst = block.raw.split('\n')[0] ?? '';
+    if (
+      prev
+      && LIST_ITEM_RE.test(prevFirst)
+      && LIST_ITEM_RE.test(currFirst)
+      && lines.slice(prev.endLine + 1, block.startLine).every((l) => l.trim() === '')
+    ) {
+      prev.raw += '\n'.repeat(block.startLine - prev.endLine) + block.raw;
+      prev.endLine = block.endLine;
+      continue;
+    }
+    result.push(block);
+  }
+  return result;
 }
 
 /** 块内列表项首行的局部偏移（Task 7 的 <li> 行映射用）。 */

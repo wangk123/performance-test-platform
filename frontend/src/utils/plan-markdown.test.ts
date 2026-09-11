@@ -34,6 +34,20 @@ describe('splitBlocks', () => {
     ]);
   });
 
+  it('空行分隔的两个列表合并为一块（markdown-it 松散列表语义，空行保留在 raw 内）', () => {
+    const blocks = splitBlocks('- 甲\n\n- 乙');
+    expect(blocks).toEqual([
+      { startLine: 0, endLine: 2, raw: '- 甲\n\n- 乙' },
+    ]);
+    // 两个项的行号仍可分别取出
+    expect(listItemOffsets(blocks[0].raw)).toEqual([0, 2]);
+  });
+
+  it('列表与后续段落之间隔空行不合并', () => {
+    const blocks = splitBlocks('- 甲\n\n段落');
+    expect(blocks).toHaveLength(2);
+  });
+
   it('空内容返回空数组', () => {
     expect(splitBlocks(null)).toEqual([]);
     expect(splitBlocks('')).toEqual([]);
@@ -72,8 +86,8 @@ describe('alignBlocks', () => {
     expect(alignBlocks(['登录接口 TPS ≥ 1000。💬 1'], blocks)).toEqual([0]);
   });
 
-  it('同文块按顺序各配各的，不重复消耗', () => {
-    const blocks = splitBlocks('- 无\n\n- 无');
+  it('同文段块按顺序各配各的，不重复消耗', () => {
+    const blocks = splitBlocks('无\n\n无');
     expect(alignBlocks(['无', '无'], blocks)).toEqual([0, 1]);
   });
 

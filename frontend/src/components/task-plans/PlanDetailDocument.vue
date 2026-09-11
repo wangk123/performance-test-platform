@@ -106,7 +106,16 @@
             </div>
 
             <template v-if="commentLayer.addButton.value.visible && canComment">
-              <button type="button" class="doc-anno-add" :style="{ top: `${commentLayer.addButton.value.top}px`, left: `${commentLayer.addButton.value.left}px` }" @click="commentLayer.openComposerFor">＋ 批注</button>
+              <button
+                type="button"
+                class="doc-anno-add"
+                aria-label="添加批注"
+                title="添加批注"
+                :style="{ top: `${commentLayer.addButton.value.top}px`, left: `${commentLayer.addButton.value.left}px` }"
+                @click="commentLayer.openComposerFor"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 7v6M9 10h6" /></svg>
+              </button>
             </template>
             <template v-if="commentLayer.composer.value">
               <div class="doc-anno-composer-wrap" :style="{ top: `${commentLayer.composer.value.top}px` }">

@@ -97,6 +97,8 @@ export function useDocCommentLayer(options: {
   }
 
   // ---- 悬浮「＋批注」（spec §3.1）：事件委托，单实例按钮跟随悬浮块 ----
+  const ADD_BUTTON_SIZE = 28;
+
   function onHover(event: MouseEvent): void {
     // 指针落在「＋批注」按钮上：保持现状，避免 closest('[data-line]') 落空导致按钮卸载→重挂交替闪烁
     if ((event.target as HTMLElement).closest?.('.doc-anno-add')) return;
@@ -107,14 +109,15 @@ export function useDocCommentLayer(options: {
     if (!target || !options.containerRef.value?.contains(target)) return;
     // .doc-main 既是滚动容器又是定位容器：绝对定位 top 属内容坐标，
     // getBoundingClientRect 差值是可视偏移（内容坐标 − scrollTop），需补回 scrollTop；
-    // left 贴块右缘（窄表格时按钮就在表格右侧近处，clamp 到容器内）
+    // left 贴块右缘（窄表格时按钮就在表格右侧近处，clamp 到容器内）；top 对悬浮行垂直居中
     const container = options.containerRef.value;
     const containerRect = container.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
     addButton.value = {
       visible: true,
-      top: targetRect.top - containerRect.top + container.scrollTop,
-      left: Math.max(0, Math.min(targetRect.right - containerRect.left + 12, containerRect.width - 72)),
+      top: targetRect.top - containerRect.top + container.scrollTop
+        + Math.min(Math.max((targetRect.height - ADD_BUTTON_SIZE) / 2, 0), 24),
+      left: Math.max(0, Math.min(targetRect.right - containerRect.left + 12, containerRect.width - ADD_BUTTON_SIZE - 12)),
     };
     hoverTarget.value = { line: Number(target.dataset.line), section: sectionOf(target) };
   }
@@ -150,13 +153,16 @@ export function useDocCommentLayer(options: {
     composer.value = null;
   }
 
+  /** 徽标图标（SVG，禁 emoji）：未解决=对话气泡，已解决=对勾。 */
+  const BADGE_BUBBLE_SVG = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9.4L5 21.4A1 1 0 0 1 3 20.6V5a1 1 0 0 1 1-1z"/></svg>';
+  const BADGE_CHECK_SVG = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
+
   /** 渲染已有批注（spec §3.3/§5.3）：徽标 + 高亮 + 断链分组；先清后挂，幂等。 */
   function renderAnnotations(): void {
     const container = options.containerRef.value;
     if (!container) return;
     container.querySelectorAll('.doc-anno-badge').forEach((el) => el.remove());
     container.querySelectorAll('[data-anno]').forEach((el) => el.removeAttribute('data-anno'));
-    container.querySelectorAll('.doc-anno-hl').forEach((el) => el.classList.remove('doc-anno-hl'));
     const roots = options.threads.value.map((t) => t.root);
     const resolutions = deriveAnchors(options.body.value, roots);
     const byLine = new Map<number, PlanCommentThread[]>();
@@ -174,20 +180,21 @@ export function useDocCommentLayer(options: {
       const el = container.querySelector<HTMLElement>(`[data-line="${line}"]`);
       if (!el) continue;
       const unresolved = threadsAtLine.filter((t) => !t.root.resolved).length;
-      // 黄色背景与高亮只挂有未解决线程的行（spec §3.3：全部解决后高亮褪去，留灰色 ✓ 徽标）
-      if (unresolved > 0) {
-        el.dataset.anno = String(threadsAtLine.length);
-        el.classList.add('doc-anno-hl');
-      }
+      // 黄色背景只挂有未解决线程的行（spec §3.3：全部解决后高亮褪去，留灰色 ✓ 徽标）
+      if (unresolved > 0) el.dataset.anno = String(threadsAtLine.length);
       const badge = document.createElement('span');
       badge.className = `doc-anno-badge${unresolved > 0 ? '' : ' resolved'}`;
-      badge.textContent = unresolved > 0 ? `💬 ${threadsAtLine.length}` : `✓ ${threadsAtLine.length}`;
+      badge.innerHTML = `${unresolved > 0 ? BADGE_BUBBLE_SVG : BADGE_CHECK_SVG}<span class="doc-anno-badge-count">${threadsAtLine.length}</span>`;
       badge.title = threadsAtLine.map((t) => `${t.root.author}：${t.root.content}`).join('\n');
+      badge.setAttribute('aria-label', `${threadsAtLine.length} 条批注`);
       badge.addEventListener('click', (event) => {
         event.stopPropagation();
         options.onBadgeClick?.(line);
       });
-      el.appendChild(badge);
+      // 表格行的徽标放进最后一个单元格（span 直接挂 tr 是无效 HTML，会被表格布局摆到奇怪的位置）
+      const host = el.tagName === 'TR' ? (el.lastElementChild as HTMLElement | null) ?? el : el;
+      if (host !== el) badge.classList.add('in-td');
+      host.appendChild(badge);
     }
     brokenGroups.value = [...broken.entries()].map(([sectionTitle, threads]) => ({ sectionTitle, threads }));
   }
