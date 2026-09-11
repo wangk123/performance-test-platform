@@ -839,6 +839,8 @@
 }
 
 /* ---------- 已有批注呈现（spec §3.3） ---------- */
+.plan-document .doc-flow { max-width: 880px; }
+
 .doc-flow [data-anno] {
   background: var(--anno-hl-bg, #fff3bf);
   border-radius: 4px;

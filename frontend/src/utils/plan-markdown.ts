@@ -354,16 +354,25 @@ export function splitBlocks(content: string | null | undefined): DocBlock[] {
  * 两个列表合并成同一个 <ul>，块模型不同步会导致列表后半段的行注入不到 DOM（用户实测：
  * 同一章列表前几行可批注、后几行不行）。合并保持 raw 与行号区间逐行对齐，空行保留在 raw 内。
  */
+/** 列表标记类型：同类型（含同一 bullet 字符）跨空行才合并——无序接有序是两个列表，渲染器不合并。 */
+function listMarkerKindOf(firstLine: string): string | null {
+  const bullet = firstLine.match(/^\s*([-*+])\s/);
+  if (bullet) return bullet[1];
+  if (/^\s*\d{1,2}[.、)）]\s/.test(firstLine)) return 'ordered';
+  return null;
+}
+
 function mergeLooseLists(blocks: DocBlock[], lines: string[]): DocBlock[] {
   const result: DocBlock[] = [];
   for (const block of blocks) {
     const prev = result[result.length - 1];
     const prevFirst = prev?.raw.split('\n')[0] ?? '';
     const currFirst = block.raw.split('\n')[0] ?? '';
+    const markerKind = listMarkerKindOf(currFirst);
     if (
       prev
-      && LIST_ITEM_RE.test(prevFirst)
-      && LIST_ITEM_RE.test(currFirst)
+      && markerKind != null
+      && markerKind === listMarkerKindOf(prevFirst)
       && lines.slice(prev.endLine + 1, block.startLine).every((l) => l.trim() === '')
     ) {
       prev.raw += '\n'.repeat(block.startLine - prev.endLine) + block.raw;
@@ -422,7 +431,11 @@ export function normalizeForMatch(text: string): string {
  * 匹配不上的 child 返回 null（跳过注入），不再整章放弃——对齐结果供 data-line 注入消费。
  */
 export function alignBlocks(childrenTexts: string[], blocks: DocBlock[]): (number | null)[] {
-  const blockNorms = blocks.map((block) => normalizeForMatch(block.raw));
+  // 块侧文本先剥列表标记再归一化：markdown-it 渲染不含「1. / - 」标记，有序列表（数字+句点
+  // 不在归一化字符类内）若不剥离，前缀第一位就不相等，整章列表全部匹配失败（真实文档实测）
+  const blockNorms = blocks.map((block) => normalizeForMatch(
+    block.raw.split('\n').map((l) => l.replace(LIST_ITEM_RE, '')).join('\n'),
+  ));
   const result: (number | null)[] = [];
   let cursor = 0;
   for (const text of childrenTexts) {
