@@ -19,7 +19,8 @@
 - 权限维度全部删除：所有动作门槛 = 登录且为项目成员（NONE 角色 403 保留）；不得保留 ownerLike/memberLike 判定。
 - 后端不得因执行活动状态拒绝 finish-execution / publish（409 拦截删除）；唯一保留的发布硬校验 = 总体结论必填。
 - 运行 Gradle 必须设置 `JAVA_HOME=/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home/`。
-- 后端全量测试命令：`JAVA_HOME=/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home/ ./gradlew :backend:test`；前端：`cd frontend && npm run test`（vitest）与 `npm run build`（vue-tsc + vite）。
+- 后端聚焦测试命令（任务内用，只跑受影响类）：`JAVA_HOME=/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home/ ./gradlew :backend:test --tests 'com.yr.perftest.platform.task.plandoc.*' --tests 'com.yr.perftest.platform.api.Plan*' ...`（按任务实际触及的包追加过滤）。**全量 `:backend:test` 整个执行过程只在最终收尾时跑一次**（见 Task 3），各任务禁止跑全量。
+- 前端测试/构建（Task 2/3 用）：`cd frontend && npm run test`（vitest，秒级）与 `npm run build`（vue-tsc + vite）。
 - 提交信息用仓库现行风格（中文、`feat：`/`refactor：` 前缀、全角冒号）。
 
 ---
@@ -513,16 +514,16 @@ void publishSucceedsEvenWithActiveExecution() {
 
 （用例中的工厂方法/字段名以该测试文件现有 setup 为准，沿用其建计划、造执行的工具方法。）
 
-- [ ] **Step 12: 全量后端测试转绿**
+- [ ] **Step 12: 聚焦测试转绿（禁止全量）**
 
-Run: `JAVA_HOME=/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home/ ./gradlew :backend:test`
-Expected: BUILD SUCCESSFUL，0 failures。若有失败逐个修复（常见：遗漏的 forceState 两参调用、PlanErrorBody 构造、H2 对 V7 的执行——若 H2 报 `ALTER TABLE ... MODIFY COLUMN` 不支持，将 V7 中两条 ALTER 改写为 H2 MySQL 模式兼容形式：`ALTER TABLE task_plans ALTER COLUMN status varchar(20) NOT NULL;` 不被接受时，可改用先 DROP 再 ADD 的等价语句，但必须保持 MySQL 生产可用——在 MySQL 与 H2 双方言下验证）。
+Run: `JAVA_HOME=/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home/ ./gradlew :backend:test --tests 'com.yr.perftest.platform.task.plandoc.*' --tests 'com.yr.perftest.platform.task.ExecutionControlServiceTest' --tests 'com.yr.perftest.platform.api.PlanDocumentApiTest' --tests 'com.yr.perftest.platform.api.PlanVerdictApiTest' --tests 'com.yr.perftest.platform.api.UiExecutionControlApiTest' --tests 'com.yr.perftest.platform.mcp.*' --tests 'com.yr.perftest.platform.agent.*' --tests 'com.yr.perftest.platform.auxscript.*' --tests 'com.yr.perftest.platform.governance.*'`
+Expected: BUILD SUCCESSFUL，0 failures（覆盖 Step 11 全部 23 个受影响测试类所在包）。若有失败逐个修复（常见：遗漏的 forceState 两参调用、PlanErrorBody 构造、H2 对 V7 的执行——若 H2 报 `ALTER TABLE ... MODIFY COLUMN` 不支持，将 V7 中两条 ALTER 改写为 H2 MySQL 模式兼容形式，但必须保持 MySQL 生产可用）。全量 `:backend:test` 留到 Task 3 收尾时跑一次。
 
 - [ ] **Step 13: 提交**
 
 ```bash
 git add backend/src
-git commit -m "refactor：计划状态机换核——phase×status 双枚举合并为单一 PlanStatus（计划中→评审中→执行中→报告编辑中→已发布，无回退）——①删 start-review/reject/withdraw/back-to-draft/start-execution/new-revision 端点与服务方法，新增 finish-execution；approve 直达执行；②PlanAccess 去角色维度（全员=项目成员），键集收敛 12 键；③执行生命周期不再回写计划状态（删 onExecutionStarted/correctExecutionState），终态回填保留；④publish 删活跃执行 409 拦截（软门禁数据 activeExecutions 进 PlanResponse）；⑤场景门禁改活跃执行判定、判等可读改 REPORTING/PUBLISHED；⑥V7 迁移（存量组合映射+删 phase 列）；⑦23 个测试文件同步重写，后端全量测试绿"
+git commit -m "refactor：计划状态机换核——phase×status 双枚举合并为单一 PlanStatus（计划中→评审中→执行中→报告编辑中→已发布，无回退）——①删 start-review/reject/withdraw/back-to-draft/start-execution/new-revision 端点与服务方法，新增 finish-execution；approve 直达执行；②PlanAccess 去角色维度（全员=项目成员），键集收敛 12 键；③执行生命周期不再回写计划状态（删 onExecutionStarted/correctExecutionState），终态回填保留；④publish 删活跃执行 409 拦截（软门禁数据 activeExecutions 进 PlanResponse）；⑤场景门禁改活跃执行判定、判等可读改 REPORTING/PUBLISHED；⑥V7 迁移（存量组合映射+删 phase 列）；⑦23 个测试文件同步重写，受影响包聚焦测试绿（全量留收尾）"
 ```
 
 ---
@@ -723,7 +724,10 @@ Run:
 ```
 检查截图：无重叠/裁切/断行（可交 judge 子代理验收）。发现问题修 HTML 后重渲。
 
-- [ ] **Step 4: 端到端手动验收**
+- [ ] **Step 4: 端到端手动验收 + 全量测试（整个执行过程唯一一次全量）**
+
+Run: `JAVA_HOME=/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home/ ./gradlew :backend:test`（全量，仅此一次）
+Expected: BUILD SUCCESSFUL。
 
 启动前后端（沿用仓库现有启动方式），走通：创建计划 → 编辑保存 → 提交评审 → 批注 → 评审通过（直进执行中）→ 发起场景执行 → 执行完成（造一个活跃执行验证二次确认弹窗出现）→ 发布（填总体结论+版本号）→ 已发布 → 新增版本（新版本号）→ 版本 Tab 可见两条记录。对照 spec §12 验收要点逐条确认。
 
