@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>计划文档生命周期：计划 → 评审 → 执行 → 报告 → 发布（单行道终版）</title>
+<style>
+  :root {
+    --ink: #0f172a; --muted: #64748b; --line: #cbd5e1;
+    --plan-bg: #eff6ff; --plan-bd: #93c5fd; --plan-tx: #1d4ed8;
+    --review-bg: #fffbeb; --review-bd: #fcd34d; --review-tx: #b45309;
+    --exec-bg: #f5f3ff; --exec-bd: #c4b5fd; --exec-tx: #6d28d9;
+    --report-bg: #fff1f2; --report-bd: #fda4af; --report-tx: #be123c;
+    --pub-bg: #ecfdf5; --pub-bd: #6ee7b7; --pub-tx: #047857;
+    --warn-tx: #b45309;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f1f5f9; color: var(--ink);
+         font: 14px/1.55 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+         padding: 28px 16px 48px; }
+  .page { max-width: 1272px; margin: 0 auto; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 18px; }
+  .canvas { position: relative; width: 1240px; height: 952px; background: #fff;
+            border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  svg.wires { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+
+  /* ── 状态泳道 ── */
+  .band { position: absolute; left: 40px; width: 1160px; border-radius: 12px; z-index: 0; }
+  .band .tag { position: absolute; top: 10px; left: 14px; font-size: 12px; font-weight: 600;
+               padding: 2px 10px; border-radius: 999px; background: rgba(255,255,255,.85);
+               border: 1px solid currentColor; }
+  .b-plan    { background: var(--plan-bg); }    .b-plan .tag    { color: var(--plan-tx); }
+  .b-review  { background: var(--review-bg); }  .b-review .tag  { color: var(--review-tx); }
+  .b-exec    { background: var(--exec-bg); }    .b-exec .tag    { color: var(--exec-tx); }
+  .b-report  { background: var(--report-bg); }  .b-report .tag  { color: var(--report-tx); }
+  .b-pub     { background: var(--pub-bg); }     .b-pub .tag     { color: var(--pub-tx); }
+
+  /* ── 状态节点 ── */
+  .node { position: absolute; z-index: 2; background: #fff; border: 1.5px solid var(--line);
+          border-left-width: 5px; border-radius: 10px; padding: 9px 12px 8px;
+          box-shadow: 0 1px 2px rgba(15,23,42,.06); }
+  .node .t { font-weight: 700; font-size: 14.5px; }
+  .node .s { font-family: ui-monospace, Menlo, monospace; font-size: 11px; letter-spacing: .3px; }
+  .node .d { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .n-start { background: var(--ink); border: none; color: #fff; text-align: center; }
+  .n-start .d { color: #cbd5e1; }
+  .n-plan    { border-color: var(--plan-bd); }   .n-plan .t, .n-plan .s    { color: var(--plan-tx); }
+  .n-review  { border-color: var(--review-bd); } .n-review .t, .n-review .s { color: var(--review-tx); }
+  .n-exec    { border-color: var(--exec-bd); }   .n-exec .t, .n-exec .s     { color: var(--exec-tx); }
+  .n-report  { border-color: var(--report-bd); } .n-report .t, .n-report .s { color: var(--report-tx); }
+  .n-pub     { border-color: var(--pub-bd); }    .n-pub .t, .n-pub .s       { color: var(--pub-tx); }
+  .terminal  { border-width: 2.5px; box-shadow: 0 0 0 3px #fff, 0 0 0 4.5px var(--pub-bd); }
+  .badge { font-size: 11px; font-weight: 600; border: 1px solid currentColor;
+           border-radius: 4px; padding: 0 5px; vertical-align: 2px; margin-left: 5px; }
+
+  /* ── 动作胶囊（压在箭头上） ── */
+  .chip { position: absolute; z-index: 3; background: #fff; border: 1px solid #94a3b8;
+          border-radius: 999px; font-size: 12px; color: #334155; text-align: center;
+          padding: 3px 10px; line-height: 1.35; box-shadow: 0 1px 1.5px rgba(15,23,42,.08); }
+  .chip b { font-weight: 600; }
+  .chip .warn { color: var(--warn-tx); font-weight: 600; }
+
+  /* ── 侧注卡片 ── */
+  .note { position: absolute; z-index: 2; background: #fff; border: 1px dashed var(--line);
+          border-radius: 8px; padding: 8px 11px; font-size: 11.5px; color: #475569; }
+  .note .h { font-weight: 700; font-size: 12px; color: var(--ink); margin-bottom: 2px; }
+  .note code { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px;
+               background: #f1f5f9; padding: 0 4px; border-radius: 4px; white-space: nowrap; }
+
+  /* ── 「新增版本」旁路竖轨 ── */
+  .rail { position: absolute; z-index: 3; left: 1060px; top: 114px; width: 140px; height: 718px;
+          background: rgba(255,255,255,.93); border: 1.5px dashed #94a3b8; border-radius: 10px;
+          display: flex; flex-direction: column; align-items: center; text-align: center;
+          padding: 12px 9px; font-size: 11px; color: #334155; }
+  .rail .h { font-weight: 700; font-size: 12.5px; color: var(--ink); }
+  .rail .sub2 { color: var(--warn-tx); font-weight: 600; margin-top: 2px; }
+  .rail .mono { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: var(--muted); }
+  .rail .grow { flex: 1; width: 0; border-left: 2px dashed #cbd5e1; margin: 8px 0; }
+
+  .legend { position: absolute; z-index: 2; left: 40px; top: 844px; width: 1160px;
+            background: #fff; border: 1px solid var(--line); border-radius: 10px;
+            padding: 9px 13px; font-size: 11.5px; line-height: 1.45; column-count: 2; column-gap: 26px; }
+  .legend .h { font-weight: 700; font-size: 12.5px; margin-bottom: 4px; column-span: all; }
+  .legend li { list-style: none; padding-left: 14px; position: relative; color: #475569;
+               margin-bottom: 2px; break-inside: avoid; }
+  .legend li::before { content: ""; position: absolute; left: 2px; top: 7px; width: 6px; height: 6px;
+                       border-radius: 50%; background: var(--plan-tx); }
+  .legend b { color: var(--ink); }
+
+  .foot { margin-top: 14px; font-size: 12px; color: var(--muted); max-width: 1240px; }
+  .foot b { color: #334155; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>计划文档（TaskPlan）生命周期：计划 → 评审 → 执行 → 报告 → 发布（单行道终版）</h1>
+  <div class="sub">终版（已实现 2026-09-11）｜一稿走到头：同一份 Markdown 正文经历全阶段，body 是唯一数据源 ｜ 单一 <code>PlanStatus</code> 五值，四个流转动作，无任何回退</div>
+
+  <div class="canvas">
+    <!-- 五条状态泳道 -->
+    <div class="band b-plan"   style="top:114px; height:128px;"><span class="tag">阶段 ① 计划中 PLANNING</span></div>
+    <div class="band b-review" style="top:242px; height:130px;"><span class="tag">阶段 ② 评审中 IN_REVIEW</span></div>
+    <div class="band b-exec"   style="top:372px; height:180px;"><span class="tag">阶段 ③ 执行中 EXECUTING</span></div>
+    <div class="band b-report" style="top:552px; height:130px;"><span class="tag">阶段 ④ 报告编辑中 REPORTING</span></div>
+    <div class="band b-pub"    style="top:682px; height:150px;"><span class="tag">阶段 ⑤ 已发布 PUBLISHED（终态）</span></div>
+
+    <!-- 主链连线（单行道，无回退箭头） -->
+    <svg class="wires" viewBox="0 0 1240 952" width="1240" height="952">
+      <defs>
+        <marker id="ah" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto">
+          <path d="M0,0 L8,4.5 L0,9 z" fill="#475569"/>
+        </marker>
+      </defs>
+      <g fill="none" stroke="#475569" stroke-width="1.8">
+        <path d="M490,92 V123"  marker-end="url(#ah)"/>
+        <path d="M490,202 V249" marker-end="url(#ah)"/>
+        <path d="M490,328 V383" marker-end="url(#ah)"/>
+        <path d="M490,462 V523" marker-end="url(#ah)"/>
+        <path d="M490,602 V683" marker-end="url(#ah)"/>
+      </g>
+    </svg>
+
+    <!-- 状态节点（主链） -->
+    <div class="node n-start" style="left:330px; top:16px; width:320px; height:76px;">
+      <div class="t" style="color:#fff;">① 创建计划 TaskPlan</div>
+      <div class="d">POST /projects/{projectId}/task-plans<br>模板渲染正文 ／ MCP 传 initialMarkdown</div>
+    </div>
+    <div class="node n-plan" style="left:330px; top:128px; width:320px; height:74px;">
+      <div class="t">计划中</div>
+      <div class="s">PLANNING</div>
+      <div class="d">正文唯一数据源（11 章节中文序号）· 可编辑可批注</div>
+    </div>
+    <div class="node n-review" style="left:330px; top:254px; width:320px; height:74px;">
+      <div class="t">评审中</div>
+      <div class="s">IN_REVIEW</div>
+      <div class="d">批注沟通：有异议直接改文档＋批注，状态不动</div>
+    </div>
+    <div class="node n-exec" style="left:330px; top:388px; width:320px; height:74px;">
+      <div class="t">执行中</div>
+      <div class="s">EXECUTING</div>
+      <div class="d">评审通过即进入 · 场景压测执行期</div>
+    </div>
+    <div class="node n-report" style="left:330px; top:528px; width:320px; height:74px;">
+      <div class="t">报告编辑中</div>
+      <div class="s">REPORTING</div>
+      <div class="d">人工点击「执行完成」进入 · 整理报告（可复测）</div>
+    </div>
+    <div class="node n-pub terminal" style="left:330px; top:688px; width:320px; height:74px;">
+      <div class="t">已发布 <span class="badge">终态</span></div>
+      <div class="s">PUBLISHED</div>
+      <div class="d">不冻结：编辑 · 批注 · 新增版本 · 分享 照常</div>
+    </div>
+
+    <!-- 流转动作胶囊 -->
+    <div class="chip" style="left:380px; top:214px; width:220px;"><b>submit 提交评审</b>（可附评审备注）</div>
+    <div class="chip" style="left:335px; top:341px; width:310px;"><b>approve 评审通过</b>（唯一出口）· 直达执行中</div>
+    <div class="chip" style="left:340px; top:468px; width:300px;"><b>finish-execution 执行完成</b>（人工确认）<br><span class="warn">⚠ activeExecutions&gt;0 → 弹窗二次确认（软门禁）</span></div>
+    <div class="chip" style="left:300px; top:610px; width:380px;"><b>publish 发布</b> · 总体结论＋版本号必填（硬校验）<br><span class="warn">⚠ activeExecutions&gt;0 → 弹窗二次确认（软门禁）</span><br>自动回填 总览/判等表/总体结论 · 登记 PUBLISH 版本＋快照</div>
+
+    <!-- 左列侧注 -->
+    <div class="note" style="left:56px; top:20px; width:250px;">
+      <div class="h">已实现状态</div>
+      单一 <code>PlanStatus</code> 五值（V7 迁移完成）；phase 双枚举已删除，本图与代码一致。
+    </div>
+    <div class="note" style="left:56px; top:276px; width:250px;">
+      <div class="h">评审循环（状态不动）</div>
+      有异议 → 不改状态：直接修改文档＋批注沟通，改到通过为止；<b>无驳回/撤回/重新提交</b>。
+    </div>
+    <div class="note" style="left:56px; top:406px; width:250px;">
+      <div class="h">执行联动：不回写状态</div>
+      执行生命周期 QUEUED→RUNNING→SUCCESS/FAILED/INTERRUPTED（STOPPING→CANCELLED）<b>不回写计划状态</b>；每次执行到达终态即回填正文（revision+1 为内部计数，UI 不外露）。
+    </div>
+    <div class="note" style="left:56px; top:586px; width:250px;">
+      <div class="h">软门禁 ≠ 硬拦截</div>
+      前端弹窗二次确认，<b>不阻断流转</b>；后端已删除发布前活跃执行 409 拦截，activeExecutions 随 PlanResponse 下发。
+    </div>
+    <div class="note" style="left:56px; top:716px; width:250px;">
+      <div class="h">版本记录（不可变）</div>
+      发布同步登记 <code>kind=PUBLISH</code> 版本（快照：body·场景·摘要）；「新增版本」<code>kind=MANUAL</code> 同机制。
+    </div>
+
+    <!-- 右列侧注 -->
+    <div class="note" style="left:670px; top:16px; width:370px;">
+      <div class="h">一稿走到头</div>
+      同一份 Markdown 正文走完 计划→评审→执行→报告→发布；body 唯一数据源（11 章节中文序号），Pretty 视图＝受约束章节提取展示。
+    </div>
+    <div class="note" style="left:670px; top:126px; width:370px;">
+      <div class="h">编辑与批注：任意状态可用</div>
+      编辑 / 行内编辑 / AI 润色任意状态开放（含已发布）；<code>PUT /document</code> 带 baseRevision，不一致 409 三选一；批注同理。
+    </div>
+    <div class="note" style="left:670px; top:252px; width:370px;">
+      <div class="h">评审批注工具</div>
+      锚点批注 / 回复 / 解决 / 重开；作者·负责人可编辑批注内容，锚点不可改；原「限草稿/评审」限制已删除。
+    </div>
+    <div class="note" style="left:670px; top:382px; width:370px;">
+      <div class="h">发起执行门禁 assertExecutionAllowed</div>
+      ① status ∈ {EXECUTING, REPORTING}（REPORTING 支持复测）　② 每个场景已关联脚本版本　③ precheck 启用 → 首次执行自动运行：失败阻断，可「跳过」留痕（系统批注）　④ 场景增删改仅活跃执行期间冻结。
+    </div>
+    <div class="note" style="left:670px; top:562px; width:370px;">
+      <div class="h">发布时自动回填</div>
+      冻结快照前自动回填：执行结果总览 / 判等表 / 总体结论行；硬校验仅两项——总体结论＋版本号必填、非法状态 409。
+    </div>
+    <div class="note" style="left:670px; top:692px; width:370px;">
+      <div class="h">发布后：终态不冻结</div>
+      可编辑 / 可批注 / 可新增版本；<b>share 分享</b> → 只读链接 <code>/share/plans/{token}</code>（默认 30 天 · 可吊销）。
+    </div>
+
+    <!-- 「新增版本」旁路竖轨：横跨全部五条泳道，非状态迁移 -->
+    <div class="rail">
+      <div class="h">「新增版本」旁路</div>
+      <div class="sub2">非状态迁移</div>
+      <div>横跨全部泳道</div>
+      <div class="grow"></div>
+      <div class="mono">POST /task-plans</div>
+      <div class="mono">/{id}/versions</div>
+      <div class="mono">NEW_VERSION</div>
+      <div><b>全局常驻按钮</b></div>
+      <div>任意状态可点</div>
+      <div>（含已发布）</div>
+      <div class="grow"></div>
+      <div>手输版本号＋变更说明</div>
+      <div class="mono">kind=MANUAL</div>
+      <div>快照冻结当时正文</div>
+    </div>
+
+    <!-- 图例 -->
+    <div class="legend">
+      <div class="h">图例与全局规则</div>
+      <ul>
+        <li><b>矩形</b>=状态（单一 status 五值枚举）｜<b>胶囊</b>=流转动作｜<b>虚线框</b>=旁路/说明｜<b style="color:var(--warn-tx);">⚠</b>=软门禁二次确认</li>
+        <li><b>单行道四流转</b>：submit → approve → finish-execution → publish；<b>无任何回退/回滚动作</b>（驳回/撤回/退回草稿/新修订已删除）</li>
+        <li><b>批注/编辑任意状态可用</b>；<b>已发布不冻结</b>（可编辑·可新增版本·可分享）；场景增删改仅活跃执行期间冻结</li>
+        <li><b>版本与状态解耦</b>：任意状态可「新增版本」，版本号手输、不自动 +1；revision 为内部并发计数，UI 不展示</li>
+        <li><b>执行不回写计划状态</b>，执行终态即时回填正文；全部动作门槛＝项目成员级（角色细分延后）</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="foot">
+    <b>实现说明（2026-09-11 简化落地）</b>：phase×status 双枚举合并为单值 <code>PlanStatus</code>（Flyway V7 迁移）；删除 start-review / reject / withdraw / back-to-draft / new-revision，新增 finish-execution，approve 直达执行；publish 删除活跃执行 409 拦截（改前端软门禁）且发布后不再冻结；版本号一律手动输入，发布动作同步登记 kind=PUBLISH 版本与发布快照。<br>
+    <b>绘制依据</b>：<code>PlanStatus / PlanAccess / PlanWorkflowService / PlanDocumentController / CONTEXT.md</code>（feature/plan-status-simplification 分支已实现行为）。
+  </div>
+</div>
+</body>
+</html>
