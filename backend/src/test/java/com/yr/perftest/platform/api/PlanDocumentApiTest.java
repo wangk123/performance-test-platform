@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -197,6 +198,10 @@ class PlanDocumentApiTest {
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/projects/1/plan-templates").header("Authorization", "Bearer " + outsider))
                 .andExpect(status().isForbidden());
+        // 删除同样先过成员门槛（NONE 一律 403），不看动作矩阵（DELETE 键全员 true）
+        mockMvc.perform(delete("/api/task-plans/" + planId).header("Authorization", "Bearer " + outsider))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("PLAN_ACCESS_DENIED"));
         // 成员读门禁不影响管理员既有路径
         mockMvc.perform(get("/api/task-plans/" + planId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());

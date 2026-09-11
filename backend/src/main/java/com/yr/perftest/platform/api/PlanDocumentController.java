@@ -100,6 +100,7 @@ public class PlanDocumentController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deletePlan(@PathVariable long planId) {
         TaskPlan plan = planService.getPlan(planId);
+        requireMember(plan); // 先行成员门槛：非项目成员（NONE）一律 403，不看动作矩阵
         Map<String, Boolean> permissions = permissionsOf(plan);
         if (!Boolean.TRUE.equals(permissions.get("DELETE"))) {
             throw new com.yr.perftest.platform.task.plandoc.PlanAccessDeniedException(
