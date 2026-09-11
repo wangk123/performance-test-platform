@@ -245,19 +245,29 @@
   line-height: 1.4;
 }
 
-/* 编辑入口：章头右端幽灵按钮，不打断阅读动线 */
+/* 编辑入口：章头右端图标按钮（低存在感——默认半透明，章 hover 加深，按钮 hover 点亮），不打断阅读动线 */
 .plan-document .doc-section-edit {
   margin-left: auto;
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   color: var(--muted);
-  font-size: 12px;
+  opacity: 0.45;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
 
-.plan-document .doc-section-edit:hover {
+.plan-document .doc-section:hover .doc-section-edit {
+  opacity: 0.8;
+}
+
+.plan-document .doc-section-edit:hover,
+.plan-document .doc-section-edit:focus-visible {
   color: var(--plan-accent-text);
+  background: var(--accent-soft);
+  opacity: 1;
 }
 
 /* Markdown 视图：编辑动作行悬浮于内容上方右缘，编辑器撑满面板 */
@@ -394,11 +404,14 @@
   white-space: nowrap;
 }
 
-/* 文档 Pretty 视图覆盖：表格按内容定宽（不拉满、行距收紧），小节标题降为 15px 无分割线
-   （章级标题/分隔由 .doc-section 承担，作用域限定文档 Tab，不影响报告/分享页预设） */
+/* 文档 Pretty 视图覆盖：表格撑满显示区域（与正文同宽，超宽表格横向滚动保底），行距收紧，
+   小节标题降为 15px 无分割线（章级标题/分隔由 .doc-section 承担，作用域限定文档 Tab，不影响报告/分享页预设） */
+.plan-document #doc-panel-Pretty .plan-md .md-editor-preview {
+  overflow-x: auto;
+}
+
 .plan-document #doc-panel-Pretty .plan-md .md-editor-preview table {
   width: 100%;
-  max-width: 880px;
 }
 
 .plan-document #doc-panel-Pretty .plan-md .md-editor-preview th,

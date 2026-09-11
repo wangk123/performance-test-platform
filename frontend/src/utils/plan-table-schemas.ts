@@ -3,6 +3,8 @@
  * 列名固定（表单表头不可改），行可增删；保存时序列化回 markdown 表格。
  */
 
+import type { MarkdownTable } from './plan-markdown';
+
 export interface PlanTableColumnSchema {
   label: string;
   placeholder?: string;
@@ -79,4 +81,69 @@ export function planTableCompatible(schema: PlanTableSectionSchema, header: stri
   const names = new Set(schema.columns.flatMap((col) => [col.label, ...(col.aliases ?? [])]));
   const hits = header.filter((cell) => names.has(cell.trim())).length;
   return hits >= 2;
+}
+
+// ---------- schema 列映射（行内编辑网格用） ----------
+
+function cellAt(cells: string[], index: number): string {
+  return index >= 0 && index < cells.length ? cells[index].trim() : '';
+}
+
+/** 指标章（canonicalHeader）：列位与后端 PlanAcceptanceParser 契约对齐，第 4 列并入口径。 */
+function metricsColumnMap(header: string[]): number[] {
+  const objectCol = header.findIndex((h) => ['对象', '交易'].includes(h.trim().toLowerCase()));
+  const metricCol = header.findIndex((h) => h.trim() === '指标');
+  const targetCol = header.findIndex((h) => h.trim() === '目标值');
+  const caliberCol = header.length > 3 ? 3 : -1;
+  return [objectCol, metricCol, targetCol, caliberCol];
+}
+
+/** 其余章节：按表头名（含别名）匹配，未命中按位置兜底；多出的列并入末列，不丢数据。 */
+function genericColumnMap(header: string[], tableSchema: PlanTableSectionSchema): number[] {
+  const used = new Set<number>();
+  const byName = tableSchema.columns.map((col) => {
+    const names = [col.label, ...(col.aliases ?? [])];
+    const idx = header.findIndex((h, hi) => !used.has(hi) && names.includes(h.trim()));
+    if (idx >= 0) used.add(idx);
+    return idx;
+  });
+  return byName.map((idx, i) => {
+    if (idx >= 0) return idx;
+    const positional = i < header.length && !used.has(i) ? i : header.findIndex((_, hi) => !used.has(hi));
+    if (positional >= 0) used.add(positional);
+    return positional;
+  });
+}
+
+export interface SchemaMappedTable {
+  /**
+   * 保存用表头：按 schema 列序排列（与重排后的数据行逐列对齐），列名优先保留文档原名，
+   * 缺位回退规范列名。canonical 章节（指标章）由调用方改用规范列名以维持后端解析契约。
+   */
+  header: string[];
+  /** 按 schema 列序重排后的数据行（宽度 = schema.columns.length）。 */
+  rows: string[][];
+}
+
+/** 已解析表格 → schema 列序（锁定表头编辑网格的数据源）。行与表头同步重排，保存不发生错列。 */
+export function mapTableToSchema(table: MarkdownTable, tableSchema: PlanTableSectionSchema): SchemaMappedTable {
+  const { header } = table;
+  const map = tableSchema.canonicalHeader ? metricsColumnMap(header) : genericColumnMap(header, tableSchema);
+  const lastMapped = Math.max(...map.filter((idx) => idx >= 0), -1);
+  const extras = header.map((_, hi) => hi).filter((hi) => !map.includes(hi) && hi > lastMapped);
+  const mappedHeader = map.map((idx, i) => {
+    const name = idx >= 0 ? cellAt(header, idx) : '';
+    return name || tableSchema.columns[i].label;
+  });
+  const rows = table.rows.map((cells) =>
+    map.map((idx, colIdx) => {
+      const base = cellAt(cells, idx);
+      if (colIdx === map.length - 1 && extras.length > 0) {
+        const merged = extras.map((hi) => cellAt(cells, hi)).filter(Boolean).join('；');
+        return merged ? (base ? `${base}；${merged}` : merged) : base;
+      }
+      return base;
+    }),
+  );
+  return { header: mappedHeader, rows: rows.length > 0 ? rows : [tableSchema.columns.map(() => '')] };
 }

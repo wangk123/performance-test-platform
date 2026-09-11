@@ -202,10 +202,18 @@ export function parseMarkdownTable(content: string | null | undefined): Markdown
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.startsWith('|') && line.endsWith('|'))
-    .map((line) => line.slice(1, -1).split('|').map((cell) => cell.trim()))
+    .map(splitMarkdownRow)
     .filter((cells) => !isSeparatorRow(cells));
   if (rows.length < 2) return null;
   return { header: rows[0], rows: rows.slice(1) };
+}
+
+/** 按未转义的 `|` 切分单元格，并反转义 `\|`（toCell 序列化口径的逆，保证转义单元格往返不漂移）。 */
+function splitMarkdownRow(line: string): string[] {
+  return line
+    .slice(1, -1)
+    .split(/(?<!\\)\|/g)
+    .map((cell) => cell.trim().replace(/\\\|/g, '|'));
 }
 
 /** 单元格内联化：竖线转义、换行压空格，保证序列化回的表格行数与单元格数不漂移。 */
@@ -286,4 +294,68 @@ export function normalizeForMatch(text: string): string {
   return text.replace(/[\s#*>`|~_[\]()\\，-]/g, '').toLowerCase();
 }
 
+// ---------- 章内容块模型（Pretty 行内编辑）：文本段 / 表格 / 独立图片行 ----------
 
+export interface SectionTextBlock { kind: 'text'; content: string }
+export interface SectionTableBlock { kind: 'table'; header: string[]; rows: string[][] }
+export interface SectionImageBlock { kind: 'image'; alt: string; url: string }
+export type SectionBlock = SectionTextBlock | SectionTableBlock | SectionImageBlock;
+
+/** 独立图片行：`![alt](url)`（URL 含空格等非常规写法不识别，保持为文本块）。 */
+const IMAGE_LINE_RE = /^!\[([^\]]*)\]\((\S+)\)$/;
+
+/**
+ * 章内容 → 块序列：连续 `|` 行为表格（parseMarkdownTable 解析失败如列数不齐时降级为文本块，不阻塞编辑），
+ * 独立图片行为图片块，其余行为文本段。段内空行结构原样保留。
+ */
+export function parseSectionBlocks(content: string): SectionBlock[] {
+  const blocks: SectionBlock[] = [];
+  const lines = content.split('\n');
+  let textRun: string[] = [];
+  const flushText = () => {
+    const text = textRun.join('\n').replace(/^\n+|\n+$/g, '');
+    if (text.trim()) blocks.push({ kind: 'text', content: text });
+    textRun = [];
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith('|')) {
+      let end = i;
+      while (end < lines.length && lines[end].trim().startsWith('|')) end += 1;
+      const table = parseMarkdownTable(lines.slice(i, end).join('\n'));
+      if (table) {
+        flushText();
+        blocks.push({ kind: 'table', header: table.header, rows: table.rows });
+      } else {
+        textRun.push(...lines.slice(i, end));
+      }
+      i = end - 1;
+      continue;
+    }
+    const image = trimmed.match(IMAGE_LINE_RE);
+    if (image) {
+      flushText();
+      blocks.push({ kind: 'image', alt: image[1], url: image[2] });
+      continue;
+    }
+    textRun.push(lines[i]);
+  }
+  flushText();
+  return blocks;
+}
+
+/** 块序列 → 章内容（parseSectionBlocks 的逆操作）：块间空行分隔；空文本段、无行表格、无 URL 图片不产出。 */
+export function serializeSectionBlocks(blocks: SectionBlock[]): string {
+  const parts: string[] = [];
+  for (const block of blocks) {
+    if (block.kind === 'text') {
+      const text = block.content.replace(/^\n+|\n+$/g, '');
+      if (text.trim()) parts.push(text);
+    } else if (block.kind === 'table') {
+      if (block.header.length > 0 && block.rows.length > 0) parts.push(toMarkdownTable(block.header, block.rows));
+    } else if (block.url.trim()) {
+      parts.push(`![${block.alt}](${block.url.trim()})`);
+    }
+  }
+  return parts.length > 0 ? `${parts.join('\n\n')}\n` : '';
+}

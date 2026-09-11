@@ -38,17 +38,17 @@
                 <header class="doc-section-head">
                   <h3>{{ section.heading }}</h3>
                   <a-button
-                    v-if="canEdit"
+                    v-if="canEdit && !isModuleSection(section) && inlineTitle !== section.title"
                     class="doc-section-edit"
                     size="small"
                     type="text"
-                    title="编辑章节"
-                    @click="openSectionEditor(section.title, section.heading)"
+                    title="编辑本章"
+                    aria-label="编辑本章"
+                    @click="startInlineEdit(section)"
                   >
                     <template #icon>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
                     </template>
-                    编辑
                   </a-button>
                 </header>
                 <div
@@ -64,8 +64,20 @@
                     </div>
                   </details>
                 </div>
+                <PlanSectionInlineEditor
+                  v-if="inlineTitle === section.title"
+                  :key="`inline-${section.title}`"
+                  :plan-id="plan.id"
+                  :title="section.title"
+                  :heading="section.heading"
+                  :content="inlineContent"
+                  :busy="inlineSaving || conflictOpen"
+                  @save="saveInline"
+                  @cancel-request="cancelInlineRequest"
+                  @update:dirty="inlineDirty = $event"
+                />
                 <ChecklistView
-                  v-if="section.title === '六、测试约束'"
+                  v-else-if="section.title === '六、测试约束'"
                   :content="section.content"
                   :editable="canEdit"
                   @toggle="toggleChecklist(section.content, $event)"
@@ -173,21 +185,6 @@
       />
     </div>
 
-    <PlanSectionEditor
-      v-model:open="sectionEditorOpen"
-      :plan-id="plan.id"
-      :title="editingSectionTitle"
-      :display-title="editingSectionHeading"
-      :content="editingSectionContent"
-      @save="saveSection"
-    />
-    <SectionTableEditor
-      v-model:open="tableEditorOpen"
-      :section-title="editingSectionTitle"
-      :display-title="editingSectionHeading"
-      :content="editingSectionContent"
-      @save="saveSection"
-    />
     <PlanConflictDialog
       v-model:open="conflictOpen"
       :server-markdown="plan.body ?? ''"
@@ -207,17 +204,15 @@ import type { PlanComment, PlanCommentThread, TaskPlan, TaskScenario } from '../
 import type { usePlanDoc } from '../../composables/usePlanDoc';
 import type { PlanCommentPanelGroup } from './PlanCommentPanel.vue';
 import { useTheme } from '../../composables/useTheme';
-import { CANONICAL_HEADINGS, extractSection, parseMarkdownTable, replaceSection, splitSections, toggleChecklistItem } from '../../utils/plan-markdown';
+import { CANONICAL_HEADINGS, extractSection, replaceSection, splitSections, toggleChecklistItem } from '../../utils/plan-markdown';
 import type { Section } from '../../utils/plan-markdown';
 import { findBestLine } from '../../utils/plan-anchors';
-import { planTableCompatible, planTableSchemaOf } from '../../utils/plan-table-schemas';
 import { deleteCommentApi } from '../../api/plan-doc';
 import { useDocCommentLayer } from '../../composables/useDocCommentLayer';
 import PlanConflictDialog from './PlanConflictDialog.vue';
 import PlanCommentComposer from './PlanCommentComposer.vue';
 import PlanCommentPanel from './PlanCommentPanel.vue';
-import PlanSectionEditor from './PlanSectionEditor.vue';
-import SectionTableEditor from './SectionTableEditor.vue';
+import PlanSectionInlineEditor from './PlanSectionInlineEditor.vue';
 import ChecklistView from './ChecklistView.vue';
 import ScenarioDesignModule from './ScenarioDesignModule.vue';
 
@@ -250,11 +245,11 @@ const editing = ref(false);
 const editDraft = ref('');
 const conflictLocal = ref('');
 const conflictOpen = ref(false);
-const sectionEditorOpen = ref(false);
-const tableEditorOpen = ref(false);
-const editingSectionTitle = ref('');
-const editingSectionHeading = ref('');
-const editingSectionContent = ref('');
+/** 行内编辑中的章节（整章编辑模式，一次一章）；null = 无。 */
+const inlineTitle = ref<string | null>(null);
+const inlineContent = ref('');
+const inlineDirty = ref(false);
+const inlineSaving = ref(false);
 
 const sections = computed(() => splitSections(props.plan.body));
 const canEdit = computed(() => Boolean(props.doc.permissions.value.EDIT));
@@ -274,18 +269,28 @@ watch([viewMode, () => props.plan.body, editing], () => {
   void nextTick(updateCurrentSection);
 }, { immediate: true });
 
+/** 行内编辑有脏稿时切去 Markdown 视图会静默卸载编辑器：先弹确认，确认前回退 Pretty 保持草稿。 */
+watch(viewMode, (mode) => {
+  if (mode === 'Pretty' || !inlineTitle.value || !inlineDirty.value) return;
+  viewMode.value = 'Pretty';
+  const heading = sections.value.find((s) => s.title === inlineTitle.value)?.heading;
+  confirmDiscard(`切换视图将丢失「${heading ?? ''}」的草稿。`, cancelInline);
+});
+
 /* ---------- 行级批注层：悬浮「＋批注」入口（DOM 直连，spec §5.2） ---------- */
 
 const commentLayer = useDocCommentLayer({
   containerRef: docMainRef,
   threads: props.doc.threads,
   canComment,
-  enabled: computed(() => viewMode.value === 'Pretty' && !editing.value),
+  enabled: computed(() => viewMode.value === 'Pretty' && !editing.value && inlineTitle.value === null),
   body: computed(() => props.plan.body),
 });
 const composerBusy = ref(false);
 
 watch([() => props.plan.body, viewMode, editing, props.doc.threads], () => {
+  // 行内编辑中冻结批注层：编辑器容器不是渲染块，重对齐会把该章批注误判为断链
+  if (inlineTitle.value) return;
   void nextTick(() => window.requestAnimationFrame(() => void commentLayer.rebuild()));
 }, { immediate: true });
 
@@ -415,6 +420,7 @@ async function submitWholeDocument(markdown: string): Promise<void> {
 
 async function resolveConflict(kind: 'keep-server' | 'take-local' | 'manual') {
   conflictOpen.value = false;
+  inlineTitle.value = null; // 冲突三选一均退出行内编辑：草稿基底已过期
   if (kind === 'keep-server') {
     editing.value = false;
     message.info('已保留平台版本');
@@ -429,27 +435,76 @@ async function resolveConflict(kind: 'keep-server' | 'take-local' | 'manual') {
   }
 }
 
-function openSectionEditor(title: string, heading: string) {
-  editingSectionTitle.value = title;
-  editingSectionHeading.value = heading;
-  editingSectionContent.value = extractSection(props.plan.body, title) ?? '';
-  // 表格型章节走结构化表单（固定列、行增删）；首表与列 schema 不兼容（如模板「人员」子表）回落 Markdown 编辑
-  const schema = planTableSchemaOf(title);
-  if (schema && planTableCompatible(schema, parseMarkdownTable(editingSectionContent.value)?.header ?? null)) {
-    tableEditorOpen.value = true;
-    return;
-  }
-  sectionEditorOpen.value = true;
+/** 交互模块章（清单勾选 / 场景卡片）自带编辑能力，不提供行内 markdown 编辑入口。 */
+function isModuleSection(section: Section): boolean {
+  return section.title === '六、测试约束'
+    || (section.title === '八、场景设计' && section.heading.startsWith('八、场景设计'));
 }
 
-async function saveSection(content: string) {
-  const body = props.plan.body ?? '';
+/** 放弃草稿确认（唯一出口）：切换他章、Esc/✕ 取消、切换视图三条路径共用。 */
+function confirmDiscard(context: string, onOk: () => void) {
+  Modal.confirm({
+    title: '放弃未保存的修改？',
+    content: context,
+    okText: '放弃修改',
+    okType: 'danger',
+    cancelText: '继续编辑',
+    onOk,
+  });
+}
+
+function startInlineEdit(section: Section) {
+  if (inlineTitle.value === section.title) return;
+  const open = () => {
+    inlineTitle.value = section.title;
+    inlineContent.value = extractSection(props.plan.body, section.title) ?? '';
+    inlineDirty.value = false;
+  };
+  // 已有他章在编辑且未保存：先确认放弃，避免静默丢稿
+  if (inlineTitle.value && inlineDirty.value) {
+    confirmDiscard(`「${sections.value.find((s) => s.title === inlineTitle.value)?.heading ?? inlineTitle.value}」的草稿尚未保存。`, open);
+    return;
+  }
+  open();
+}
+
+/** 编辑器取消请求（✕/Esc）：脏稿确认后关闭。 */
+function cancelInlineRequest() {
+  if (!inlineDirty.value) {
+    cancelInline();
+    return;
+  }
+  const heading = sections.value.find((s) => s.title === inlineTitle.value)?.heading;
+  confirmDiscard(`「${heading ?? ''}」的草稿尚未保存，取消后修改将丢失。`, cancelInline);
+}
+
+async function saveInline(content: string) {
+  const title = inlineTitle.value;
+  if (!title || conflictOpen.value) return; // 冲突裁决期间禁止重复提交，防止覆盖 conflictLocal
+  let next: string;
   try {
-    const next = replaceSection(body, editingSectionTitle.value, content);
-    await submitWholeDocument(next);
+    next = replaceSection(props.plan.body ?? '', title, content);
   } catch (error) {
     message.error(error instanceof Error ? error.message : '章节写回失败');
+    return;
   }
+  inlineSaving.value = true;
+  const outcome = await props.doc.saveDocument(next);
+  inlineSaving.value = false;
+  if (outcome === 'ok') {
+    inlineTitle.value = null;
+    inlineDirty.value = false;
+    emit('changed');
+  } else if (outcome === 'conflict') {
+    // 保持行内编辑态打开（草稿仍在），由冲突弹窗三选一
+    conflictLocal.value = next;
+    conflictOpen.value = true;
+  }
+}
+
+function cancelInline() {
+  inlineTitle.value = null;
+  inlineDirty.value = false;
 }
 
 async function toggleChecklist(content: string, index: number) {

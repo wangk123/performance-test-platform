@@ -38,7 +38,7 @@ export type PolishSectionResult = {
   modelName: string;
 };
 
-/** 章节 AI 润色：只生成建议文本，不落文档；采纳与保存由编辑弹窗完成。 */
+/** 章节 AI 润色：只生成建议文本，不落文档；发送与采纳的范围由调用方决定（行内编辑器按选区调用）。 */
 export function polishPlanSectionApi(planId: number, sectionTitle: string, content: string) {
   return request<PolishSectionResult>(`/api/task-plans/${planId}/sections/polish`, {
     method: 'POST',
