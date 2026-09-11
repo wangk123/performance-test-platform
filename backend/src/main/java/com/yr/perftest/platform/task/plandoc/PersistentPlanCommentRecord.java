@@ -95,6 +95,11 @@ public class PersistentPlanCommentRecord {
         this.resolvedAt = resolved ? Instant.now() : null;
     }
 
+    /** 编辑批注内容：锚点与线程关系不变。 */
+    public void applyContent(String content) {
+        this.content = content;
+    }
+
     public Long getId() { return id; }
     public Long getPlanId() { return planId; }
     public String getAuthor() { return author; }

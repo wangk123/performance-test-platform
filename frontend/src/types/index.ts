@@ -444,6 +444,7 @@ export interface PlanComment {
   resolvedAt: string | null;
   canResolve: boolean;
   canDelete: boolean;
+  canEdit: boolean;
 }
 
 /** 根批注 + 一层回复（spec §2 线程）。 */

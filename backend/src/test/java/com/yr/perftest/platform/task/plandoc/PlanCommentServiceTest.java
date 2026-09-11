@@ -61,16 +61,19 @@ class PlanCommentServiceTest {
                 planId, REVIEWER, new PlanCommentService.AddCommentCommand("表格补口径", null, null));
         assertThat(created.canDelete()).isTrue();
         assertThat(created.canResolve()).isTrue();
+        assertThat(created.canEdit()).isTrue();
 
         var reviewerView = comments.listComments(planId, REVIEWER).stream()
                 .filter(c -> c.id() == created.id()).findFirst().orElseThrow();
         assertThat(reviewerView.canResolve()).isTrue();
         assertThat(reviewerView.canDelete()).isTrue();
+        assertThat(reviewerView.canEdit()).isTrue();
 
         var ownerView = comments.listComments(planId, OWNER).stream()
                 .filter(c -> c.id() == created.id()).findFirst().orElseThrow();
         assertThat(ownerView.canResolve()).isTrue();
         assertThat(ownerView.canDelete()).isTrue();
+        assertThat(ownerView.canEdit()).isTrue();
 
         memberRepository.save(new PersistentProjectMemberRecord(
                 projectRepository.findAll().get(0).getId(), "outsider", ProjectRole.MEMBER));
@@ -78,6 +81,7 @@ class PlanCommentServiceTest {
                 .filter(c -> c.id() == created.id()).findFirst().orElseThrow();
         assertThat(otherView.canResolve()).isFalse();
         assertThat(otherView.canDelete()).isFalse();
+        assertThat(otherView.canEdit()).isFalse();
     }
 
     @Test
@@ -220,6 +224,60 @@ class PlanCommentServiceTest {
         workflow.startExecution(planId, REVIEWER);
         assertThatThrownBy(() -> comments.addComment(
                 planId, REVIEWER, new PlanCommentService.AddCommentCommand("迟到", null, null)))
+                .isInstanceOf(PlanStateException.class);
+    }
+
+    @Test
+    void editUpdatesContentAndKeepsAnchor() {
+        var anchor = new PlanCommentService.CommentAnchor(42, "登录接口 TPS ≥ 1000", "三、测试指标");
+        PlanCommentService.CommentView created = comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("目标偏乐观", null, anchor));
+        PlanCommentService.CommentView edited = comments.editComment(planId, created.id(), REVIEWER, "  目标偏乐观，建议复测  ");
+        assertThat(edited.content()).isEqualTo("目标偏乐观，建议复测");
+        assertThat(edited.anchorLine()).isEqualTo(42); // 锚点与线程关系不变
+        assertThat(edited.anchorText()).isEqualTo("登录接口 TPS ≥ 1000");
+        assertThat(edited.sectionTitle()).isEqualTo("三、测试指标");
+        assertThat(edited.parentId()).isNull();
+        assertThat(edited.bodyRevision()).isEqualTo(created.bodyRevision());
+        assertThat(edited.canEdit()).isTrue();
+    }
+
+    @Test
+    void editRequiresAuthorOrOwner() {
+        PlanCommentService.CommentView created = comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("成员批注", null, null));
+        memberRepository.save(new PersistentProjectMemberRecord(
+                projectRepository.findAll().get(0).getId(), "outsider", ProjectRole.MEMBER));
+        assertThatThrownBy(() -> comments.editComment(planId, created.id(), OUTSIDER, "改别人的"))
+                .isInstanceOf(PlanAccessDeniedException.class);
+        comments.editComment(planId, created.id(), OWNER, "负责人代改");
+        assertThat(comments.listComments(planId, REVIEWER).stream()
+                .filter(c -> c.id() == created.id()).findFirst().orElseThrow().content()).isEqualTo("负责人代改");
+    }
+
+    @Test
+    void editRejectsBlankAndSystem() {
+        PlanCommentService.CommentView created = comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("正常批注", null, null));
+        assertThatThrownBy(() -> comments.editComment(planId, created.id(), REVIEWER, "  "))
+                .isInstanceOf(PlanValidationException.class);
+        comments.systemComment(planId, "owner 提交评审");
+        PlanCommentService.CommentView system = comments.listComments(planId, OWNER).stream()
+                .filter(c -> c.kind() == PlanCommentKind.SYSTEM).findFirst().orElseThrow();
+        assertThat(system.canEdit()).isFalse();
+        assertThatThrownBy(() -> comments.editComment(planId, system.id(), OWNER, "改系统记录"))
+                .isInstanceOf(PlanValidationException.class);
+    }
+
+    @Test
+    void editBlockedAfterExecution() {
+        PlanCommentService.CommentView root = comments.addComment(
+                planId, REVIEWER, new PlanCommentService.AddCommentCommand("根", null, null));
+        workflow.submit(planId, OWNER, null);
+        workflow.startReview(planId, REVIEWER);
+        workflow.approve(planId, REVIEWER, null);
+        workflow.startExecution(planId, REVIEWER);
+        assertThatThrownBy(() -> comments.editComment(planId, root.id(), REVIEWER, "迟到编辑"))
                 .isInstanceOf(PlanStateException.class);
     }
 }

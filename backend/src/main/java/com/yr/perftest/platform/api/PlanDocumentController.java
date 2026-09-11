@@ -201,6 +201,12 @@ public class PlanDocumentController {
         commentService.resolveComment(planId, commentId, requireHuman(), request.resolved());
     }
 
+    @PatchMapping("/task-plans/{planId}/comments/{commentId}")
+    public PlanCommentService.CommentView editComment(@PathVariable long planId, @PathVariable long commentId,
+                                                      @RequestBody EditCommentRequest request) {
+        return commentService.editComment(planId, commentId, requireHuman(), request.content());
+    }
+
     @DeleteMapping("/task-plans/{planId}/comments/{commentId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteComment(@PathVariable long planId, @PathVariable long commentId) {
@@ -372,6 +378,9 @@ public class PlanDocumentController {
     }
 
     public record ResolveCommentRequest(boolean resolved) {
+    }
+
+    public record EditCommentRequest(String content) {
     }
 
     public record PublishRequest(String conclusion, String versionNo) {

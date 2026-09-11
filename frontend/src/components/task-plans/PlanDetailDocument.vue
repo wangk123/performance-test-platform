@@ -168,6 +168,7 @@
         @locate="locateThread"
         @resolve="(t, r) => doc.resolveComment(t.root.id, r)"
         @reply="(t, c) => doc.addAnchoredComment({ content: c, parentId: t.root.id })"
+        @edit="(t, c) => doc.editComment(t.root.id, c)"
         @remove="removeComment"
       />
     </div>

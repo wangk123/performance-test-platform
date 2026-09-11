@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 
-/** 批注域服务（spec §6）：增删查/线程/解决；流转服务只写流转记录。批注读写不触碰 plan.revision。 */
+/** 批注域服务（spec §6）：增删改查/线程/解决；流转服务只写流转记录。批注读写不触碰 plan.revision。 */
 @Service
 public class PlanCommentService {
 
@@ -24,7 +24,7 @@ public class PlanCommentService {
     public record CommentView(long id, long planId, String author, String content, PlanCommentKind kind,
                               Instant createdAt, Long parentId, Integer anchorLine, String anchorText,
                               String sectionTitle, Long bodyRevision, boolean resolved, String resolvedBy,
-                              Instant resolvedAt, boolean canResolve, boolean canDelete) {
+                              Instant resolvedAt, boolean canResolve, boolean canDelete, boolean canEdit) {
     }
 
     private final PersistentPlanCommentRepository commentRepository;
@@ -104,6 +104,29 @@ public class PlanCommentService {
         commentRepository.save(comment);
     }
 
+    /** 编辑批注内容（spec §6）：仅 REVIEW 批注、作者/负责人；评审域外只读。锚点与线程关系不变。 */
+    @Transactional
+    public CommentView editComment(long planId, long commentId, HumanPrincipal actor, String content) {
+        PersistentTaskPlanRecord plan = requirePlan(planId);
+        requireCommenter(plan, actor);
+        if (content == null || content.isBlank()) {
+            throw new PlanValidationException("PLAN_INVALID：批注内容不能为空");
+        }
+        PersistentPlanCommentRecord comment = commentRepository.findById(commentId)
+                .filter(c -> c.getPlanId() == planId)
+                .orElseThrow(() -> new PlanValidationException("PLAN_INVALID：批注不存在"));
+        if (comment.getKind() != PlanCommentKind.REVIEW) {
+            throw new PlanValidationException("PLAN_INVALID：系统批注不可编辑");
+        }
+        Viewer viewer = viewerOf(plan, actor);
+        if (!viewer.ownerLike() && !comment.getAuthor().equals(actor.username())) {
+            throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：仅批注作者/负责人/项目 OWNER/系统管理员可编辑批注");
+        }
+        comment.applyContent(content.trim());
+        commentRepository.save(comment);
+        return toView(comment, viewer);
+    }
+
     @Transactional
     public void systemComment(long planId, String content) {
         commentRepository.save(new PersistentPlanCommentRecord(planId, "system", content, PlanCommentKind.SYSTEM));
@@ -155,6 +178,7 @@ public class PlanCommentService {
                 c.getParentId(), c.getAnchorLine(), c.getAnchorText(), c.getSectionTitle(), c.getBodyRevision(),
                 c.isResolved(), c.getResolvedBy(), c.getResolvedAt(),
                 root && authorOrOwner && c.getKind() == PlanCommentKind.REVIEW,
+                authorOrOwner && c.getKind() == PlanCommentKind.REVIEW,
                 authorOrOwner && c.getKind() == PlanCommentKind.REVIEW);
     }
 

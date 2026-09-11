@@ -7,7 +7,7 @@
 - **Project（项目）**：平台资产归属入口。脚本、计划、场景、执行、报告、监控目标、造数资产都挂靠项目；归档不物理删除。
 - **Script / ScriptVersion（脚本/脚本版本）**：JMeter JMX 可执行资产；版本不可变，`storage/scripts/{projectId}/` 存储。`ScriptDefinition` 是解析后的步骤树视图。
 - **TaskPlan（压测计划文档）**：一稿走到头——同一份 Markdown 原文经历 计划（评审）→ 执行（回填）→ 发布；`body` 是唯一数据源（11 章节中文序号），Pretty 视图 = 受约束章节提取展示。二级状态：phase（草稿/评审/执行/发布；报告阶段已取消手动进入，仅存量数据兼容）+ status。发布即生成：冻结前自动回填执行结果总览与判等表，无需手动「生成报告」。
-- **PlanComment / PlanTemplate / PlanPublishSnapshot / PlanShareToken**：评审批注（REVIEW/SYSTEM 两类，全文档级）/ 计划模板（内置+项目自定义）/ 发布快照（P1-4 消费）/ 只读分享令牌。
+- **PlanComment / PlanTemplate / PlanPublishSnapshot / PlanShareToken**：评审批注（REVIEW/SYSTEM 两类，全文档级，作者/负责人可编辑内容、锚点不可改）/ 计划模板（内置+项目自定义）/ 发布快照（P1-4 消费）/ 只读分享令牌。
 - **revision 与冲突**：任何原文变化 revision+1；更新带 baseRevision，不一致 409 + serverMarkdown，三选一解决（保留平台版/采纳本地版/手改），不做自动合并。
 - **环境检查（precheck）**：计划执行设置（precheck_json），非文档内容；评审通过后首次执行自动运行、可跳过（系统批注留痕）。
 - **TaskScenario（测试场景）**：绑定脚本版本 + 线程组参数（预设行）的执行配置。

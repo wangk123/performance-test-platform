@@ -99,6 +99,14 @@ export function resolveCommentApi(planId: number, commentId: number, resolved: b
   });
 }
 
+export function editCommentApi(planId: number, commentId: number, content: string) {
+  return request<PlanComment>(`/api/task-plans/${planId}/comments/${commentId}`, {
+    method: 'PATCH',
+    headers: json,
+    body: JSON.stringify({ content }),
+  });
+}
+
 export function deleteCommentApi(planId: number, commentId: number) {
   return request<void>(`/api/task-plans/${planId}/comments/${commentId}`, { method: 'DELETE' });
 }

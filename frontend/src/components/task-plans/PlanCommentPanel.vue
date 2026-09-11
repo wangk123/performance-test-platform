@@ -17,6 +17,7 @@
             @locate="emit('locate', $event)"
             @resolve="(t, r) => emit('resolve', t, r)"
             @reply="(t, c) => emit('reply', t, c)"
+            @edit="(t, c) => emit('edit', t, c)"
             @remove="(t, c) => emit('remove', t, c)"
           />
         </template>
@@ -56,6 +57,7 @@ const emit = defineEmits<{
   (e: 'locate', thread: PlanCommentThread): void;
   (e: 'resolve', thread: PlanCommentThread, resolved: boolean): void;
   (e: 'reply', thread: PlanCommentThread, content: string): void;
+  (e: 'edit', thread: PlanCommentThread, content: string): void;
   (e: 'remove', thread: PlanCommentThread, comment: PlanComment): void;
 }>();
 

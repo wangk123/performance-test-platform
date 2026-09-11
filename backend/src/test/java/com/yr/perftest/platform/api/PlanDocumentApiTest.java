@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -148,9 +149,16 @@ class PlanDocumentApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"content\":\"补充口径\"}"))
                 .andExpect(status().isCreated());
+        mockMvc.perform(patch("/api/task-plans/" + planId + "/comments/1")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"补充口径（已复测）\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").value("补充口径（已复测）"))
+                .andExpect(jsonPath("$.canEdit").value(true));
         mockMvc.perform(get("/api/task-plans/" + planId + "/comments")
                         .header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$[0].content").value("补充口径"));
+                .andExpect(jsonPath("$[0].content").value("补充口径（已复测）"));
         mockMvc.perform(get("/api/share/plans/not-a-token"))
                 .andExpect(status().isNotFound());
     }

@@ -11,23 +11,37 @@
       @keydown.meta.enter.prevent="submit"
     />
     <div class="anno-composer-actions">
-      <span class="anno-composer-hint">Ctrl/⌘+Enter 提交 · Esc 取消</span>
-      <a-button size="small" @click="emit('cancel')">取消</a-button>
-      <a-button size="small" type="primary" :disabled="!draft.trim()" :loading="busy" @click="submit">提交</a-button>
+      <a-tooltip title="取消（Esc）">
+        <button type="button" class="anno-ibtn" aria-label="取消" @click="emit('cancel')">
+          <CloseOutlined />
+        </button>
+      </a-tooltip>
+      <a-tooltip title="发送（Ctrl/⌘+Enter）">
+        <button
+          type="button" class="anno-ibtn anno-ibtn-send" aria-label="发送"
+          :disabled="!draft.trim() || busy"
+          @click="submit"
+        >
+          <SendOutlined />
+        </button>
+      </a-tooltip>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { nextTick, onMounted, ref } from 'vue';
+import { CloseOutlined, SendOutlined } from '@ant-design/icons-vue';
 
 const props = withDefaults(defineProps<{
   placeholder?: string;
   busy?: boolean;
+  /** 预填内容（编辑批注时传入原文）。 */
+  initial?: string;
 }>(), { placeholder: '针对此行添加批注（评审中全员可见）' });
 const emit = defineEmits<{ (e: 'submit', content: string): void; (e: 'cancel'): void }>();
 
-const draft = ref('');
+const draft = ref(props.initial ?? '');
 const inputRef = ref<HTMLTextAreaElement | null>(null);
 
 function submit() {

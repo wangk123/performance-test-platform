@@ -17,7 +17,7 @@ function root(overrides: Partial<PlanComment>): PlanComment {
   return {
     id: 1, planId: 1, author: 'reviewer', content: '批注', kind: 'REVIEW', createdAt: '',
     parentId: null, anchorLine: null, anchorText: null, sectionTitle: null, bodyRevision: null,
-    resolved: false, resolvedBy: null, resolvedAt: null, canResolve: true, canDelete: true,
+    resolved: false, resolvedBy: null, resolvedAt: null, canResolve: true, canDelete: true, canEdit: true,
     ...overrides,
   };
 }

@@ -3,6 +3,7 @@ import { message } from 'ant-design-vue';
 import type { PlanComment, PlanCommentAnchor, PlanCommentThread, PlanPermissions, TaskPlan } from '../types';
 import {
   addCommentApi,
+  editCommentApi,
   getPlanDocumentApi,
   listCommentsApi,
   resolveCommentApi,
@@ -144,6 +145,19 @@ export function usePlanDoc() {
     }
   }
 
+  async function editComment(commentId: number, content: string) {
+    if (!plan.value) return false;
+    try {
+      await editCommentApi(plan.value.id, commentId, content);
+      comments.value = await listCommentsApi(plan.value.id);
+      message.success('批注已更新');
+      return true;
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '批注更新失败');
+      return false;
+    }
+  }
+
   // 兼容旧调用（PlanDetailReview，Task 10 重写后移除）。
   async function addComment(content: string) {
     await addAnchoredComment({ content });
@@ -152,6 +166,6 @@ export function usePlanDoc() {
   return {
     plan, permissions, comments, loading, load, refresh, saveDocument, transition, addComment,
     threads, unresolvedCount, unanchoredThreads, anchoredRoots,
-    panelOpen, panelEffective, togglePanel, addAnchoredComment, resolveComment,
+    panelOpen, panelEffective, togglePanel, addAnchoredComment, resolveComment, editComment,
   };
 }
