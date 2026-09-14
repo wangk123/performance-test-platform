@@ -171,6 +171,7 @@
 
       <PlanCommentPanel
         v-if="doc.panelEffective.value"
+        ref="commentPanelRef"
         class="doc-anno-panel-col"
         :groups="panelGroups"
         :unresolved="doc.unresolvedCount.value"
@@ -285,8 +286,14 @@ const commentLayer = useDocCommentLayer({
   canComment,
   enabled: computed(() => viewMode.value === 'Pretty' && !editing.value && inlineTitle.value === null),
   body: computed(() => props.plan.body),
+  // 正文徽标 → 面板联动（spec §3.2）：面板收起时先展开，再滚动并闪烁对应卡片
+  onBadgeClick: (threadIds) => {
+    if (!props.doc.panelEffective.value) props.doc.togglePanel();
+    void nextTick(() => commentPanelRef.value?.reveal(threadIds));
+  },
 });
 const composerBusy = ref(false);
+const commentPanelRef = ref<InstanceType<typeof PlanCommentPanel> | null>(null);
 
 watch([() => props.plan.body, viewMode, editing, props.doc.threads], () => {
   // 行内编辑中冻结批注层：编辑器容器不是渲染块，重对齐会把该章批注误判为断链

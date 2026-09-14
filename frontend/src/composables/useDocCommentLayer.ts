@@ -26,8 +26,8 @@ export function useDocCommentLayer(options: {
   enabled: Ref<boolean>;
   /** 当前文档正文：提交时定位源行、展示时断链判定（spec §5.3 纯派生不回写） */
   body: Ref<string | null>;
-  /** 徽标点击回调（面板联动，spec §3.2；本任务不传） */
-  onBadgeClick?: (line: number) => void;
+  /** 徽标点击回调（面板联动，spec §3.2）：携带该块锚定的全部线程 id */
+  onBadgeClick?: (threadIds: number[]) => void;
 }) {
   const addButton = ref({ visible: false, top: 0, left: 0 });
   const composer = ref<ComposerTarget | null>(null);
@@ -144,7 +144,7 @@ export function useDocCommentLayer(options: {
       badge.setAttribute('aria-label', `${threadsAtEl.length} 条批注`);
       badge.addEventListener('click', (event) => {
         event.stopPropagation();
-        options.onBadgeClick?.(threadsAtEl[0].root.id);
+        options.onBadgeClick?.(threadsAtEl.map((t) => t.root.id));
       });
       // 表格行的徽标放进最后一个单元格（span 直接挂 tr 是无效 HTML，会被表格布局摆到奇怪的位置）
       const badgeHost = el.tagName === 'TR' ? (el.lastElementChild as HTMLElement | null) ?? el : el;
