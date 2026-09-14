@@ -213,12 +213,14 @@ const ACTION_TEXT: Record<string, string> = {
 };
 const flowActions = computed(() => visibleActions(status.value) as TransitionAction[]);
 
-/** 软门禁：执行完成/发布点击时若有活跃执行，先二次确认（spec 2026-09-11 §4.3）。 */
+/** 执行完成是单行道不可逆流转：总是二次确认；发布保持原软门禁（有活跃执行先告警）。 */
 function onFlowAction(action: TransitionAction) {
-  if ((action === 'finish-execution' || action === 'publish') && doc.activeExecutions.value > 0) {
+  const warn = (action === 'finish-execution' || action === 'publish')
+    ? activeWarning(doc.activeExecutions.value) : null;
+  if (action === 'finish-execution' || warn) {
     Modal.confirm({
-      title: '未完成执行告警',
-      content: activeWarning(doc.activeExecutions.value) ?? undefined,
+      title: action === 'finish-execution' ? '执行完成确认' : '未完成执行告警',
+      content: warn ?? '确认执行完成？将进入报告编辑阶段。',
       okText: '继续',
       cancelText: '取消',
       onOk: () => runFlowAction(action),
