@@ -3,8 +3,6 @@ package com.yr.perftest.platform.api;
 import com.yr.perftest.platform.identity.AuthenticationException;
 import com.yr.perftest.platform.identity.HumanPrincipal;
 import com.yr.perftest.platform.project.ProjectAccessResolver;
-import com.yr.perftest.platform.report.PlanReportResponse;
-import com.yr.perftest.platform.report.ReportDataService;
 import com.yr.perftest.platform.task.TaskPlan;
 import com.yr.perftest.platform.task.TaskPlanService;
 import com.yr.perftest.platform.task.plandoc.PlanAccess;
@@ -37,7 +35,6 @@ public class PlanDocumentController {
     private final PlanQuickExecuteService quickExecuteService;
     private final TaskPlanService planService;
     private final ProjectAccessResolver accessResolver;
-    private final ReportDataService reportDataService;
     private final PlanVerdictService verdictService;
     private final PlanSectionPolishService polishService;
     private final PlanVersionService versionService;
@@ -48,7 +45,6 @@ public class PlanDocumentController {
                                   PlanQuickExecuteService quickExecuteService,
                                   TaskPlanService planService,
                                   ProjectAccessResolver accessResolver,
-                                  ReportDataService reportDataService,
                                   PlanVerdictService verdictService,
                                   PlanSectionPolishService polishService,
                                   PlanVersionService versionService) {
@@ -58,7 +54,6 @@ public class PlanDocumentController {
         this.quickExecuteService = quickExecuteService;
         this.planService = planService;
         this.accessResolver = accessResolver;
-        this.reportDataService = reportDataService;
         this.verdictService = verdictService;
         this.polishService = polishService;
         this.versionService = versionService;
@@ -207,13 +202,7 @@ public class PlanDocumentController {
         return versionService.publish(planId, requireHuman(), request.versionNo(), request.changeNote());
     }
 
-    @GetMapping("/task-plans/{planId}/report")
-    public PlanReportResponse report(@PathVariable long planId) {
-        requireMember(planService.getPlan(planId));
-        return reportDataService.aggregateByPlan(planId);
-    }
-
-    /** 验收判等只读视图（spec §6.1）：即时重算不持久化，读门槛与 /report 一致（项目成员）。 */
+    /** 验收判等只读视图（spec §6.1）：即时重算不持久化，读门槛=项目成员。 */
     @GetMapping("/task-plans/{planId}/verdict")
     public PlanVerdictService.VerdictView verdict(@PathVariable long planId) {
         TaskPlan plan = planService.getPlan(planId);

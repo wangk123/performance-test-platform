@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.MediaType;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.h2.console.enabled=false"
 })
 @AutoConfigureMockMvc
-@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
+@Transactional
 class PlanDocumentApiTest {
 
     @Autowired
@@ -194,7 +194,7 @@ class PlanDocumentApiTest {
                 .andExpect(jsonPath("$.code").value("PLAN_ACCESS_DENIED"));
         mockMvc.perform(get("/api/task-plans/" + planId + "/comments").header("Authorization", "Bearer " + outsider))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(get("/api/task-plans/" + planId + "/report").header("Authorization", "Bearer " + outsider))
+        mockMvc.perform(get("/api/task-plans/" + planId + "/versions").header("Authorization", "Bearer " + outsider))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/projects/1/plan-templates").header("Authorization", "Bearer " + outsider))
                 .andExpect(status().isForbidden());

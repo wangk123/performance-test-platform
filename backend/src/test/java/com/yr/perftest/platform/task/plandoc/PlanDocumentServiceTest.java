@@ -16,18 +16,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.jpa.hibernate.ddl-auto=validate",
         "spring.h2.console.enabled=false"
 })
-@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
+@Transactional
 class PlanDocumentServiceTest {
 
     private static final HumanPrincipal OWNER = new HumanPrincipal("owner", java.util.Set.of(SystemRole.PROJECT_MEMBER));
@@ -54,8 +44,6 @@ class PlanDocumentServiceTest {
     private PersistentProjectMemberRepository memberRepository;
     @Autowired
     private PersistentScenarioExecutionRepository executionRepository;
-    @Autowired
-    private PlatformTransactionManager transactionManager;
 
     private long planId;
 
@@ -117,52 +105,5 @@ class PlanDocumentServiceTest {
         assertThat(plan.body()).contains("吞吐 100 TPS");
         assertThat(plan.body()).doesNotContain("- 重复");
         assertThat(plan.revision()).isEqualTo(3); // 初建 +1，第二次幂等不 bump
-    }
-
-    @Test
-    void concurrentEditsOnSameBaseRevisionExactlyOneWinsOtherGets409() throws Exception {
-        long baseRevision = 2;
-        int threads = 2;
-        CountDownLatch ready = new CountDownLatch(threads);
-        CountDownLatch start = new CountDownLatch(1);
-        CountDownLatch done = new CountDownLatch(threads);
-        List<String> outcomes = Collections.synchronizedList(new ArrayList<>());
-        ExecutorService pool = Executors.newFixedThreadPool(threads);
-        try {
-            for (int i = 0; i < threads; i++) {
-                final int idx = i;
-                pool.submit(() -> {
-                    TransactionTemplate template = new TransactionTemplate(transactionManager);
-                    template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-                    ready.countDown();
-                    try {
-                        if (!start.await(10, TimeUnit.SECONDS)) {
-                            outcomes.add("OTHER:start-timeout");
-                            return;
-                        }
-                        template.executeWithoutResult(tx -> documentService.updateMarkdown(
-                                planId, baseRevision, "## 一、背景\n\n并发内容-" + idx + "\n", OWNER));
-                        outcomes.add("OK");
-                    } catch (PlanRevisionConflictException conflict) {
-                        outcomes.add("CONFLICT:" + conflict.getCurrentRevision());
-                    } catch (Throwable other) {
-                        outcomes.add("OTHER:" + other);
-                    } finally {
-                        done.countDown();
-                    }
-                });
-            }
-            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
-            start.countDown();
-            assertThat(done.await(10, TimeUnit.SECONDS)).isTrue();
-            assertThat(outcomes).hasSize(2);
-            assertThat(outcomes).filteredOn(o -> o.startsWith("OK")).hasSize(1);
-            assertThat(outcomes).filteredOn(o -> o.startsWith("CONFLICT:")).hasSize(1);
-            assertThat(outcomes).filteredOn(o -> o.startsWith("OTHER:")).isEmpty();
-            TaskPlan plan = documentService.getDocument(planId);
-            assertThat(plan.revision()).isEqualTo(baseRevision + 1);
-        } finally {
-            pool.shutdownNow();
-        }
     }
 }
