@@ -1,13 +1,5 @@
 <template>
   <section class="review-tab">
-    <div class="workbench-actions">
-      <span class="workbench-badge">{{ statusText }}</span>
-      <span class="workbench-hint" v-if="unresolvedCount > 0 && can('APPROVE')">未解决批注 {{ unresolvedCount }} 条</span>
-      <span style="flex: 1" />
-      <a-button v-if="can('APPROVE')" type="primary" @click="approve">评审通过</a-button>
-      <span v-if="!can('COMMENT') && !can('APPROVE')" class="review-hint">当前阶段批注只读</span>
-    </div>
-
     <div class="workbench-filters">
       <button
         v-for="filter in FILTERS"
@@ -52,11 +44,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Modal, message } from 'ant-design-vue';
+import { message } from 'ant-design-vue';
 import type { PlanComment, PlanCommentThread } from '../../types';
 import { deleteCommentApi } from '../../api/plan-doc';
 import { deriveAnchors } from '../../utils/plan-anchors';
-import { STATUS_LABEL } from '../../utils/plan-status';
 import PlanCommentCard from './PlanCommentCard.vue';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
 
@@ -64,14 +55,6 @@ const props = defineProps<{ doc: ReturnType<typeof usePlanDoc> }>();
 const emit = defineEmits<{ (e: 'locate', commentId: number): void }>();
 
 const activeFilter = ref<'all' | 'unresolved' | 'resolved' | 'broken' | 'unanchored'>('all');
-
-const statusText = computed(() => STATUS_LABEL[props.doc.plan.value?.status ?? 'PLANNING'] ?? '计划中');
-
-function can(action: string) {
-  return Boolean(props.doc.permissions.value[action]);
-}
-
-const unresolvedCount = computed(() => props.doc.unresolvedCount.value);
 const flowRecords = computed(() => props.doc.comments.value.filter((c) => c.kind === 'SYSTEM'));
 
 const resolutions = computed(() => deriveAnchors(props.doc.plan.value?.body, props.doc.anchoredRoots.value));
@@ -106,20 +89,6 @@ const visibleGroups = computed(() => {
   }
   return [...bySection.entries()].map(([title, threads]) => ({ key: title, title, threads }));
 });
-
-function approve() {
-  if (unresolvedCount.value > 0) {
-    Modal.confirm({
-      title: '评审通过确认',
-      content: `仍有 ${unresolvedCount.value} 条未解决批注。通过后进入执行阶段，批注将保留在文档上。`,
-      okText: '仍要通过',
-      cancelText: '取消',
-      onOk: () => props.doc.transition('approve', undefined, '评审已通过'),
-    });
-    return;
-  }
-  void props.doc.transition('approve', undefined, '评审已通过');
-}
 
 async function removeComment(thread: PlanCommentThread, comment: PlanComment) {
   if (!props.doc.plan.value) return;

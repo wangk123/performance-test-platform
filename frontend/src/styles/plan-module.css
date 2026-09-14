@@ -116,19 +116,13 @@
  * 批次 B · 文档工具条（挂在 Tabs 行 rightExtra）/ TOC / 阅读视图 / .plan-md 排版预设
  * ------------------------------------------------------------------- */
 
-/* 工具条：文档视图切换 + 发布版本入口（位于 a-tabs-nav 右侧） */
+/* 工具条：批注开关 + 文档视图切换（位于 a-tabs-nav 右侧） */
 .plan-doc-toolbar {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 12px;
-}
-
-.plan-doc-toolbar .doc-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .plan-detail .segmented {
@@ -1047,30 +1041,7 @@
 
 .anno-toggle { margin-right: 8px; }
 
-/* ---------- 评审工作台（spec §3.4） ---------- */
-.workbench-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
-  margin-bottom: 12px;
-}
-
-.workbench-badge {
-  padding: 1px 10px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--plan-accent-text);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.workbench-hint { color: var(--anno-accent-text, #d46b08); font-size: 12px; }
-:root[data-theme='dark'] .workbench-hint { --anno-accent-text: #ffc53d; }
-
+/* ---------- 评审工作台（spec §3.4）；状态徽标与流转按钮已收口至详情页头部 ---------- */
 .workbench-filters { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
 
 .workbench-chip {

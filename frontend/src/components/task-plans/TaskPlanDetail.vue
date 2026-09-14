@@ -32,7 +32,6 @@
               type="primary"
               @click="onFlowAction(action)"
             >{{ ACTION_TEXT[action] ?? action }}</a-button>
-            <a-button @click="publishOpen = true">新增版本</a-button>
           </div>
           <PlanPhaseStepper :status="status" />
         </div>
@@ -66,9 +65,6 @@
               :aria-controls="`doc-panel-${mode}`"
               @click="docView = mode"
             >{{ mode }}</button>
-          </div>
-          <div class="doc-toolbar-right">
-            <a-button size="small" type="primary" ghost @click="publishOpen = true">新增版本</a-button>
           </div>
         </div>
       </template>
@@ -208,7 +204,7 @@ const statusText = computed(() => STATUS_LABEL[status.value] ?? status.value);
 const statusBadgeClass = computed(() => `is-${status.value.toLowerCase()}`);
 const isExecuting = computed(() => status.value === 'EXECUTING');
 
-/** 流转按钮区（单行道）：由状态推导，每状态至多一个；「新增版本」为全局常驻，不在此列。 */
+/** 流转按钮区（单行道）：由状态推导，每状态至多一个；「新增版本」入口仅保留版本 Tab 一处。 */
 const ACTION_TEXT: Record<string, string> = {
   submit: '提交评审',
   approve: '评审通过',
