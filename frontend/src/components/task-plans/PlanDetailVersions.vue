@@ -10,20 +10,31 @@
 
         <div v-if="versions.length === 0" class="plan-empty">（暂无版本，发布第一个版本以建立修订记录）</div>
 
-        <div v-for="version in versions" :key="version.id" class="version-row">
-          <div class="version-main">
-            <span class="version-no">{{ version.versionNo }}</span>
-            <span v-if="version.kind === 'PUBLISH'" class="version-kind">报告发布</span>
-            <span class="version-note">{{ version.changeNote }}</span>
-          </div>
-          <div class="version-meta">
-            <span>修订人 {{ version.author }}</span>
-            <span>{{ timeLabel(version) }}</span>
-            <span>{{ statusLabel(version.planPhase) }}</span>
-          </div>
-          <div class="version-actions">
-            <a-button size="small" type="text" @click="openView(version)">查看全文</a-button>
-            <a-button v-if="canEdit" size="small" type="text" @click="rollback(version)">回滚到此版本</a-button>
+        <div v-else class="timeline-card">
+          <div
+            v-for="(version, index) in versions"
+            :key="version.id"
+            class="tl-row"
+            :class="{ 'is-latest': index === 0 }"
+          >
+            <div class="tl-rail"><i class="tl-node"></i></div>
+            <div class="tl-body">
+              <div class="tl-head">
+                <span class="tl-no">{{ version.versionNo }}</span>
+                <span v-if="index === 0" class="tl-latest">最新</span>
+                <span v-if="version.kind === 'PUBLISH'" class="version-kind">报告发布</span>
+                <span class="tl-note">{{ version.changeNote }}</span>
+              </div>
+              <div class="tl-meta">
+                <span>{{ version.author }}</span>
+                <span class="sep">·</span>
+                <span>{{ timeLabel(version) }}</span>
+              </div>
+            </div>
+            <div class="tl-actions">
+              <a-button size="small" type="text" @click="openView(version)">查看全文</a-button>
+              <a-button v-if="canEdit" size="small" type="text" @click="rollback(version)">回滚到此版本</a-button>
+            </div>
           </div>
         </div>
       </div>
@@ -80,7 +91,6 @@ import type { usePlanDoc } from '../../composables/usePlanDoc';
 import { useTheme } from '../../composables/useTheme';
 import { formatDate } from '../../utils/format';
 import { copyToClipboard } from '../../utils/clipboard';
-import { STATUS_LABEL } from '../../utils/plan-status';
 import {
   createShareApi,
   getPlanVersionApi,
@@ -141,10 +151,6 @@ function timeLabel(version: PlanVersionView): string {
   return version.updatedAt !== version.createdAt
     ? `修订于 ${formatDate(version.updatedAt)}`
     : formatDate(version.createdAt);
-}
-
-function statusLabel(planStatus: string): string {
-  return STATUS_LABEL[planStatus] ?? planStatus;
 }
 
 async function openView(version: PlanVersionView) {
@@ -316,27 +322,104 @@ function shareStateText(record: PlanShareTokenView) {
   color: var(--plan-ok-text);
 }
 
-.version-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+.timeline-card {
   background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
-.version-main {
+.tl-row {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: stretch;
+  padding: 0 16px 0 0;
+}
+
+.tl-row + .tl-row {
+  border-top: 1px solid var(--line);
+}
+
+.tl-row:hover {
+  background: var(--surface-soft);
+}
+
+.tl-rail {
+  flex: none;
+  width: 44px;
+  position: relative;
+}
+
+.tl-rail::before {
+  content: "";
+  position: absolute;
+  left: 21px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--line);
+}
+
+.tl-row:first-child .tl-rail::before {
+  top: 50%;
+}
+
+.tl-row:last-child .tl-rail::before {
+  bottom: auto;
+  height: 50%;
+}
+
+.tl-node {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--line-strong);
+  z-index: 1;
+}
+
+.tl-row.is-latest .tl-node {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.tl-body {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tl-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
 }
 
-.version-no {
+.tl-no {
   flex: none;
+  font: 700 13px var(--font-data);
   color: var(--ink);
-  font: 650 13.5px var(--font-ui);
+  letter-spacing: 0.2px;
+}
+
+.tl-latest {
+  flex: none;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .version-kind {
@@ -350,25 +433,40 @@ function shareStateText(record: PlanShareTokenView) {
   white-space: nowrap;
 }
 
-.version-note {
+.tl-note {
   min-width: 0;
   color: var(--ink);
   font-size: 12.5px;
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 
-.version-meta {
+.tl-meta {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 4px 14px;
+  gap: 6px;
   color: var(--muted);
   font-size: 12px;
 }
 
-.version-actions {
+.tl-meta .sep {
+  opacity: 0.55;
+}
+
+.tl-actions {
+  flex: none;
   display: flex;
-  gap: 4px;
-  margin-left: -8px;
+  align-items: center;
+  gap: 2px;
+}
+
+.tl-actions :deep(.ant-btn-text) {
+  color: var(--muted);
+}
+
+.tl-row:hover .tl-actions :deep(.ant-btn-text) {
+  color: var(--accent);
 }
 
 .share-row {
