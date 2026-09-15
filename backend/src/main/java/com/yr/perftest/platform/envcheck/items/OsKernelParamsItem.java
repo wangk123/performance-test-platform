@@ -51,7 +51,12 @@ public class OsKernelParamsItem implements RemoteCheckItem {
             return new ProbeVerdict(false, "探测输出非法（exitCode=" + output.exitCode() + "）", null, null);
         }
         boolean twOk = "1".equals(tw.group(1));
-        boolean somaxOk = Long.parseLong(somax.group(1)) >= MIN_SOMAXCONN;
+        boolean somaxOk;
+        try {
+            somaxOk = Long.parseLong(somax.group(1)) >= MIN_SOMAXCONN;
+        } catch (NumberFormatException exception) {
+            return new ProbeVerdict(false, "探测输出非法（exitCode=" + output.exitCode() + "）", null, null);
+        }
         if (twOk && somaxOk) {
             return new ProbeVerdict(true, stdout.trim(), null, null);
         }

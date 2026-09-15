@@ -42,7 +42,12 @@ public class MiddlewareMysqlItem implements RemoteCheckItem {
 
     @Override
     public ProbeVerdict judge(ProbeOutput output) {
-        var matcher = MAX_CONNECTIONS.matcher(output.stdout() == null ? "" : output.stdout());
+        String stdout = output.stdout() == null ? "" : output.stdout();
+        if (stdout.isBlank()) {
+            return new ProbeVerdict(false, "探测输出为空（exitCode=" + output.exitCode() + "）",
+                    "MySQL 客户端未安装或不可用，需在 MySQL 机器配置本地客户端后重试", null);
+        }
+        var matcher = MAX_CONNECTIONS.matcher(stdout);
         if (output.exitCode() != 0 || !matcher.find()) {
             return new ProbeVerdict(false, "探测输出非法（exitCode=" + output.exitCode() + "）", null, null);
         }
@@ -50,7 +55,12 @@ public class MiddlewareMysqlItem implements RemoteCheckItem {
             return new ProbeVerdict(false, "目标机无可用 mysql 客户端",
                     "需在 MySQL 机器配置本地客户端", null);
         }
-        long maxConnections = Long.parseLong(matcher.group(1));
+        long maxConnections;
+        try {
+            maxConnections = Long.parseLong(matcher.group(1));
+        } catch (NumberFormatException exception) {
+            return new ProbeVerdict(false, "探测输出非法（exitCode=" + output.exitCode() + "）", null, null);
+        }
         if (maxConnections < MIN_MAX_CONNECTIONS) {
             return new ProbeVerdict(false, "当前 max_connections=" + maxConnections,
                     "建议不低于 " + MIN_MAX_CONNECTIONS, "SET GLOBAL max_connections");

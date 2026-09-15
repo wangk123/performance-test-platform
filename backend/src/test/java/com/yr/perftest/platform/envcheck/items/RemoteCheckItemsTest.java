@@ -74,6 +74,26 @@ class RemoteCheckItemsTest {
     }
 
     @Test
+    void mysqlBlankStdoutMapsToClientMissing() {
+        var item = new MiddlewareMysqlItem();
+        var verdict = item.judge(new ProbeOutput("h", 0, ""));
+        assertThat(verdict.ok()).isFalse();
+        assertThat(verdict.suggestion()).contains("本地客户端");
+    }
+
+    @Test
+    void numericOverflowTreatedAsInvalidOutput() {
+        assertThat(new OsUlimitItem().judge(
+                new ProbeOutput("h", 0, "{\"open_files\":99999999999999999999999}\n")).ok()).isFalse();
+        assertThat(new OsDiskUsageItem().judge(
+                new ProbeOutput("h", 0, "{\"over\":99999999999999999999999}\n")).ok()).isFalse();
+        assertThat(new OsKernelParamsItem().judge(
+                new ProbeOutput("h", 0, "tw=1 somax=99999999999999999999999\n")).ok()).isFalse();
+        assertThat(new MiddlewareMysqlItem().judge(
+                new ProbeOutput("h", 0, "{\"max_connections\":99999999999999999999999}\n")).ok()).isFalse();
+    }
+
+    @Test
     void mysqlThresholdAndHighRiskFix() {
         var item = new MiddlewareMysqlItem();
         assertThat(item.judge(new ProbeOutput("10.1.1.20", 0, "{\"max_connections\":500}\n")).ok()).isTrue();

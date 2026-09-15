@@ -36,11 +36,11 @@ public class JvmDiscoveryItem implements RemoteCheckItem {
     @Override
     public ProbeVerdict judge(ProbeOutput output) {
         String stdout = output.stdout() == null ? "" : output.stdout().trim();
-        if (stdout.isEmpty()) {
-            return new ProbeVerdict(false, "未发现 JVM 进程", null, null);
-        }
         if (output.exitCode() != 0) {
             return new ProbeVerdict(false, "进程探测失败（exitCode=" + output.exitCode() + "）", null, null);
+        }
+        if (stdout.isEmpty()) {
+            return new ProbeVerdict(false, "未发现 JVM 进程", null, null);
         }
         return new ProbeVerdict(true, summarize(stdout), null, null);
     }

@@ -44,7 +44,12 @@ public class OsUlimitItem implements RemoteCheckItem {
         if (output.exitCode() != 0 || !matcher.find()) {
             return new ProbeVerdict(false, "探测输出非法（exitCode=" + output.exitCode() + "）", null, null);
         }
-        long openFiles = Long.parseLong(matcher.group(1));
+        long openFiles;
+        try {
+            openFiles = Long.parseLong(matcher.group(1));
+        } catch (NumberFormatException exception) {
+            return new ProbeVerdict(false, "探测输出非法（exitCode=" + output.exitCode() + "）", null, null);
+        }
         if (openFiles < THRESHOLD) {
             return new ProbeVerdict(false, "当前 open_files=" + openFiles,
                     "建议不低于 " + THRESHOLD, "limits.conf");

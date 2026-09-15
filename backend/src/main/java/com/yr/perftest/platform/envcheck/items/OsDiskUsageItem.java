@@ -42,7 +42,12 @@ public class OsDiskUsageItem implements RemoteCheckItem {
         if (output.exitCode() != 0 || !matcher.find()) {
             return new ProbeVerdict(false, "探测输出非法（exitCode=" + output.exitCode() + "）", null, null);
         }
-        long over = Long.parseLong(matcher.group(1));
+        long over;
+        try {
+            over = Long.parseLong(matcher.group(1));
+        } catch (NumberFormatException exception) {
+            return new ProbeVerdict(false, "探测输出非法（exitCode=" + output.exitCode() + "）", null, null);
+        }
         if (over > 0) {
             return new ProbeVerdict(false, over + " 个挂载点使用率超过 " + THRESHOLD + "%",
                     "清理磁盘或扩容", null);
