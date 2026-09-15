@@ -134,4 +134,14 @@ public class PlatformExceptionHandler {
         return ResponseEntity.badRequest()
                 .body(new ApiError("ENV_CREDENTIAL_INVALID", exception.getMessage()));
     }
+
+    @ExceptionHandler(com.yr.perftest.platform.envcheck.EnvCheckCredentialMissingException.class)
+    public ResponseEntity<EnvCredentialMissingError> handleEnvCheckCredentialMissing(com.yr.perftest.platform.envcheck.EnvCheckCredentialMissingException exception) {
+        return ResponseEntity.badRequest()
+                .body(new EnvCredentialMissingError("ENV_CREDENTIALS_MISSING", exception.getMessage(), exception.getMissingHosts()));
+    }
+
+    /** 缺凭据 400 body：code + message + 缺失凭据的机器地址清单。 */
+    record EnvCredentialMissingError(String code, String message, java.util.List<String> missingHosts) {
+    }
 }
