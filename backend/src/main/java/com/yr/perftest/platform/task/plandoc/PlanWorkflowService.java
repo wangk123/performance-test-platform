@@ -623,7 +623,7 @@ public class PlanWorkflowService {
     }
 
     /** 校验动作权限并返回计划记录；非项目成员 403；成员但状态不允许 409（附允许动作）。 */
-    private PersistentTaskPlanRecord requireActor(long planId, HumanPrincipal actor, String action) {
+    public PersistentTaskPlanRecord requireActor(long planId, HumanPrincipal actor, String action) {
         PersistentTaskPlanRecord plan = requirePlan(planId);
         if (actor == null) {
             throw new PlanAccessDeniedException("PLAN_ACCESS_DENIED：未登录");

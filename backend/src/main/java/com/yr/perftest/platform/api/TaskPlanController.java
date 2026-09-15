@@ -11,6 +11,9 @@ import com.yr.perftest.platform.task.TaskScenario;
 import com.yr.perftest.platform.task.TaskScenarioService;
 import com.yr.perftest.platform.task.TestType;
 import com.yr.perftest.platform.task.ThreadGroupOverrides;
+import com.yr.perftest.platform.task.method.MethodSectionResponse;
+import com.yr.perftest.platform.task.method.MethodSectionService;
+import com.yr.perftest.platform.task.plandoc.PlanWorkflowService;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.TaskMetricSeries;
 import com.yr.perftest.platform.execution.TaskSamplePage;
@@ -52,6 +55,8 @@ public class TaskPlanController {
     private final ExecutionControlService executionControlService;
     private final ExecutionMonitorBindingService monitorBindingService;
     private final TargetMetricsService targetMetricsService;
+    private final PlanWorkflowService planWorkflowService;
+    private final MethodSectionService methodSectionService;
 
     public TaskPlanController(
             TaskPlanService planService,
@@ -60,7 +65,9 @@ public class TaskPlanController {
             ExecutionQueryService executionQueryService,
             ExecutionControlService executionControlService,
             ExecutionMonitorBindingService monitorBindingService,
-            TargetMetricsService targetMetricsService
+            TargetMetricsService targetMetricsService,
+            PlanWorkflowService planWorkflowService,
+            MethodSectionService methodSectionService
     ) {
         this.planService = planService;
         this.scenarioService = scenarioService;
@@ -69,6 +76,8 @@ public class TaskPlanController {
         this.executionControlService = executionControlService;
         this.monitorBindingService = monitorBindingService;
         this.targetMetricsService = targetMetricsService;
+        this.planWorkflowService = planWorkflowService;
+        this.methodSectionService = methodSectionService;
     }
 
     @PostMapping("/projects/{projectId}/task-plans")
@@ -113,6 +122,18 @@ public class TaskPlanController {
     @GetMapping("/task-plans/{planId}/scenarios")
     public List<TaskScenario> listScenarios(@PathVariable long planId) {
         return scenarioService.listScenarios(planId);
+    }
+
+    /** 测试方法章节聚合视图（前端唯一数据源）：编辑视图含 hidden 行与 hiddenCount。 */
+    @GetMapping("/task-plans/{planId}/method")
+    public MethodSectionResponse getPlanMethod(@PathVariable long planId) {
+        planWorkflowService.requireActor(planId, currentActor(), "EDIT");
+        return methodSectionService.getPlanMethod(planId);
+    }
+
+    private HumanPrincipal currentActor() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.getPrincipal() instanceof HumanPrincipal human ? human : null;
     }
 
     @GetMapping("/scenarios/{scenarioId}")
