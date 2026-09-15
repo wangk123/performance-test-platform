@@ -26,7 +26,7 @@ class EnvCheckFixServiceTest {
     @Test
     void globalSwitchOffRejects() {
         assertThatThrownBy(() -> fixService.apply(1L, List.of(new EnvCheckFixService.FixRequest("h", "os.ulimit")), "alice"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(EnvCheckStateException.class)
                 .hasMessageContaining("修复已被平台关闭");
     }
 
@@ -38,7 +38,7 @@ class EnvCheckFixServiceTest {
         record.markRolledBack(Instant.now());
         long fixId = fixRepository.save(record).getId();
         assertThatThrownBy(() -> fixService.rollback(fixId, "bob"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(EnvCheckStateException.class)
                 .hasMessageContaining("已回滚");
     }
 }

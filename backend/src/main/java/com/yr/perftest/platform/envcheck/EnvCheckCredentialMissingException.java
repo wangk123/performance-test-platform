@@ -12,10 +12,6 @@ public class EnvCheckCredentialMissingException extends RuntimeException {
         this.missingHosts = missingHosts;
     }
 
-    public List<String> getMissingHosts() {
-        return missingHosts;
-    }
-
     public List<String> missingHosts() {
         return missingHosts;
     }

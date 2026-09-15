@@ -61,10 +61,10 @@ public class EnvCheckFixService {
         this.objectMapper = objectMapper;
     }
 
-    /** 批量修复：单项失败不中断批次；全部被总闸拒绝时抛 IllegalStateException。 */
+    /** 批量修复：单项失败不中断批次；全部被总闸拒绝时抛 EnvCheckStateException（映射 400）。 */
     public FixOutcome apply(long runId, List<FixRequest> requests, String actor) {
         if (!properties.isFixEnabled()) {
-            throw new IllegalStateException("环境检查修复已被平台关闭");
+            throw new EnvCheckStateException("环境检查修复已被平台关闭");
         }
         PersistentEnvCheckRunRecord run = requireRun(runId);
         PersistentTaskPlanRecord plan = requirePlan(run.getPlanId());
@@ -107,7 +107,7 @@ public class EnvCheckFixService {
         TargetHost target = targetOf(runId, request.host());
         EnvCheckCredentialService.ResolvedCredential credential =
                 credentials.resolve(plan.getProjectId(), plan.getId(), request.host())
-                        .orElseThrow(() -> new IllegalStateException("凭据缺失：" + request.host()));
+                        .orElseThrow(() -> new EnvCheckStateException("凭据缺失：" + request.host()));
         ProbeOutput probed = probe(item, target, credential);
         if (probed == null) {
             return ItemResult.FAILED;
@@ -139,24 +139,24 @@ public class EnvCheckFixService {
     public void rollback(long fixId, String actor) {
         PersistentEnvCheckFixRecord fix = requireFix(fixId);
         if (fix.getRolledBackAt() != null) {
-            throw new IllegalStateException("该修复已回滚，不能重复回滚");
+            throw new EnvCheckStateException("该修复已回滚，不能重复回滚");
         }
         PersistentEnvCheckRunRecord run = requireRun(fix.getRunId());
         PersistentTaskPlanRecord plan = requirePlan(run.getPlanId());
         RemoteCheckItem item = (RemoteCheckItem) registry.byKey(fix.getItemKey())
-                .orElseThrow(() -> new IllegalStateException("检查项不存在：" + fix.getItemKey()));
+                .orElseThrow(() -> new EnvCheckStateException("检查项不存在：" + fix.getItemKey()));
         TargetHost target = targetOf(fix.getRunId(), fix.getHost());
         EnvCheckCredentialService.ResolvedCredential credential =
                 credentials.resolve(plan.getProjectId(), plan.getId(), fix.getHost())
-                        .orElseThrow(() -> new IllegalStateException("凭据缺失：" + fix.getHost()));
+                        .orElseThrow(() -> new EnvCheckStateException("凭据缺失：" + fix.getHost()));
         FixSpec spec = item.fix(target, degradedOutput(fix.getHost())).orElse(null);
         if (spec == null || spec.rollbackScript() == null || spec.rollbackScript().isBlank()) {
-            throw new IllegalStateException("检查项无回滚脚本");
+            throw new EnvCheckStateException("检查项无回滚脚本");
         }
         ProbeOutcome rollbackOutcome =
                 execute(item, target, credential, spec.rollbackScript().replace("{backupRef}", fix.getBackupRef()));
         if (rollbackOutcome == null || rollbackOutcome.code() != 0) {
-            throw new IllegalStateException("回滚脚本执行失败");
+            throw new EnvCheckStateException("回滚脚本执行失败");
         }
         fix.markRolledBack(Instant.now());
         fixRepository.save(fix);
@@ -212,7 +212,7 @@ public class EnvCheckFixService {
                 return new TargetHost(host, node.path("module").asText(""));
             }
         }
-        throw new IllegalStateException("目标机不在本次检查范围：" + host);
+        throw new EnvCheckStateException("目标机不在本次检查范围：" + host);
     }
 
     private JsonNode readDetail(String detailJson) {

@@ -2,6 +2,7 @@ package com.yr.perftest.platform.api;
 
 import com.yr.perftest.platform.envcheck.EnvCheckItem;
 import com.yr.perftest.platform.envcheck.EnvCheckFixService;
+import com.yr.perftest.platform.envcheck.EnvCheckProperties;
 import com.yr.perftest.platform.envcheck.EnvCheckRegistry;
 import com.yr.perftest.platform.envcheck.EnvCheckRunService;
 import com.yr.perftest.platform.envcheck.PersistentEnvCheckFixRecord;
@@ -35,6 +36,10 @@ public class EnvCheckController {
                            Set<String> appliesTo, boolean fixable, String risk, int sortOrder) {
     }
 
+    /** 检查项目录响应：fixEnabled 为平台修复总闸（关闭时前端不渲染修复操作）。 */
+    public record ItemsResponse(List<ItemView> items, boolean fixEnabled) {
+    }
+
     /** 批量修复请求体：{"requests":[{host,itemKey}]}。 */
     public record FixBatchRequest(List<EnvCheckFixService.FixRequest> requests) {
     }
@@ -49,20 +54,22 @@ public class EnvCheckController {
     private final EnvCheckFixService fixService;
     private final PlanWorkflowService workflowService;
     private final PersistentEnvCheckFixRepository fixRepository;
+    private final EnvCheckProperties envCheckProperties;
 
     public EnvCheckController(EnvCheckRegistry registry, EnvCheckRunService runService,
                               EnvCheckFixService fixService, PlanWorkflowService workflowService,
-                              PersistentEnvCheckFixRepository fixRepository) {
+                              PersistentEnvCheckFixRepository fixRepository, EnvCheckProperties envCheckProperties) {
         this.registry = registry;
         this.runService = runService;
         this.fixService = fixService;
         this.workflowService = workflowService;
         this.fixRepository = fixRepository;
+        this.envCheckProperties = envCheckProperties;
     }
 
     @GetMapping("/env-check/items")
-    public List<ItemView> items() {
-        return registry.all().stream().map(this::toView).toList();
+    public ItemsResponse items() {
+        return new ItemsResponse(registry.all().stream().map(this::toView).toList(), envCheckProperties.isFixEnabled());
     }
 
     @PostMapping("/task-plans/{planId}/env-check/runs")

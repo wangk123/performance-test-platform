@@ -32,7 +32,7 @@ public class PersistentEnvCheckCredentialRecord {
     private String username;
 
     /** AES-GCM 密文（密码或密钥内容），只写不回显。 */
-    @Column(nullable = false, length = 1024)
+    @Column(nullable = false, length = 4096)
     private String secretCipher;
 
     /** PASSWORD / KEY */

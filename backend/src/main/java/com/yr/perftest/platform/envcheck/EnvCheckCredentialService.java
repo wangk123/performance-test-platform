@@ -9,6 +9,9 @@ import java.util.Optional;
 @Service
 public class EnvCheckCredentialService {
 
+    /** secret_cipher 列上限（与 V9 迁移、实体 length 一致），RSA PEM 私钥密文需在限内。 */
+    private static final int MAX_SECRET_CIPHER_LENGTH = 4096;
+
     public record CredentialView(long id, String host, int sshPort, String username, String authType,
                                  String remark, Long planId) {
     }
@@ -54,7 +57,7 @@ public class EnvCheckCredentialService {
         PersistentEnvCheckCredentialRecord record = findByProjectPlanHost(projectId, in.planId(), in.host())
                 .map(existing -> {
                     // 编辑不重输密钥：plain 为空保留旧密文与认证类型，避免空值覆写销毁凭据
-                    String secretCipher = hasSecret ? cipher.encrypt(plain) : existing.getSecretCipher();
+                    String secretCipher = hasSecret ? encryptWithinLimit(plain) : existing.getSecretCipher();
                     String authType = hasSecret ? (key ? "KEY" : "PASSWORD") : existing.getAuthType();
                     existing.update(sshPort, in.username(), secretCipher, authType, in.remark());
                     return existing;
@@ -65,9 +68,18 @@ public class EnvCheckCredentialService {
                     }
                     return new PersistentEnvCheckCredentialRecord(
                             projectId, in.planId(), in.host(), sshPort, in.username(),
-                            cipher.encrypt(plain), key ? "KEY" : "PASSWORD", in.remark(), actor);
+                            encryptWithinLimit(plain), key ? "KEY" : "PASSWORD", in.remark(), actor);
                 });
         return toView(repository.save(record));
+    }
+
+    /** 加密并校验密文长度：超限（如超长 PEM）拒绝保存，避免落库时截断/校验失败。 */
+    private String encryptWithinLimit(String plain) {
+        String cipherText = cipher.encrypt(plain);
+        if (cipherText.length() > MAX_SECRET_CIPHER_LENGTH) {
+            throw new EnvCheckValidationException("ENV_CREDENTIAL_INVALID：密钥过大（密文超限），请使用更短的密钥");
+        }
+        return cipherText;
     }
 
     public void delete(long projectId, long id) {

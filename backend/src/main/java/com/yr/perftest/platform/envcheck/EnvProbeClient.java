@@ -16,6 +16,10 @@ import java.util.concurrent.TimeUnit;
 /** env-probe 子命令调用方：testConnection 走 ping 探测；probeTarget 一次连接批量探测；probePlatform 本机直跑。 */
 @Component
 public class EnvProbeClient {
+
+    /** 批量探测 waitFor 超时上限（秒）：超时按探针数线性缩放，封顶防长批次无限等待。 */
+    private static final long MAX_PROBE_TIMEOUT_SECONDS = 120;
+
     private final ObjectMapper objectMapper;
     private final EnvCheckProperties properties;
     private final Path runnerEntry;
@@ -157,7 +161,7 @@ public class EnvProbeClient {
                         .redirectErrorStream(true)
                         .redirectOutput(outputPath.toFile())
                         .start();
-                boolean finished = process.waitFor(properties.getProbeTimeoutSeconds(), TimeUnit.SECONDS);
+                boolean finished = process.waitFor(batchTimeoutSeconds(payload), TimeUnit.SECONDS);
                 if (!finished) {
                     process.destroyForcibly();
                     return new EnvProbeRun(false, timeoutMessage, "");
@@ -179,6 +183,15 @@ public class EnvProbeClient {
         } catch (Exception exception) {
             return new EnvProbeRun(false, messageOf(exception), "");
         }
+    }
+
+    /** 批探测超时按批不按条：单条 probeTimeoutSeconds × 探针数（下限 1 条），封顶 {@link #MAX_PROBE_TIMEOUT_SECONDS}。 */
+    private int batchTimeoutSeconds(Map<String, Object> payload) {
+        int probes = 1;
+        if (payload.get("probes") instanceof List<?> list && !list.isEmpty()) {
+            probes = list.size();
+        }
+        return (int) Math.min(MAX_PROBE_TIMEOUT_SECONDS, (long) properties.getProbeTimeoutSeconds() * probes);
     }
 
     private void deleteQuietly(Path file) {

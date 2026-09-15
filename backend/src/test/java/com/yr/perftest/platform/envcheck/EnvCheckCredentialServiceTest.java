@@ -50,6 +50,16 @@ class EnvCheckCredentialServiceTest {
         assertThat(credentials.findByProjectIdOrderByHostAsc(1L)).isEmpty();
     }
 
+    /** secret_cipher 上限 4096：密文超限（如超长 PEM）拒绝保存而非落库截断。 */
+    @Test
+    void saveRejectsOversizedSecretCipher() {
+        assertThatThrownBy(() -> service.save(4L, "alice",
+                new EnvCheckCredentialService.CredentialInput("10.1.1.8", 22, "deploy", "k".repeat(8000), null, null, null)))
+                .isInstanceOf(EnvCheckValidationException.class)
+                .hasMessageContaining("密钥过大");
+        assertThat(credentials.findByProjectIdOrderByHostAsc(4L)).isEmpty();
+    }
+
     @Test
     void updateWithBlankPasswordKeepsExistingCipher() {
         service.save(2L, "alice",

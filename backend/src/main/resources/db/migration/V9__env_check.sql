@@ -5,7 +5,7 @@ CREATE TABLE env_check_credential (
   host         VARCHAR(255) NOT NULL,
   ssh_port     INT          NOT NULL DEFAULT 22,
   username     VARCHAR(128) NOT NULL,
-  secret_cipher VARCHAR(1024) NOT NULL,          -- AES-GCM 密文（密码或密钥内容）
+  secret_cipher VARCHAR(4096) NOT NULL,          -- AES-GCM 密文（密码或 RSA PEM 私钥内容）
   auth_type    VARCHAR(20)  NOT NULL,            -- PASSWORD / KEY
   remark       VARCHAR(255) NULL,
   created_by   VARCHAR(64)  NOT NULL,

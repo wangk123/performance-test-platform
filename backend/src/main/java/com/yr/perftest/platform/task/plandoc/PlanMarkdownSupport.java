@@ -125,7 +125,8 @@ public final class PlanMarkdownSupport {
         return replaceSection(body, "五、测试资源", section + line + "\n");
     }
 
-    public static List<String> parseExecutionRecords(String body, String scenarioName) {        int[] block = scenarioBlockBounds(body, scenarioName);
+    public static List<String> parseExecutionRecords(String body, String scenarioName) {
+        int[] block = scenarioBlockBounds(body, scenarioName);
         if (block == null) {
             return List.of();
         }
