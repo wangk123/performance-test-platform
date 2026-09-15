@@ -722,6 +722,12 @@ export interface EnvCheckItemMeta {
   risk: 'LOW' | 'MEDIUM' | 'HIGH' | null;
 }
 
+/** 检查项目录响应：fixEnabled 为平台修复总闸，关闭时前端不渲染修复操作。 */
+export interface EnvCheckItemsResponse {
+  items: EnvCheckItemMeta[];
+  fixEnabled: boolean;
+}
+
 export interface EnvCheckCredential {
   id: number;
   host: string;

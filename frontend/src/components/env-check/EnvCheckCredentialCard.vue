@@ -26,6 +26,10 @@
         <template v-else-if="column.key === 'remark'">
           <span class="ec-remark">{{ record.remark || '—' }}</span>
         </template>
+        <template v-else-if="column.key === 'scope'">
+          <span v-if="record.planId != null" class="ec-scope-chip plan">本计划</span>
+          <span v-else class="ec-scope-chip">项目</span>
+        </template>
         <template v-else-if="column.key === 'conn'">
           <span v-if="testResults.has(record.id)" class="ec-conn" :class="testResults.get(record.id)!.ok ? 'ok' : 'fail'">
             {{ testResults.get(record.id)!.ok ? '✓' : '✗' }} {{ testResults.get(record.id)!.message }}
@@ -66,6 +70,9 @@
         <a-form-item label="备注">
           <a-input v-model:value="form.remark" placeholder="如 订单服务 / 非 22 端口" />
         </a-form-item>
+        <a-form-item v-if="planId != null">
+          <a-checkbox v-model:checked="form.planScoped">仅当前计划生效</a-checkbox>
+        </a-form-item>
       </a-form>
       <template #footer>
         <a-space>
@@ -89,7 +96,7 @@ import {
   testCredentialApi,
 } from '../../api/env-check';
 
-const props = defineProps<{ projectId: number }>();
+const props = defineProps<{ projectId: number; planId?: number }>();
 
 const credentials = ref<EnvCheckCredential[]>([]);
 const loading = ref(false);
@@ -108,6 +115,7 @@ const form = reactive({
   password: '',
   keyMaterial: '',
   remark: '',
+  planScoped: false,
 });
 
 const columns: TableColumnsType<EnvCheckCredential> = [
@@ -116,6 +124,7 @@ const columns: TableColumnsType<EnvCheckCredential> = [
   { title: '账号', dataIndex: 'username', key: 'username', width: 110 },
   { title: '认证方式', key: 'authType', width: 90 },
   { title: '备注', key: 'remark' },
+  { title: '范围', key: 'scope', width: 80 },
   { title: '连接状态', key: 'conn', width: 190 },
   { title: '操作', key: 'actions', width: 210 },
 ];
@@ -141,6 +150,7 @@ function openEditor(record: EnvCheckCredential | null) {
   form.password = '';
   form.keyMaterial = '';
   form.remark = record?.remark ?? '';
+  form.planScoped = record?.planId != null; // 新增默认项目级；编辑本计划凭据保持其范围
   editorOpen.value = true;
 }
 
@@ -167,6 +177,8 @@ async function saveCredential() {
       password: form.authType === 'PASSWORD' && form.password ? form.password : undefined,
       keyMaterial: form.authType === 'KEY' && form.keyMaterial.trim() ? form.keyMaterial.trim() : undefined,
       remark: form.remark.trim() || undefined,
+      // 计划级覆盖：勾选「仅当前计划生效」时携带 planId，resolve 优先于项目池
+      planId: props.planId != null && form.planScoped ? props.planId : undefined,
     });
     editorOpen.value = false;
     message.success('凭据已保存');
@@ -222,6 +234,20 @@ onMounted(load);
 .ec-remark {
   color: var(--muted);
   font-size: 12px;
+}
+.ec-scope-chip {
+  font: 500 10.5px var(--font-data);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0 6px;
+  line-height: 17px;
+}
+.ec-scope-chip.plan {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: none;
+  font-weight: 600;
 }
 .ec-conn {
   font-size: 11.5px;

@@ -41,44 +41,29 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import type { EnvCheckItemMeta } from '../../types';
-import { fetchEnvCheckItemsApi } from '../../api/env-check';
 import { updatePrecheckSettingsApi } from '../../api/plan-doc';
 import { groupEnvCheckItems, kindChip, parsePrecheckSettings, riskChip, selectedCountText } from './envCheckSettings';
 
-const props = defineProps<{ planId: number; precheckJson: string | null }>();
+const props = defineProps<{ planId: number; precheckJson: string | null; items: EnvCheckItemMeta[]; loading: boolean }>();
 const emit = defineEmits<{ (e: 'saved'): void }>();
 
-const loading = ref(false);
-const saving = ref(false);
-const registry = ref<EnvCheckItemMeta[]>([]);
 const enabled = ref(false);
 const selected = ref<string[]>([]);
+const saving = ref(false);
 
-const groups = computed(() => groupEnvCheckItems(registry.value));
+const groups = computed(() => groupEnvCheckItems(props.items));
 
-/** precheckJson 外部刷新（保存后 doc.refresh 回流）时重放初始勾选态。 */
+/** precheckJson 外部刷新（保存后 doc.refresh 回流）或清单首次到达时重放初始勾选态。 */
 function applyPrecheck() {
   const parsed = parsePrecheckSettings(
     props.precheckJson,
-    registry.value.map((entry) => entry.key),
+    props.items.map((entry) => entry.key),
   );
   enabled.value = parsed.enabled;
   selected.value = parsed.items;
-}
-
-async function load() {
-  loading.value = true;
-  try {
-    registry.value = await fetchEnvCheckItemsApi();
-    applyPrecheck();
-  } catch (error) {
-    message.error(error instanceof Error ? error.message : '检查项清单加载失败');
-  } finally {
-    loading.value = false;
-  }
 }
 
 function toggleItem(key: string, checked: boolean) {
@@ -98,8 +83,7 @@ async function save() {
   }
 }
 
-onMounted(load);
-watch(() => props.precheckJson, applyPrecheck);
+watch([() => props.precheckJson, () => props.items], applyPrecheck, { immediate: true });
 </script>
 
 <style scoped>

@@ -49,7 +49,7 @@
       <template #empty><span class="ec-module">尚无检查结果，点击「运行检查」发起一次</span></template>
     </a-table>
 
-    <EnvCheckFixList :rows="issueRows" :fixing="fixing" @apply="applyFixes" />
+    <EnvCheckFixList :rows="issueRows" :fixing="fixing" :fix-enabled="fixEnabled" @apply="applyFixes" />
     <EnvCheckFixHistory :fixes="fixes" :item-label="itemLabel" @rolled-back="reloadDetail" />
   </section>
 </template>
@@ -58,11 +58,10 @@
 import { computed, h, onMounted, ref } from 'vue';
 import { Modal, message } from 'ant-design-vue';
 import type { TableColumnsType } from 'ant-design-vue';
-import type { EnvCheckFixRecord, EnvCheckRunDetail, EnvCheckRunRow, EnvCheckRunSummary } from '../../types';
+import type { EnvCheckFixRecord, EnvCheckItemMeta, EnvCheckRunDetail, EnvCheckRunRow, EnvCheckRunSummary } from '../../types';
 import {
   applyEnvCheckFixesApi,
   fetchEnvCheckFixesApi,
-  fetchEnvCheckItemsApi,
   fetchEnvCheckRunDetailApi,
   fetchEnvCheckRunsApi,
   triggerEnvCheckApi,
@@ -72,7 +71,7 @@ import { rowKeyOf, type EnvCheckIssueRow, type EnvCheckMatrixRow } from './envCh
 import EnvCheckFixList from './EnvCheckFixList.vue';
 import EnvCheckFixHistory from './EnvCheckFixHistory.vue';
 
-const props = defineProps<{ planId: number }>();
+const props = defineProps<{ planId: number; items: EnvCheckItemMeta[]; fixEnabled: boolean }>();
 const emit = defineEmits<{ (e: 'goto-credentials'): void }>();
 
 const loading = ref(false);
@@ -82,7 +81,9 @@ const runs = ref<EnvCheckRunSummary[]>([]);
 const runId = ref<number | null>(null);
 const detail = ref<EnvCheckRunDetail | null>(null);
 const fixes = ref<EnvCheckFixRecord[]>([]);
-const labels = ref(new Map<string, string>());
+
+/** 检查项目录由 Tab 整页拉取一次经 props 下发：itemKey→label 映射。 */
+const labels = computed(() => new Map(props.items.map((item) => [item.key, item.label])));
 
 const summary = computed(() => detail.value?.run ?? runs.value.find((run) => run.id === runId.value) ?? null);
 const fixedCount = computed(() => detail.value?.rows.filter((row) => row.state === 'FIXED').length ?? 0);
@@ -190,9 +191,6 @@ async function selectRun(id: number | null) {
 
 async function loadAll() {
   try {
-    if (!labels.value.size) {
-      labels.value = new Map((await fetchEnvCheckItemsApi()).map((item) => [item.key, item.label]));
-    }
     await loadRuns();
   } catch (error) {
     message.error(error instanceof Error ? error.message : '检查历史加载失败');

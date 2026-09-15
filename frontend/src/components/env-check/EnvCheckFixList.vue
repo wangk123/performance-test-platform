@@ -1,9 +1,9 @@
 <template>
   <div class="ec-fix-panel">
     <div class="ec-fix-head">
-      <span class="ec-fix-title">问题清单 · 勾选后批量修复</span>
-      <span class="ec-fix-hint">低风险默认勾选 · 中风险手动勾选 · 高风险勾选时单独确认</span>
-      <span class="ec-fix-ops">
+      <span class="ec-fix-title">问题清单{{ fixEnabled ? ' · 勾选后批量修复' : ' · 修复已被平台关闭（只读）' }}</span>
+      <span v-if="fixEnabled" class="ec-fix-hint">低风险默认勾选 · 中风险手动勾选 · 高风险勾选时单独确认</span>
+      <span v-if="fixEnabled" class="ec-fix-ops">
         <a-button size="small" @click="toggleSelectAll">{{ allSelected ? '全不选' : '一键全选' }}</a-button>
         <a-button type="primary" size="small" :disabled="!selectedKeys.length" :loading="fixing" @click="apply">
           {{ selectedKeys.length ? `执行修复（已选 ${selectedKeys.length} 项）` : '执行修复' }}
@@ -12,6 +12,7 @@
     </div>
     <label v-for="row in rows" :key="row.rowKey" class="ec-fix-row">
       <a-checkbox
+        v-if="fixEnabled"
         :checked="selectedKeys.includes(row.rowKey)"
         :aria-label="`${row.label}-${row.host}`"
         @change="toggleIssue(row, $event.target.checked)"
@@ -34,7 +35,7 @@ import { computed, h, ref, watch } from 'vue';
 import { Modal } from 'ant-design-vue';
 import { fixRequestOf, type EnvCheckIssueRow } from './envCheckResultModel';
 
-const props = defineProps<{ rows: EnvCheckIssueRow[]; fixing: boolean }>();
+const props = defineProps<{ rows: EnvCheckIssueRow[]; fixing: boolean; fixEnabled: boolean }>();
 const emit = defineEmits<{ (e: 'apply', requests: Array<{ host: string; itemKey: string }>): void }>();
 
 const RISK_SHORT = { LOW: '低', MEDIUM: '中', HIGH: '高' } as const;

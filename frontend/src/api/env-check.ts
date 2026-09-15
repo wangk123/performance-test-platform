@@ -2,7 +2,7 @@ import type {
   EnvCheckCredential,
   EnvCheckCredentialInput,
   EnvCheckFixRecord,
-  EnvCheckItemMeta,
+  EnvCheckItemsResponse,
   EnvCheckRunDetail,
   EnvCheckRunSummary,
 } from '../types';
@@ -10,9 +10,9 @@ import { request } from './http';
 
 const json = { 'Content-Type': 'application/json' };
 
-/** 检查项目录（含 risk：LOCAL 项为 null）。 */
+/** 检查项目录（含 risk：LOCAL 项为 null）；fixEnabled 为平台修复总闸。 */
 export function fetchEnvCheckItemsApi() {
-  return request<EnvCheckItemMeta[]>('/api/env-check/items', { method: 'GET' });
+  return request<EnvCheckItemsResponse>('/api/env-check/items', { method: 'GET' });
 }
 
 export function fetchCredentialsApi(projectId: number) {
