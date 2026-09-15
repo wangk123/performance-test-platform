@@ -702,3 +702,9 @@ export type McpDirectory = {
   tools: McpToolSummary[];
 };
 
+/** 测试方法章节（spec 2026-09-15）：截图证据文件流。 */
+export interface EvidenceImage { id: number; executionId: number | null; caption: string; sortOrder: number; contentType: string; sizeBytes: number; }
+export interface MethodExecutionRow { executionId: number; executionName: string; threads: number; rampUpSec: number; durationSec: number; status: string; samples: number | null; successRate: number | null; avgRtMs: number | null; p95Ms: number | null; tps: number | null; startedAtText: string; hidden: boolean; }
+export interface MethodScenarioData { scenarioId: number; name: string; testType: string; sortOrder: number; scriptVersionId: number | null; scriptName: string | null; executions: MethodExecutionRow[]; hiddenCount: number; images: EvidenceImage[]; }
+export interface MethodSectionData { planId: number; scenarios: MethodScenarioData[]; }
+

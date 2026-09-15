@@ -133,16 +133,19 @@ export function triggerExecutionApi(
     threadGroupConfigId?: number | null;
     threadGroupPresetSortOrder?: number | null;
     idempotencyKey?: string;
+    overrides?: { threads: number; rampUpSec: number; durationSec: number };
   },
 ) {
   const body: {
     executionName?: string;
     threadGroupConfigId?: number;
     threadGroupPresetSortOrder?: number;
+    overrides?: { threads: number; rampUpSec: number; durationSec: number };
   } = {};
   if (options?.executionName) body.executionName = options.executionName;
   if (options?.threadGroupConfigId != null) body.threadGroupConfigId = options.threadGroupConfigId;
   if (options?.threadGroupPresetSortOrder != null) body.threadGroupPresetSortOrder = options.threadGroupPresetSortOrder;
+  if (options?.overrides) body.overrides = options.overrides;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (options?.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
   return request<ScenarioExecution>(`/api/scenarios/${scenarioId}/executions`, {
