@@ -145,6 +145,36 @@ class UiExecutionControlApiTest {
                 });
     }
 
+    @Test
+    void triggerWithOverridesSnapshotsOverriddenConfig() throws Exception {
+        PersistentTaskScenarioRecord scenario = scenarioRepository.findById(scenarioId).orElseThrow();
+        scenario.updateProfile(
+                "scenario-a",
+                1L,
+                "{}",
+                scenario.getControllerNodeId(),
+                null,
+                null,
+                "[{\"id\":9,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":100,\"rampUp\":30,\"duration\":600,\"sortOrder\":1}]"
+        );
+        scenarioRepository.save(scenario);
+
+        mockMvc.perform(post("/api/scenarios/" + scenarioId + "/executions")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Idempotency-Key", "ui-ov-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"threadGroupPresetSortOrder\":1,\"overrides\":{\"threads\":300,\"rampUpSec\":60,\"durationSec\":900}}"))
+                .andExpect(status().isCreated());
+
+        PersistentScenarioExecutionRecord execution =
+                executionRepository.findAllByScenarioIdOrderByIdDesc(scenarioId).get(0);
+        String configJson = execution.getConfigJson();
+        assertThat(configJson).contains("\"threads\":300");
+        assertThat(configJson).contains("\"rampUp\":60");
+        assertThat(configJson).contains("\"duration\":900");
+        assertThat(configJson).contains("\"threadGroupPresetSortOrder\":1");
+    }
+
     private String loginToken() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

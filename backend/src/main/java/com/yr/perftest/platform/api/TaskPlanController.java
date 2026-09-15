@@ -10,6 +10,7 @@ import com.yr.perftest.platform.task.ScenarioThreadGroupConfig;
 import com.yr.perftest.platform.task.TaskScenario;
 import com.yr.perftest.platform.task.TaskScenarioService;
 import com.yr.perftest.platform.task.TestType;
+import com.yr.perftest.platform.task.ThreadGroupOverrides;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.TaskMetricSeries;
 import com.yr.perftest.platform.execution.TaskSamplePage;
@@ -157,9 +158,10 @@ public class TaskPlanController {
         String executionName = request != null ? request.executionName() : null;
         Long threadGroupConfigId = request != null ? request.threadGroupConfigId() : null;
         Integer threadGroupPresetSortOrder = request != null ? request.threadGroupPresetSortOrder() : null;
+        ThreadGroupOverrides overrides = request != null ? request.overrides() : null;
         ExecutionControlService.StartOutcome outcome = executionControlService.start(
                 new ExecutionControlService.StartCommand(
-                        scenarioId, executionName, threadGroupConfigId, threadGroupPresetSortOrder),
+                        scenarioId, executionName, threadGroupConfigId, threadGroupPresetSortOrder, overrides),
                 idempotencyKey
         );
         return executionQueryService.getExecution(outcome.executionId());
@@ -303,7 +305,8 @@ public class TaskPlanController {
     public record TriggerExecutionRequest(
             String executionName,
             Long threadGroupConfigId,
-            Integer threadGroupPresetSortOrder
+            Integer threadGroupPresetSortOrder,
+            ThreadGroupOverrides overrides
     ) {
     }
 }

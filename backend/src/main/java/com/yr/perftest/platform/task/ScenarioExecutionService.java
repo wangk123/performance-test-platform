@@ -64,13 +64,14 @@ public class ScenarioExecutionService {
             long scenarioId,
             String executionName,
             Long threadGroupConfigId,
-            Integer threadGroupPresetSortOrder
+            Integer threadGroupPresetSortOrder,
+            ThreadGroupOverrides overrides
     ) {
         PersistentTaskScenarioRecord scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new ExecutionValidationException("scenario does not exist"));
         PersistentTaskPlanRecord plan = planRepository.findById(scenario.getPlanId())
                 .orElseThrow(() -> new ExecutionValidationException("task plan does not exist"));
-        ExecutionConfig config = normalizeConfig(configMerger.merge(plan, scenario, threadGroupConfigId, threadGroupPresetSortOrder));
+        ExecutionConfig config = normalizeConfig(configMerger.merge(plan, scenario, threadGroupConfigId, threadGroupPresetSortOrder, overrides));
         PersistentScenarioExecutionRecord execution = new PersistentScenarioExecutionRecord(
                 scenario.getId(),
                 writeConfig(config)

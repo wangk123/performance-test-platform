@@ -28,6 +28,16 @@ public class ExecutionConfigMerger {
             Long threadGroupConfigId,
             Integer threadGroupPresetSortOrder
     ) {
+        return merge(plan, scenario, threadGroupConfigId, threadGroupPresetSortOrder, null);
+    }
+
+    public ExecutionConfig merge(
+            PersistentTaskPlanRecord plan,
+            PersistentTaskScenarioRecord scenario,
+            Long threadGroupConfigId,
+            Integer threadGroupPresetSortOrder,
+            ThreadGroupOverrides overrides
+    ) {
         Long controllerNodeId = scenario.getControllerNodeId() != null
                 ? scenario.getControllerNodeId()
                 : plan.getDefaultControllerNodeId();
@@ -60,7 +70,7 @@ public class ExecutionConfigMerger {
             selectedConfigId = selected.id();
             stepId = preset.size() == 1 ? selected.stepId() : null;
             stepName = preset.size() == 1 ? selected.stepName() : null;
-            return new ExecutionConfig(
+            return applyOverrides(new ExecutionConfig(
                     threads,
                     rampUp,
                     duration,
@@ -74,9 +84,9 @@ public class ExecutionConfigMerger {
                     selected.sortOrder(),
                     stepId,
                     stepName
-            );
+            ), overrides);
         }
-        return new ExecutionConfig(
+        return applyOverrides(new ExecutionConfig(
                 threads,
                 rampUp,
                 duration,
@@ -90,6 +100,27 @@ public class ExecutionConfigMerger {
                 null,
                 stepId,
                 stepName
+        ), overrides);
+    }
+
+    private ExecutionConfig applyOverrides(ExecutionConfig config, ThreadGroupOverrides overrides) {
+        if (overrides == null || overrides.isEmpty()) {
+            return config;
+        }
+        return new ExecutionConfig(
+                overrides.threads() != null ? overrides.threads() : config.threads(),
+                overrides.rampUpSec() != null ? overrides.rampUpSec() : config.rampUp(),
+                overrides.durationSec() != null ? overrides.durationSec() : config.duration(),
+                config.loops(),
+                config.jmeterProperties(),
+                config.mode(),
+                config.controllerNodeId(),
+                config.workerNodeIds(),
+                config.monitorTargetIds(),
+                config.threadGroupConfigId(),
+                config.threadGroupPresetSortOrder(),
+                config.stepId(),
+                config.stepName()
         );
     }
 

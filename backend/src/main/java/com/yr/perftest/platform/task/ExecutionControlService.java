@@ -55,7 +55,8 @@ public class ExecutionControlService {
                 hashField(command.scenarioId())
                         + hashField(command.executionName())
                         + hashField(command.threadGroupConfigId())
-                        + hashField(command.threadGroupPresetSortOrder()));
+                        + hashField(command.threadGroupPresetSortOrder())
+                        + hashField(command.overrides()));
         IdempotencyService.IdempotentExecution result = idempotencyService.execute(
                 idempotencyKey,
                 requestHash,
@@ -63,7 +64,8 @@ public class ExecutionControlService {
                         command.scenarioId(),
                         command.executionName(),
                         command.threadGroupConfigId(),
-                        command.threadGroupPresetSortOrder()
+                        command.threadGroupPresetSortOrder(),
+                        command.overrides()
                 )
         );
         ScenarioExecution execution = executionQueryService.getExecution(result.executionId());
@@ -153,7 +155,8 @@ public class ExecutionControlService {
             long scenarioId,
             String executionName,
             Long threadGroupConfigId,
-            Integer threadGroupPresetSortOrder
+            Integer threadGroupPresetSortOrder,
+            ThreadGroupOverrides overrides
     ) {
     }
 

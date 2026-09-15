@@ -64,7 +64,7 @@ public class PlanQuickExecuteService {
         com.yr.perftest.platform.task.TaskScenario scenario = scenarioService.createScenario(
                 plan.id(), scriptVersionId, scriptDisplayName(script), null, null, null, null, null, null, null);
         ExecutionControlService.StartOutcome outcome = executionControlService.start(
-                new ExecutionControlService.StartCommand(scenario.id(), null, null, null), null);
+                new ExecutionControlService.StartCommand(scenario.id(), null, null, null, null), null);
         return new QuickExecuteResult(plan.id(), scenario.id(), outcome.executionId());
     }
 

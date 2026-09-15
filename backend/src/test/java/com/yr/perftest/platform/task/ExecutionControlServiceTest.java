@@ -55,7 +55,7 @@ class ExecutionControlServiceTest {
     @Test
     void sameIdempotencyKeyStartsExecutionOnlyOnce() {
         ExecutionControlService.StartCommand command =
-                new ExecutionControlService.StartCommand(scenarioId, "run-1", null, null);
+                new ExecutionControlService.StartCommand(scenarioId, "run-1", null, null, null);
 
         ExecutionControlService.StartOutcome first = controlService.start(command, "idem-1");
         ExecutionControlService.StartOutcome second = controlService.start(command, "idem-1");

@@ -39,7 +39,7 @@ public class ExecutionFacade {
         return guard.requirePrincipal(() -> {
             ExecutionControlService.StartOutcome outcome = controlService.start(
                     new ExecutionControlService.StartCommand(
-                            scenarioId, executionName, threadGroupConfigId, threadGroupPresetSortOrder),
+                            scenarioId, executionName, threadGroupConfigId, threadGroupPresetSortOrder, null),
                     idempotencyKey
             );
             return new ExecutionStartResult(
