@@ -99,6 +99,7 @@
                   @changed="emit('changed')"
                   @request-add="emit('request-add')"
                   @request-edit="(s) => emit('request-edit', s)"
+                  @request-markdown="viewMode = 'Markdown'"
                 />
                 <MdPreview
                   v-else

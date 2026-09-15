@@ -290,6 +290,43 @@ export function parseExecutionRecords(body: string | null | undefined, scenarioN
   return parseScenarioBlocks(body).find((b) => b.name === scenarioName)?.records ?? [];
 }
 
+/** 「测试方法」章手写小节（`### S{n} 名称 · 类型`）：与场景实体按名称对齐展示；未对齐小节仅文本展示。 */
+export interface MethodSectionBlock {
+  heading: string;
+  name: string;
+  testType: string;
+  /** 小节标题（不含）到块尾/下一小节的原始文本。 */
+  methodText: string;
+}
+
+/** 解析「测试方法」章的小节块（parseScenarioBlocks 同款 ### 切分逻辑）。 */
+export function parseMethodSections(body: string | null | undefined): MethodSectionBlock[] {
+  const section = extractSection(body, METHOD_SECTION_TITLE);
+  if (!section) return [];
+  const blocks: MethodSectionBlock[] = [];
+  let current: { heading: string; lines: string[] } | null = null;
+  for (const line of section.split('\n')) {
+    if (line.startsWith('### ')) {
+      if (current) blocks.push(toMethodBlock(current));
+      current = { heading: line.slice(4).trim(), lines: [] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+  if (current) blocks.push(toMethodBlock(current));
+  return blocks;
+}
+
+function toMethodBlock(raw: { heading: string; lines: string[] }): MethodSectionBlock {
+  const parts = raw.heading.split(' · ');
+  return {
+    heading: raw.heading,
+    name: (parts[0] ?? '').replace(/^S\d+\s*/, '').trim(),
+    testType: parts[1] ?? '',
+    methodText: raw.lines.join('\n').replace(/^\n+|\n+$/g, ''),
+  };
+}
+
 // ---------- 块切分（行级批注的锚定单元，spec §5.1） ----------
 
 /** 归一化锚点匹配文本（spec §5.3）：去空白与 Markdown 修饰符（含全角逗号）、转小写。plan-anchors 同源复用。 */
