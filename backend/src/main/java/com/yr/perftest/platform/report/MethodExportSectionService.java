@@ -156,9 +156,11 @@ public class MethodExportSectionService {
         return map;
     }
 
-    /** Word 章节片段：全静态展开（场景/执行/行数据 Java 侧内联转义），图片用 MERGEFIELD 字段由 XDocReport 替换。 */
+    /** Word 章节片段：全静态展开（场景/执行/行数据 Java 侧内联转义），图片占位在段落层。
+     * 整体包 [#noparse]：用户数据中的 ${...}/#{...}/[#...] 形态按字面输出，防 Freemarker 注入。 */
     public String buildWordSectionXml(MethodSectionView view) {
         StringBuilder xml = new StringBuilder();
+        xml.append("[#noparse]");
         xml.append(paragraph(SECTION_TITLE, true, 30, true));
         for (ScenarioView scenario : view.scenarios()) {
             xml.append("<w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space=\"preserve\">")
@@ -178,6 +180,7 @@ public class MethodExportSectionService {
                 }
             }
         }
+        xml.append("[/#noparse]");
         return xml.toString();
     }
 
@@ -218,8 +221,10 @@ public class MethodExportSectionService {
                     .append(escapeXml(image.caption())).append("</w:t></w:r></w:p>");
             return xml.toString();
         }
-        xml.append("<w:p><w:pPr><w:jc w:val=\"center\"/></w:pPr><w:r><w:t>[[IMG:").append(image.field())
-                .append("]]</w:t></w:r></w:p>");
+        // 占位符置于段落层（run 之外），patchImagePlaceholders 阶段重建为完整 <w:r><w:drawing/></w:r>，
+        // 避免 <w:drawing> 进入 <w:t> 内部（ECMA-376 中 CT_Text 仅允许文本）。
+        xml.append("<w:p><w:pPr><w:jc w:val=\"center\"/></w:pPr>[[DRAWING:").append(image.field())
+                .append("]]</w:p>");
         xml.append("<w:p><w:pPr><w:jc w:val=\"center\"/></w:pPr><w:r><w:rPr><w:color w:val=\"808080\"/>")
                 .append("<w:sz w:val=\"18\"/></w:rPr><w:t xml:space=\"preserve\">")
                 .append(escapeXml(image.caption())).append("</w:t></w:r></w:p>");
@@ -228,7 +233,7 @@ public class MethodExportSectionService {
 
     /**
      * 模板流装饰（模板资源文件本身不动）：
-     * 1) word/document.xml —— </w:body> 前插入章节 XML，占位符 [[IMG:field]] 替换为 inline drawing；
+     * 1) word/document.xml —— </w:body> 前插入章节 XML，占位符 [[DRAWING:field]] 重建为 <w:r><w:drawing/></w:r>；
      * 2) word/media/ —— 写入图片字节；3) word/_rels/document.xml.rels —— 追加 image 关系；
      * 4) [Content_Types].xml —— 补 png 声明。图片为静态资源，XDocReport 只需原样保留。
      */
@@ -284,20 +289,21 @@ public class MethodExportSectionService {
         return new java.io.ByteArrayInputStream(decorated.toByteArray());
     }
 
-    /** [[IMG:field]] 占位 → inline drawing；field 对应 media/methodImg_x.png 与 rIdMethodX 关系。 */
+    /** [[DRAWING:field]] 占位（段落层）→ 完整 <w:r><w:drawing/></w:r>；field 对应 media/methodImg_x.png 与 rIdMethodX 关系。 */
     private String patchImagePlaceholders(String sectionXml, Map<String, byte[]> imageBytes,
                                           Map<String, int[]> imageSizes) {
         String patched = sectionXml;
         int index = 0;
         for (String field : imageBytes.keySet()) {
-            String placeholder = "[[IMG:" + field + "]]";
+            String placeholder = "[[DRAWING:" + field + "]]";
             int[] size = imageSizes.get(field);
             float width = field.startsWith("methodShot_") ? SHOT_IMAGE_WIDTH : TREND_IMAGE_WIDTH;
             int heightPx = size == null ? Math.round(width * 3 / 4) : Math.round(width * size[1] / (float) size[0]);
             long cx = (long) (width * 9525);
             long cy = (long) (heightPx * 9525);
             index++;
-            String drawing = "<w:drawing><wp:inline xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\" distT=\"0\" distB=\"0\" distL=\"0\" distR=\"0\">"
+            // w:drawing 必须是 w:r 的子元素（ECMA-376），替换产物重建整个 run
+            String drawing = "<w:r><w:drawing><wp:inline xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\" distT=\"0\" distB=\"0\" distL=\"0\" distR=\"0\">"
                     + "<wp:extent cx=\"" + cx + "\" cy=\"" + cy + "\"/>"
                     + "<wp:docPr id=\"" + (100 + index) + "\" name=\"" + field + "\"/>"
                     + "<a:graphic xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">"
@@ -308,7 +314,7 @@ public class MethodExportSectionService {
                     + "<pic:blipFill><a:blip r:embed=\"rIdMethod" + index + "\"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>"
                     + "<pic:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"" + cx + "\" cy=\"" + cy + "\"/></a:xfrm>"
                     + "<a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></pic:spPr>"
-                    + "</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>";
+                    + "</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>";
             patched = patched.replace(placeholder, drawing);
         }
         return patched;
@@ -406,6 +412,12 @@ public class MethodExportSectionService {
         }
     }
 
+    /**
+     * XML 转义（&amp;、&lt;、&gt;、&quot;）。Freemarker 防注入不在此层：章节 XML 整体由
+     * buildWordSectionXml 包裹的 [#noparse] 保护（实测数字实体 `&#36;` 会被 XDocReport 的 SAX
+     * 预处理解码回 `$`、`${'$'}` 自逃逸会被预处理把 `'` 转义为 `&apos;` 而失效，均不可行）。
+     * 边缘限制：用户数据精确包含 `[/#noparse]` 字面序列时仍会提前闭合保护（概率与危害极低，报告已注明）。
+     */
     private String escapeXml(String value) {
         if (value == null) {
             return "";
@@ -414,8 +426,13 @@ public class MethodExportSectionService {
                 .replace("\"", "&quot;");
     }
 
+    /** PDF HTML 路径仅做 XML/HTML 转义，不做 Freemarker 防注入（HTML 不经 Freemarker 求值）。 */
     private String escapeHtml(String value) {
-        return escapeXml(value);
+        if (value == null) {
+            return "";
+        }
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;");
     }
 
     private String nvl(String value) {

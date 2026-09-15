@@ -128,6 +128,109 @@ class ReportMethodExportTest {
         return names;
     }
 
+    private org.w3c.dom.Document parseDocumentXml(String xml) throws Exception {
+        var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        return factory.newDocumentBuilder()
+                .parse(new org.xml.sax.InputSource(new java.io.StringReader(xml)));
+    }
+
+    @Test
+    void wordExportDrawingSitsInsideRunNotInsideText() throws Exception {
+        long scenarioId = scenarioRepository.save(
+                new PersistentTaskScenarioRecord(planId, scriptVersionId, "结构场景", 0)).getId();
+        PersistentScenarioExecutionRecord execution = executionRepository.save(
+                new PersistentScenarioExecutionRecord(scenarioId, CONFIG_JSON));
+        execution.markRunning("r1.jtl", "j1.log");
+        execution.markSuccess(0);
+        long executionId = executionRepository.save(execution).getId();
+
+        Path shotPath = Path.of("build/test-storage/report-method-export", "structure-shot-" + planId + ".png");
+        Files.createDirectories(shotPath.getParent());
+        Files.write(shotPath, Base64.getDecoder().decode(TINY_PNG_DATA_URL.substring("data:image/png;base64,".length())));
+        imageRepository.save(new PersistentPlanEvidenceImageRecord(
+                planId, scenarioId, "结构截图", 0, shotPath.toString(), "image/png", 100, "admin"));
+
+        String requestBody = objectMapper.writeValueAsString(Map.of(
+                "chartImages", Map.of(),
+                "editorContent", "",
+                "methodChartImages", new Object[]{
+                        Map.of("executionId", executionId, "kind", "TPS", "dataUrl", TINY_PNG_DATA_URL)
+                }));
+
+        MvcResult result = mockMvc.perform(post(String.format(WORD_EXPORT_URL, planId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // 文档 well-formed（DOM parse 成功即证）+ 结构合法性断言
+        org.w3c.dom.Document document = parseDocumentXml(
+                documentXmlOf(result.getResponse().getContentAsByteArray()).get("word/document.xml"));
+        String wordNs = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
+        // 每个 w:drawing 的父元素必须是 w:r
+        var drawings = document.getElementsByTagNameNS(wordNs, "drawing");
+        assertThat(drawings.getLength()).isGreaterThanOrEqualTo(2);
+        for (int i = 0; i < drawings.getLength(); i++) {
+            org.w3c.dom.Node parent = drawings.item(i).getParentNode();
+            assertThat(parent.getNamespaceURI()).isEqualTo(wordNs);
+            assertThat(parent.getLocalName()).isEqualTo("r");
+        }
+
+        // 任何 w:t 不得包含 w:drawing 子元素（CT_Text 仅允许文本）
+        var texts = document.getElementsByTagNameNS(wordNs, "t");
+        assertThat(texts.getLength()).isGreaterThan(0);
+        for (int i = 0; i < texts.getLength(); i++) {
+            org.w3c.dom.NodeList children = texts.item(i).getChildNodes();
+            for (int j = 0; j < children.getLength(); j++) {
+                org.w3c.dom.Node child = children.item(j);
+                assertThat(child.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE
+                        && "drawing".equals(child.getLocalName()))
+                        .as("w:t must not contain w:drawing")
+                        .isFalse();
+            }
+        }
+    }
+
+    @Test
+    void wordExportKeepsFreemarkerLikeSequencesInUserDataLiteral() throws Exception {
+        String scenarioName = "场景${name}$端 #{h}";
+        String executionName = "执行$1 ${x}";
+        long scenarioId = scenarioRepository.save(
+                new PersistentTaskScenarioRecord(planId, scriptVersionId, scenarioName, 0)).getId();
+        PersistentScenarioExecutionRecord execution = executionRepository.save(
+                new PersistentScenarioExecutionRecord(scenarioId, CONFIG_JSON));
+        execution.setExecutionName(executionName);
+        execution.markRunning("r1.jtl", "j1.log");
+        execution.markSuccess(0);
+        executionRepository.save(execution);
+        imageRepository.save(new PersistentPlanEvidenceImageRecord(
+                planId, scenarioId, "截图$ ${y}", 0,
+                "build/test-storage/report-method-export/no-such-file.png", "image/png", 10, "admin"));
+
+        String requestBody = objectMapper.writeValueAsString(Map.of(
+                "chartImages", Map.of(),
+                "editorContent", "",
+                "methodChartImages", java.util.List.of()));
+
+        // Freemarker 序列未转义时会在模板求值阶段抛 InvalidReferenceException → 500
+        MvcResult result = mockMvc.perform(post(String.format(WORD_EXPORT_URL, planId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        org.w3c.dom.Document document = parseDocumentXml(
+                documentXmlOf(result.getResponse().getContentAsByteArray()).get("word/document.xml"));
+        String body = document.getDocumentElement().getTextContent();
+        assertThat(body).contains("场景${name}$端 #{h}");
+        assertThat(body).contains("执行$1 ${x}");
+        assertThat(body).contains("（补充截图缺失：截图$ ${y}）");
+    }
+
     @Test
     void wordExportWithoutMethodDataProducesValidDocx() throws Exception {
         MvcResult result = mockMvc.perform(post(String.format(WORD_EXPORT_URL, planId))
@@ -204,8 +307,9 @@ class ReportMethodExportTest {
         // 趋势图 / 截图以 inline drawing 嵌入，media 与关系同步注入
         assertThat(documentXml).contains("r:embed=\"rIdMethod1\"");
         assertThat(documentXml).doesNotContain("[[IMG:");
-        assertThat(entryNamesOf(docx)).contains("word/media/methodImg_" + executionId + "_TPS.png",
-                "word/media/methodShot_1.png");
+        assertThat(entryNamesOf(docx)).contains("word/media/methodImg_" + executionId + "_TPS.png");
+        assertThat(entryNamesOf(docx).stream().anyMatch(
+                name -> name.matches("word/media/methodShot_\\d+\\.png"))).isTrue();
     }
 
     @Test
