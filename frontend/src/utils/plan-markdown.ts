@@ -3,6 +3,8 @@ export const CANONICAL_HEADINGS = [
   '七、测试策略', '八、场景设计', '九、风险与预案', '十、排期与协作', '十一、附录', '十二、结论',
 ];
 
+export const METHOD_SECTION_TITLE = '测试方法';
+
 const EXECUTION_RECORD_HEADING = '#### 执行记录';
 
 export interface Section {
@@ -40,6 +42,7 @@ function canonicalTitleOf(line: string): string | null {
   const text = line.slice(3).trim();
   const exact = CANONICAL_HEADINGS.find((h) => text === h);
   if (exact) return exact;
+  if (text.endsWith(METHOD_SECTION_TITLE)) return METHOD_SECTION_TITLE;
   for (const heading of CANONICAL_HEADINGS) {
     const numeral = heading.slice(0, heading.indexOf('、') + 1);
     if (numeral !== '十二、' && text.startsWith(numeral)) return heading;

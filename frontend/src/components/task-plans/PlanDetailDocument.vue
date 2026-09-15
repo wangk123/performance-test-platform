@@ -91,6 +91,15 @@
                   @request-add="emit('request-add')"
                   @request-edit="(scenario) => emit('request-edit', scenario)"
                 />
+                <TestMethodModule
+                  v-else-if="section.title === METHOD_SECTION_TITLE"
+                  :doc-plan="doc"
+                  :plan="plan"
+                  :scenarios="scenarios"
+                  @changed="emit('changed')"
+                  @request-add="emit('request-add')"
+                  @request-edit="(s) => emit('request-edit', s)"
+                />
                 <MdPreview
                   v-else
                   class="plan-md"
@@ -205,7 +214,7 @@ import type { PlanComment, PlanCommentThread, TaskPlan, TaskScenario } from '../
 import type { usePlanDoc } from '../../composables/usePlanDoc';
 import type { PlanCommentPanelGroup } from './PlanCommentPanel.vue';
 import { useTheme } from '../../composables/useTheme';
-import { CANONICAL_HEADINGS, extractSection, replaceSection, splitSections, toggleChecklistItem } from '../../utils/plan-markdown';
+import { CANONICAL_HEADINGS, extractSection, METHOD_SECTION_TITLE, replaceSection, splitSections, toggleChecklistItem } from '../../utils/plan-markdown';
 import type { Section } from '../../utils/plan-markdown';
 import { findBestLine } from '../../utils/plan-anchors';
 import { deleteCommentApi } from '../../api/plan-doc';
@@ -216,6 +225,7 @@ import PlanCommentPanel from './PlanCommentPanel.vue';
 import PlanSectionInlineEditor from './PlanSectionInlineEditor.vue';
 import ChecklistView from './ChecklistView.vue';
 import ScenarioDesignModule from './ScenarioDesignModule.vue';
+import TestMethodModule from './method/TestMethodModule.vue';
 
 const props = defineProps<{
   doc: ReturnType<typeof usePlanDoc>;
@@ -445,7 +455,8 @@ async function resolveConflict(kind: 'keep-server' | 'take-local' | 'manual') {
 /** 交互模块章（清单勾选 / 场景卡片）自带编辑能力，不提供行内 markdown 编辑入口。 */
 function isModuleSection(section: Section): boolean {
   return section.title === '六、测试约束'
-    || (section.title === '八、场景设计' && section.heading.startsWith('八、场景设计'));
+    || (section.title === '八、场景设计' && section.heading.startsWith('八、场景设计'))
+    || section.title === METHOD_SECTION_TITLE;
 }
 
 /** 放弃草稿确认（唯一出口）：切换他章、Esc/✕ 取消、切换视图三条路径共用。 */
