@@ -35,6 +35,7 @@ class EnvironmentCheckRunnerTest {
 
     @Autowired EnvironmentCheckRunner runner;
     @Autowired EnvCheckCredentialService credentials;
+    @Autowired EnvCheckFixService fixService;
     @Autowired com.yr.perftest.platform.task.TaskPlanService planService;
     @Autowired com.yr.perftest.platform.task.plandoc.PlanWorkflowService workflow;
     @Autowired PersistentTaskPlanRepository planRepository;
@@ -68,6 +69,26 @@ class EnvironmentCheckRunnerTest {
         var run = runner.run(planId, "owner", false);
         assertThat(run.getWarned()).isGreaterThanOrEqualTo(1); // ssh 认证失败 → WARNING
         assertThat(run.getPassed()).isGreaterThanOrEqualTo(1); // LOCAL 项通过
+    }
+
+    /** 修复链路正向分流：LOCAL / 不可修 REMOTE 项跳过（不触网）；认证失败主机的 apply 归 failed 不假报成功。 */
+    @Test
+    void fixRoutesSkipsAndAuthFailures() {
+        long planId = seedPlanWithEnvTable("127.0.0.1", "订单服务");
+        credentials.save(seededProjectId, "owner", new EnvCheckCredentialService.CredentialInput(
+                "127.0.0.1", 22, "nobody", "bad-pass", null, null, null));
+        var settings = new com.yr.perftest.platform.task.plandoc.PrecheckSettings(
+                true, List.of("doc.metrics-defined", "os.ulimit", "os.disk-usage"));
+        workflow.updatePrecheckSettings(planId, OWNER, settings);
+        var run = runner.run(planId, "owner", false);
+        var outcome = fixService.apply(run.getId(), List.of(
+                new EnvCheckFixService.FixRequest(null, "doc.metrics-defined"),
+                new EnvCheckFixService.FixRequest("127.0.0.1", "os.disk-usage"),
+                new EnvCheckFixService.FixRequest("127.0.0.1", "os.ulimit")), "owner");
+        assertThat(outcome.fixed()).isEmpty();
+        assertThat(outcome.skipped()).containsExactlyInAnyOrder(
+                "doc.metrics-defined@null", "os.disk-usage@127.0.0.1");
+        assertThat(outcome.failed()).containsExactly("os.ulimit@127.0.0.1");
     }
 
     /** 建项目 + owner 成员 + 计划（「三、测试指标」指标表 + 「五、测试资源 → 环境部署信息」表）+ 一个已绑定脚本的场景。 */
