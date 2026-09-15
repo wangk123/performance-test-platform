@@ -182,8 +182,8 @@ function onDocViewKeydown(event: KeyboardEvent) {
 /** 评审工作台「↧ 定位」与 ?comment= 深链共用：待定位批注经 prop 下发，文档组件定位完成后置空。 */
 const pendingLocate = ref<number | null>(null);
 
-/** query 同步（Task 11）：?tab= 二键白名单（report 已删除、publish 已并入 versions；versions 不入 URL，刷新回落 document）；?comment= 深链。 */
-const TAB_KEYS = ['document', 'review'] as const;
+/** query 同步（Task 11）：?tab= 白名单（envcheck 供执行被拦弹窗「去处理」深链，Task 12；report 已删除、publish 已并入 versions；versions 不入 URL，刷新回落 document）；?comment= 深链。 */
+const TAB_KEYS = ['document', 'review', 'envcheck'] as const;
 
 function tabOfQuery(): string {
   const tab = route.query.tab;
@@ -298,6 +298,12 @@ onMounted(async () => {
 watch(activeTab, (tab) => {
   if (syncingTabQuery || tab === tabOfQuery()) return;
   void router.replace({ query: { ...route.query, tab } });
+});
+
+// query → Tab（执行被拦弹窗「去处理」replace ?tab=envcheck 直达）；白名单外值忽略，避免与 versions 等不入 URL 的 Tab 打架。
+watch(() => route.query.tab, (tab) => {
+  if (typeof tab !== 'string' || !(TAB_KEYS as readonly string[]).includes(tab)) return;
+  if (activeTab.value !== tab) activeTab.value = tab;
 });
 
 watch(() => props.plan.id, (id) => void doc.load(id));

@@ -92,11 +92,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, h, ref } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { MdPreview } from 'md-editor-v3';
 import 'md-editor-v3/lib/style.css';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import type { ScriptAsset, TaskPlan, TaskScenario } from '../../types';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
 import { useTheme } from '../../composables/useTheme';
@@ -110,6 +110,7 @@ const props = defineProps<{ docPlan: ReturnType<typeof usePlanDoc>; plan: TaskPl
 const emit = defineEmits<{ (e: 'changed'): void; (e: 'request-add'): void; (e: 'request-edit', scenario: TaskScenario): void }>();
 
 const router = useRouter();
+const route = useRoute();
 const { themeMode } = useTheme();
 const mdTheme = computed(() => (themeMode.value === 'dark' ? 'dark' : 'light'));
 const { currentProjectScripts } = useWorkspace();
@@ -220,16 +221,39 @@ async function run(name: string) {
   }
 }
 
-/** 跳过环境检查改 Modal.confirm（替代 window.confirm，批次 E 原生弹窗清零）。 */
+/** 从 PLAN_PRECHECK_FAILED 错误信息提取待处理项：PlanErrorBody 不含 failures 数组，按后端 String.join 的「；」切分。 */
+function precheckFailures(text: string): string[] {
+  return text
+    .replace(/^PLAN_PRECHECK_FAILED：/, '')
+    .replace(/^环境检查未(?:通过|运行)——/, '')
+    .split('；')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+const PRECHECK_FAILURE_MAX_ROWS = 8;
+
+/** 执行被拦弹窗：待处理项列表 + 双出口——「去处理」切环境检查 tab、「跳过并执行」沿用原有批注跳过逻辑。 */
 function confirmSkipPrecheck(text: string, scenarioName: string) {
+  const failures = precheckFailures(text);
+  const rows = failures.slice(0, PRECHECK_FAILURE_MAX_ROWS).map((item) => h('li', item));
+  if (failures.length > rows.length) {
+    rows.push(h('li', { style: 'color: var(--muted);' }, `…共 ${failures.length} 项`));
+  }
   Modal.confirm({
     title: '环境检查未通过，是否跳过并继续执行？',
-    content: `${text}\n跳过将记录系统批注。`,
+    content: h('div', [
+      h('ul', { style: 'margin:0;padding-left:20px;max-height:220px;overflow-y:auto;' }, rows),
+      h('p', { style: 'margin:8px 0 0;color:var(--muted);font-size:12px;' }, '跳过将记录系统批注。'),
+    ]),
     okText: '跳过并执行',
-    cancelText: '取消',
+    cancelText: '去处理',
     onOk: async () => {
       await precheckSkipApi(props.plan.id);
       await run(scenarioName);
+    },
+    onCancel: () => {
+      void router.replace({ query: { ...route.query, tab: 'envcheck' } });
     },
   });
 }
