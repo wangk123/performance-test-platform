@@ -23,7 +23,7 @@
           <span class="ec-risk-chip" :class="row.risk.toLowerCase()">{{ RISK_SHORT[row.risk] }}</span>
         </div>
         <div class="ec-fix-why">{{ row.detail || row.suggestion }}</div>
-        <div v-if="row.suggestion" class="ec-fix-how">{{ row.suggestion }}</div>
+        <div v-if="row.method" class="ec-fix-how">{{ row.method }}</div>
       </div>
     </label>
   </div>
@@ -59,7 +59,7 @@ function toggleIssue(row: EnvCheckIssueRow, checked: boolean) {
   if (row.risk === 'HIGH') {
     Modal.confirm({
       title: '将该高风险项加入修复？',
-      icon: warnIcon(),
+      icon: warnIcon('danger'),
       content: `「${row.label} · ${row.host}」该操作影响目标机配置，确认加入本次修复清单？`,
       okText: '确认加入',
       okType: 'danger',
@@ -89,7 +89,7 @@ function toggleSelectAll() {
   const highItems = risky.filter((row) => row.risk === 'HIGH').map((row) => row.label);
   Modal.confirm({
     title: `全选将包含 ${risky.length} 项中/高风险修复${highItems.length ? `，其中高风险 ${highItems.length} 项：${highItems.join('、')}` : ''}`,
-    icon: warnIcon(),
+    icon: warnIcon('orange'),
     content: '修复前逐项备份、修后自动复查，全部可回滚。确认全选？',
     okText: '确认全选',
     cancelText: '取消',
@@ -101,9 +101,9 @@ function apply() {
   emit('apply', selectedKeys.value.map(fixRequestOf));
 }
 
-/** Modal.confirm 橙色警示图标（对应原型弹窗配色）。 */
-function warnIcon() {
-  return h('span', { class: 'ec-warn-icon', role: 'img', 'aria-label': '警告' }, '!');
+/** Modal.confirm 警示图标：危险操作（高风险勾选/缺凭据）红色、批量确认橙色，恢复原型红/橙分级。 */
+function warnIcon(tone: 'danger' | 'orange') {
+  return h('span', { class: `ec-warn-icon ${tone}`, role: 'img', 'aria-label': '警告' }, '!');
 }
 </script>
 

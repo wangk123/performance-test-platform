@@ -151,10 +151,11 @@ function badgeText(row: EnvCheckMatrixRow) {
   return `⚠ 需处理 · ${level}`;
 }
 
-async function loadRuns(pickFirst = true) {
+/** 刷新历史列表；尚无选中 run 时回落最新一次（详情接口零请求时为置空）。 */
+async function loadRuns() {
   const list = await fetchEnvCheckRunsApi(props.planId);
   runs.value = [...list].sort((a, b) => b.id - a.id);
-  if (pickFirst || runId.value === null) {
+  if (runId.value === null) {
     await selectRun(runs.value[0]?.id ?? null);
   }
 }
@@ -203,7 +204,8 @@ async function trigger() {
   try {
     const summaryResult = await triggerEnvCheckApi(props.planId);
     message.success('环境检查已完成');
-    await loadRuns(false);
+    const list = await fetchEnvCheckRunsApi(props.planId);
+    runs.value = [...list].sort((a, b) => b.id - a.id);
     await selectRun(summaryResult.id);
   } catch (error) {
     const err = error as Error & { code?: string; body?: { missingHosts?: string[] } };
@@ -220,7 +222,7 @@ async function trigger() {
 function showMissingCredentials(hosts: string[]) {
   Modal.confirm({
     title: '以下机器未配置 SSH 凭据',
-    icon: h('span', { class: 'ec-warn-icon', role: 'img', 'aria-label': '警告' }, '⃠'),
+    icon: h('span', { class: 'ec-warn-icon danger', role: 'img', 'aria-label': '警告' }, '⃠'),
     content: () =>
       h('div', { class: 'ec-missing-hosts' }, [
         ...hosts.map((host) => h('div', { class: 'ec-missing-host-line' }, host)),
@@ -345,7 +347,8 @@ onMounted(loadAll);
 </style>
 
 <style>
-/* Modal.confirm 内容挂在 body 级门户容器，scoped 选择器不可达，用全局类（前缀 ec- 防冲突）。 */
+/* Modal.confirm 内容挂在 body 级门户容器，scoped 选择器不可达，用全局类（前缀 ec- 防冲突）。
+   红/橙分级对应原型：HIGH 勾选确认与缺凭据=红（danger），一键全选=橙（orange，默认色）。 */
 .ec-warn-icon {
   display: inline-flex;
   align-items: center;
@@ -357,6 +360,10 @@ onMounted(loadAll);
   font-weight: 700;
   color: var(--orange);
   background: var(--orange-soft);
+}
+.ec-warn-icon.danger {
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 .ec-missing-hosts .ec-missing-host-line {
   font: 500 12px var(--font-data);

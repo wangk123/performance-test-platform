@@ -43,7 +43,7 @@ export function kindChip(item: EnvCheckItemMeta): string {
   return item.kind === 'LOCAL' ? '平台内' : '平台内拨测';
 }
 
-/** precheckJson 解析：null/非法 → 未启用且未勾选（对齐后端 disabled() 语义）；返回可勾选 key 集。 */
+/** precheckJson 解析：null/非法 → 未启用且未勾选（enabled 与后端 disabled() 对齐；items=[] 与后端 null 回退 DEFAULT_ITEMS 存在固有差异，首次保存后一致）。 */
 export function parsePrecheckSettings(
   precheckJson: string | null,
   registryKeys: string[],
