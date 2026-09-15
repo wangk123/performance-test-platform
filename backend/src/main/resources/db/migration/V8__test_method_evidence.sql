@@ -10,7 +10,7 @@ CREATE TABLE `plan_evidence_images` (
   `content_type` varchar(100) NOT NULL,
   `size_bytes` bigint NOT NULL,
   `uploaded_by` varchar(100) NULL,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`)
 );
 CREATE INDEX `idx_evidence_scenario` ON `plan_evidence_images` (`scenario_id`);
