@@ -27,6 +27,12 @@ spring:
         # @Lob String 在 MySQL 方言渲染为 tinytext（255 字节截断隐患），validate 拒绝 V1 的
         # longtext 列；本方言把提取到的 longtext 解析回 CLOB 完成判等，保住 longtext 运行时语义
         dialect: com.yr.perftest.platform.config.MysqlLongtextDialect
+  servlet:
+    multipart:
+      # 截图上传红线 5MB（PlanEvidenceImageService 校验一致）；request 留 multipart 协议开销余量。
+      # 缺省时 Spring Boot 默认 1MB，容器层直接拒绝 1–5MB 的常见 PNG 且无 handler 落 500
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 server:
   port: 8080

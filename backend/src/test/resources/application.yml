@@ -14,3 +14,8 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+  servlet:
+    multipart:
+      # 与主配置保持同红线（截图 5MB），测试上下文绑定的 MultipartProperties 与生产一致
+      max-file-size: 5MB
+      max-request-size: 6MB

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.web.servlet.MultipartProperties;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -66,6 +67,8 @@ class PlanEvidenceImageServiceTest {
     private PersistentTaskScenarioRepository scenarioRepository;
     @Autowired
     private PlanEvidenceImageRepository imageRepository;
+    @Autowired
+    private MultipartProperties multipartProperties;
 
     private String token;
     private long planId;
@@ -195,6 +198,13 @@ class PlanEvidenceImageServiceTest {
 
         assertThat(imageRepository.findById(imageId)).isEmpty();
         assertThat(Files.exists(stored)).isFalse();
+    }
+
+    /** 容器层限制证明：MockMvc multipart() 不经过容器解析门，断言绑定的 MultipartProperties 验证 yml 生效（容器按此执行 5MB 红线）。 */
+    @Test
+    void multipartLimitsAreConfiguredBeyondContainerDefault() {
+        assertThat(multipartProperties.getMaxFileSize().toBytes()).isEqualTo(5L * 1024 * 1024);
+        assertThat(multipartProperties.getMaxRequestSize().toBytes()).isEqualTo(6L * 1024 * 1024);
     }
 
     private long uploadImage(byte[] payload, String filename) throws Exception {
