@@ -17,7 +17,6 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class EnvProbeClient {
     private final ObjectMapper objectMapper;
-    private final String runnerPath;
     private final EnvCheckProperties properties;
     private final Path runnerEntry;
 
@@ -27,7 +26,6 @@ public class EnvProbeClient {
             EnvCheckProperties properties
     ) {
         this.objectMapper = objectMapper;
-        this.runnerPath = runnerPath;
         this.properties = properties;
         this.runnerEntry = resolveRunnerEntry(runnerPath);
     }

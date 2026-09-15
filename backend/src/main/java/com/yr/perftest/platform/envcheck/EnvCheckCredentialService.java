@@ -48,17 +48,25 @@ public class EnvCheckCredentialService {
             throw new EnvCheckValidationException("ENV_CREDENTIAL_INVALID：username 不能为空");
         }
         boolean key = in.keyMaterial() != null && !in.keyMaterial().isBlank();
-        String authType = key ? "KEY" : "PASSWORD";
         String plain = key ? in.keyMaterial() : in.password();
+        boolean hasSecret = plain != null && !plain.isBlank();
         int sshPort = in.sshPort() == null ? 22 : in.sshPort();
-        String secretCipher = cipher.encrypt(plain);
         PersistentEnvCheckCredentialRecord record = findByProjectPlanHost(projectId, in.planId(), in.host())
                 .map(existing -> {
+                    // 编辑不重输密钥：plain 为空保留旧密文与认证类型，避免空值覆写销毁凭据
+                    String secretCipher = hasSecret ? cipher.encrypt(plain) : existing.getSecretCipher();
+                    String authType = hasSecret ? (key ? "KEY" : "PASSWORD") : existing.getAuthType();
                     existing.update(sshPort, in.username(), secretCipher, authType, in.remark());
                     return existing;
                 })
-                .orElseGet(() -> new PersistentEnvCheckCredentialRecord(
-                        projectId, in.planId(), in.host(), sshPort, in.username(), secretCipher, authType, in.remark(), actor));
+                .orElseGet(() -> {
+                    if (!hasSecret) {
+                        throw new EnvCheckValidationException("ENV_CREDENTIAL_INVALID：密码或密钥不能为空");
+                    }
+                    return new PersistentEnvCheckCredentialRecord(
+                            projectId, in.planId(), in.host(), sshPort, in.username(),
+                            cipher.encrypt(plain), key ? "KEY" : "PASSWORD", in.remark(), actor);
+                });
         return toView(repository.save(record));
     }
 
