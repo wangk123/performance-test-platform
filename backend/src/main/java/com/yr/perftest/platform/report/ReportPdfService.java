@@ -5,21 +5,36 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
- * 报告 PDF 导出（模块 06 增强）：由计划报告数据渲染 HTML 后经 openhtmltopdf 生成 PDF。
+ * 报告 PDF 导出（模块 06 增强）：由计划报告数据渲染 HTML 后经 openhtmltopdf 生成 PDF；
+ * Task 11 起尾部追加测试方法章节（执行结果表 + 趋势图 + 补充截图，缺图降级占位）。
  */
 @Service
 public class ReportPdfService {
     private final ReportDataService reportDataService;
+    private final MethodExportSectionService methodExportSectionService;
 
-    public ReportPdfService(ReportDataService reportDataService) {
+    public ReportPdfService(ReportDataService reportDataService, MethodExportSectionService methodExportSectionService) {
         this.reportDataService = reportDataService;
+        this.methodExportSectionService = methodExportSectionService;
     }
 
     public byte[] generatePdf(long planId) {
+        return generatePdf(planId, null);
+    }
+
+    public byte[] generatePdf(long planId, ReportExportRequest request) {
         PlanReportResponse report = reportDataService.aggregateByPlan(planId);
         String html = renderHtml(report);
+        List<ReportExportRequest.MethodChartImage> charts =
+                request == null ? List.of() : request.methodChartImages();
+        var methodView = methodExportSectionService.buildSection(planId, charts);
+        if (!methodView.isEmpty()) {
+            html = html.replace("</body></html>",
+                    methodExportSectionService.buildPdfSectionHtml(methodView) + "</body></html>");
+        }
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             PdfRendererBuilder builder = new PdfRendererBuilder();
             builder.useFastMode();

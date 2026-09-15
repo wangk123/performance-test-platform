@@ -1,4 +1,7 @@
 import { request } from './http';
+import type { MethodChartImagePayload } from '../utils/method-chart-capture';
+
+export type { MethodChartImagePayload };
 
 export interface PlanReportResponse {
   plan: PlanInfo;
@@ -109,6 +112,8 @@ export interface FailureSample {
 export interface ReportExportRequest {
   chartImages: Record<string, string>;
   editorContent: string;
+  /** 测试方法章节趋势图（前端离屏渲染 PNG），后端嵌入执行结果表 + 四图 + 补充截图。 */
+  methodChartImages?: MethodChartImagePayload[];
 }
 
 export function fetchPlanReport(planId: number) {

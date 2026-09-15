@@ -53,8 +53,11 @@ public class ReportExportController {
     }
 
     @PostMapping("/plans/{planId}/export/pdf")
-    public ResponseEntity<byte[]> exportPdf(@PathVariable long planId) {
-        byte[] pdfBytes = reportPdfService.generatePdf(planId);
+    public ResponseEntity<byte[]> exportPdf(
+            @PathVariable long planId,
+            @RequestBody(required = false) ReportExportRequest request
+    ) {
+        byte[] pdfBytes = reportPdfService.generatePdf(planId, request);
 
         String filename = "performance-report-"
                 + DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")

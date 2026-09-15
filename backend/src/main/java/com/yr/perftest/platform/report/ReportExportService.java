@@ -25,13 +25,16 @@ public class ReportExportService {
 
     private final ReportDataService reportDataService;
     private final ReportTemplateService templateService;
+    private final MethodExportSectionService methodExportSectionService;
 
     public ReportExportService(
             ReportDataService reportDataService,
-            ReportTemplateService templateService
+            ReportTemplateService templateService,
+            MethodExportSectionService methodExportSectionService
     ) {
         this.reportDataService = reportDataService;
         this.templateService = templateService;
+        this.methodExportSectionService = methodExportSectionService;
     }
 
     public byte[] generateWord(long planId, ReportExportRequest request) {
@@ -41,39 +44,53 @@ public class ReportExportService {
         }
 
         Map<String, Object> context = buildContext(data, request);
+        MethodExportSectionService.MethodSectionView methodView =
+                methodExportSectionService.buildSection(planId, request.methodChartImages());
+        String sectionXml = methodExportSectionService.buildWordSectionXml(methodView);
+        boolean hasMethodSection = !methodView.isEmpty();
 
         try (InputStream templateStream = templateService.loadDefaultTemplate()) {
+            InputStream template = hasMethodSection
+                    ? methodExportSectionService.decorateWordTemplate(templateStream, sectionXml, methodView)
+                    : templateStream;
+
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
             var registry = fr.opensagres.xdocreport.document.registry.XDocReportRegistry.getRegistry();
+            // 唯一 id + 用后注销：registry 同 id 重复注册会抛 XDocReportException（同 JVM 内连续导出场景）
+            String templateId = "report-" + java.util.UUID.randomUUID();
             var report = registry.loadReport(
-                    templateStream, "report",
+                    template, templateId,
                     fr.opensagres.xdocreport.template.TemplateEngineKind.Freemarker
             );
+            try {
+                var reportContext = report.createContext();
+                context.forEach(reportContext::put);
 
-            var reportContext = report.createContext();
-            context.forEach(reportContext::put);
-
-            var metadata = report.createFieldsMetadata();
-            if (request.chartImages() != null) {
-                for (var entry : request.chartImages().entrySet()) {
-                    if (entry.getValue() != null && entry.getValue().startsWith("data:image/")) {
-                        byte[] bytes = decodeDataUri(entry.getValue());
-                        if (bytes != null) {
-                            metadata.addFieldAsImage(entry.getKey());
-                            reportContext.put(entry.getKey(), bytes);
+                var metadata = report.createFieldsMetadata();
+                if (request.chartImages() != null) {
+                    for (var entry : request.chartImages().entrySet()) {
+                        if (entry.getValue() != null && entry.getValue().startsWith("data:image/")) {
+                            byte[] bytes = decodeDataUri(entry.getValue());
+                            if (bytes != null) {
+                                metadata.addFieldAsImage(entry.getKey());
+                                reportContext.put(entry.getKey(), bytes);
+                            }
                         }
                     }
                 }
-            }
 
-            report.process(reportContext, outputStream);
-            return outputStream.toByteArray();
+                report.process(reportContext, outputStream);
+                return outputStream.toByteArray();
+            } finally {
+                registry.unregisterReport(templateId);
+            }
         } catch (Exception e) {
             throw new ReportTemplateService.ReportTemplateException(
                     "Word 报告生成失败: " + e.getMessage(), e);
         }
     }
+
 
     private Map<String, Object> buildContext(PlanReportResponse data, ReportExportRequest request) {
         Map<String, Object> ctx = new HashMap<>();
@@ -142,6 +159,18 @@ public class ReportExportService {
 
         ctx.put("editorContent", stripHtml(nvl(request.editorContent())));
         ctx.put("generatedAt", DATE_FORMAT.format(java.time.Instant.now()));
+
+        // 旧模板（单场景视图）遗留占位键兜底：Freemarker 对缺失变量抛 InvalidReferenceException，
+        // 这些键不再由聚合数据填充（新版数据走 methodScenarios 循环）。
+        ctx.put("scenarioName", "");
+        ctx.put("startedAt", "");
+        ctx.put("status", "");
+        ctx.put("totalSamples", "");
+        ctx.put("throughput", "");
+        ctx.put("avgRt", "");
+        ctx.put("p95", "");
+        ctx.put("errorRate", "");
+        ctx.put("aggregateRows", List.of());
 
         return ctx;
     }

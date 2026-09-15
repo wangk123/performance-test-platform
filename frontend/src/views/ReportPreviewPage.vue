@@ -266,6 +266,8 @@ import { CanvasRenderer } from 'echarts/renderers';
 import { LineChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
 import { fetchPlanReport, exportWordReport, type PlanReportResponse, type PresetReport } from '../api/reports';
+import type { MethodChartImagePayload } from '../utils/method-chart-capture';
+import { collectMethodChartImages } from '../utils/method-chart-capture';
 import {
   formatErrorRate,
   formatSamples,
@@ -449,7 +451,14 @@ async function handleExportWord() {
     for (const [key, inst] of Object.entries(chartInstances)) {
       try { chartImages[key] = (inst as any).getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' }); } catch (_) {}
     }
-    const blob = await exportWordReport(planId.value, { chartImages, editorContent: editorContent.value });
+    // 测试方法章节趋势图离屏预渲染；失败降级为后端文字占位，不阻断导出
+    let methodChartImages: MethodChartImagePayload[] | undefined;
+    try {
+      methodChartImages = await collectMethodChartImages(planId.value);
+    } catch (e) {
+      console.warn('测试方法章节图表收集失败，导出将不含趋势图', e);
+    }
+    const blob = await exportWordReport(planId.value, { chartImages, editorContent: editorContent.value, methodChartImages });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url;
     a.download = `performance-report-${data.value.plan.planName}.docx`;

@@ -1,0 +1,424 @@
+package com.yr.perftest.platform.report;
+
+import com.yr.perftest.platform.task.method.MethodSectionResponse;
+import com.yr.perftest.platform.task.method.MethodSectionService;
+import com.yr.perftest.platform.task.method.PersistentPlanEvidenceImageRecord;
+import com.yr.perftest.platform.task.method.PlanEvidenceImageRepository;
+import org.springframework.stereotype.Service;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
+
+/**
+ * 测试方法章节导出装配：Task 4 聚合（hidden 行排除）+ 前端离屏趋势图 PNG + 补充截图按 storedPath 读盘。
+ * 产出 Word（Freemarker 片段 + MERGEFIELD 图片字段，注入模板流）与 PDF（HTML + data URI）两种视图；
+ * 任一图片缺失均降级为文字占位，不阻断导出。
+ */
+@Service
+public class MethodExportSectionService {
+
+    private static final List<String> TREND_KINDS = List.of("TPS", "RT", "CPU", "MEM");
+    private static final Map<String, String> KIND_TITLES = Map.of(
+            "TPS", "TPS 趋势", "RT", "响应时间趋势", "CPU", "CPU 使用率趋势", "MEM", "内存使用率趋势");
+    private static final String SECTION_TITLE = "测试方法执行结果";
+    private static final float TREND_IMAGE_WIDTH = 420f;
+    private static final float SHOT_IMAGE_WIDTH = 420f;
+    private static final String PNG_DEFAULT_TYPE =
+            "<Default Extension=\"png\" ContentType=\"image/png\"/>";
+
+    private final MethodSectionService methodSectionService;
+    private final PlanEvidenceImageRepository imageRepository;
+
+    public MethodExportSectionService(
+            MethodSectionService methodSectionService,
+            PlanEvidenceImageRepository imageRepository
+    ) {
+        this.methodSectionService = methodSectionService;
+        this.imageRepository = imageRepository;
+    }
+
+    /** 章节视图：场景 → 执行（结果行 + 趋势图）→ 补充截图；imageBytes 供 Word 图片字段/PDF data URI 共用。 */
+    public record MethodSectionView(List<ScenarioView> scenarios, Map<String, byte[]> imageBytes) {
+        public boolean isEmpty() {
+            return scenarios.isEmpty();
+        }
+    }
+
+    public record ScenarioView(String name, List<ExecutionView> executions, List<ImageView> evidence) {
+    }
+
+    public record ExecutionView(String title, Map<String, String> row, List<ImageView> images) {
+    }
+
+    /** field=null 表示图片缺失，导出侧输出文字占位。 */
+    public record ImageView(String field, String caption) {
+    }
+
+    public MethodSectionView buildSection(long planId, List<ReportExportRequest.MethodChartImage> charts) {
+        MethodSectionResponse method = methodSectionService.getPlanMethod(planId);
+        if (method.scenarios().isEmpty()) {
+            return new MethodSectionView(List.of(), Map.of());
+        }
+        Map<String, String> dataUrlByKey = new LinkedHashMap<>();
+        for (ReportExportRequest.MethodChartImage chart : charts) {
+            if (chart.dataUrl() != null && !chart.dataUrl().isBlank()) {
+                dataUrlByKey.put(chart.executionId() + "|" + chart.normalizedKind(), chart.dataUrl());
+            }
+        }
+        List<Long> scenarioIds = method.scenarios().stream()
+                .map(MethodSectionResponse.ScenarioMethodData::scenarioId).toList();
+        Map<Long, List<PersistentPlanEvidenceImageRecord>> shotsByScenario = imageRepository
+                .findByScenarioIdInOrderBySortOrderAscIdAsc(scenarioIds).stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        PersistentPlanEvidenceImageRecord::getScenarioId, LinkedHashMap::new,
+                        java.util.stream.Collectors.toList()));
+
+        List<ScenarioView> scenarios = new ArrayList<>();
+        Map<String, byte[]> imageBytes = new LinkedHashMap<>();
+        for (MethodSectionResponse.ScenarioMethodData scenario : method.scenarios()) {
+            List<MethodSectionResponse.ExecutionRow> visible = scenario.executions().stream()
+                    .filter(row -> !row.hidden()).toList();
+
+            List<ExecutionView> executions = new ArrayList<>();
+            for (MethodSectionResponse.ExecutionRow row : visible) {
+                executions.add(new ExecutionView(
+                        "#" + row.executionId() + " · " + nvl(row.executionName()),
+                        toRowMap(row),
+                        trendImages(row.executionId(), dataUrlByKey, imageBytes)));
+            }
+
+            List<ImageView> evidence = new ArrayList<>();
+            for (PersistentPlanEvidenceImageRecord shot : shotsByScenario
+                    .getOrDefault(scenario.scenarioId(), List.of())) {
+                evidence.add(evidenceImage(shot, imageBytes));
+            }
+            scenarios.add(new ScenarioView(nvl(scenario.name()), executions, evidence));
+        }
+        return new MethodSectionView(scenarios, imageBytes);
+    }
+
+    private List<ImageView> trendImages(long executionId, Map<String, String> dataUrlByKey,
+                                        Map<String, byte[]> imageBytes) {
+        List<ImageView> images = new ArrayList<>();
+        for (String kind : TREND_KINDS) {
+            String field = "methodImg_" + executionId + "_" + kind;
+            String dataUrl = dataUrlByKey.get(executionId + "|" + kind);
+            byte[] png = dataUrl == null ? null : decodeDataUri(dataUrl);
+            if (png == null) {
+                images.add(new ImageView(null, "（" + KIND_TITLES.get(kind) + "缺失）"));
+            } else {
+                imageBytes.put(field, png);
+                images.add(new ImageView(field, KIND_TITLES.get(kind)));
+            }
+        }
+        return images;
+    }
+
+    private ImageView evidenceImage(PersistentPlanEvidenceImageRecord shot, Map<String, byte[]> imageBytes) {
+        String field = "methodShot_" + shot.getId();
+        String caption = nvl(shot.getCaption());
+        try {
+            byte[] content = Files.readAllBytes(Path.of(shot.getStoredPath()));
+            if (content.length > 0) {
+                imageBytes.put(field, content);
+                return new ImageView(field, caption.isEmpty() ? "补充截图" : caption);
+            }
+        } catch (IOException ignored) {
+            // 磁盘文件缺失：降级占位
+        }
+        return new ImageView(null, caption.isEmpty() ? "（补充截图文件缺失）" : "（补充截图缺失：" + caption + "）");
+    }
+
+    private Map<String, String> toRowMap(MethodSectionResponse.ExecutionRow row) {
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("executionName", nvl(row.executionName()));
+        map.put("threads", String.valueOf(row.threads()));
+        map.put("rampUpSec", String.valueOf(row.rampUpSec()));
+        map.put("durationSec", String.valueOf(row.durationSec()));
+        map.put("status", nvl(row.status()));
+        map.put("samples", row.samples() == null ? "—" : String.valueOf(row.samples()));
+        map.put("successRate", row.successRate() == null ? "—" : row.successRate() + "%");
+        map.put("avgRtMs", row.avgRtMs() == null ? "—" : row.avgRtMs() + "ms");
+        map.put("p95Ms", row.p95Ms() == null ? "—" : row.p95Ms() + "ms");
+        map.put("tps", row.tps() == null ? "—" : String.format("%.2f", row.tps()));
+        map.put("startedAtText", nvl(row.startedAtText()));
+        return map;
+    }
+
+    /** Word 章节片段：全静态展开（场景/执行/行数据 Java 侧内联转义），图片用 MERGEFIELD 字段由 XDocReport 替换。 */
+    public String buildWordSectionXml(MethodSectionView view) {
+        StringBuilder xml = new StringBuilder();
+        xml.append(paragraph(SECTION_TITLE, true, 30, true));
+        for (ScenarioView scenario : view.scenarios()) {
+            xml.append("<w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space=\"preserve\">")
+                    .append(escapeXml(scenario.name())).append("</w:t></w:r></w:p>");
+            xml.append(wordExecutionTable(scenario));
+            for (ExecutionView execution : scenario.executions()) {
+                xml.append("<w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space=\"preserve\">")
+                        .append(escapeXml(execution.title())).append("</w:t></w:r></w:p>");
+                for (ImageView image : execution.images()) {
+                    xml.append(wordImage(image));
+                }
+            }
+            if (!scenario.evidence().isEmpty()) {
+                xml.append("<w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space=\"preserve\">补充截图</w:t></w:r></w:p>");
+                for (ImageView shot : scenario.evidence()) {
+                    xml.append(wordImage(shot));
+                }
+            }
+        }
+        return xml.toString();
+    }
+
+    private String wordExecutionTable(ScenarioView scenario) {
+        String[] headers = {"执行", "并发", "Ramp-Up(s)", "时长(s)", "状态", "采样数", "成功率", "AvgRT", "P95", "TPS", "开始时间"};
+        String[] keys = {"executionName", "threads", "rampUpSec", "durationSec", "status", "samples",
+                "successRate", "avgRtMs", "p95Ms", "tps", "startedAtText"};
+        StringBuilder xml = new StringBuilder("<w:tbl><w:tblPr><w:tblBorders>");
+        for (String edge : List.of("top", "left", "bottom", "right", "insideH", "insideV")) {
+            xml.append("<w:").append(edge).append(" w:val=\"single\" w:sz=\"4\" w:color=\"999999\"/>");
+        }
+        xml.append("</w:tblBorders></w:tblPr><w:tblGrid>");
+        for (int i = 0; i < headers.length; i++) {
+            xml.append("<w:gridCol w:w=\"1440\"/>");
+        }
+        xml.append("</w:tblGrid><w:tr>");
+        for (String header : headers) {
+            xml.append("<w:tc><w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space=\"preserve\">")
+                    .append(header).append("</w:t></w:r></w:p></w:tc>");
+        }
+        xml.append("</w:tr>");
+        for (ExecutionView execution : scenario.executions()) {
+            xml.append("<w:tr>");
+            for (String key : keys) {
+                xml.append("<w:tc><w:p><w:r><w:t xml:space=\"preserve\">")
+                        .append(escapeXml(execution.row().get(key))).append("</w:t></w:r></w:p></w:tc>");
+            }
+            xml.append("</w:tr>");
+        }
+        xml.append("</w:tbl>");
+        return xml.toString();
+    }
+
+    private String wordImage(ImageView image) {
+        StringBuilder xml = new StringBuilder();
+        if (image.field() == null) {
+            xml.append("<w:p><w:pPr><w:jc w:val=\"center\"/></w:pPr><w:r><w:t xml:space=\"preserve\">")
+                    .append(escapeXml(image.caption())).append("</w:t></w:r></w:p>");
+            return xml.toString();
+        }
+        xml.append("<w:p><w:pPr><w:jc w:val=\"center\"/></w:pPr><w:r><w:t>[[IMG:").append(image.field())
+                .append("]]</w:t></w:r></w:p>");
+        xml.append("<w:p><w:pPr><w:jc w:val=\"center\"/></w:pPr><w:r><w:rPr><w:color w:val=\"808080\"/>")
+                .append("<w:sz w:val=\"18\"/></w:rPr><w:t xml:space=\"preserve\">")
+                .append(escapeXml(image.caption())).append("</w:t></w:r></w:p>");
+        return xml.toString();
+    }
+
+    /**
+     * 模板流装饰（模板资源文件本身不动）：
+     * 1) word/document.xml —— </w:body> 前插入章节 XML，占位符 [[IMG:field]] 替换为 inline drawing；
+     * 2) word/media/ —— 写入图片字节；3) word/_rels/document.xml.rels —— 追加 image 关系；
+     * 4) [Content_Types].xml —— 补 png 声明。图片为静态资源，XDocReport 只需原样保留。
+     */
+    public InputStream decorateWordTemplate(InputStream templateStream, String sectionXml,
+                                            MethodSectionView view) throws IOException {
+        Map<String, byte[]> imageBytes = view.imageBytes();
+        Map<String, int[]> imageSizes = new LinkedHashMap<>();
+        for (Map.Entry<String, byte[]> entry : imageBytes.entrySet()) {
+            int[] size = pngSize(entry.getValue());
+            imageSizes.put(entry.getKey(), size);
+        }
+        String patchedSection = patchImagePlaceholders(sectionXml, imageBytes, imageSizes);
+
+        ByteArrayOutputStream decorated = new ByteArrayOutputStream();
+        try (ZipInputStream zipIn = new ZipInputStream(templateStream);
+             ZipOutputStream zipOut = new ZipOutputStream(decorated)) {
+            ZipEntry entry;
+            byte[] buffer = new byte[8192];
+            while ((entry = zipIn.getNextEntry()) != null) {
+                String name = entry.getName();
+                zipOut.putNextEntry(new ZipEntry(name));
+                if ("word/document.xml".equals(name)) {
+                    String document = new String(zipIn.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    int index = document.lastIndexOf("</w:body>");
+                    if (index < 0) {
+                        throw new IOException("word template document.xml is malformed");
+                    }
+                    String patched = document.substring(0, index) + patchedSection + document.substring(index);
+                    zipOut.write(patched.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                } else if ("word/_rels/document.xml.rels".equals(name)) {
+                    String rels = new String(zipIn.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    zipOut.write(appendImageRelationships(rels, imageBytes).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                } else if ("[Content_Types].xml".equals(name)) {
+                    String types = new String(zipIn.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    if (!types.contains("Extension=\"png\"")) {
+                        types = types.replaceFirst("</Types>", PNG_DEFAULT_TYPE + "</Types>");
+                    }
+                    zipOut.write(types.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                } else {
+                    int read;
+                    while ((read = zipIn.read(buffer)) > 0) {
+                        zipOut.write(buffer, 0, read);
+                    }
+                }
+                zipOut.closeEntry();
+            }
+            for (Map.Entry<String, byte[]> image : imageBytes.entrySet()) {
+                zipOut.putNextEntry(new ZipEntry("word/media/" + image.getKey() + ".png"));
+                zipOut.write(image.getValue());
+                zipOut.closeEntry();
+            }
+        }
+        return new java.io.ByteArrayInputStream(decorated.toByteArray());
+    }
+
+    /** [[IMG:field]] 占位 → inline drawing；field 对应 media/methodImg_x.png 与 rIdMethodX 关系。 */
+    private String patchImagePlaceholders(String sectionXml, Map<String, byte[]> imageBytes,
+                                          Map<String, int[]> imageSizes) {
+        String patched = sectionXml;
+        int index = 0;
+        for (String field : imageBytes.keySet()) {
+            String placeholder = "[[IMG:" + field + "]]";
+            int[] size = imageSizes.get(field);
+            float width = field.startsWith("methodShot_") ? SHOT_IMAGE_WIDTH : TREND_IMAGE_WIDTH;
+            int heightPx = size == null ? Math.round(width * 3 / 4) : Math.round(width * size[1] / (float) size[0]);
+            long cx = (long) (width * 9525);
+            long cy = (long) (heightPx * 9525);
+            index++;
+            String drawing = "<w:drawing><wp:inline xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\" distT=\"0\" distB=\"0\" distL=\"0\" distR=\"0\">"
+                    + "<wp:extent cx=\"" + cx + "\" cy=\"" + cy + "\"/>"
+                    + "<wp:docPr id=\"" + (100 + index) + "\" name=\"" + field + "\"/>"
+                    + "<a:graphic xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">"
+                    + "<a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/picture\">"
+                    + "<pic:pic xmlns:pic=\"http://schemas.openxmlformats.org/drawingml/2006/picture\">"
+                    + "<pic:nvPicPr><pic:cNvPr id=\"" + (100 + index) + "\" name=\"" + field
+                    + ".png\"/><pic:cNvPicPr/></pic:nvPicPr>"
+                    + "<pic:blipFill><a:blip r:embed=\"rIdMethod" + index + "\"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>"
+                    + "<pic:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"" + cx + "\" cy=\"" + cy + "\"/></a:xfrm>"
+                    + "<a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></pic:spPr>"
+                    + "</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>";
+            patched = patched.replace(placeholder, drawing);
+        }
+        return patched;
+    }
+
+    private String appendImageRelationships(String rels, Map<String, byte[]> imageBytes) {
+        StringBuilder extra = new StringBuilder();
+        int index = 0;
+        for (String field : imageBytes.keySet()) {
+            index++;
+            extra.append("<Relationship Id=\"rIdMethod").append(index)
+                    .append("\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/")
+                    .append(field).append(".png\"/>");
+        }
+        return rels.replace("</Relationships>", extra + "</Relationships>");
+    }
+
+    /** PDF 章节片段：表格 + base64 data URI 图片，缺图占位。 */
+    public String buildPdfSectionHtml(MethodSectionView view) {
+        if (view.isEmpty()) {
+            return "<h2>" + SECTION_TITLE + "</h2><p>暂无测试方法执行数据</p>";
+        }
+        StringBuilder html = new StringBuilder("<h2>").append(SECTION_TITLE).append("</h2>");
+        for (ScenarioView scenario : view.scenarios()) {
+            html.append("<h3>").append(escapeHtml(scenario.name())).append("</h3>");
+            html.append("<table><tr><th>执行</th><th>并发</th><th>Ramp-Up(s)</th><th>时长(s)</th><th>状态</th>")
+                    .append("<th>采样数</th><th>成功率</th><th>AvgRT</th><th>P95</th><th>TPS</th><th>开始时间</th></tr>");
+            for (ExecutionView execution : scenario.executions()) {
+                Map<String, String> row = execution.row();
+                html.append("<tr><td>").append(escapeHtml(row.get("executionName")))
+                        .append("</td><td>").append(row.get("threads"))
+                        .append("</td><td>").append(row.get("rampUpSec"))
+                        .append("</td><td>").append(row.get("durationSec"))
+                        .append("</td><td>").append(escapeHtml(row.get("status")))
+                        .append("</td><td>").append(row.get("samples"))
+                        .append("</td><td>").append(row.get("successRate"))
+                        .append("</td><td>").append(row.get("avgRtMs"))
+                        .append("</td><td>").append(row.get("p95Ms"))
+                        .append("</td><td>").append(row.get("tps"))
+                        .append("</td><td>").append(escapeHtml(row.get("startedAtText")))
+                        .append("</td></tr>");
+            }
+            html.append("</table>");
+            for (ExecutionView execution : scenario.executions()) {
+                html.append("<h4>").append(escapeHtml(execution.title())).append("</h4>");
+                appendHtmlImages(html, execution.images(), view.imageBytes());
+            }
+            html.append("<h4>补充截图</h4>");
+            appendHtmlImages(html, scenario.evidence(), view.imageBytes());
+        }
+        return html.toString();
+    }
+
+    private void appendHtmlImages(StringBuilder html, List<ImageView> images, Map<String, byte[]> imageBytes) {
+        for (ImageView image : images) {
+            byte[] png = image.field() == null ? null : imageBytes.get(image.field());
+            if (png == null) {
+                html.append("<p>").append(escapeHtml(image.caption())).append("</p>");
+            } else {
+                html.append("<p><img src=\"data:image/png;base64,").append(Base64.getEncoder().encodeToString(png))
+                        .append("\" style=\"width:420px\"/></p><p style=\"font-size:10px;color:#666;\">")
+                        .append(escapeHtml(image.caption())).append("</p>");
+            }
+        }
+    }
+
+    private String paragraph(String text, boolean bold, int halfPointSize, boolean centered) {
+        return "<w:p>" + (centered ? "<w:pPr><w:jc w:val=\"center\"/></w:pPr>" : "")
+                + "<w:r><w:rPr>" + (bold ? "<w:b/>" : "") + "<w:sz w:val=\"" + halfPointSize + "\"/></w:rPr>"
+                + "<w:t xml:space=\"preserve\">" + escapeXml(text) + "</w:t></w:r></w:p>";
+    }
+
+    /** PNG IHDR 宽高（big-endian，宽偏移 16 高偏移 20），非 PNG 或损坏返回 null。 */
+    private int[] pngSize(byte[] bytes) {
+        if (bytes == null || bytes.length < 24) {
+            return null;
+        }
+        int width = ((bytes[16] & 0xFF) << 24) | ((bytes[17] & 0xFF) << 16) | ((bytes[18] & 0xFF) << 8) | (bytes[19] & 0xFF);
+        int height = ((bytes[20] & 0xFF) << 24) | ((bytes[21] & 0xFF) << 16) | ((bytes[22] & 0xFF) << 8) | (bytes[23] & 0xFF);
+        if (width <= 0 || height <= 0) {
+            return null;
+        }
+        return new int[]{width, height};
+    }
+
+    private byte[] decodeDataUri(String dataUri) {
+        try {
+            int idx = dataUri.indexOf(',');
+            if (idx < 0) {
+                return null;
+            }
+            return Base64.getDecoder().decode(dataUri.substring(idx + 1));
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    private String escapeXml(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;");
+    }
+
+    private String escapeHtml(String value) {
+        return escapeXml(value);
+    }
+
+    private String nvl(String value) {
+        return value == null ? "" : value;
+    }
+}
