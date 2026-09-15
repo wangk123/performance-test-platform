@@ -27,6 +27,9 @@ class RemoteCheckItemsTest {
         var item = new OsUlimitItem();
         var fix = item.fix(HOST, new ProbeOutput("10.1.1.10", 0, "{\"open_files\":1024}\n")).orElseThrow();
         assertThat(fix.risk()).isEqualTo(EnvCheckRisk.MEDIUM);
+        assertThat(fix.backupScript()).isNotBlank();
+        assertThat(fix.applyScript()).isNotBlank();
+        assertThat(fix.rollbackScript()).isNotBlank();
         assertThat(fix.rollbackScript()).contains("{backupRef}");
     }
 

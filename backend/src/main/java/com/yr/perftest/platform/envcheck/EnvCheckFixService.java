@@ -5,12 +5,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
 import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
 import com.yr.perftest.platform.task.plandoc.PlanCommentService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 修复链路（spec §4.5）：批量修复 = 逐项「重探 → fix() 声明 → 备份 → 修复 → 复查 → diff/FIXED」；
@@ -18,6 +22,8 @@ import java.util.Objects;
  */
 @Service
 public class EnvCheckFixService {
+
+    private static final Logger log = LoggerFactory.getLogger(EnvCheckFixService.class);
 
     /** 修复请求：结果矩阵定位（LOCAL 项 host 为 null，但 LOCAL 项直接跳过）。 */
     public record FixRequest(String host, String itemKey) {
@@ -66,7 +72,11 @@ public class EnvCheckFixService {
         List<String> fixed = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
         List<String> failed = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
         for (FixRequest request : requests == null ? List.<FixRequest>of() : requests) {
+            if (!seen.add(request.itemKey() + "@" + request.host())) {
+                continue; // 重复 (host,itemKey) 去重，防止同一项产生两条 fix 记录
+            }
             String label = label(request);
             if (!fixableAndWarned(request, rows)) {
                 skipped.add(label);
@@ -79,6 +89,8 @@ public class EnvCheckFixService {
                     case FAILED -> failed.add(label);
                 }
             } catch (Exception exception) {
+                log.warn("环境检查修复失败（{}）：{}", label,
+                        exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage());
                 failed.add(label);
             }
         }
@@ -137,7 +149,8 @@ public class EnvCheckFixService {
         EnvCheckCredentialService.ResolvedCredential credential =
                 credentials.resolve(plan.getProjectId(), plan.getId(), fix.getHost())
                         .orElseThrow(() -> new IllegalStateException("凭据缺失：" + fix.getHost()));
-        FixSpec spec = item.fix(target, degradedOutput(fix.getHost())).orElse(null);        if (spec == null || spec.rollbackScript() == null || spec.rollbackScript().isBlank()) {
+        FixSpec spec = item.fix(target, degradedOutput(fix.getHost())).orElse(null);
+        if (spec == null || spec.rollbackScript() == null || spec.rollbackScript().isBlank()) {
             throw new IllegalStateException("检查项无回滚脚本");
         }
         ProbeOutcome rollbackOutcome =

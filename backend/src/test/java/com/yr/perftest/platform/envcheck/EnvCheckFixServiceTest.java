@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,11 +21,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class EnvCheckFixServiceTest {
 
     @Autowired EnvCheckFixService fixService;
+    @Autowired PersistentEnvCheckFixRepository fixRepository;
 
     @Test
     void globalSwitchOffRejects() {
         assertThatThrownBy(() -> fixService.apply(1L, List.of(new EnvCheckFixService.FixRequest("h", "os.ulimit")), "alice"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("修复已被平台关闭");
+    }
+
+    /** 回滚幂等：已回滚记录再次 rollback 拒绝（校验先于凭据/目标机解析，run 不存在也先命中）。 */
+    @Test
+    void rollbackRejectsAlreadyRolledBack() {
+        PersistentEnvCheckFixRecord record = new PersistentEnvCheckFixRecord(
+                1L, "10.0.0.1", "os.ulimit", "MEDIUM", "/tmp/limits.conf.bak.1", "d", "s", "alice");
+        record.markRolledBack(Instant.now());
+        long fixId = fixRepository.save(record).getId();
+        assertThatThrownBy(() -> fixService.rollback(fixId, "bob"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("已回滚");
     }
 }
