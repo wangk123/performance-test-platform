@@ -31,6 +31,7 @@ public class OsUlimitItem implements RemoteCheckItem {
     @Override public Set<String> appliesTo() { return Set.of(); }
     @Override public int sortOrder() { return 1; }
     @Override public EnvCheckRisk risk() { return EnvCheckRisk.MEDIUM; }
+    @Override public boolean fixable() { return true; }
 
     @Override
     public ProbeSpec probe(TargetHost host) {

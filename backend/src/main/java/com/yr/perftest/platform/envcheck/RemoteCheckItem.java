@@ -13,4 +13,7 @@ public interface RemoteCheckItem extends EnvCheckItem {
 
     /** 风险分级，供 items API 展示；可修项按自身风险覆写。 */
     default EnvCheckRisk risk() { return EnvCheckRisk.LOW; }
+
+    /** 是否存在可用修复动作，供 items API 与结果矩阵展示；可修项覆写为 true。 */
+    default boolean fixable() { return false; }
 }

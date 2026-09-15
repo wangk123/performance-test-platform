@@ -1,10 +1,15 @@
 package com.yr.perftest.platform.task.plandoc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yr.perftest.platform.envcheck.EnvCheckCredentialMissingException;
 import com.yr.perftest.platform.envcheck.EnvCheckItem;
+import com.yr.perftest.platform.envcheck.EnvCheckKind;
 import com.yr.perftest.platform.envcheck.EnvCheckRegistry;
+import com.yr.perftest.platform.envcheck.EnvCheckRunService;
+import com.yr.perftest.platform.envcheck.EnvironmentCheckRunner;
 import com.yr.perftest.platform.envcheck.LocalCheckContext;
 import com.yr.perftest.platform.envcheck.LocalCheckItem;
+import com.yr.perftest.platform.envcheck.PersistentEnvCheckRunRecord;
 import com.yr.perftest.platform.identity.HumanPrincipal;
 import com.yr.perftest.platform.project.ProjectAccessResolver;
 import com.yr.perftest.platform.task.ExecutionQueryService;
@@ -44,6 +49,7 @@ public class PlanWorkflowService {
     private final PlanVerdictService verdictService;
     private final PlanVersionService versionService;
     private final EnvCheckRegistry envCheckRegistry;
+    private final EnvironmentCheckRunner environmentCheckRunner;
 
     public PlanWorkflowService(
             PersistentTaskPlanRepository planRepository,
@@ -61,7 +67,8 @@ public class PlanWorkflowService {
             ScenarioThreadGroupConfigSupport configSupport,
             PlanVerdictService verdictService,
             PlanVersionService versionService,
-            EnvCheckRegistry envCheckRegistry
+            EnvCheckRegistry envCheckRegistry,
+            EnvironmentCheckRunner environmentCheckRunner
     ) {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
@@ -79,6 +86,7 @@ public class PlanWorkflowService {
         this.verdictService = verdictService;
         this.versionService = versionService;
         this.envCheckRegistry = envCheckRegistry;
+        this.environmentCheckRunner = environmentCheckRunner;
     }
 
     @Transactional
@@ -185,20 +193,21 @@ public class PlanWorkflowService {
                 endedAt, threads, execution.getStatus(), throughput, p95, errorRate);
     }
 
-    /** 评估检测清单：注册表 LOCAL 项自动核验（人工项已迁移丢弃不再拦截，spec E2/§3.4；REMOTE 项 Task 8 接管）。 */
+    /** 评估检测清单：LOCAL 项自动核验（spec E2/§3.4）+ REMOTE 项环境检查编排（写回；spec §4/E8）。 */
     @Transactional
     public PrecheckReport runPrecheck(long planId, boolean writeBackChecklist) {
         PersistentTaskPlanRecord plan = requirePlan(planId);
         PrecheckSettings settings = getPrecheckSettings(planId);
+        List<EnvCheckItem> items = envCheckRegistry.resolve(PrecheckSettings.migrate(settings).items());
         List<String> failures = new java.util.ArrayList<>();
         List<String> autoPassed = new java.util.ArrayList<>();
         String body = plan.getBody() == null ? "" : plan.getBody();
         List<PersistentTaskScenarioRecord> scenarios = scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(planId);
         LocalCheckContext context = new LocalCheckContext(body,
                 scenarios.stream().map(s -> new LocalCheckContext.ScenarioRow(s.getName(), s.getScriptVersionId())).toList());
-        for (EnvCheckItem item : envCheckRegistry.resolve(PrecheckSettings.migrate(settings).items())) {
+        for (EnvCheckItem item : items) {
             if (!(item instanceof LocalCheckItem local)) {
-                continue; // REMOTE 项本任务不执行（矩阵 NA，Task 8 接管），不进 failures
+                continue; // REMOTE 项走环境检查编排（下方）
             }
             if (local.check(context).ok()) {
                 autoPassed.add(item.label());
@@ -206,8 +215,24 @@ public class PlanWorkflowService {
                 failures.add(item.label() + "（自动核验未通过）");
             }
         }
+        if (items.stream().anyMatch(item -> item.kind() == EnvCheckKind.REMOTE)) {
+            PersistentEnvCheckRunRecord run;
+            try {
+                run = environmentCheckRunner.run(planId, "system", true);
+            } catch (EnvCheckCredentialMissingException exception) {
+                throw new PlanPrecheckFailedException("PLAN_PRECHECK_FAILED：环境检查未运行——以下机器未配置 SSH 凭据："
+                        + String.join("、", exception.missingHosts()), exception.missingHosts());
+            }
+            for (EnvCheckRunService.ResultRow row : environmentCheckRunner.parseRows(run.getDetailJson())) {
+                if (!"WARNING".equals(row.state()) || row.host() == null) {
+                    continue; // LOCAL 行失败已计入 failures；NA/OK 不拦截
+                }
+                String label = envCheckRegistry.byKey(row.itemKey()).map(EnvCheckItem::label).orElse(row.itemKey());
+                failures.add(label + " @ " + row.host() + "（需处理）");
+            }
+        }
         if (writeBackChecklist && !autoPassed.isEmpty()) {
-            writeBackEntryChecklist(plan, body, autoPassed);
+            writeBackEntryChecklist(plan, plan.getBody(), autoPassed);
         }
         return new PrecheckReport(failures.isEmpty(), List.copyOf(failures), List.copyOf(autoPassed));
     }

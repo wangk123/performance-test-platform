@@ -17,6 +17,9 @@ public final class PlanMarkdownSupport {
 
     private static final String EXECUTION_RECORD_HEADING = "#### 执行记录";
 
+    private static final java.util.regex.Pattern ENV_CHECK_ANCHOR =
+            java.util.regex.Pattern.compile("<!--envcheck:(\\d+)-->");
+
     private PlanMarkdownSupport() {
     }
 
@@ -106,8 +109,23 @@ public final class PlanMarkdownSupport {
         return body.substring(0, insertAt) + marker + "\n" + entryLine + "\n" + body.substring(insertAt);
     }
 
-    public static List<String> parseExecutionRecords(String body, String scenarioName) {
-        int[] block = scenarioBlockBounds(body, scenarioName);
+    /**
+     * 「五、测试资源」章节末追加环境检查摘要行：行内含隐藏锚点 `<!--envcheck:{runId}-->`，
+     * 同 runId 幂等不重复追加；章节缺失、行空或行无锚点时 body 原样返回。
+     */
+    public static String appendEnvCheckRecord(String body, String line) {
+        if (body == null || line == null || line.isBlank()) {
+            return body;
+        }
+        var anchor = ENV_CHECK_ANCHOR.matcher(line);
+        String section = extractSection(body, "五、测试资源");
+        if (section == null || !anchor.find() || section.contains(anchor.group())) {
+            return body;
+        }
+        return replaceSection(body, "五、测试资源", section + line + "\n");
+    }
+
+    public static List<String> parseExecutionRecords(String body, String scenarioName) {        int[] block = scenarioBlockBounds(body, scenarioName);
         if (block == null) {
             return List.of();
         }
