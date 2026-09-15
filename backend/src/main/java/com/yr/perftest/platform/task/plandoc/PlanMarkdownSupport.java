@@ -1,10 +1,15 @@
 package com.yr.perftest.platform.task.plandoc;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 /** Markdown 原文的结构操作：章节定位/替换、场景块回填、清单解析。纯静态、无状态。 */
 public final class PlanMarkdownSupport {
+
+    /** 「测试方法」章节小节骨架（设计 §3）：标题行 + 方法说明自由区占位 + 证据指引行。 */
+    static final String METHOD_NOTE_PLACEHOLDER = "**方法说明**：（自由编辑，实体同步不触碰此处）";
+    static final String EVIDENCE_HINT_LINE = "> 执行记录与监控证据：见 Pretty 视图 / 报告";
 
     public static final List<String> CANONICAL_HEADINGS = List.of(
             "一、背景", "二、测试目的", "三、测试指标", "四、测试范围", "五、测试资源", "六、测试约束",
@@ -78,6 +83,9 @@ public final class PlanMarkdownSupport {
         String marker = "<!-- backfill:execution:" + executionId + " -->";
         int[] block = scenarioBlockBounds(body, scenarioName);
         if (block == null) {
+            if (scenarioDesignSectionBounds(body) == null && testMethodSectionBounds(body) != null) {
+                return body; // 「测试方法」章节文档：执行记录为引用式（设计 §2 D2），不写入 body
+            }
             String generated = "### S? " + scenarioName + " · UNKNOWN\n\n**场景目的**：（待补充）\n\n"
                     + EXECUTION_RECORD_HEADING + "\n";
             String withBlock = ensureSection(body, "八、场景设计", generated);
@@ -219,12 +227,154 @@ public final class PlanMarkdownSupport {
     }
 
     private static String appendExecutionlessBlock(String body, String generatedBlock) {
-        String section = extractSection(body, "八、场景设计");
+        int[] bounds = scenarioDesignSectionBounds(body);
         String block = generatedBlock + "\n" + EXECUTION_RECORD_HEADING + "\n";
-        if (section == null) {
+        if (bounds == null) {
+            if (testMethodSectionBounds(body) != null) {
+                return body; // 「测试方法」章节文档：场景小节由骨架同步维护，不落地场景设计块
+            }
             return ensureSection(body, "八、场景设计", "\n" + block);
         }
-        return replaceSection(body, "八、场景设计", section + block);
+        String normalized = block.endsWith("\n") ? block : block + "\n";
+        return body.substring(0, bounds[0]) + body.substring(bounds[0], bounds[1]) + normalized + body.substring(bounds[1]);
+    }
+
+    /**
+     * 「测试方法」章节骨架回写（设计 §3）：按入参顺序（= sortOrder）维护章节内 `### ` 场景小节。
+     * 已存在小节（标题行含场景名）仅以骨架标题行替换原标题，`**方法说明**：` 行至块尾的用户自由区逐字保留，
+     * 标题与自由区之间的内容不保留；缺失小节以骨架追加在章节导语之后；未匹配任何场景的既有 `### `
+     * 小节原样保留在已匹配小节之后。章节不存在 → body 原样返回。
+     */
+    public static String upsertTestMethodSkeletons(String body, LinkedHashMap<String, String> skeletonByScenarioName) {
+        int[] section = testMethodSectionBounds(body);
+        if (section == null) {
+            return body;
+        }
+        List<int[]> ranges = new ArrayList<>();
+        List<String> texts = new ArrayList<>();
+        int lineStart = 0;
+        int blockStart = -1;
+        for (String line : body.substring(section[0], section[1]).split("\n", -1)) {
+            if (line.startsWith("### ")) {
+                if (blockStart >= 0) {
+                    ranges.add(new int[]{blockStart, section[0] + lineStart});
+                    texts.add(body.substring(blockStart, section[0] + lineStart));
+                }
+                blockStart = section[0] + lineStart;
+            }
+            lineStart += line.length() + 1;
+        }
+        if (blockStart >= 0) {
+            ranges.add(new int[]{blockStart, section[1]});
+            texts.add(body.substring(blockStart, section[1]));
+        }
+        StringBuilder out = new StringBuilder(body.substring(0, ranges.isEmpty() ? section[1] : ranges.get(0)[0])); // 导语
+        boolean[] consumed = new boolean[ranges.size()];
+        for (var entry : skeletonByScenarioName.entrySet()) {
+            int matched = -1;
+            for (int i = 0; i < ranges.size() && matched < 0; i++) {
+                if (!consumed[i] && firstLine(texts.get(i)).contains(entry.getKey())) {
+                    matched = i;
+                }
+            }
+            if (matched < 0) {
+                out.append(entry.getValue());
+            } else {
+                consumed[matched] = true;
+                out.append(firstLine(entry.getValue())).append('\n').append(methodNoteRegion(texts.get(matched)));
+            }
+        }
+        for (int i = 0; i < ranges.size(); i++) {
+            if (!consumed[i]) {
+                out.append(texts.get(i)); // 与实体无关的手写小节原样保留
+            }
+        }
+        return out.append(body.substring(section[1])).toString();
+    }
+
+    /** 移除「测试方法」章节内标题行含场景名的 `### ` 小节；章节或小节缺失 → body 原样返回。 */
+    public static String removeTestMethodSkeleton(String body, String scenarioName) {
+        int[] section = testMethodSectionBounds(body);
+        if (section == null) {
+            return body;
+        }
+        int lineStart = 0;
+        int blockStart = -1;
+        for (String line : body.substring(section[0], section[1]).split("\n", -1)) {
+            if (line.startsWith("### ")) {
+                if (blockStart >= 0) {
+                    return body.substring(0, blockStart) + body.substring(section[0] + lineStart);
+                }
+                if (line.contains(scenarioName)) {
+                    blockStart = section[0] + lineStart;
+                }
+            }
+            lineStart += line.length() + 1;
+        }
+        return blockStart < 0 ? body : body.substring(0, blockStart) + body.substring(section[1]);
+    }
+
+    /**
+     * 「测试方法」章节定位：`## ` 标题行以「测试方法」结尾（如「## 八、测试方法」，自定义模板序号不限）。
+     * 返回 [contentStart, contentEnd)，章节缺失返回 null。不依赖规范标题表——「测试方法」不在
+     * CANONICAL_HEADINGS 中，序号前缀容错会把「## 八、测试方法」误吞为「八、场景设计」。
+     */
+    public static int[] testMethodSectionBounds(String body) {
+        if (body == null) {
+            return null;
+        }
+        String[] lines = body.split("\n", -1);
+        int lineStart = 0;
+        int contentStart = -1;
+        for (String line : lines) {
+            if (contentStart < 0) {
+                if (line.startsWith("## ") && line.substring(3).trim().endsWith("测试方法")) {
+                    contentStart = lineStart + line.length() + 1;
+                }
+            } else if (line.startsWith("## ")) {
+                return new int[]{contentStart, lineStart};
+            }
+            lineStart += line.length() + 1;
+        }
+        return contentStart < 0 ? null : new int[]{contentStart, body.length()};
+    }
+
+    /** 小节内从 `**方法说明**：` 行到块尾的自由区；无该标记行时返回标准占位自由区。 */
+    private static String methodNoteRegion(String blockText) {
+        int lineStart = 0;
+        for (String line : blockText.split("\n", -1)) {
+            if (line.startsWith("**方法说明**")) {
+                return blockText.substring(lineStart);
+            }
+            lineStart += line.length() + 1;
+        }
+        return METHOD_NOTE_PLACEHOLDER + "\n" + EVIDENCE_HINT_LINE + "\n";
+    }
+
+    /** 场景设计章节定位：命中「八、场景设计」且原始标题非「测试方法」结尾（排除序号容错误吞）。 */
+    private static int[] scenarioDesignSectionBounds(String body) {
+        if (body == null) {
+            return null;
+        }
+        String[] lines = body.split("\n", -1);
+        int lineStart = 0;
+        int contentStart = -1;
+        for (String line : lines) {
+            if (contentStart < 0) {
+                if (isScenarioDesignHeading(line)) {
+                    contentStart = lineStart + line.length() + 1;
+                }
+            } else if (line.startsWith("## ")) {
+                return new int[]{contentStart, lineStart};
+            }
+            lineStart += line.length() + 1;
+        }
+        return contentStart < 0 ? null : new int[]{contentStart, body.length()};
+    }
+
+    private static boolean isScenarioDesignHeading(String line) {
+        String title = canonicalTitleOf(line);
+        return title != null && title.equals("八、场景设计") && !line.substring(3).trim().endsWith("测试方法");
     }
 
     /** 返回 [contentStart, contentEnd)：标题行之后到下一 `## ` 标题行之前。 */
@@ -248,9 +398,9 @@ public final class PlanMarkdownSupport {
         return contentStart < 0 ? null : new int[]{contentStart, body.length()};
     }
 
-    /** 场景块 = 七章节内以 `### ` 开头且包含场景名的行，到下一 `### `/`## ` 或文末。 */
+    /** 场景块 = 场景设计章节内以 `### ` 开头且包含场景名的行，到下一 `### `/`## ` 或文末。 */
     private static int[] scenarioBlockBounds(String body, String scenarioName) {
-        int[] section = sectionBounds(body, "八、场景设计");
+        int[] section = scenarioDesignSectionBounds(body);
         if (section == null) {
             return null;
         }

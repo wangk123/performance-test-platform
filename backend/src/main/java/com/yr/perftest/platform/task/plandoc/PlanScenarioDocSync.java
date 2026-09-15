@@ -9,9 +9,10 @@ import com.yr.perftest.platform.task.ScenarioThreadGroupConfigSupport;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 
-/** 场景实体 → 文档七章节回写：只动"事实"（标题/目的/设置表），保留自由文本与执行记录。 */
+/** 场景实体 → 文档回写：场景设计章节只动"事实"（标题/目的/设置表）；「测试方法」章节维护小节骨架；自由文本保留。 */
 @Service
 public class PlanScenarioDocSync {
     private final PersistentTaskPlanRepository planRepository;
@@ -48,9 +49,41 @@ public class PlanScenarioDocSync {
             return;
         }
         String body = PlanMarkdownSupport.removeScenarioBlock(base, scenarioName);
+        body = PlanMarkdownSupport.removeTestMethodSkeleton(body, scenarioName);
         if (!body.equals(base)) {
             plan.updateBody(body);
         }
+    }
+
+    /**
+     * 「测试方法」章节骨架同步（设计 §3）：文档存在 `## ` 标题以「测试方法」结尾的章节时，按
+     * sortOrder 维护 `### S{n} 名称 · 类型` 场景小节；小节内 `**方法说明**：` 行至块尾的用户自由区
+     * 逐字保留，章节导语与其余章节不动。章节缺失 → body 原样返回 false（含「八、场景设计」章节的
+     * 存量文档不受影响，仍走 syncPlanScenarios）。
+     *
+     * @return 文档是否含「测试方法」章节（true = 已按场景列表同步）
+     */
+    public boolean syncTestMethodSection(PersistentTaskPlanRecord plan, List<PersistentTaskScenarioRecord> scenarios) {
+        String base = plan.getBody() == null ? "" : plan.getBody();
+        if (PlanMarkdownSupport.testMethodSectionBounds(base) == null) {
+            return false;
+        }
+        LinkedHashMap<String, String> skeletons = new LinkedHashMap<>();
+        for (PersistentTaskScenarioRecord scenario : scenarios) {
+            skeletons.put(scenario.getName(), testMethodSkeletonOf(scenario));
+        }
+        String body = PlanMarkdownSupport.upsertTestMethodSkeletons(base, skeletons);
+        if (!body.equals(base)) {
+            plan.updateBody(body);
+        }
+        return true;
+    }
+
+    private String testMethodSkeletonOf(PersistentTaskScenarioRecord scenario) {
+        String type = scenario.getTestType() == null ? "UNSPECIFIED" : scenario.getTestType().name();
+        return "### S" + (scenario.getSortOrder() + 1) + " " + scenario.getName() + " · " + type + "\n"
+                + PlanMarkdownSupport.METHOD_NOTE_PLACEHOLDER + "\n"
+                + PlanMarkdownSupport.EVIDENCE_HINT_LINE + "\n";
     }
 
     private String generatedBlockOf(PersistentTaskScenarioRecord scenario, List<ScenarioThreadGroupConfig> configs) {

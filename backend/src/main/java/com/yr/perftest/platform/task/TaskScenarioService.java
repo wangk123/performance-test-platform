@@ -88,6 +88,7 @@ public class TaskScenarioService {
         );
         scenario.updateBusinessFields(purpose, testType);
         docSync.syncPlanScenarios(planId);
+        docSync.syncTestMethodSection(plan, scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(planId));
         return toScenario(scenario);
     }
 
@@ -142,6 +143,7 @@ public class TaskScenarioService {
             docSync.onScenarioDeleted(scenario.getPlanId(), oldName);
         }
         docSync.syncPlanScenarios(scenario.getPlanId());
+        docSync.syncTestMethodSection(plan, scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(scenario.getPlanId()));
         return toScenario(scenario);
     }
 
@@ -175,6 +177,7 @@ public class TaskScenarioService {
         executionRepository.deleteAllByScenarioId(scenario.getId());
         scenarioRepository.delete(scenario);
         docSync.onScenarioDeleted(planId, scenarioName);
+        docSync.syncTestMethodSection(plan, scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(planId));
     }
 
     /** 评审通过后才允许关联脚本（spec §4.1 迁移 2）：EXECUTING/REPORTING/PUBLISHED 放行。 */
