@@ -4,12 +4,14 @@
       <a-form-item :label="isEditing ? '场景名称' : '场景名称前缀'">
         <a-input v-model:value="form.name" :placeholder="isEditing ? '' : '留空则使用脚本名称'" />
       </a-form-item>
-      <a-form-item label="测试类型" name="testType">
-        <a-select v-model:value="form.testType" allow-clear placeholder="选择测试类型">
-          <a-option value="BENCHMARK">基准</a-option>
-          <a-option value="SINGLE_TXN">单交易并发</a-option>
-          <a-option value="COMPOSITE">组合交易</a-option>
-          <a-option value="STABILITY">稳定性</a-option>
+      <a-form-item label="测试类型" name="testType" extra="用于测试方法章节分组与报告口径，创建后可修改">
+        <a-select v-model:value="form.testType" placeholder="选择测试类型">
+          <a-option v-for="t in TEST_TYPES" :key="t.value" :value="t.value">
+            <div class="type-option">
+              <span class="type-option-label">{{ t.label }}</span>
+              <span class="type-option-desc">{{ t.desc }}</span>
+            </div>
+          </a-option>
         </a-select>
       </a-form-item>
       <a-form-item label="场景目的" name="purpose">
@@ -140,6 +142,13 @@ const visible = computed({
 const isEditing = computed(() => props.editingScenario != null);
 const saving = ref(false);
 
+const TEST_TYPES = [
+  { value: 'BENCHMARK', label: '基准测试', desc: '低压力阶梯施压，采集基线响应时间与资源占用，验证环境与脚本就绪' },
+  { value: 'SINGLE_TXN', label: '单交易并发', desc: '单接口阶梯加压与并发冲击，定位容量拐点与瓶颈层' },
+  { value: 'COMPOSITE', label: '混合交易', desc: '按生产流量配比多链路并行施压，验证资源隔离与互不劣化' },
+  { value: 'STABILITY', label: '稳定性', desc: '目标容量水位长时间稳态运行，观察内存、连接与慢查询累积效应' },
+] as const;
+
 const form = reactive({
   id: undefined as number | undefined,
   name: '',
@@ -201,7 +210,7 @@ watch(() => [props.modelValue, props.editingScenario, props.plan] as const, asyn
     form.id = undefined;
     form.name = '';
     form.purpose = '';
-    form.testType = null;
+    form.testType = 'BENCHMARK';
     form.selectedScriptIds = [];
     form.overridePlanDefaults = false;
     form.controllerNodeId = props.plan.defaultControllerNodeId;
@@ -263,3 +272,19 @@ async function onSave() {
   }
 }
 </script>
+
+<style scoped>
+.type-option {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.5;
+  padding: 2px 0;
+}
+.type-option-label {
+  font-weight: 600;
+}
+.type-option-desc {
+  font-size: 11.5px;
+  opacity: 0.65;
+}
+</style>

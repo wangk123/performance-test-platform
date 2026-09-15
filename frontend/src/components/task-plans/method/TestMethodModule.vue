@@ -35,22 +35,33 @@
           </div>
         </header>
 
-        <!-- 方法说明本迭代只读展示，「编辑」切 Markdown 视图；行内编辑（PlanSectionInlineEditor 模式）留后续迭代（spec §3 降级裁定）。 -->
-        <div v-if="item.methodText" class="sc-method">
+        <div v-if="item.methodText || (item.data && canEdit)" class="sc-method">
           <div class="sc-method-head">
             <span class="sc-label">方法说明</span>
             <a-button
-              v-if="item.data && canEdit"
+              v-if="item.data && canEdit && editingKey !== item.key"
               size="small"
               type="text"
               class="sc-method-edit"
-              title="跳转 Markdown 视图编辑"
-              @click="emit('request-markdown')"
+              @click="startEdit(item)"
             >编辑</a-button>
           </div>
+          <template v-if="editingKey === item.key">
+            <a-textarea
+              v-model:value="editingText"
+              class="sc-method-editor"
+              :rows="8"
+              placeholder="Markdown 自由编辑：目标 / 入口 / 模型 / 数据 / 通过判据…"
+            />
+            <div class="sc-method-editor-actions">
+              <a-button size="small" @click="cancelEdit">取消</a-button>
+              <a-button size="small" type="primary" :loading="methodSaving" @click="saveMethod(item)">保存</a-button>
+            </div>
+          </template>
           <MdPreview
+            v-else
             class="method-desc plan-md"
-            :model-value="item.methodText"
+            :model-value="item.methodText || '（未填写，点「编辑」补充）'"
             :theme="mdTheme"
             language="zh-CN"
           />
@@ -107,7 +118,6 @@ const emit = defineEmits<{
   (e: 'changed'): void;
   (e: 'request-add'): void;
   (e: 'request-edit', scenario: TaskScenario): void;
-  (e: 'request-markdown'): void;
 }>();
 
 const { themeMode } = useTheme();
@@ -216,6 +226,68 @@ function presetOf(scenarioId: number) {
 }
 
 /* ---------- 关联脚本：小节头内联下拉，change 即绑定（数据源同 BindScriptDialog） ---------- */
+
+/* ---------- 方法说明就地编辑：textarea 改小节自由区，保存走整篇文档链路（含 409 冲突处理） ---------- */
+
+const editingKey = ref<string | null>(null);
+const editingText = ref('');
+const methodSaving = ref(false);
+
+function startEdit(item: MethodSectionView) {
+  editingKey.value = item.key;
+  editingText.value = item.methodText ?? '';
+}
+
+function cancelEdit() {
+  editingKey.value = null;
+  editingText.value = '';
+}
+
+async function saveMethod(item: MethodSectionView) {
+  const body = props.docPlan.plan.value?.body;
+  if (!body) return;
+  const next = replaceMethodText(body, item.name, editingText.value.trim());
+  if (next === null) {
+    message.error('未能在文档中定位该小节的方法说明区');
+    return;
+  }
+  methodSaving.value = true;
+  try {
+    const result = await props.docPlan.saveDocument(next);
+    if (result === 'ok') {
+      cancelEdit();
+    } else if (result === 'conflict') {
+      message.warning('文档已被他人修改，已加载最新内容，请重新编辑');
+      cancelEdit();
+    }
+  } finally {
+    methodSaving.value = false;
+  }
+}
+
+/** 在 `### S{n} {name} · TYPE` 小节内替换方法说明自由区（保留标题与「> 执行记录」指引行）。 */
+function replaceMethodText(body: string, scenarioName: string, text: string): string | null {
+  const headRe = new RegExp(`^### S\\d+ ${escapeRegExp(scenarioName)} ·.*$`, 'm');
+  const head = body.match(headRe);
+  if (head === null) return null;
+  const blockStart = head.index!;
+  const rest = body.slice(blockStart + 1);
+  const nextSep = rest.search(/^### |^## /m);
+  const blockEnd = nextSep === -1 ? body.length : blockStart + 1 + nextSep;
+  const block = body.slice(blockStart, blockEnd);
+  const marker = '**方法说明**：';
+  const markerIdx = block.indexOf(marker);
+  if (markerIdx === -1) return null;
+  const tailStart = markerIdx + marker.length;
+  const guideIdx = block.indexOf('\n> ', tailStart);
+  const tailEnd = guideIdx === -1 ? block.length : guideIdx;
+  const newBlock = block.slice(0, tailStart) + (text ? `\n${text}\n` : '\n') + (guideIdx === -1 ? '' : block.slice(guideIdx));
+  return body.slice(0, blockStart) + newBlock + body.slice(blockEnd);
+}
+
+function escapeRegExp(text: string) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 const scriptOptions = computed(() =>
   currentProjectScripts.value.map((script) => ({
@@ -387,5 +459,12 @@ async function onScriptChange(scenario: MethodScenarioData, scriptVersionId: num
 .method-desc :deep(.md-editor-preview) {
   font-size: 12.5px;
   color: var(--ink);
+}
+
+.sc-method-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
 }
 </style>
