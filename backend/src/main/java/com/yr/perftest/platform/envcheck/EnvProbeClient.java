@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-/** env-probe 子命令调用方：testConnection 走 ping 探测；probe 由 Task 6 实装。 */
+/** env-probe 子命令调用方：testConnection 走 ping 探测；probeTarget 一次连接批量探测；probePlatform 本机直跑。 */
 @Component
 public class EnvProbeClient {
     private final ObjectMapper objectMapper;
@@ -35,40 +35,116 @@ public class EnvProbeClient {
         this(new ObjectMapper(), "remote-runner/remote_jmeter_runner/main.py", new EnvCheckProperties());
     }
 
+    /** 便捷构造器：单测注入自定义配置（缺省 runner 路径 + 缺省 ObjectMapper）。 */
+    public EnvProbeClient(EnvCheckProperties properties) {
+        this(new ObjectMapper(), "remote-runner/remote_jmeter_runner/main.py", properties);
+    }
+
     public EnvCheckCredentialService.ConnectionTest testConnection(EnvCheckCredentialService.ResolvedCredential credential) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("host", credential.host());
-        payload.put("sshPort", credential.sshPort());
-        payload.put("sshUsername", credential.username());
+        Map<String, Object> payload = basePayload(credential);
+        payload.put("probe", "echo ok");
         Path keyFile = null;
         try {
-            if (credential.password() != null && !credential.password().isBlank()) {
-                payload.put("sshPassword", credential.password());
-            } else if (credential.keyMaterial() != null && !credential.keyMaterial().isBlank()) {
-                keyFile = writeTempKey(credential.keyMaterial());
-                payload.put("sshKeyPath", keyFile.toString());
-            }
-            payload.put("probe", "echo ok");
+            keyFile = applyAuth(payload, credential);
             return runEnvProbe(payload);
         } catch (Exception exception) {
             return new EnvCheckCredentialService.ConnectionTest(false, messageOf(exception));
         } finally {
-            if (keyFile != null) {
-                try {
-                    Files.deleteIfExists(keyFile);
-                } catch (Exception ignored) {
-                    // 临时密钥文件清理失败可忽略
-                }
-            }
+            deleteQuietly(keyFile);
         }
     }
 
-    /** Task 6 实装：多探测脚本一次连接执行。 */
-    public List<ProbeOutput> probe(EnvCheckCredentialService.ResolvedCredential credential, List<ProbeSpec> probes) {
-        throw new IllegalStateException("env-probe 尚未实装（Task 6）");
+    /** TARGET 通道：多探测脚本一次 env-probe 连接执行；python 失败（ok=false）抛 IllegalStateException，由编排层转 WARNING。 */
+    public List<ProbeOutcome> probeTarget(EnvCheckCredentialService.ResolvedCredential credential, List<ProbeCommand> commands) {
+        Map<String, Object> payload = basePayload(credential);
+        payload.put("probes", commands.stream()
+                .map(command -> Map.of("id", command.id(), "script", command.script()))
+                .toList());
+        Path keyFile = null;
+        try {
+            keyFile = applyAuth(payload, credential);
+            return probeOutcomes(payload);
+        } catch (IllegalStateException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new IllegalStateException(messageOf(exception), exception);
+        } finally {
+            deleteQuietly(keyFile);
+        }
+    }
+
+    /** PLATFORM 通道：平台本机直跑完整命令（探测项自带命令字符串），只加超时与收输出。 */
+    public ProbeOutcome probePlatform(String host, int port, String command) {
+        Path outputPath = null;
+        try {
+            outputPath = Files.createTempFile("env-probe-platform-", ".log");
+            Process process = new ProcessBuilder(command.split("\\s+"))
+                    .redirectErrorStream(true)
+                    .redirectOutput(outputPath.toFile())
+                    .start();
+            boolean finished = process.waitFor(properties.getProbeTimeoutSeconds(), TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                throw new IllegalStateException("platform probe 超时（" + properties.getProbeTimeoutSeconds() + "s）");
+            }
+            return new ProbeOutcome("platform", process.exitValue(),
+                    Files.readString(outputPath, StandardCharsets.UTF_8));
+        } catch (IllegalStateException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new IllegalStateException(messageOf(exception), exception);
+        } finally {
+            deleteQuietly(outputPath);
+        }
+    }
+
+    private Map<String, Object> basePayload(EnvCheckCredentialService.ResolvedCredential credential) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("host", credential.host());
+        payload.put("sshPort", credential.sshPort());
+        payload.put("sshUsername", credential.username());
+        return payload;
+    }
+
+    /** 密码 / 密钥二选一写入 payload；密钥内容落临时 pem（0600）传路径，返回待清理文件。 */
+    private Path applyAuth(Map<String, Object> payload, EnvCheckCredentialService.ResolvedCredential credential) throws Exception {
+        if (credential.password() != null && !credential.password().isBlank()) {
+            payload.put("sshPassword", credential.password());
+        } else if (credential.keyMaterial() != null && !credential.keyMaterial().isBlank()) {
+            Path keyFile = writeTempKey(credential.keyMaterial());
+            payload.put("sshKeyPath", keyFile.toString());
+            return keyFile;
+        }
+        return null;
+    }
+
+    private List<ProbeOutcome> probeOutcomes(Map<String, Object> payload) throws Exception {
+        EnvProbeRun run = executeEnvProbe(payload, "env probe 超时");
+        if (!run.ok()) {
+            throw new IllegalStateException(run.message().isBlank() ? firstLine(run.raw()) : run.message());
+        }
+        List<ProbeOutcome> outcomes = new ArrayList<>();
+        for (var item : objectMapper.readTree(run.raw()).path("results")) {
+            outcomes.add(new ProbeOutcome(
+                    item.path("id").asText(""),
+                    item.path("code").asInt(-1),
+                    item.path("output").asText("")));
+        }
+        return outcomes;
     }
 
     private EnvCheckCredentialService.ConnectionTest runEnvProbe(Map<String, Object> payload) {
+        EnvProbeRun run = executeEnvProbe(payload, "连接测试超时");
+        if (run.ok()) {
+            return new EnvCheckCredentialService.ConnectionTest(true,
+                    run.message().isBlank() ? "connected" : run.message());
+        }
+        return new EnvCheckCredentialService.ConnectionTest(false,
+                run.message().isBlank() ? firstLine(run.raw()) : run.message());
+    }
+
+    /** env-probe 进程骨架：临时文件收 stdout + waitFor 超时 destroy；返回解析后的 ok/message/原文。 */
+    private EnvProbeRun executeEnvProbe(Map<String, Object> payload, String timeoutMessage) {
         try {
             List<String> args = new ArrayList<>();
             args.addAll(pythonCommand());
@@ -84,29 +160,40 @@ public class EnvProbeClient {
                 boolean finished = process.waitFor(properties.getProbeTimeoutSeconds(), TimeUnit.SECONDS);
                 if (!finished) {
                     process.destroyForcibly();
-                    return new EnvCheckCredentialService.ConnectionTest(false, "连接测试超时");
+                    return new EnvProbeRun(false, timeoutMessage, "");
                 }
                 String output = Files.readString(outputPath, StandardCharsets.UTF_8);
                 if (output.isBlank()) {
-                    return new EnvCheckCredentialService.ConnectionTest(false, "env probe 无输出（退出码 " + process.exitValue() + "）");
+                    return new EnvProbeRun(false, "env probe 无输出（退出码 " + process.exitValue() + "）", output);
                 }
                 try {
                     var node = objectMapper.readTree(output);
                     boolean ok = process.exitValue() == 0 && node.path("ok").asBoolean(false);
-                    String message = node.path("message").asText("");
-                    if (ok) {
-                        return new EnvCheckCredentialService.ConnectionTest(true, message.isBlank() ? "connected" : message);
-                    }
-                    return new EnvCheckCredentialService.ConnectionTest(false, message.isBlank() ? firstLine(output) : message);
+                    return new EnvProbeRun(ok, node.path("message").asText(""), output);
                 } catch (Exception parseException) {
-                    return new EnvCheckCredentialService.ConnectionTest(false, firstLine(output));
+                    return new EnvProbeRun(false, firstLine(output), output);
                 }
             } finally {
                 Files.deleteIfExists(outputPath);
             }
         } catch (Exception exception) {
-            return new EnvCheckCredentialService.ConnectionTest(false, messageOf(exception));
+            return new EnvProbeRun(false, messageOf(exception), "");
         }
+    }
+
+    private void deleteQuietly(Path file) {
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(file);
+        } catch (Exception ignored) {
+            // 临时文件清理失败可忽略
+        }
+    }
+
+    /** env-probe 单次执行结果：ok 综合退出码与 payload、message 来自 payload、raw 为原始 stdout。 */
+    private record EnvProbeRun(boolean ok, String message, String raw) {
     }
 
     private Path writeTempKey(String keyMaterial) throws Exception {
