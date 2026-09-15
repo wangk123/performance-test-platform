@@ -1,5 +1,5 @@
 import type { PlanComment } from '../types';
-import { CANONICAL_HEADINGS, normalizeForMatch, splitSections } from './plan-markdown';
+import { CANONICAL_HEADINGS, METHOD_SECTION_TITLE, normalizeForMatch, splitSections } from './plan-markdown';
 
 // 归一化口径定义在 plan-markdown（与历史测试的导入路径保持兼容）
 export { normalizeForMatch };
@@ -84,7 +84,9 @@ export function deriveAnchors(body: string | null | undefined, roots: PlanCommen
   const result = new Map<number, AnchorResolution>();
   for (const comment of roots) {
     if (comment.anchorLine == null || comment.anchorText == null || comment.sectionTitle == null) continue;
-    const fallbackSection = CANONICAL_HEADINGS.includes(comment.sectionTitle)
+    // 断链批注按原章回落：测试方法章（规范表外）不并入回首章「一、背景」
+    const knownSections = [...CANONICAL_HEADINGS, METHOD_SECTION_TITLE];
+    const fallbackSection = knownSections.includes(comment.sectionTitle)
       ? comment.sectionTitle
       : CANONICAL_HEADINGS[0];
     const best = findBestLine(body, comment.anchorText);
