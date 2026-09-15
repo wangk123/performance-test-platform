@@ -55,6 +55,9 @@ public class PersistentScenarioExecutionRecord {
 
     private Integer exitCode;
 
+    @Column(name = "method_hidden", nullable = false)
+    private boolean methodHidden = false;
+
     protected PersistentScenarioExecutionRecord() {
     }
 
@@ -115,6 +118,14 @@ public class PersistentScenarioExecutionRecord {
 
     public void setExecutionName(String executionName) {
         this.executionName = executionName;
+    }
+
+    public boolean isMethodHidden() {
+        return methodHidden;
+    }
+
+    public void setMethodHidden(boolean methodHidden) {
+        this.methodHidden = methodHidden;
     }
 
     public Integer getExitCode() {
