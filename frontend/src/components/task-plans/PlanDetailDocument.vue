@@ -357,6 +357,11 @@ const panelGroups = computed<PlanCommentPanelGroup[]>(() => {
   for (const heading of CANONICAL_HEADINGS) {
     const threads = bySection.get(heading);
     if (threads?.length) groups.push({ key: heading, title: heading, tone: 'normal', threads });
+    bySection.delete(heading);
+  }
+  // 规范表外章节（如「测试方法」）的剩余分组：按原 sectionTitle 输出，避免面板静默丢批注
+  for (const [sectionTitle, threads] of bySection) {
+    groups.push({ key: sectionTitle, title: sectionTitle, tone: 'normal', threads });
   }
   if (resolvedThreads.length) {
     groups.push({ key: 'resolved', title: `已解决 ${resolvedThreads.length}`, tone: 'grey', threads: resolvedThreads });
