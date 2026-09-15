@@ -84,6 +84,9 @@
       <a-tab-pane key="review" tab="评审">
         <div class="plan-tab-scroll"><PlanDetailReview :doc="doc" @locate="locateComment" /></div>
       </a-tab-pane>
+      <a-tab-pane key="envcheck" tab="环境检查">
+        <EnvCheckTab :plan="doc.plan.value ?? plan" :doc-plan="doc" />
+      </a-tab-pane>
       <a-tab-pane key="versions" tab="版本">
         <div class="plan-tab-scroll"><PlanDetailVersions :doc="doc" :refresh-tick="versionRefreshTick" @request-publish="publishOpen = true" /></div>
       </a-tab-pane>
@@ -145,6 +148,7 @@ import TaskPlanDialog from './TaskPlanDialog.vue';
 import ScenarioDialog from './ScenarioDialog.vue';
 import PlanDetailVersions from './PlanDetailVersions.vue';
 import PublishVersionModal from './PublishVersionModal.vue';
+import EnvCheckTab from '../env-check/EnvCheckTab.vue';
 
 const props = defineProps<{ plan: TaskPlan; scenarios: TaskScenario[] }>();
 defineEmits<{ (e: 'back'): void }>();

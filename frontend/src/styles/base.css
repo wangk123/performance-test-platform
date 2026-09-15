@@ -13,6 +13,8 @@
   --accent-ink: #ffffff;
   --ok: #2f9b6a;
   --warn: #c9850a;
+  --orange: #c25e0e;
+  --orange-soft: #fbeee2;
   --danger: #d14343;
   --warning-soft: #fff6e5;
   --warning-border: #efd2a0;
@@ -75,6 +77,8 @@
   --accent-ink: #0e141a;
   --ok: #3db87e;
   --warn: #d9a13a;
+  --orange: #e8863c;
+  --orange-soft: rgba(194, 94, 14, 0.18);
   --danger: #e05b5b;
   --warning-soft: rgba(217, 161, 58, 0.14);
   --warning-border: rgba(217, 161, 58, 0.35);

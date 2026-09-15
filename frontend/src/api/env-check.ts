@@ -1,6 +1,7 @@
 import type {
   EnvCheckCredential,
   EnvCheckCredentialInput,
+  EnvCheckFixRecord,
   EnvCheckItemMeta,
   EnvCheckRunDetail,
   EnvCheckRunSummary,
@@ -47,6 +48,11 @@ export function fetchEnvCheckRunsApi(planId: number) {
 /** 运行详情（RunDetail）：run 含 detailJson 原文（解析得 targets/results），rows 为结果矩阵。 */
 export function fetchEnvCheckRunDetailApi(runId: number) {
   return request<EnvCheckRunDetail>(`/api/env-check/runs/${runId}`, { method: 'GET' });
+}
+
+/** 本 run 的修复记录（含 diff），按 id 倒序。 */
+export function fetchEnvCheckFixesApi(runId: number) {
+  return request<EnvCheckFixRecord[]>(`/api/env-check/runs/${runId}/fixes`, { method: 'GET' });
 }
 
 /** 批量修复（spec §4.5）：返回 fixed/skipped/failed 分流，元素格式 itemKey@host。 */

@@ -58,9 +58,10 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: '请求失败' }));
       const message = error.message ?? error.code ?? `请求失败 (${response.status})`;
-      const err = new Error(message) as Error & { status?: number; code?: string };
+      const err = new Error(message) as Error & { status?: number; code?: string; body?: Record<string, unknown> };
       err.status = response.status;
       err.code = error.code;
+      err.body = error; // 完整错误体（如 ENV_CREDENTIALS_MISSING 的 missingHosts）供调用方按需读取
       throw err;
     }
     if (response.status === 204) {
