@@ -65,6 +65,15 @@
           :can-execute="canExecute"
           @refresh="load"
         />
+
+        <!-- 监控证据区：按场景归档 TPS/RT/CPU/内存趋势 + 补充截图 -->
+        <MethodEvidence
+          v-if="item.data"
+          :plan-id="plan.id"
+          :scenario="item.data"
+          :can-edit="canEdit"
+          @refresh="load"
+        />
       </article>
     </template>
 
@@ -74,8 +83,6 @@
         <a-button type="primary" size="small" @click="emit('request-add')">+ 新增场景</a-button>
       </div>
     </div>
-
-    <!-- 监控证据区（MethodEvidence，按场景归档 TPS/RT/CPU/内存趋势 + 补充截图）为下一任务组件，此处预留挂载点 -->
   </div>
 </template>
 
@@ -93,6 +100,7 @@ import { useWorkspace } from '../../../composables/useWorkspace';
 import { parseMethodSections } from '../../../utils/plan-markdown';
 import { bindScenarioScriptApi } from '../../../api/plan-doc';
 import MethodExecTable from './MethodExecTable.vue';
+import MethodEvidence from './MethodEvidence.vue';
 
 const props = defineProps<{ docPlan: ReturnType<typeof usePlanDoc>; plan: TaskPlan; scenarios: TaskScenario[] }>();
 const emit = defineEmits<{
