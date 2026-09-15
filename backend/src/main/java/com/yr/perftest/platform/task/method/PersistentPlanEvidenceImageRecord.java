@@ -82,6 +82,14 @@ public class PersistentPlanEvidenceImageRecord {
         this.executionId = executionId;
     }
 
+    public void setCaption(String caption) {
+        this.caption = caption;
+    }
+
+    public void setSortOrder(int sortOrder) {
+        this.sortOrder = sortOrder;
+    }
+
     public String getCaption() {
         return caption;
     }

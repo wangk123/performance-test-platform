@@ -13,6 +13,7 @@ import com.yr.perftest.platform.task.TestType;
 import com.yr.perftest.platform.task.ThreadGroupOverrides;
 import com.yr.perftest.platform.task.method.MethodSectionResponse;
 import com.yr.perftest.platform.task.method.MethodSectionService;
+import com.yr.perftest.platform.task.method.PlanEvidenceImageService;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.TaskMetricSeries;
@@ -31,6 +32,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,6 +44,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -58,6 +62,7 @@ public class TaskPlanController {
     private final TargetMetricsService targetMetricsService;
     private final PlanWorkflowService planWorkflowService;
     private final MethodSectionService methodSectionService;
+    private final PlanEvidenceImageService evidenceImageService;
 
     public TaskPlanController(
             TaskPlanService planService,
@@ -68,7 +73,8 @@ public class TaskPlanController {
             ExecutionMonitorBindingService monitorBindingService,
             TargetMetricsService targetMetricsService,
             PlanWorkflowService planWorkflowService,
-            MethodSectionService methodSectionService
+            MethodSectionService methodSectionService,
+            PlanEvidenceImageService evidenceImageService
     ) {
         this.planService = planService;
         this.scenarioService = scenarioService;
@@ -79,6 +85,7 @@ public class TaskPlanController {
         this.targetMetricsService = targetMetricsService;
         this.planWorkflowService = planWorkflowService;
         this.methodSectionService = methodSectionService;
+        this.evidenceImageService = evidenceImageService;
     }
 
     @PostMapping("/projects/{projectId}/task-plans")
@@ -135,6 +142,49 @@ public class TaskPlanController {
     private HumanPrincipal currentActor() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return authentication != null && authentication.getPrincipal() instanceof HumanPrincipal human ? human : null;
+    }
+
+    /** 补充截图上传：multipart file 必填，caption/executionId 可选，落盘 storageRoot/images/plans/{planId}。 */
+    @PostMapping("/task-plans/{planId}/scenarios/{scenarioId}/evidence-images")
+    @ResponseStatus(HttpStatus.CREATED)
+    public MethodSectionResponse.EvidenceImage uploadEvidenceImage(
+            @PathVariable long planId,
+            @PathVariable long scenarioId,
+            @RequestParam(required = false) Long executionId,
+            @RequestParam(required = false) String caption,
+            @RequestParam("file") MultipartFile file
+    ) {
+        return evidenceImageService.store(planId, scenarioId, executionId, caption, file, currentActor());
+    }
+
+    /** 图注/排序修改：均可选，只更新给到的字段。 */
+    @PutMapping("/images/{imageId}")
+    public MethodSectionResponse.EvidenceImage updateEvidenceImage(
+            @PathVariable long imageId,
+            @RequestBody UpdateEvidenceImageRequest request
+    ) {
+        return evidenceImageService.update(imageId, currentActor(), request.caption(), request.sortOrder());
+    }
+
+    @DeleteMapping("/images/{imageId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteEvidenceImage(@PathVariable long imageId) {
+        evidenceImageService.delete(imageId, currentActor());
+    }
+
+    /** 文件流：image→plan 反查成员权限后按存的 contentType 返回；记录或磁盘文件缺失返回 404。 */
+    @GetMapping("/images/{imageId}/file")
+    public ResponseEntity<byte[]> getEvidenceImageFile(@PathVariable long imageId) {
+        PlanEvidenceImageService.ImageFile file = evidenceImageService.openFile(imageId, currentActor());
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(file.contentType()))
+                .body(file.content());
+    }
+
+    @ExceptionHandler(PlanEvidenceImageService.ImageNotFoundException.class)
+    public ResponseEntity<ApiError> handleImageNotFound(PlanEvidenceImageService.ImageNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiError("NOT_FOUND", exception.getMessage()));
     }
 
     @GetMapping("/scenarios/{scenarioId}")
@@ -339,6 +389,12 @@ public class TaskPlanController {
             Long threadGroupConfigId,
             Integer threadGroupPresetSortOrder,
             ThreadGroupOverrides overrides
+    ) {
+    }
+
+    public record UpdateEvidenceImageRequest(
+            String caption,
+            Integer sortOrder
     ) {
     }
 }
