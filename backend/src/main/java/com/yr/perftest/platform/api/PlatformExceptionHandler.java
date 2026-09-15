@@ -15,6 +15,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class PlatformExceptionHandler {
@@ -85,6 +86,14 @@ public class PlatformExceptionHandler {
                 .map(error -> error.getField() + " " + error.getDefaultMessage())
                 .orElse("request validation failed");
         return ResponseEntity.badRequest().body(new ApiError("REQUEST_VALIDATION_FAILED", message));
+    }
+
+    /** 容器层 multipart 超限（max-file-size）在 DispatcherServlet.checkMultipart 抛出、早于 handler 确定，
+     * 只有无 scope 限制的全局 advice 能接住（局部 @ExceptionHandler 不可达），统一映射 400。 */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleMaxUploadSize(MaxUploadSizeExceededException exception) {
+        return ResponseEntity.badRequest()
+                .body(new ApiError("REQUEST_VALIDATION_FAILED", "uploaded file exceeds the size limit"));
     }
 
     @ExceptionHandler(com.yr.perftest.platform.task.plandoc.PlanStateException.class)

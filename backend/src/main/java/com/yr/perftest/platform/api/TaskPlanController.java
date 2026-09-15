@@ -45,7 +45,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -186,13 +185,6 @@ public class TaskPlanController {
     public ResponseEntity<ApiError> handleImageNotFound(PlanEvidenceImageService.ImageNotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ApiError("NOT_FOUND", exception.getMessage()));
-    }
-
-    /** 容器层 multipart 超限（max-file-size 5MB）在到达 service 校验前抛出，统一映射 400。 */
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ApiError> handleMaxUploadSize(MaxUploadSizeExceededException exception) {
-        return ResponseEntity.badRequest()
-                .body(new ApiError("REQUEST_VALIDATION_FAILED", "image must not exceed 5MB"));
     }
 
     @GetMapping("/scenarios/{scenarioId}")
