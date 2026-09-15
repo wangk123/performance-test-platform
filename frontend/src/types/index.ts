@@ -708,3 +708,85 @@ export interface MethodExecutionRow { executionId: number; executionName: string
 export interface MethodScenarioData { scenarioId: number; name: string; testType: string; sortOrder: number; scriptVersionId: number | null; scriptName: string | null; executions: MethodExecutionRow[]; hiddenCount: number; images: EvidenceImage[]; }
 export interface MethodSectionData { planId: number; scenarios: MethodScenarioData[]; }
 
+// ===== 环境检查（spec 2026-09-15 P1-1）：字段对照后端 EnvCheckController / EnvCheckRunService / EnvCheckCredentialService / EnvCheckFixService =====
+
+export interface EnvCheckItemMeta {
+  key: string;
+  label: string;
+  description: string;
+  category: 'DOC' | 'OS' | 'JVM' | 'MIDDLEWARE';
+  kind: 'LOCAL' | 'REMOTE';
+  appliesTo: string[];
+  sortOrder: number;
+  fixable: boolean;
+  risk: 'LOW' | 'MEDIUM' | 'HIGH' | null;
+}
+
+export interface EnvCheckCredential {
+  id: number;
+  host: string;
+  sshPort: number;
+  username: string;
+  authType: 'PASSWORD' | 'KEY';
+  remark: string | null;
+  planId: number | null;
+}
+
+export interface EnvCheckCredentialInput {
+  host: string;
+  sshPort?: number;
+  username: string;
+  password?: string;
+  keyMaterial?: string;
+  remark?: string;
+  planId?: number | null;
+}
+
+export interface EnvCheckRunRow {
+  host: string | null;
+  itemKey: string;
+  state: 'OK' | 'WARNING' | 'FIXED' | 'NA';
+  detail: string | null;
+  suggestion: string | null;
+  method: string | null;
+  risk: 'LOW' | 'MEDIUM' | 'HIGH' | null;
+  fixable: boolean;
+}
+
+/** 触发与历史列表返回的摘要（RunSummary），不含结果矩阵。 */
+export interface EnvCheckRunSummary {
+  id: number;
+  planId: number;
+  triggeredBy: string;
+  startedAt: string;
+  finishedAt: string | null;
+  passed: number;
+  warned: number;
+}
+
+/** run.detailJson 反序列化后的完整矩阵：targets + results。 */
+export interface EnvCheckRunDetailJson {
+  targets: Array<{ host: string; module: string }>;
+  results: EnvCheckRunRow[];
+}
+
+/** 详情接口返回的 RunDetail：run 记录（含 detailJson 原文）+ 结果矩阵行。 */
+export interface EnvCheckRunDetail {
+  run: EnvCheckRunSummary & { detailJson: string | null };
+  rows: EnvCheckRunRow[];
+}
+
+export interface EnvCheckFixRecord {
+  id: number;
+  runId: number;
+  host: string;
+  itemKey: string;
+  riskLevel: string;
+  backupRef: string;
+  diffText: string | null;
+  summary: string | null;
+  appliedBy: string;
+  appliedAt: string;
+  rolledBackAt: string | null;
+}
+
