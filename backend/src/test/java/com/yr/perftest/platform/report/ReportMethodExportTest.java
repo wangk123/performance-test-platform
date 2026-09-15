@@ -50,6 +50,9 @@ class ReportMethodExportTest {
     private static final String CONFIG_JSON =
             "{\"threads\":300,\"rampUp\":10,\"duration\":600,\"loops\":1,\"jmeterProperties\":{},"
                     + "\"mode\":\"DISTRIBUTED\",\"controllerNodeId\":1,\"workerNodeIds\":[1],\"monitorTargetIds\":[]}";
+    /** 最小合法 RIFF/WEBP 文件头（导出侧不解码，仅校验嵌入分支）。 */
+    private static final byte[] WEBP_HEADER_BYTES = java.util.HexFormat.of().parseHex(
+            "5249464624000000574542505650382010000000300100002E011300");
     /** 1x1 白色 PNG。 */
     private static final String TINY_PNG_DATA_URL = "data:image/png;base64,"
             + "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -104,6 +107,14 @@ class ReportMethodExportTest {
         planId = plan.getId();
     }
 
+    /** 给计划写入含「测试方法」章节的文档 body（spec §8：导出追加节仅对含该章节的计划生效）。 */
+    private void enableTestMethodChapter() {
+        planRepository.findById(planId).ifPresent(plan -> {
+            plan.updateBody("# 方法导出计划\n\n## 一、测试方法\n\n**方法说明**：（自由编辑）\n");
+            planRepository.save(plan);
+        });
+    }
+
     private Map<String, String> documentXmlOf(byte[] docx) throws Exception {
         Map<String, String> entries = new HashMap<>();
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(docx))) {
@@ -115,6 +126,18 @@ class ReportMethodExportTest {
             }
         }
         return entries;
+    }
+
+    private String entryContentOf(byte[] docx, String entryName) throws Exception {
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(docx))) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                if (entryName.equals(entry.getName())) {
+                    return new String(zip.readAllBytes(), StandardCharsets.UTF_8);
+                }
+            }
+        }
+        return null;
     }
 
     private java.util.List<String> entryNamesOf(byte[] docx) throws Exception {
@@ -137,6 +160,7 @@ class ReportMethodExportTest {
 
     @Test
     void wordExportDrawingSitsInsideRunNotInsideText() throws Exception {
+        enableTestMethodChapter();
         long scenarioId = scenarioRepository.save(
                 new PersistentTaskScenarioRecord(planId, scriptVersionId, "结构场景", 0)).getId();
         PersistentScenarioExecutionRecord execution = executionRepository.save(
@@ -145,11 +169,12 @@ class ReportMethodExportTest {
         execution.markSuccess(0);
         long executionId = executionRepository.save(execution).getId();
 
-        Path shotPath = Path.of("build/test-storage/report-method-export", "structure-shot-" + planId + ".png");
+        // webp 截图（最小合法 RIFF/WEBP 头），验证导出按 contentType 分支嵌入
+        Path shotPath = Path.of("build/test-storage/report-method-export", "structure-shot-" + planId + ".webp");
         Files.createDirectories(shotPath.getParent());
-        Files.write(shotPath, Base64.getDecoder().decode(TINY_PNG_DATA_URL.substring("data:image/png;base64,".length())));
+        Files.write(shotPath, WEBP_HEADER_BYTES);
         imageRepository.save(new PersistentPlanEvidenceImageRecord(
-                planId, scenarioId, "结构截图", 0, shotPath.toString(), "image/png", 100, "admin"));
+                planId, scenarioId, "结构截图", 0, shotPath.toString(), "image/webp", 100, "admin"));
 
         String requestBody = objectMapper.writeValueAsString(Map.of(
                 "chartImages", Map.of(),
@@ -165,9 +190,18 @@ class ReportMethodExportTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
+        byte[] docx = result.getResponse().getContentAsByteArray();
+
+        // webp 截图：media 扩展名、Content_Types 声明、rels Target 均按 contentType
+        assertThat(entryNamesOf(docx).stream().anyMatch(
+                name -> name.matches("word/media/methodShot_\\d+\\.webp"))).isTrue();
+        assertThat(entryContentOf(docx, "[Content_Types].xml"))
+                .contains("Extension=\"webp\" ContentType=\"image/webp\"");
+        assertThat(entryContentOf(docx, "word/_rels/document.xml.rels")).contains("media/methodShot_");
+
         // 文档 well-formed（DOM parse 成功即证）+ 结构合法性断言
         org.w3c.dom.Document document = parseDocumentXml(
-                documentXmlOf(result.getResponse().getContentAsByteArray()).get("word/document.xml"));
+                documentXmlOf(docx).get("word/document.xml"));
         String wordNs = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
         // 每个 w:drawing 的父元素必须是 w:r
@@ -196,6 +230,7 @@ class ReportMethodExportTest {
 
     @Test
     void wordExportKeepsFreemarkerLikeSequencesInUserDataLiteral() throws Exception {
+        enableTestMethodChapter();
         String scenarioName = "场景${name}$端 #{h}";
         String executionName = "执行$1 ${x}";
         long scenarioId = scenarioRepository.save(
@@ -248,7 +283,54 @@ class ReportMethodExportTest {
     }
 
     @Test
+    void wordExportSkipsSectionWhenPlanHasNoTestMethodChapter() throws Exception {
+        // 计划文档不含「测试方法」章节（内置模板存量形态）：有场景与执行也不追加导出节（spec §8 章节作用域）
+        long scenarioId = scenarioRepository.save(
+                new PersistentTaskScenarioRecord(planId, scriptVersionId, "无章节场景", 0)).getId();
+        PersistentScenarioExecutionRecord execution = executionRepository.save(
+                new PersistentScenarioExecutionRecord(scenarioId, CONFIG_JSON));
+        execution.markRunning("r1.jtl", "j1.log");
+        execution.markSuccess(0);
+        executionRepository.save(execution);
+
+        MvcResult result = mockMvc.perform(post(String.format(WORD_EXPORT_URL, planId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"chartImages\":{},\"editorContent\":\"\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String documentXml = documentXmlOf(result.getResponse().getContentAsByteArray()).get("word/document.xml");
+        assertThat(documentXml).doesNotContain("测试方法执行结果");
+    }
+
+    @Test
+    void exportDeniedForNonProjectMember() throws Exception {
+        // tester 为种子用户（非项目 owner、非成员、无 ADMIN 角色）
+        MvcResult login = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"tester\",\"password\":\"tester123\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String testerToken = objectMapper.readTree(login.getResponse().getContentAsString())
+                .get("token").asText();
+
+        mockMvc.perform(post(String.format(WORD_EXPORT_URL, planId))
+                        .header("Authorization", "Bearer " + testerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"chartImages\":{},\"editorContent\":\"\"}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post(String.format(PDF_EXPORT_URL, planId))
+                        .header("Authorization", "Bearer " + testerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void wordExportEmbedsMethodSectionTableChartsAndShots() throws Exception {
+        enableTestMethodChapter();
         long scenarioId = scenarioRepository.save(
                 new PersistentTaskScenarioRecord(planId, scriptVersionId, "导出场景A", 0)).getId();
         PersistentScenarioExecutionRecord execution = executionRepository.save(
@@ -314,6 +396,7 @@ class ReportMethodExportTest {
 
     @Test
     void pdfExportEmbedsMethodSectionAndKeepsLegacyBodylessCall() throws Exception {
+        enableTestMethodChapter();
         long scenarioId = scenarioRepository.save(
                 new PersistentTaskScenarioRecord(planId, scriptVersionId, "导出场景B", 0)).getId();
         PersistentScenarioExecutionRecord execution = executionRepository.save(

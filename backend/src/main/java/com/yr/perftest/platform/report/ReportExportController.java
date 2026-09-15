@@ -2,9 +2,13 @@ package com.yr.perftest.platform.report;
 
 import com.yr.perftest.platform.api.ApiError;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
+import com.yr.perftest.platform.identity.HumanPrincipal;
+import com.yr.perftest.platform.task.plandoc.PlanWorkflowService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,18 +21,31 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Word 报告导出控制器。
+ * 报告导出控制器：Word / PDF。导出内容含执行结果与截图字节，两端点均要求项目成员 EDIT 权限。
  */
 @RestController
 @RequestMapping("/api/reports")
 public class ReportExportController {
 
+    private static final DateTimeFormatter FILENAME_FORMAT = DateTimeFormatter
+            .ofPattern("yyyyMMdd-HHmmss")
+            .withZone(ZoneId.systemDefault());
+
     private final ReportExportService reportExportService;
     private final ReportPdfService reportPdfService;
+    private final PlanWorkflowService planWorkflowService;
+    private final com.yr.perftest.platform.task.PersistentTaskPlanRepository planRepository;
 
-    public ReportExportController(ReportExportService reportExportService, ReportPdfService reportPdfService) {
+    public ReportExportController(
+            ReportExportService reportExportService,
+            ReportPdfService reportPdfService,
+            PlanWorkflowService planWorkflowService,
+            com.yr.perftest.platform.task.PersistentTaskPlanRepository planRepository
+    ) {
         this.reportExportService = reportExportService;
         this.reportPdfService = reportPdfService;
+        this.planWorkflowService = planWorkflowService;
+        this.planRepository = planRepository;
     }
 
     @PostMapping("/plans/{planId}/export/word")
@@ -36,12 +53,12 @@ public class ReportExportController {
             @PathVariable long planId,
             @RequestBody ReportExportRequest request
     ) {
+        requireExistingPlan(planId);
+        planWorkflowService.requireActor(planId, currentActor(), "EDIT");
         byte[] docxBytes = reportExportService.generateWord(planId, request);
 
         String filename = "performance-report-"
-                + DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
-                .withZone(ZoneId.systemDefault())
-                .format(Instant.now())
+                + FILENAME_FORMAT.format(Instant.now())
                 + ".docx";
 
         return ResponseEntity.ok()
@@ -57,12 +74,12 @@ public class ReportExportController {
             @PathVariable long planId,
             @RequestBody(required = false) ReportExportRequest request
     ) {
+        requireExistingPlan(planId);
+        planWorkflowService.requireActor(planId, currentActor(), "EDIT");
         byte[] pdfBytes = reportPdfService.generatePdf(planId, request);
 
         String filename = "performance-report-"
-                + DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
-                .withZone(ZoneId.systemDefault())
-                .format(Instant.now())
+                + FILENAME_FORMAT.format(Instant.now())
                 + ".pdf";
 
         return ResponseEntity.ok()
@@ -70,6 +87,20 @@ public class ReportExportController {
                         "attachment; filename=\"" + filename + "\"")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdfBytes);
+    }
+
+    /** 缺失计划保持导出既有 404 语义（ExecutionValidationException），与 requireActor 的 400/403 语义分离。 */
+    private void requireExistingPlan(long planId) {
+        if (!planRepository.existsById(planId)) {
+            throw new ExecutionValidationException("task plan does not exist");
+        }
+    }
+
+    private HumanPrincipal currentActor() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.getPrincipal() instanceof HumanPrincipal human
+                ? human
+                : null;
     }
 
     @ExceptionHandler(ExecutionValidationException.class)

@@ -1,9 +1,12 @@
 package com.yr.perftest.platform.report;
 
+import com.yr.perftest.platform.task.TaskPlan;
 import com.yr.perftest.platform.task.method.MethodSectionResponse;
 import com.yr.perftest.platform.task.method.MethodSectionService;
 import com.yr.perftest.platform.task.method.PersistentPlanEvidenceImageRecord;
 import com.yr.perftest.platform.task.method.PlanEvidenceImageRepository;
+import com.yr.perftest.platform.task.plandoc.PlanDocumentService;
+import com.yr.perftest.platform.task.plandoc.PlanMarkdownSupport;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -22,7 +25,8 @@ import java.util.zip.ZipOutputStream;
 
 /**
  * 测试方法章节导出装配：Task 4 聚合（hidden 行排除）+ 前端离屏趋势图 PNG + 补充截图按 storedPath 读盘。
- * 产出 Word（Freemarker 片段 + MERGEFIELD 图片字段，注入模板流）与 PDF（HTML + data URI）两种视图；
+ * 产出 Word（静态 OOXML 片段 + 图片资源注入模板流）与 PDF（HTML + data URI）两种视图；
+ * 仅当计划文档含「测试方法」章节（spec §8 章节作用域）才追加导出节；
  * 任一图片缺失均降级为文字占位，不阻断导出。
  */
 @Service
@@ -34,22 +38,31 @@ public class MethodExportSectionService {
     private static final String SECTION_TITLE = "测试方法执行结果";
     private static final float TREND_IMAGE_WIDTH = 420f;
     private static final float SHOT_IMAGE_WIDTH = 420f;
-    private static final String PNG_DEFAULT_TYPE =
-            "<Default Extension=\"png\" ContentType=\"image/png\"/>";
+    private static final Map<String, String> CONTENT_TYPE_EXTENSIONS = Map.of(
+            "image/png", "png",
+            "image/jpeg", "jpg",
+            "image/webp", "webp");
 
     private final MethodSectionService methodSectionService;
     private final PlanEvidenceImageRepository imageRepository;
+    private final PlanDocumentService planDocumentService;
 
     public MethodExportSectionService(
             MethodSectionService methodSectionService,
-            PlanEvidenceImageRepository imageRepository
+            PlanEvidenceImageRepository imageRepository,
+            PlanDocumentService planDocumentService
     ) {
         this.methodSectionService = methodSectionService;
         this.imageRepository = imageRepository;
+        this.planDocumentService = planDocumentService;
     }
 
-    /** 章节视图：场景 → 执行（结果行 + 趋势图）→ 补充截图；imageBytes 供 Word 图片字段/PDF data URI 共用。 */
-    public record MethodSectionView(List<ScenarioView> scenarios, Map<String, byte[]> imageBytes) {
+    /** 图片资产：字节 + 上传侧声明的 contentType（决定 Word 扩展名/Content_Types 声明与 PDF data URI mime）。 */
+    public record ImageAsset(byte[] content, String contentType) {
+    }
+
+    /** 章节视图：场景 → 执行（结果行 + 趋势图）→ 补充截图；imageAssets 供 Word 图片注入/PDF data URI 共用。 */
+    public record MethodSectionView(List<ScenarioView> scenarios, Map<String, ImageAsset> imageAssets) {
         public boolean isEmpty() {
             return scenarios.isEmpty();
         }
@@ -66,6 +79,10 @@ public class MethodExportSectionService {
     }
 
     public MethodSectionView buildSection(long planId, List<ReportExportRequest.MethodChartImage> charts) {
+        // spec §8：仅文档含「测试方法」章节的计划追加导出节（内置模板存量计划不含该章节）
+        if (!hasTestMethodSection(planId)) {
+            return new MethodSectionView(List.of(), Map.of());
+        }
         MethodSectionResponse method = methodSectionService.getPlanMethod(planId);
         if (method.scenarios().isEmpty()) {
             return new MethodSectionView(List.of(), Map.of());
@@ -85,7 +102,7 @@ public class MethodExportSectionService {
                         java.util.stream.Collectors.toList()));
 
         List<ScenarioView> scenarios = new ArrayList<>();
-        Map<String, byte[]> imageBytes = new LinkedHashMap<>();
+        Map<String, ImageAsset> imageAssets = new LinkedHashMap<>();
         for (MethodSectionResponse.ScenarioMethodData scenario : method.scenarios()) {
             List<MethodSectionResponse.ExecutionRow> visible = scenario.executions().stream()
                     .filter(row -> !row.hidden()).toList();
@@ -95,21 +112,27 @@ public class MethodExportSectionService {
                 executions.add(new ExecutionView(
                         "#" + row.executionId() + " · " + nvl(row.executionName()),
                         toRowMap(row),
-                        trendImages(row.executionId(), dataUrlByKey, imageBytes)));
+                        trendImages(row.executionId(), dataUrlByKey, imageAssets)));
             }
 
             List<ImageView> evidence = new ArrayList<>();
             for (PersistentPlanEvidenceImageRecord shot : shotsByScenario
                     .getOrDefault(scenario.scenarioId(), List.of())) {
-                evidence.add(evidenceImage(shot, imageBytes));
+                evidence.add(evidenceImage(shot, imageAssets));
             }
             scenarios.add(new ScenarioView(nvl(scenario.name()), executions, evidence));
         }
-        return new MethodSectionView(scenarios, imageBytes);
+        return new MethodSectionView(scenarios, imageAssets);
+    }
+
+    private boolean hasTestMethodSection(long planId) {
+        TaskPlan plan = planDocumentService.getDocument(planId);
+        String body = plan == null ? null : plan.body();
+        return body != null && PlanMarkdownSupport.testMethodSectionBounds(body) != null;
     }
 
     private List<ImageView> trendImages(long executionId, Map<String, String> dataUrlByKey,
-                                        Map<String, byte[]> imageBytes) {
+                                        Map<String, ImageAsset> imageAssets) {
         List<ImageView> images = new ArrayList<>();
         for (String kind : TREND_KINDS) {
             String field = "methodImg_" + executionId + "_" + kind;
@@ -118,20 +141,21 @@ public class MethodExportSectionService {
             if (png == null) {
                 images.add(new ImageView(null, "（" + KIND_TITLES.get(kind) + "缺失）"));
             } else {
-                imageBytes.put(field, png);
+                imageAssets.put(field, new ImageAsset(png, "image/png"));
                 images.add(new ImageView(field, KIND_TITLES.get(kind)));
             }
         }
         return images;
     }
 
-    private ImageView evidenceImage(PersistentPlanEvidenceImageRecord shot, Map<String, byte[]> imageBytes) {
+    private ImageView evidenceImage(PersistentPlanEvidenceImageRecord shot, Map<String, ImageAsset> imageAssets) {
         String field = "methodShot_" + shot.getId();
         String caption = nvl(shot.getCaption());
+        String contentType = nvl(shot.getContentType());
         try {
             byte[] content = Files.readAllBytes(Path.of(shot.getStoredPath()));
-            if (content.length > 0) {
-                imageBytes.put(field, content);
+            if (content.length > 0 && CONTENT_TYPE_EXTENSIONS.containsKey(contentType)) {
+                imageAssets.put(field, new ImageAsset(content, contentType));
                 return new ImageView(field, caption.isEmpty() ? "补充截图" : caption);
             }
         } catch (IOException ignored) {
@@ -234,18 +258,13 @@ public class MethodExportSectionService {
     /**
      * 模板流装饰（模板资源文件本身不动）：
      * 1) word/document.xml —— </w:body> 前插入章节 XML，占位符 [[DRAWING:field]] 重建为 <w:r><w:drawing/></w:r>；
-     * 2) word/media/ —— 写入图片字节；3) word/_rels/document.xml.rels —— 追加 image 关系；
-     * 4) [Content_Types].xml —— 补 png 声明。图片为静态资源，XDocReport 只需原样保留。
+     * 2) word/media/ —— 按 contentType 写入图片；3) word/_rels/document.xml.rels —— 追加 image 关系；
+     * 4) [Content_Types].xml —— 按实际用到的图片类型条件声明 Default。图片为静态资源，XDocReport 只需原样保留。
      */
     public InputStream decorateWordTemplate(InputStream templateStream, String sectionXml,
                                             MethodSectionView view) throws IOException {
-        Map<String, byte[]> imageBytes = view.imageBytes();
-        Map<String, int[]> imageSizes = new LinkedHashMap<>();
-        for (Map.Entry<String, byte[]> entry : imageBytes.entrySet()) {
-            int[] size = pngSize(entry.getValue());
-            imageSizes.put(entry.getKey(), size);
-        }
-        String patchedSection = patchImagePlaceholders(sectionXml, imageBytes, imageSizes);
+        Map<String, ImageAsset> imageAssets = view.imageAssets();
+        String patchedSection = patchImagePlaceholders(sectionXml, imageAssets);
 
         ByteArrayOutputStream decorated = new ByteArrayOutputStream();
         try (ZipInputStream zipIn = new ZipInputStream(templateStream);
@@ -265,13 +284,10 @@ public class MethodExportSectionService {
                     zipOut.write(patched.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 } else if ("word/_rels/document.xml.rels".equals(name)) {
                     String rels = new String(zipIn.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                    zipOut.write(appendImageRelationships(rels, imageBytes).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    zipOut.write(appendImageRelationships(rels, imageAssets).getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 } else if ("[Content_Types].xml".equals(name)) {
                     String types = new String(zipIn.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                    if (!types.contains("Extension=\"png\"")) {
-                        types = types.replaceFirst("</Types>", PNG_DEFAULT_TYPE + "</Types>");
-                    }
-                    zipOut.write(types.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    zipOut.write(appendContentTypes(types, imageAssets).getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 } else {
                     int read;
                     while ((read = zipIn.read(buffer)) > 0) {
@@ -280,37 +296,45 @@ public class MethodExportSectionService {
                 }
                 zipOut.closeEntry();
             }
-            for (Map.Entry<String, byte[]> image : imageBytes.entrySet()) {
-                zipOut.putNextEntry(new ZipEntry("word/media/" + image.getKey() + ".png"));
-                zipOut.write(image.getValue());
+            for (Map.Entry<String, ImageAsset> image : imageAssets.entrySet()) {
+                zipOut.putNextEntry(new ZipEntry("word/media/" + mediaFileName(image.getKey(), image.getValue())));
+                zipOut.write(image.getValue().content());
                 zipOut.closeEntry();
             }
         }
         return new java.io.ByteArrayInputStream(decorated.toByteArray());
     }
 
-    /** [[DRAWING:field]] 占位（段落层）→ 完整 <w:r><w:drawing/></w:r>；field 对应 media/methodImg_x.png 与 rIdMethodX 关系。 */
-    private String patchImagePlaceholders(String sectionXml, Map<String, byte[]> imageBytes,
-                                          Map<String, int[]> imageSizes) {
+    private String extensionOf(String contentType) {
+        return CONTENT_TYPE_EXTENSIONS.getOrDefault(contentType, "png");
+    }
+
+    private String mediaFileName(String field, ImageAsset asset) {
+        return field + "." + extensionOf(asset.contentType());
+    }
+
+    /** [[DRAWING:field]] 占位（段落层）→ 完整 <w:r><w:drawing/></w:r>；引用 media/{field}.{ext} 与 rIdMethodX 关系。 */
+    private String patchImagePlaceholders(String sectionXml, Map<String, ImageAsset> imageAssets) {
         String patched = sectionXml;
         int index = 0;
-        for (String field : imageBytes.keySet()) {
+        for (Map.Entry<String, ImageAsset> entry : imageAssets.entrySet()) {
+            String field = entry.getKey();
             String placeholder = "[[DRAWING:" + field + "]]";
-            int[] size = imageSizes.get(field);
+            String fileName = mediaFileName(field, entry.getValue());
             float width = field.startsWith("methodShot_") ? SHOT_IMAGE_WIDTH : TREND_IMAGE_WIDTH;
-            int heightPx = size == null ? Math.round(width * 3 / 4) : Math.round(width * size[1] / (float) size[0]);
+            int heightPx = pngHeightPx(entry.getValue(), width);
             long cx = (long) (width * 9525);
             long cy = (long) (heightPx * 9525);
             index++;
             // w:drawing 必须是 w:r 的子元素（ECMA-376），替换产物重建整个 run
             String drawing = "<w:r><w:drawing><wp:inline xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\" distT=\"0\" distB=\"0\" distL=\"0\" distR=\"0\">"
                     + "<wp:extent cx=\"" + cx + "\" cy=\"" + cy + "\"/>"
-                    + "<wp:docPr id=\"" + (100 + index) + "\" name=\"" + field + "\"/>"
+                    + "<wp:docPr id=\"" + (100 + index) + "\" name=\"" + fileName + "\"/>"
                     + "<a:graphic xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">"
                     + "<a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/picture\">"
                     + "<pic:pic xmlns:pic=\"http://schemas.openxmlformats.org/drawingml/2006/picture\">"
-                    + "<pic:nvPicPr><pic:cNvPr id=\"" + (100 + index) + "\" name=\"" + field
-                    + ".png\"/><pic:cNvPicPr/></pic:nvPicPr>"
+                    + "<pic:nvPicPr><pic:cNvPr id=\"" + (100 + index) + "\" name=\"" + fileName
+                    + "\"/><pic:cNvPicPr/></pic:nvPicPr>"
                     + "<pic:blipFill><a:blip r:embed=\"rIdMethod" + index + "\"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>"
                     + "<pic:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"" + cx + "\" cy=\"" + cy + "\"/></a:xfrm>"
                     + "<a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></pic:spPr>"
@@ -320,16 +344,38 @@ public class MethodExportSectionService {
         return patched;
     }
 
-    private String appendImageRelationships(String rels, Map<String, byte[]> imageBytes) {
+    /** 嵌入高度：PNG 按 IHDR 真实比例；jpeg/webp 无轻量尺寸解析，用 4:3 回退（与 png 解析失败同口径）。 */
+    private int pngHeightPx(ImageAsset asset, float widthPx) {
+        int[] size = "image/png".equals(asset.contentType()) ? pngSize(asset.content()) : null;
+        return size == null ? Math.round(widthPx * 3 / 4) : Math.round(widthPx * size[1] / (float) size[0]);
+    }
+
+    private String appendImageRelationships(String rels, Map<String, ImageAsset> imageAssets) {
         StringBuilder extra = new StringBuilder();
         int index = 0;
-        for (String field : imageBytes.keySet()) {
+        for (Map.Entry<String, ImageAsset> image : imageAssets.entrySet()) {
             index++;
             extra.append("<Relationship Id=\"rIdMethod").append(index)
                     .append("\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/")
-                    .append(field).append(".png\"/>");
+                    .append(mediaFileName(image.getKey(), image.getValue())).append("\"/>");
         }
         return rels.replace("</Relationships>", extra + "</Relationships>");
+    }
+
+    /** 按本次导出实际用到的图片类型条件追加 [Content_Types] Default 声明（png/jpeg/webp）。 */
+    private String appendContentTypes(String types, Map<String, ImageAsset> imageAssets) {
+        StringBuilder extra = new StringBuilder();
+        imageAssets.values().stream()
+                .map(ImageAsset::contentType)
+                .distinct()
+                .forEach(contentType -> {
+                    String ext = extensionOf(contentType);
+                    if (!types.contains("Extension=\"" + ext + "\"")) {
+                        extra.append("<Default Extension=\"").append(ext)
+                                .append("\" ContentType=\"").append(contentType).append("\"/>");
+                    }
+                });
+        return extra.isEmpty() ? types : types.replaceFirst("</Types>", extra + "</Types>");
     }
 
     /** PDF 章节片段：表格 + base64 data URI 图片，缺图占位。 */
@@ -360,21 +406,22 @@ public class MethodExportSectionService {
             html.append("</table>");
             for (ExecutionView execution : scenario.executions()) {
                 html.append("<h4>").append(escapeHtml(execution.title())).append("</h4>");
-                appendHtmlImages(html, execution.images(), view.imageBytes());
+                appendHtmlImages(html, execution.images(), view.imageAssets());
             }
             html.append("<h4>补充截图</h4>");
-            appendHtmlImages(html, scenario.evidence(), view.imageBytes());
+            appendHtmlImages(html, scenario.evidence(), view.imageAssets());
         }
         return html.toString();
     }
 
-    private void appendHtmlImages(StringBuilder html, List<ImageView> images, Map<String, byte[]> imageBytes) {
+    private void appendHtmlImages(StringBuilder html, List<ImageView> images, Map<String, ImageAsset> imageAssets) {
         for (ImageView image : images) {
-            byte[] png = image.field() == null ? null : imageBytes.get(image.field());
-            if (png == null) {
+            ImageAsset asset = image.field() == null ? null : imageAssets.get(image.field());
+            if (asset == null) {
                 html.append("<p>").append(escapeHtml(image.caption())).append("</p>");
             } else {
-                html.append("<p><img src=\"data:image/png;base64,").append(Base64.getEncoder().encodeToString(png))
+                html.append("<p><img src=\"data:").append(asset.contentType()).append(";base64,")
+                        .append(Base64.getEncoder().encodeToString(asset.content()))
                         .append("\" style=\"width:420px\"/></p><p style=\"font-size:10px;color:#666;\">")
                         .append(escapeHtml(image.caption())).append("</p>");
             }
