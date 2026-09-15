@@ -128,4 +128,10 @@ public class PlatformExceptionHandler {
         }
         return ResponseEntity.badRequest().body(PlanErrorBody.of("PLAN_INVALID", message));
     }
+
+    @ExceptionHandler(com.yr.perftest.platform.envcheck.EnvCheckValidationException.class)
+    public ResponseEntity<ApiError> handleEnvCheckValidation(com.yr.perftest.platform.envcheck.EnvCheckValidationException exception) {
+        return ResponseEntity.badRequest()
+                .body(new ApiError("ENV_CREDENTIAL_INVALID", exception.getMessage()));
+    }
 }

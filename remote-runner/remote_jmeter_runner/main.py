@@ -11,7 +11,7 @@ import paramiko
 JMETER_IMAGE = "justb4/jmeter:latest"
 
 
-def respond(ok, message="", log="", exit_code=0, start_results=None, tail_data=None, new_offset=None, eof=None, snapshot_data=None, snapshot_mtime=None, snapshots=None):
+def respond(ok, message="", log="", exit_code=0, start_results=None, tail_data=None, new_offset=None, eof=None, snapshot_data=None, snapshot_mtime=None, snapshots=None, results=None):
     body = {
         "ok": ok,
         "exitCode": exit_code,
@@ -20,6 +20,8 @@ def respond(ok, message="", log="", exit_code=0, start_results=None, tail_data=N
     }
     if start_results is not None:
         body["startResults"] = start_results
+    if results is not None:
+        body["results"] = results
     if tail_data is not None:
         body["tailData"] = tail_data
     if new_offset is not None:
@@ -199,6 +201,23 @@ def check_node(payload):
         return respond(code == 0, "docker ready" if code == 0 else output.strip(), output, code)
     except Exception as exc:
         return respond(False, str(exc))
+    finally:
+        if client:
+            client.close()
+
+
+def env_probe(payload):
+    client = None
+    try:
+        probes = payload.get("probes") or [{"id": "ping", "script": payload.get("probe", "echo ok")}]
+        client = connect(payload)
+        results = []
+        for item in probes:
+            code, output = run(client, item["script"])
+            results.append({"id": item["id"], "code": code, "output": output})
+        return respond(ok=True, results=results)
+    except Exception as exc:
+        return respond(ok=False, message=str(exc))
     finally:
         if client:
             client.close()
@@ -548,6 +567,7 @@ def main():
             "tail-failure-samples",
             "fetch-aggregate-snapshot",
             "stop-run",
+            "env-probe",
         ],
     )
     parser.add_argument("payload")
@@ -557,6 +577,8 @@ def main():
         return check_node(payload)
     if args.command == "install-key":
         return install_key(payload)
+    if args.command == "env-probe":
+        return env_probe(payload)
     if args.command == "deploy-monitoring":
         return deploy_monitoring(payload)
     if args.command == "start-run":
