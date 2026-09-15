@@ -4,12 +4,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yr.perftest.platform.execution.aggregate.PersistentAggregateReportRecord;
 import com.yr.perftest.platform.execution.aggregate.PersistentAggregateReportRepository;
+import com.yr.perftest.platform.execution.ExecutionValidationException;
+import com.yr.perftest.platform.identity.HumanPrincipal;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
 import com.yr.perftest.platform.task.PersistentScenarioExecutionRecord;
 import com.yr.perftest.platform.task.PersistentScenarioExecutionRepository;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRecord;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRepository;
+import com.yr.perftest.platform.task.plandoc.PlanWorkflowService;
 import com.yr.perftest.platform.task.method.MethodSectionResponse.EvidenceImage;
 import com.yr.perftest.platform.task.method.MethodSectionResponse.ExecutionRow;
 import com.yr.perftest.platform.task.method.MethodSectionResponse.ScenarioMethodData;
@@ -40,6 +43,7 @@ public class MethodSectionService {
     private final PersistentAggregateReportRepository aggregateRepository;
     private final PlanEvidenceImageRepository imageRepository;
     private final PersistentScriptVersionRepository scriptVersionRepository;
+    private final PlanWorkflowService planWorkflowService;
     private final ObjectMapper objectMapper;
 
     public MethodSectionService(
@@ -48,6 +52,7 @@ public class MethodSectionService {
             PersistentAggregateReportRepository aggregateRepository,
             PlanEvidenceImageRepository imageRepository,
             PersistentScriptVersionRepository scriptVersionRepository,
+            PlanWorkflowService planWorkflowService,
             ObjectMapper objectMapper
     ) {
         this.scenarioRepository = scenarioRepository;
@@ -55,6 +60,7 @@ public class MethodSectionService {
         this.aggregateRepository = aggregateRepository;
         this.imageRepository = imageRepository;
         this.scriptVersionRepository = scriptVersionRepository;
+        this.planWorkflowService = planWorkflowService;
         this.objectMapper = objectMapper;
     }
 
@@ -119,6 +125,17 @@ public class MethodSectionService {
         return new MethodSectionResponse(planId, List.copyOf(scenarioData));
     }
 
+    /** 行可见性开关（表格移出/恢复）：execution → scenario → plan 反查后按 EDIT 鉴权，只改 method_hidden 一个字段。 */
+    @Transactional
+    public void setVisibility(long executionId, HumanPrincipal actor, boolean hidden) {
+        PersistentScenarioExecutionRecord execution = executionRepository.findById(executionId)
+                .orElseThrow(() -> new ExecutionValidationException("execution does not exist"));
+        PersistentTaskScenarioRecord scenario = scenarioRepository.findById(execution.getScenarioId())
+                .orElseThrow(() -> new ExecutionValidationException("scenario does not exist"));
+        planWorkflowService.requireActor(scenario.getPlanId(), actor, "EDIT");
+        execution.setMethodHidden(hidden);
+    }
+
     private ExecutionRow toRow(PersistentScenarioExecutionRecord execution, PersistentAggregateReportRecord aggregate) {
         JsonNode config = readTree(execution.getConfigJson());
         Metrics metrics = parseMetrics(aggregate);
@@ -181,5 +198,9 @@ public class MethodSectionService {
     }
 
     private record Metrics(Long samples, Double successRate, Double avgRtMs, Double p95Ms, Double tps) {
+    }
+
+    /** PATCH /executions/{id}/method-visibility 请求体：只含 hidden 一个字段。 */
+    public record VisibilityRequest(boolean hidden) {
     }
 }

@@ -32,6 +32,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -202,6 +203,16 @@ public class TaskPlanController {
     public ScenarioExecution stopExecution(@PathVariable long executionId) {
         executionControlService.stop(executionId);
         return executionQueryService.getExecution(executionId);
+    }
+
+    /** 执行行可见性开关：只改 method_hidden，不动执行其他状态。 */
+    @PatchMapping("/executions/{executionId}/method-visibility")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void setMethodVisibility(
+            @PathVariable long executionId,
+            @RequestBody MethodSectionService.VisibilityRequest request
+    ) {
+        methodSectionService.setVisibility(executionId, currentActor(), request.hidden());
     }
 
     @DeleteMapping("/executions/{executionId}")

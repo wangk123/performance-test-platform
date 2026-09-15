@@ -9,6 +9,7 @@ import com.yr.perftest.platform.execution.aggregate.AggregateReportService;
 import com.yr.perftest.platform.execution.distributed.DistributedJmeterExecutionRunner;
 import com.yr.perftest.platform.execution.failure.FailureSamplePaths;
 import com.yr.perftest.platform.monitoring.ExecutionMonitorBindingService;
+import com.yr.perftest.platform.task.method.PlanEvidenceImageRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -33,6 +34,7 @@ public class ScenarioExecutionService {
     private final DistributedJmeterExecutionRunner distributedJmeterExecutionRunner;
     private final ScenarioExecutionRuntime executionRuntime;
     private final AggregateReportService aggregateReportService;
+    private final PlanEvidenceImageRepository evidenceImageRepository;
     private final ObjectMapper objectMapper;
 
     public ScenarioExecutionService(
@@ -45,6 +47,7 @@ public class ScenarioExecutionService {
             DistributedJmeterExecutionRunner distributedJmeterExecutionRunner,
             ScenarioExecutionRuntime executionRuntime,
             AggregateReportService aggregateReportService,
+            PlanEvidenceImageRepository evidenceImageRepository,
             ObjectMapper objectMapper
     ) {
         this.planRepository = planRepository;
@@ -56,6 +59,7 @@ public class ScenarioExecutionService {
         this.distributedJmeterExecutionRunner = distributedJmeterExecutionRunner;
         this.executionRuntime = executionRuntime;
         this.aggregateReportService = aggregateReportService;
+        this.evidenceImageRepository = evidenceImageRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -112,6 +116,7 @@ public class ScenarioExecutionService {
         }
         monitorBindingService.deleteBindings(executionId);
         aggregateReportService.deleteByExecutionId(executionId);
+        evidenceImageRepository.deleteByExecutionIdIn(List.of(executionId)); // 同事务级联删除挂其名下的补充截图
         FailureSamplePaths.deleteArtifacts(
                 execution.getLogFilePath() == null ? null : Path.of(execution.getLogFilePath())
         );
