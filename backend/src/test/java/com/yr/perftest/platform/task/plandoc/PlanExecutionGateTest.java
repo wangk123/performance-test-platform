@@ -114,14 +114,30 @@ class PlanExecutionGateTest {
     }
 
     @Test
-    void firstExecutionWithPrecheckEnabledRunsItAndBlocksOnManualItems() throws Exception {
+    void firstExecutionWithLegacyManualItemNoLongerBlocks() throws Exception {
+        // spec E2/§3.4：人工项（环境就绪）惰性迁移时丢弃，不再拦截执行（原断言 PlanPrecheckFailedException 已随行为变更移除）
         PersistentTaskScenarioRecord bound = scenarioRepository.findById(scenarioId).orElseThrow();
         bound.bindScript(9L);
         scenarioRepository.save(bound);
         enablePrecheck();
+        assertThat(workflow.assertExecutionAllowed(scenarioId)).isEqualTo(planId);
+        assertThat(planRepository.findById(planId).orElseThrow().getPrecheckExecutedAt()).isNotNull();
+    }
+
+    @Test
+    void firstExecutionWithPrecheckEnabledBlocksOnFailedLocalAndSkips() throws Exception {
+        PersistentTaskScenarioRecord bound = scenarioRepository.findById(scenarioId).orElseThrow();
+        bound.bindScript(9L);
+        scenarioRepository.save(bound);
+        enablePrecheck();
+        // 破坏指标表 → 自动项「指标已定义」失败拦截（迁移后人工项已不在失败列表）
+        PersistentTaskPlanRecord current = planRepository.findById(planId).orElseThrow();
+        current.updateBody(current.getBody().replace("|---|---|---|---|\n", ""));
+        planRepository.save(current);
         assertThatThrownBy(() -> workflow.assertExecutionAllowed(scenarioId))
                 .isInstanceOf(PlanPrecheckFailedException.class)
-                .hasMessageContaining("环境就绪");
+                .hasMessageContaining("指标已定义（自动核验未通过）")
+                .hasMessageNotContaining("环境就绪");
         // 跳过后放行且不再重跑
         workflow.precheckSkip(planId, OWNER);
         workflow.assertExecutionAllowed(scenarioId);

@@ -1,6 +1,10 @@
 package com.yr.perftest.platform.task.plandoc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yr.perftest.platform.envcheck.EnvCheckItem;
+import com.yr.perftest.platform.envcheck.EnvCheckRegistry;
+import com.yr.perftest.platform.envcheck.LocalCheckContext;
+import com.yr.perftest.platform.envcheck.LocalCheckItem;
 import com.yr.perftest.platform.identity.HumanPrincipal;
 import com.yr.perftest.platform.project.ProjectAccessResolver;
 import com.yr.perftest.platform.task.ExecutionQueryService;
@@ -39,6 +43,7 @@ public class PlanWorkflowService {
     private final ScenarioThreadGroupConfigSupport configSupport;
     private final PlanVerdictService verdictService;
     private final PlanVersionService versionService;
+    private final EnvCheckRegistry envCheckRegistry;
 
     public PlanWorkflowService(
             PersistentTaskPlanRepository planRepository,
@@ -55,7 +60,8 @@ public class PlanWorkflowService {
             TaskPlanService planService,
             ScenarioThreadGroupConfigSupport configSupport,
             PlanVerdictService verdictService,
-            PlanVersionService versionService
+            PlanVersionService versionService,
+            EnvCheckRegistry envCheckRegistry
     ) {
         this.planRepository = planRepository;
         this.scenarioRepository = scenarioRepository;
@@ -72,6 +78,7 @@ public class PlanWorkflowService {
         this.configSupport = configSupport;
         this.verdictService = verdictService;
         this.versionService = versionService;
+        this.envCheckRegistry = envCheckRegistry;
     }
 
     @Transactional
@@ -178,7 +185,7 @@ public class PlanWorkflowService {
                 endedAt, threads, execution.getStatus(), throughput, p95, errorRate);
     }
 
-    /** 评估检测清单：自动项核验；人工项视为未确认=失败项（设计 §10.3）。 */
+    /** 评估检测清单：注册表 LOCAL 项自动核验（人工项已迁移丢弃不再拦截，spec E2/§3.4；REMOTE 项 Task 8 接管）。 */
     @Transactional
     public PrecheckReport runPrecheck(long planId, boolean writeBackChecklist) {
         PersistentTaskPlanRecord plan = requirePlan(planId);
@@ -187,33 +194,16 @@ public class PlanWorkflowService {
         List<String> autoPassed = new java.util.ArrayList<>();
         String body = plan.getBody() == null ? "" : plan.getBody();
         List<PersistentTaskScenarioRecord> scenarios = scenarioRepository.findAllByPlanIdOrderBySortOrderAscIdAsc(planId);
-        for (String item : settings.items()) {
-            String plain = item.replaceAll("（.*?）$", "").trim();
-            boolean auto;
-            boolean pass;
-            switch (plain) {
-                case "指标已定义" -> {
-                    auto = true;
-                    pass = PlanMarkdownSupport.extractSection(body, "三、测试指标") != null
-                            && PlanMarkdownSupport.extractSection(body, "三、测试指标").contains("|---");
-                }
-                case "场景已配置" -> {
-                    auto = true;
-                    pass = !scenarios.isEmpty();
-                }
-                case "脚本已关联" -> {
-                    auto = true;
-                    pass = scenarios.stream().allMatch(s -> s.getScriptVersionId() != null);
-                }
-                default -> {
-                    auto = false;
-                    pass = false;
-                }
+        LocalCheckContext context = new LocalCheckContext(body,
+                scenarios.stream().map(s -> new LocalCheckContext.ScenarioRow(s.getName(), s.getScriptVersionId())).toList());
+        for (EnvCheckItem item : envCheckRegistry.resolve(PrecheckSettings.migrate(settings).items())) {
+            if (!(item instanceof LocalCheckItem local)) {
+                continue; // REMOTE 项本任务不执行（矩阵 NA，Task 8 接管），不进 failures
             }
-            if (auto && pass) {
-                autoPassed.add(plain);
+            if (local.check(context).ok()) {
+                autoPassed.add(item.label());
             } else {
-                failures.add(auto ? plain + "（自动核验未通过）" : plain + "（待人工确认）");
+                failures.add(item.label() + "（自动核验未通过）");
             }
         }
         if (writeBackChecklist && !autoPassed.isEmpty()) {
@@ -251,8 +241,8 @@ public class PlanWorkflowService {
             return PrecheckSettings.disabled();
         }
         try {
-            PrecheckSettings parsed = objectMapper.readValue(plan.getPrecheckJson(), PrecheckSettings.class);
-            return parsed.items() == null ? new PrecheckSettings(parsed.enabled(), PrecheckSettings.DEFAULT_ITEMS) : parsed;
+            // 存量惰性迁移（spec §3.4）：旧中文 → 注册表 key，人工项丢弃
+            return PrecheckSettings.migrate(objectMapper.readValue(plan.getPrecheckJson(), PrecheckSettings.class));
         } catch (Exception exception) {
             return PrecheckSettings.disabled();
         }
