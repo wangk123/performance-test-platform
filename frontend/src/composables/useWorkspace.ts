@@ -116,10 +116,10 @@ async function loadProjectScripts(projectId: number, force = false) {
           replaceProjectScripts(projectId, items);
           return items;
         })
+        // 拉取失败不得塞 seed 假数据：假 ID 提交绑定会报「script version does not exist」
         .catch(() => {
-          const items = createSeedData().scriptAssets.filter((script) => script.projectId === projectId);
-          replaceProjectScripts(projectId, items);
-          return items;
+          replaceProjectScripts(projectId, []);
+          return [];
         })
         .finally(() => scriptRequests.delete(projectId)),
     );
