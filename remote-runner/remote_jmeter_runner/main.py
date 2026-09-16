@@ -336,7 +336,7 @@ def launch_controller(controller, payload):
     per_label_limit = payload.get("perLabelLimit", 50)
     global_limit = payload.get("globalLimit", 1000)
     role_host = f"controller-{controller['host']}"
-    jmeter_args = " ".join([
+    jmeter_args = [
         shell_quote(f"-Djava.rmi.server.hostname={controller['host']}"),
         "-n",
         "-t", shell_quote(f"/test/{remote_script.name}"),
@@ -355,7 +355,11 @@ def launch_controller(controller, payload):
         "-JaggregateSnapshotPath=/test/aggregate-snapshot.bin",
         "-GaggregateSnapshotPath=/test/aggregate-snapshot.bin",
         shell_quote(f"-JjmeterRoleHost={role_host}"),
-    ])
+    ]
+    for key, value in (payload.get("jmeterProperties") or {}).items():
+        jmeter_args.append(shell_quote(f"-J{key}={value}"))
+        jmeter_args.append(shell_quote(f"-G{key}={value}"))
+    jmeter_args = " ".join(jmeter_args)
     shell_cmd = " ".join([
         "JMETER_HOME=${JMETER_HOME:-$(find /opt -maxdepth 1 -name 'apache-jmeter-*' -type d 2>/dev/null | head -1)}",
         "&& (ls /test/*.jar >/dev/null 2>&1 && cp /test/*.jar \"$JMETER_HOME/lib/ext/\" || true)",

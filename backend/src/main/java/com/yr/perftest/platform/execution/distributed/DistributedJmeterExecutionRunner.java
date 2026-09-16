@@ -340,17 +340,20 @@ public class DistributedJmeterExecutionRunner {
         } catch (Exception exception) {
             throw new ExecutionValidationException("failed to prepare jmeter runtime jars");
         }
-        return Map.of(
-                "runId", preparation.runId(),
-                "scriptPath", preparation.distributedTestPlanPath().toString(),
-                "discardPath", preparation.discardPath().toString(),
-                "failureSamplesPath", preparation.failureSamplesPath().toString(),
-                "logPath", preparation.logPath().toString(),
-                "perLabelLimit", failureSampleSettings.perLabelLimit(),
-                "globalLimit", failureSampleSettings.globalLimit(),
-                "controller", nodePayload(preparation.controller()),
-                "workers", preparation.workers().stream().map(this::nodePayload).toList(),
-                "dependencies", dependencies
+        return Map.ofEntries(
+                Map.entry("runId", preparation.runId()),
+                Map.entry("scriptPath", preparation.distributedTestPlanPath().toString()),
+                Map.entry("discardPath", preparation.discardPath().toString()),
+                Map.entry("failureSamplesPath", preparation.failureSamplesPath().toString()),
+                Map.entry("logPath", preparation.logPath().toString()),
+                Map.entry("perLabelLimit", failureSampleSettings.perLabelLimit()),
+                Map.entry("globalLimit", failureSampleSettings.globalLimit()),
+                Map.entry("controller", nodePayload(preparation.controller())),
+                Map.entry("workers", preparation.workers().stream().map(this::nodePayload).toList()),
+                Map.entry("dependencies", dependencies),
+                Map.entry("jmeterProperties", preparation.config().jmeterProperties() == null
+                        ? Map.of()
+                        : preparation.config().jmeterProperties())
         );
     }
 
