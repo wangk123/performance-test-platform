@@ -66,7 +66,7 @@ class PlanScenarioMutationGateTest {
         forceState(PlanStatus.EXECUTING);
         startActiveExecution();
         assertThatThrownBy(() -> scenarioService.createScenario(
-                planId, null, "新场景", null, null, null, null, null, null, null))
+                planId, null, "新场景", null, null, null, null, null, null, null, null))
                 .isInstanceOf(PlanStateException.class)
                 .hasMessageContaining("存在活跃执行，场景禁止增删改")
                 .hasFieldOrPropertyWithValue("status", PlanStatus.EXECUTING);
@@ -78,7 +78,7 @@ class PlanScenarioMutationGateTest {
         forceState(PlanStatus.REPORTING);
         startActiveExecution();
         assertThatThrownBy(() -> scenarioService.updateScenario(
-                scenarioId, "改名", null, null, null, null, null, null, null, null, false))
+                scenarioId, "改名", null, null, null, null, null, null, null, null, null, false))
                 .isInstanceOf(PlanStateException.class)
                 .hasMessageContaining("禁止增删改");
         assertThat(scenarioRepository.findById(scenarioId).orElseThrow().getName()).isEqualTo("场景A");
@@ -100,7 +100,7 @@ class PlanScenarioMutationGateTest {
         for (PlanStatus status : PlanStatus.values()) {
             forceState(status);
             assertThatCode(() -> scenarioService.updateScenario(
-                    scenarioId, "改名-" + status, null, null, null, null, null, null, null, null, false))
+                    scenarioId, "改名-" + status, null, null, null, null, null, null, null, null, null, false))
                     .doesNotThrowAnyException();
         }
         assertThat(scenarioRepository.findById(scenarioId).orElseThrow().getName()).isEqualTo("改名-PUBLISHED");

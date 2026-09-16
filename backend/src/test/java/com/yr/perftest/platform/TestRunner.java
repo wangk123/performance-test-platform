@@ -9,6 +9,7 @@ import com.yr.perftest.platform.script.JmeterScriptPatcherTest;
 import com.yr.perftest.platform.script.JmeterScriptRendererTest;
 import com.yr.perftest.platform.script.ScriptStepTypeTest;
 import com.yr.perftest.platform.script.ThreadGroupConfigTest;
+import com.yr.perftest.platform.task.ScenarioDataFileBindingTest;
 
 public class TestRunner {
     public static void main(String[] args) {
@@ -21,6 +22,7 @@ public class TestRunner {
         JmeterScriptRendererTest.runAll();
         DataFileServiceTest.runAll();
         DataFileControllerTest.runAll();
+        ScenarioDataFileBindingTest.runAll();
         System.out.println("All backend core tests passed.");
     }
 }

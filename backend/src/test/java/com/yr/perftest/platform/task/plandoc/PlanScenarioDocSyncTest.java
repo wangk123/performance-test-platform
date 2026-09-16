@@ -113,7 +113,7 @@ class PlanScenarioDocSyncTest {
         docSync.syncPlanScenarios(planId);
         // 局部 PUT：仅改名，purpose/testType 缺省（null）不应清空既有业务字段
         scenarioService.updateScenario(scenario.getId(), "登录改", null, null, null,
-                null, null, null, null, null, false);
+                null, null, null, null, null, null, false);
         PersistentTaskScenarioRecord updated = scenarioRepository.findById(scenario.getId()).orElseThrow();
         assertThat(updated.getPurpose()).isEqualTo("原始目的");
         assertThat(updated.getTestType()).isEqualTo(TestType.SINGLE_TXN);

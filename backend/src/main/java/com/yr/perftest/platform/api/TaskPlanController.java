@@ -1,6 +1,7 @@
 package com.yr.perftest.platform.api;
 
 import com.yr.perftest.platform.task.ScenarioExecution;
+import com.yr.perftest.platform.task.ScenarioDataFileBinding;
 import com.yr.perftest.platform.task.ExecutionQueryService;
 import com.yr.perftest.platform.task.ScenarioExecutionService;
 import com.yr.perftest.platform.task.ExecutionControlService;
@@ -121,6 +122,7 @@ public class TaskPlanController {
                 request.testType(),
                 request.jmeterProperties(),
                 request.threadGroupConfigs(),
+                request.dataFileBindings(),
                 request.overridePlanDefaults() ? request.controllerNodeId() : null,
                 request.overridePlanDefaults() ? request.workerNodeIds() : null,
                 request.overridePlanDefaults() ? request.monitorTargetIds() : null
@@ -202,6 +204,7 @@ public class TaskPlanController {
                 request.testType(),
                 request.jmeterProperties(),
                 request.threadGroupConfigs(),
+                request.dataFileBindings(),
                 request.controllerNodeId(),
                 request.workerNodeIds(),
                 request.monitorTargetIds(),
@@ -358,6 +361,7 @@ public class TaskPlanController {
             TestType testType,
             Map<String, String> jmeterProperties,
             List<ScenarioThreadGroupConfig> threadGroupConfigs,
+            List<ScenarioDataFileBinding> dataFileBindings,
             boolean overridePlanDefaults,
             Long controllerNodeId,
             List<Long> workerNodeIds,
@@ -372,6 +376,7 @@ public class TaskPlanController {
             TestType testType,
             Map<String, String> jmeterProperties,
             List<ScenarioThreadGroupConfig> threadGroupConfigs,
+            List<ScenarioDataFileBinding> dataFileBindings,
             boolean overridePlanDefaults,
             Long controllerNodeId,
             List<Long> workerNodeIds,

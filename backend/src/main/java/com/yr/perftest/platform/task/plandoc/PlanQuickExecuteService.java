@@ -62,7 +62,7 @@ public class PlanQuickExecuteService {
         planRepository.save(raw);
         commentService.systemComment(plan.id(), "快捷执行自动通过评审（操作人：" + username + "）");
         com.yr.perftest.platform.task.TaskScenario scenario = scenarioService.createScenario(
-                plan.id(), scriptVersionId, scriptDisplayName(script), null, null, null, null, null, null, null);
+                plan.id(), scriptVersionId, scriptDisplayName(script), null, null, null, null, null, null, null, null);
         ExecutionControlService.StartOutcome outcome = executionControlService.start(
                 new ExecutionControlService.StartCommand(scenario.id(), null, null, null, null), null);
         return new QuickExecuteResult(plan.id(), scenario.id(), outcome.executionId());

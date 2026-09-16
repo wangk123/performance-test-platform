@@ -58,6 +58,7 @@ public class TaskScenarioService {
             TestType testType,
             Map<String, String> jmeterProperties,
             List<ScenarioThreadGroupConfig> threadGroupConfigs,
+            List<ScenarioDataFileBinding> dataFileBindings,
             Long controllerNodeId,
             List<Long> workerNodeIds,
             List<Long> monitorTargetIds
@@ -82,6 +83,7 @@ public class TaskScenarioService {
                 scriptVersionId,
                 jmeterProperties,
                 threadGroupConfigs,
+                dataFileBindings,
                 controllerNodeId,
                 workerNodeIds,
                 monitorTargetIds
@@ -101,6 +103,7 @@ public class TaskScenarioService {
             TestType testType,
             Map<String, String> jmeterProperties,
             List<ScenarioThreadGroupConfig> threadGroupConfigs,
+            List<ScenarioDataFileBinding> dataFileBindings,
             Long controllerNodeId,
             List<Long> workerNodeIds,
             List<Long> monitorTargetIds,
@@ -120,11 +123,24 @@ public class TaskScenarioService {
         String resolvedMonitors = overridePlanDefaults && monitorTargetIds != null
                 ? taskJson.writeLongList(monitorTargetIds) : null;
         List<ScenarioThreadGroupConfig> resolvedConfigs = threadGroupConfigs;
-        if (resolvedConfigs != null && resolvedScriptVersionId != null) {
+        List<ScenarioDataFileBinding> resolvedBindings = dataFileBindings;
+        if (resolvedScriptVersionId != null && (resolvedConfigs != null || resolvedBindings != null)) {
             PersistentScriptVersionRecord script = scriptVersionRepository.findById(resolvedScriptVersionId).orElseThrow();
-            resolvedConfigs = configSupport.normalize(Path.of(script.getStoredPath()), resolvedConfigs);
-        } else if (resolvedConfigs != null) {
-            resolvedConfigs = List.of(); // 无脚本则无线程组档位（档位 stepId 依赖脚本）
+            Path scriptPath = Path.of(script.getStoredPath());
+            if (resolvedConfigs != null) {
+                resolvedConfigs = configSupport.normalize(scriptPath, resolvedConfigs);
+            }
+            if (resolvedBindings != null) {
+                resolvedBindings = configSupport.normalizeDataFileBindings(scriptPath, resolvedBindings);
+            }
+        } else {
+            // 无脚本则清空脚本派生配置（threadGroupConfigs / dataFileBindings 的 stepId 依赖脚本）
+            if (resolvedConfigs != null) {
+                resolvedConfigs = List.of();
+            }
+            if (resolvedBindings != null) {
+                resolvedBindings = List.of();
+            }
         }
         scenario.updateProfile(
                 name,
@@ -134,7 +150,7 @@ public class TaskScenarioService {
                 resolvedWorkers,
                 resolvedMonitors,
                 resolvedConfigs != null ? configSupport.writeStored(resolvedConfigs) : null,
-                null
+                resolvedBindings != null ? configSupport.writeStoredDataFileBindings(resolvedBindings) : null
         );
         // null = 保留现值（与 scriptVersionId 口径一致）；显式空串仍会清空（文档侧渲染为（待填写））
         String effectivePurpose = purpose != null ? purpose : scenario.getPurpose();
@@ -226,17 +242,24 @@ public class TaskScenarioService {
             Long scriptVersionId,
             Map<String, String> jmeterProperties,
             List<ScenarioThreadGroupConfig> threadGroupConfigs,
+            List<ScenarioDataFileBinding> dataFileBindings,
             Long controllerNodeId,
             List<Long> workerNodeIds,
             List<Long> monitorTargetIds
     ) {
         Long resolvedScriptVersionId = scriptVersionId != null ? scriptVersionId : scenario.getScriptVersionId();
         List<ScenarioThreadGroupConfig> normalized = List.of();
+        List<ScenarioDataFileBinding> normalizedBindings = List.of();
         if (resolvedScriptVersionId != null) {
             PersistentScriptVersionRecord script = validateScript(projectId, resolvedScriptVersionId);
+            Path scriptPath = Path.of(script.getStoredPath());
             normalized = configSupport.normalize(
-                    Path.of(script.getStoredPath()),
+                    scriptPath,
                     threadGroupConfigs == null ? List.of() : threadGroupConfigs
+            );
+            normalizedBindings = configSupport.normalizeDataFileBindings(
+                    scriptPath,
+                    dataFileBindings == null ? List.of() : dataFileBindings
             );
         }
         scenario.updateProfile(
@@ -247,7 +270,7 @@ public class TaskScenarioService {
                 workerNodeIds != null ? taskJson.writeLongList(workerNodeIds) : null,
                 monitorTargetIds != null ? taskJson.writeLongList(monitorTargetIds) : null,
                 configSupport.writeStored(normalized),
-                null
+                configSupport.writeStoredDataFileBindings(normalizedBindings)
         );
     }
 
@@ -272,6 +295,7 @@ public class TaskScenarioService {
                 scenario.getWorkerNodeIdsJson() != null ? taskJson.readLongList(scenario.getWorkerNodeIdsJson()) : null,
                 scenario.getMonitorTargetIdsJson() != null ? taskJson.readLongList(scenario.getMonitorTargetIdsJson()) : null,
                 configs,
+                configSupport.readStoredDataFileBindings(scenario.getDataFileBindingsJson()),
                 latest != null ? latest.getStatus() : null,
                 latest != null ? (latest.getStartTime() != null ? latest.getStartTime() : latest.getCreatedAt()) : null,
                 scenario.getCreatedAt(),

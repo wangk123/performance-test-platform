@@ -90,6 +90,46 @@ public class ScenarioThreadGroupConfigSupport {
         return normalized;
     }
 
+    public List<ScenarioDataFileBinding> readStoredDataFileBindings(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<ScenarioDataFileBinding>>() {
+            });
+        } catch (Exception exception) {
+            throw new ExecutionValidationException("data file bindings json is invalid");
+        }
+    }
+
+    public String writeStoredDataFileBindings(List<ScenarioDataFileBinding> bindings) {
+        try {
+            return objectMapper.writeValueAsString(bindings == null ? List.of() : bindings);
+        } catch (Exception exception) {
+            throw new ExecutionValidationException("data file bindings json is invalid");
+        }
+    }
+
+    /** 剔除 dataFileId 为空或 stepId 不在脚本 CSV 步骤集合内的项并刷新 stepName；无脚本/脚本不可读视为空集合。 */
+    public List<ScenarioDataFileBinding> normalizeDataFileBindings(Path scriptPath, List<ScenarioDataFileBinding> inputs) {
+        if (scriptPath == null || inputs == null || inputs.isEmpty()) {
+            return List.of();
+        }
+        Map<String, String> csvSteps = loadCsvSteps(scriptPath);
+        List<ScenarioDataFileBinding> normalized = new ArrayList<>();
+        for (ScenarioDataFileBinding input : inputs) {
+            if (input == null || input.dataFileId() == null || input.stepId() == null) {
+                continue;
+            }
+            String stepName = csvSteps.get(input.stepId());
+            if (stepName == null) {
+                continue;
+            }
+            normalized.add(new ScenarioDataFileBinding(input.stepId(), stepName, input.dataFileId()));
+        }
+        return normalized;
+    }
+
     public ScenarioThreadGroupConfig requireConfig(List<ScenarioThreadGroupConfig> configs, long configId) {
         return configs.stream()
                 .filter(config -> config.id() == configId)
@@ -443,6 +483,28 @@ public class ScenarioThreadGroupConfigSupport {
             throw exception;
         } catch (Exception exception) {
             throw new ExecutionValidationException("failed to read script thread groups");
+        }
+    }
+
+    private Map<String, String> loadCsvSteps(Path scriptPath) {
+        try {
+            String content = Files.readString(scriptPath, StandardCharsets.UTF_8);
+            Map<String, String> csvSteps = new LinkedHashMap<>();
+            collectCsvSteps(scriptParser.parseSteps(content), csvSteps);
+            return csvSteps;
+        } catch (Exception exception) {
+            return Map.of();
+        }
+    }
+
+    private void collectCsvSteps(List<ScriptStepDefinition> steps, Map<String, String> csvSteps) {
+        for (ScriptStepDefinition step : steps) {
+            if (ScriptStepType.CSV_DATA.code().equals(step.type())) {
+                csvSteps.put(step.id(), step.name());
+            }
+            if (!step.children().isEmpty()) {
+                collectCsvSteps(step.children(), csvSteps);
+            }
         }
     }
 

@@ -21,6 +21,7 @@ public record TaskScenario(
         List<Long> workerNodeIds,
         List<Long> monitorTargetIds,
         List<ScenarioThreadGroupConfig> threadGroupConfigs,
+        List<ScenarioDataFileBinding> dataFileBindings,
         ExecutionStatus latestExecutionStatus,
         Instant latestExecutionAt,
         Instant createdAt,

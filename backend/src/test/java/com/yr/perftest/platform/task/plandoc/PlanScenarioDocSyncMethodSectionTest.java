@@ -160,7 +160,7 @@ class PlanScenarioDocSyncMethodSectionTest {
     void createScenarioSyncsSkeletonIntoTestMethodSection() {
         long planId = givenPlanWithBody("## 八、测试方法\n导语。\n## 九、风险与预案\n");
         scenarioService.createScenario(planId, null, "放款提交", "验证放款", TestType.BENCHMARK,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
         String body = planRepository.findById(planId).orElseThrow().getBody();
         assertThat(body).contains("### S1 放款提交 · BENCHMARK");
         assertThat(body).doesNotContain("八、场景设计");
