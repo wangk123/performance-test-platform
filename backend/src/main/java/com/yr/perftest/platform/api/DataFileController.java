@@ -81,7 +81,11 @@ public class DataFileController {
         // 显式补 file: 协议——service 落库的 storedPath 可能是相对路径（platform.storage.root=./storage），
         // UrlResource 单参构造对无协议路径抛 MalformedURLException
         UrlResource resource = new UrlResource("file:" + version.storedPath());
-        String encodedFilename = URLEncoder.encode(version.originalFilename(), StandardCharsets.UTF_8);
+        // RFC 5987 filename* 只做 percent-decoding：URLEncoder 的空格输出是 "+"，
+        // 会以字面 + 落到下载文件名（my data.csv → my+data.csv），改写为 %20
+        String encodedFilename = URLEncoder
+                .encode(version.originalFilename(), StandardCharsets.UTF_8)
+                .replace("+", "%20");
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFilename)
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)

@@ -89,6 +89,23 @@ public class DataFileControllerTest {
                         "attachment; filename*=UTF-8''users.csv"))
                 .andExpect(content().bytes("mobile,name\n138,张三\n139,李四".getBytes(StandardCharsets.UTF_8)));
 
+        // RFC 5987：空格须为 %20 而非 URLEncoder 的 "+"（my+data.csv 会成为字面加号）
+        MockMultipartFile spaced = new MockMultipartFile(
+                "file", "my data.csv", "text/csv", "mobile,name\n136,王五".getBytes(StandardCharsets.UTF_8));
+        mockMvc.perform(multipart("/api/projects/1/data-files")
+                        .file(spaced)
+                        .param("name", "用户数据")
+                        .header("Authorization", "Bearer " + authToken)
+                        .header("X-User", "admin"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.versionNo", is(2)));
+
+        mockMvc.perform(get("/api/projects/1/data-files/1/versions/2/download")
+                        .header("Authorization", "Bearer " + authToken))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename*=UTF-8''my%20data.csv"));
+
         mockMvc.perform(delete("/api/projects/1/data-files/1")
                         .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isNoContent());
