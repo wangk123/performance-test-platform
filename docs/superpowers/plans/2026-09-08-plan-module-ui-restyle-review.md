@@ -61,7 +61,7 @@
 
 ## 第 3 轮：视觉还原走查（对照计划文档 §3.2 / 原型数值）
 
-**检索**：本轮以规格表逐项核对为主（数值唯一来源为 `plan-document-prototype.html` 摘录表），检索沿用第 1/2 轮 ux/typography 命中。
+**检索**：本轮以规格表逐项核对为主（数值唯一来源为 `prototype-assets/plan-document/plan-document-prototype.html` 摘录表），检索沿用第 1/2 轮 ux/typography 命中。
 
 **发现清单**：
 

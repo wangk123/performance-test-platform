@@ -187,7 +187,7 @@ CREATE TABLE env_check_fix (
    - 修复历史：diff 查看 + 「回滚」。
 4. **首执行被拦弹窗升级**：列待处理项与缺凭据机器，出口 =「去修复/去配置」+「跳过并执行」（现有留痕逻辑）。
 
-原型：`env-check-prototype.html`（效果图级，light/dark 双主题）。
+原型：`prototype-assets/env-check/env-check-prototype.html`（效果图级，light/dark 双主题）。
 
 ## 9. 内置检查项（第一期）
 

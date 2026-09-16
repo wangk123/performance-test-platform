@@ -2,7 +2,7 @@
 
 - 日期：2026-09-09
 - 范围：任务计划详情页（文档 Tab 为主，涉及页头/步骤条/Tabs/TOC/文档区）
-- 关联：2026-09-08-plan-module-ui-restyle（上一轮 UI 重构）、`plan-detail-optimization-prototype.html`（本方案效果图原型）
+- 关联：2026-09-08-plan-module-ui-restyle（上一轮 UI 重构）、`prototype-assets/plan-detail-optimization/plan-detail-optimization-prototype.html`（本方案效果图原型）
 - 性质：设计方案（含落地映射），未动实现代码
 
 ---

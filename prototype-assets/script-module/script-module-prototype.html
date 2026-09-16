@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="default">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>脚本模块功能完善 P1-5 / P1-7 · 设计效果图</title>
+<style>
+  :root, :root[data-theme='default'] {
+    --canvas: #f4f6f8; --surface: #ffffff; --surface-soft: #f7fafb;
+    --ink: #1a2332; --muted: #5c6b7a; --line: #e2e8ee; --line-strong: #c8d3dc;
+    --accent: #0b7f8a; --accent-soft: #e6f5f6; --accent-ink: #ffffff;
+    --ok: #2f9b6a; --ok-soft: #e8f6ef; --warn: #b97d10; --warn-soft: #fdf3e3;
+    --orange: #c25e0e; --orange-soft: #fbeee2;
+    --danger: #d14343; --danger-soft: #fdeeee;
+    --purple: #7c5cd6; --purple-soft: #f0ecfb;
+    --shadow: 0 1px 2px rgb(16 24 40 / 4%);
+    --font-ui: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-data: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  :root[data-theme='dark'] {
+    --canvas: #0e141a; --surface: #161d26; --surface-soft: #1c2530;
+    --ink: rgba(255, 255, 255, 0.88); --muted: rgba(255, 255, 255, 0.45);
+    --line: #2a3440; --line-strong: #3a4654;
+    --accent: #2bb3bf; --accent-soft: rgba(43, 179, 191, 0.16); --accent-ink: #06282b;
+    --ok: #58c98f; --ok-soft: rgba(47, 155, 106, 0.18);
+    --warn: #d9a441; --warn-soft: rgba(185, 125, 16, 0.18);
+    --orange: #e8863c; --orange-soft: rgba(194, 94, 14, 0.18);
+    --danger: #ef6a6a; --danger-soft: rgba(209, 67, 67, 0.16);
+    --purple: #a08cf0; --purple-soft: rgba(124, 92, 214, 0.18);
+    --shadow: none;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--canvas); color: var(--ink);
+    font-family: var(--font-ui); font-size: 14px; line-height: 1.65;
+    padding: 40px 48px 72px; transition: background .2s, color .2s;
+  }
+  .page { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 34px; }
+
+  .page-head { display: flex; align-items: flex-start; gap: 16px; }
+  .page-head h1 { font-size: 21px; font-weight: 700; letter-spacing: 0.2px; }
+  .page-head .sub { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .theme-toggle {
+    margin-left: auto; border: 1px solid var(--line); background: var(--surface);
+    color: var(--muted); border-radius: 8px; padding: 6px 14px; font-size: 12.5px;
+    cursor: pointer; font-family: inherit;
+  }
+  .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+  .lead { color: var(--muted); font-size: 13px; max-width: 1030px; }
+  .lead b { color: var(--ink); font-weight: 600; }
+
+  .section { display: flex; flex-direction: column; gap: 12px; }
+  .section-head { display: flex; align-items: baseline; gap: 12px; }
+  .section-head h2 { font-size: 17px; font-weight: 700; }
+  .section-head .note { color: var(--muted); font-size: 12px; }
+  .badge-new {
+    font: 600 10.5px var(--font-data); color: var(--accent); background: var(--accent-soft);
+    border-radius: 5px; padding: 1px 7px; vertical-align: 3px; margin-left: 6px;
+  }
+  .badge-fix {
+    font: 600 10.5px var(--font-data); color: var(--orange); background: var(--orange-soft);
+    border-radius: 5px; padding: 1px 7px; vertical-align: 3px; margin-left: 6px;
+  }
+
+  /* ---------- 应用窗口模拟 ---------- */
+  .app-frame {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    box-shadow: var(--shadow); overflow: hidden; display: flex; min-height: 560px;
+  }
+  .app-nav {
+    width: 196px; flex: none; border-right: 1px solid var(--line);
+    background: var(--surface-soft); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .app-nav .proj {
+    padding: 6px 10px 14px; font-size: 13px; font-weight: 700; color: var(--ink);
+    border-bottom: 1px solid var(--line); margin-bottom: 10px;
+  }
+  .app-nav .proj .crumb { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
+  .nav-item {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px;
+    font-size: 13px; color: var(--muted);
+  }
+  .nav-item .ico { width: 15px; text-align: center; opacity: .75; flex: none; }
+  .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .app-main { flex: 1; padding: 20px 24px 26px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .app-main .crumb-bar { font-size: 12px; color: var(--muted); }
+  .app-main .crumb-bar b { color: var(--ink); font-weight: 600; }
+  .page-title { font-size: 18px; font-weight: 700; }
+
+  /* ---------- 通用组件 ---------- */
+  .card {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    box-shadow: var(--shadow); padding: 18px 20px 20px;
+  }
+  .card-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .card-head h3 { font-size: 15px; font-weight: 700; }
+  .card-head .hint { color: var(--muted); font-size: 12px; }
+  .card-desc { color: var(--muted); font-size: 12.5px; margin-bottom: 14px; }
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tbl th {
+    text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted);
+    padding: 8px 10px; border-bottom: 1px solid var(--line-strong); white-space: nowrap;
+  }
+  .tbl td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl tr:hover td { background: var(--surface-soft); }
+  .tbl .mono, .mono { font-family: var(--font-data); font-size: 12.5px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 600; padding: 1px 10px; white-space: nowrap;
+  }
+  .chip-ok { color: var(--ok); background: var(--ok-soft); }
+  .chip-warn { color: var(--warn); background: var(--warn-soft); }
+  .chip-accent { color: var(--accent); background: var(--accent-soft); }
+  .chip-purple { color: var(--purple); background: var(--purple-soft); }
+  .chip-plain { color: var(--muted); background: transparent; border: 1px dashed var(--line-strong); }
+  .btn {
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+    border-radius: 8px; padding: 5px 13px; font-size: 12.5px; cursor: pointer; font-family: inherit;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .btn.mini { padding: 2px 9px; font-size: 11.5px; border-radius: 6px; }
+  .btn.danger-ghost { color: var(--danger); border-color: var(--danger); background: transparent; }
+  .card-tools { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
+  .card-tools .spacer { flex: 1; }
+  .search-box {
+    border: 1px solid var(--line-strong); border-radius: 8px; padding: 5px 12px;
+    font-size: 12.5px; color: var(--muted); width: 220px; background: var(--surface);
+  }
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); }
+  .tab {
+    padding: 8px 16px; font-size: 13px; color: var(--muted); cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab.active { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
+  .tabs-note { font-size: 11.5px; color: var(--muted); margin-left: auto; align-self: center; }
+
+  /* ---------- 选择器（闭合 / 展开） ---------- */
+  .select {
+    position: relative; border: 1px solid var(--line-strong); border-radius: 8px;
+    background: var(--surface); padding: 6px 10px; font-size: 12.5px; min-width: 250px;
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+  }
+  .select .caret { margin-left: auto; color: var(--muted); font-size: 11px; }
+  .select.open { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .select .sel-meta { color: var(--muted); font-size: 11.5px; }
+  .select-dropdown {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; width: max-content; min-width: 300px; max-width: 360px;
+    border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface);
+    box-shadow: 0 8px 24px rgb(16 24 40 / 12%); padding: 5px;
+  }
+  .select-dropdown .opt {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px;
+    font-size: 12.5px; cursor: pointer;
+  }
+  .select-dropdown .opt:hover { background: var(--surface-soft); }
+  .select-dropdown .opt.selected { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .select-dropdown .opt .opt-meta { color: var(--muted); font-size: 11.5px; margin-left: auto; }
+  .select-dropdown .opt.selected .opt-meta { color: var(--accent); opacity: .8; }
+  .opt-cols {
+    display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 10px 8px; margin-top: -3px;
+  }
+  .opt-cols i {
+    font: 500 10.5px var(--font-data); font-style: normal; color: var(--muted);
+    background: var(--surface-soft); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px;
+  }
+
+  /* ---------- 开关 ---------- */
+  .switch {
+    width: 34px; height: 19px; border-radius: 999px; background: var(--line-strong);
+    position: relative; flex: none; transition: background .15s;
+  }
+  .switch::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px;
+    border-radius: 50%; background: #fff; transition: left .15s;
+  }
+  .switch.on { background: var(--accent); }
+  .switch.on::after { left: 17px; }
+  .switch-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+
+  /* ---------- 表单 ---------- */
+  .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px 18px; }
+  .form-grid .full { grid-column: 1 / -1; }
+  .field label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  .field label .opt-tip { color: var(--muted); font-weight: 400; font-size: 11.5px; margin-left: 4px; }
+  .field .inp {
+    border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface);
+    color: var(--ink); padding: 6px 10px; font-size: 12.5px; width: 100%; font-family: inherit;
+  }
+  .field .inp.mono { font-family: var(--font-data); font-size: 12px; }
+  .field .inp:focus, .inp-focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .field .assist { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .field .assist .link { color: var(--accent); cursor: pointer; }
+  .field .assist .link:hover { text-decoration: underline; }
+  fieldset.adv {
+    border: 1px dashed var(--line-strong); border-radius: 10px; padding: 12px 16px 14px;
+    grid-column: 1 / -1; display: grid; gap: 12px 18px;
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  }
+  fieldset.adv legend {
+    font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 0 8px;
+  }
+
+  /* ---------- 提示条 ---------- */
+  .info-bar {
+    display: flex; align-items: flex-start; gap: 9px; padding: 9px 14px; border-radius: 9px;
+    font-size: 12.5px; border: 1px solid var(--line); background: var(--surface-soft);
+  }
+  .info-bar.accent { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .info-bar.warn { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+  .info-bar .ico { flex: none; font-weight: 700; }
+  .info-bar .link { font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+  .info-bar .grow { flex: 1; }
+  .info-bar code {
+    font: 600 11.5px var(--font-data); background: var(--surface); border: 1px solid var(--line);
+    border-radius: 5px; padding: 0 6px;
+  }
+
+  /* ---------- A. 数据文件管理 ---------- */
+  .df-layout { display: grid; grid-template-columns: 1fr 330px; gap: 18px; align-items: start; }
+  .df-side { display: flex; flex-direction: column; gap: 14px; }
+  @media (max-width: 1080px) {
+    .df-layout { grid-template-columns: 1fr; }
+    .df-side { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 14px; }
+  }
+  @media (max-width: 760px) { .df-side { grid-template-columns: 1fr; } }
+  .df-name { font-weight: 600; display: flex; align-items: center; gap: 7px; }
+  .df-name .remark { font-weight: 400; font-size: 11.5px; color: var(--muted); }
+  .ver-dot { color: var(--accent); font-weight: 700; font-size: 11px; }
+  .timeline { position: relative; padding-left: 4px; }
+  .tl-item { position: relative; padding: 0 0 14px 22px; }
+  .tl-item::before {
+    content: ''; position: absolute; left: 5px; top: 6px; width: 9px; height: 9px;
+    border-radius: 50%; background: var(--surface); border: 2px solid var(--line-strong);
+  }
+  .tl-item.current::before { border-color: var(--accent); background: var(--accent); }
+  .tl-item:not(:last-child)::after {
+    content: ''; position: absolute; left: 9px; top: 17px; bottom: 0; width: 1px; background: var(--line);
+  }
+  .tl-item .tl-head { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; }
+  .tl-item .tl-meta { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .preview-tbl { width: 100%; border-collapse: collapse; font: 500 11.5px var(--font-data); }
+  .preview-tbl th {
+    text-align: left; color: var(--muted); font-weight: 600; padding: 5px 8px;
+    background: var(--surface-soft); border: 1px solid var(--line);
+  }
+  .preview-tbl td { padding: 5px 8px; border: 1px solid var(--line); color: var(--ink); }
+  .preview-tbl tr:nth-child(even) td { background: var(--surface-soft); }
+
+  /* ---------- B/D. 脚本编辑器双栏 ---------- */
+  .editor-layout { display: grid; grid-template-columns: 252px 1fr; min-height: 0; }
+  .editor-layout.with-snippet { grid-template-columns: 252px 1fr 316px; }
+  @media (max-width: 1150px) {
+    .editor-layout.with-snippet { grid-template-columns: 252px 1fr; }
+    .editor-layout.with-snippet .snippet-panel {
+      grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--line);
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(225px, 1fr)); gap: 9px;
+    }
+    .snippet-panel h4, .snippet-panel > .info-bar { grid-column: 1 / -1; }
+  }
+  .step-tree {
+    border-right: 1px solid var(--line); background: var(--surface-soft); padding: 12px 10px;
+    font-size: 12.5px; display: flex; flex-direction: column; gap: 1px;
+  }
+  .st-row { display: flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 7px; color: var(--muted); }
+  .st-row .t-ico { width: 14px; text-align: center; flex: none; opacity: .8; }
+  .st-row .t-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st-row.lv0 { font-weight: 600; color: var(--ink); }
+  .st-row.lv1 { margin-left: 16px; }
+  .st-row.lv2 { margin-left: 32px; }
+  .st-row.selected { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .st-row .t-tag { margin-left: auto; font: 600 9.5px var(--font-data); color: var(--purple); background: var(--purple-soft); border-radius: 4px; padding: 0 5px; }
+  .step-detail { padding: 16px 20px 20px; min-width: 0; display: flex; flex-direction: column; gap: 13px; }
+  .step-detail .head-row { display: flex; align-items: center; gap: 9px; }
+  .step-detail .head-row .type-chip { font: 600 10.5px var(--font-data); }
+  .vis-xml { display: flex; gap: 2px; border: 1px solid var(--line); border-radius: 8px; padding: 2px; width: fit-content; }
+  .vis-xml span { font-size: 11.5px; padding: 2px 10px; border-radius: 6px; color: var(--muted); }
+  .vis-xml span.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+  /* ---------- D. 代码编辑器（CodeMirror 风格） ---------- */
+  .cm {
+    border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden;
+    background: var(--surface); font: 500 12px/1.75 var(--font-data);
+  }
+  .cm-head {
+    display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 11.5px;
+    color: var(--muted); background: var(--surface-soft); border-bottom: 1px solid var(--line);
+    font-family: var(--font-ui);
+  }
+  .cm-head .lang { color: var(--accent); font-weight: 600; font-family: var(--font-data); font-size: 11px; }
+  .cm-body { display: flex; }
+  .cm-gutter {
+    flex: none; padding: 10px 0; text-align: right; color: var(--muted); opacity: .55;
+    border-right: 1px solid var(--line); background: var(--surface-soft); min-width: 38px;
+  }
+  .cm-gutter i { display: block; font-style: normal; padding: 0 8px 0 6px; }
+  .cm-code { padding: 10px 14px; white-space: pre; overflow-x: auto; flex: 1; }
+  .tok-kw { color: var(--purple); font-weight: 600; }
+  .tok-str { color: var(--ok); }
+  .tok-com { color: var(--muted); font-style: italic; }
+  .tok-fn { color: var(--orange); }
+  .tok-num { color: var(--warn); }
+  .tok-prop { color: var(--accent); font-weight: 700; }
+  .cm-code .hl-line { background: var(--accent-soft); display: block; margin: 0 -14px; padding: 0 14px; border-left: 2px solid var(--accent); }
+
+  /* ---------- D. 片段面板 ---------- */
+  .snippet-panel { border-left: 1px solid var(--line); background: var(--surface-soft); padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .snippet-panel h4 { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+  .snippet-panel h4 .cnt { font: 500 10.5px var(--font-data); color: var(--muted); }
+  .sn-group-label { font-size: 10.5px; font-weight: 700; color: var(--muted); letter-spacing: .5px; margin: 4px 2px 0; }
+  .sn-item {
+    border: 1px solid var(--line); border-radius: 9px; background: var(--surface);
+    padding: 8px 11px; cursor: pointer; transition: border-color .12s;
+  }
+  .sn-item:hover { border-color: var(--accent); }
+  .sn-item .sn-name { font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .sn-item .sn-name .insert { margin-left: auto; color: var(--accent); font-size: 11px; opacity: 0; font-weight: 600; }
+  .sn-item:hover .insert { opacity: 1; }
+  .sn-item .sn-desc { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .sn-item .sn-keys { font-size: 11px; margin-top: 4px; color: var(--muted); }
+  .sn-item .sn-keys code {
+    font: 600 10.5px var(--font-data); color: var(--accent); background: var(--accent-soft);
+    border-radius: 4px; padding: 0 5px;
+  }
+
+  /* ---------- C. 场景弹窗 ---------- */
+  .modal-stage {
+    border: 1px solid var(--line); border-radius: 12px; padding: 34px 0;
+    display: flex; justify-content: center;
+    background:
+      repeating-conic-gradient(var(--canvas) 0% 25%, var(--surface-soft) 0% 50%) 50% / 22px 22px;
+  }
+  .modal {
+    width: min(860px, 94%); border: 1px solid var(--line-strong); border-radius: 14px;
+    background: var(--surface); box-shadow: 0 18px 50px rgb(16 24 40 / 14%);
+    display: flex; flex-direction: column; overflow: visible;
+  }
+  .modal-head {
+    display: flex; align-items: center; gap: 10px; padding: 15px 22px; border-bottom: 1px solid var(--line);
+  }
+  .modal-head h3 { font-size: 15.5px; font-weight: 700; }
+  .modal-head .x { margin-left: auto; color: var(--muted); cursor: pointer; }
+  .modal-body { padding: 16px 22px 20px; display: flex; flex-direction: column; gap: 15px; }
+  .bind-row {
+    display: flex; align-items: center; gap: 12px; padding: 10px 13px;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+  }
+  .bind-row .step-info { min-width: 0; }
+  .bind-row .step-info .nm { font-size: 13px; font-weight: 600; display: flex; gap: 7px; align-items: center; }
+  .bind-row .step-info .meta { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .bind-row .select { margin-left: auto; }
+  .unbound-hint { margin-left: auto; font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  .group-label { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 700; margin-top: 2px; }
+  .group-label .sub { font-weight: 400; font-size: 11.5px; color: var(--muted); }
+
+  /* ---------- E. 链路条 ---------- */
+  .flow-card { padding: 14px 18px 16px; }
+  .flow-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12.5px; }
+  .flow-line .hop {
+    display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--surface-soft);
+    border-radius: 8px; padding: 4px 11px;
+  }
+  .flow-line .hop.hot { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .flow-line .hop code { font: 600 11px var(--font-data); }
+  .flow-line .arr { color: var(--accent); font-weight: 700; }
+  .flow-title { font-size: 12.5px; font-weight: 700; margin-bottom: 9px; display: flex; gap: 8px; align-items: center; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="page-head">
+    <div>
+      <h1>脚本模块功能完善 · P1-5 CSV 测试数据 × P1-7 JSR223 前后置处理器</h1>
+      <div class="sub">项目级数据文件资产 · 场景级绑定（计划文档中下拉选择）· worker 全量依赖分发修复 · Groovy 处理器 + 片段库 + 密钥参数化</div>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()">切换深色 / 浅色</button>
+  </div>
+  <p class="lead">
+    设计文档：<b>docs/superpowers/specs/2026-09-16-p1-5-p1-7-script-module-design.md</b>。
+    下方 A–C 为 P1-5（数据文件管理 → 脚本 CSV 步骤 → 场景绑定），D 为 P1-7（JSR223 处理器编辑），E 为执行链路修复点。
+  </p>
+
+  <!-- ================= A. 数据文件管理 ================= -->
+  <div class="section">
+    <div class="section-head">
+      <h2>A · 脚本编辑器 · 数据文件管理</h2>
+      <span class="note">工作区左栏新增标签页「脚本 / 数据文件」，与脚本版本时间线同区，不新增顶级导航</span><span class="badge-new">NEW</span>
+    </div>
+    <div class="app-frame">
+      <div class="app-nav">
+        <div class="proj">订单交易链路压测<span class="crumb">perftest-platform</span></div>
+        <div class="nav-item"><span class="ico">▤</span>仪表盘</div>
+        <div class="nav-item"><span class="ico">◫</span>压测计划</div>
+        <div class="nav-item active"><span class="ico">✎</span>脚本编辑器</div>
+        <div class="nav-item"><span class="ico">▶</span>执行记录</div>
+        <div class="nav-item"><span class="ico">⬡</span>节点管理</div>
+        <div class="nav-item"><span class="ico">ƒ</span>函数库</div>
+      </div>
+      <div class="app-main">
+        <div class="crumb-bar">脚本编辑器 / <b>数据文件</b></div>
+        <div class="tabs">
+          <div class="tab">脚本版本</div>
+          <div class="tab active">数据文件</div>
+          <span class="tabs-note">项目级资产 · 同名再上传 = 版本 +1 · 执行时自动取最新版本</span>
+        </div>
+        <div class="df-layout">
+          <div>
+            <div class="card-tools">
+              <div class="search-box">搜索数据文件…</div>
+              <div class="spacer"></div>
+              <button class="btn primary">↑ 上传 CSV</button>
+            </div>
+            <div class="card" style="padding: 4px 8px; overflow-x: auto;">
+              <table class="tbl">
+                <thead><tr>
+                  <th>名称 / 表头</th><th>最新版本</th><th>大小</th><th>行数</th><th>更新时间</th><th style="text-align:right">操作</th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <div class="df-name">用户数据<span class="remark">造数工厂产出</span></div>
+                      <div class="mono" style="font-size:11px; color:var(--muted); margin-top:1px">mobile · name · id_card · balance</div>
+                    </td>
+                    <td><span class="chip chip-ok">v3 · 当前</span></td>
+                    <td class="mono">4.2 MB</td>
+                    <td class="mono">128,540</td>
+                    <td style="font-size:12px; color:var(--muted)">09-16 14:22 · wangk</td>
+                    <td style="text-align:right; white-space:nowrap">
+                      <button class="btn mini">版本</button>
+                      <button class="btn mini">预览</button>
+                      <button class="btn mini danger-ghost">删除</button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="df-name">订单数据</div>
+                      <div class="mono" style="font-size:11px; color:var(--muted); margin-top:1px">oid · amount · status</div>
+                    </td>
+                    <td><span class="chip chip-ok">v2 · 当前</span></td>
+                    <td class="mono">1.1 MB</td>
+                    <td class="mono">36,002</td>
+                    <td style="font-size:12px; color:var(--muted)">09-15 10:03 · liuy</td>
+                    <td style="text-align:right; white-space:nowrap">
+                      <button class="btn mini">版本</button>
+                      <button class="btn mini">预览</button>
+                      <button class="btn mini danger-ghost">删除</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="info-bar" style="margin-top:12px">
+              <span class="ico">ⓘ</span>
+              <span class="grow">单个文件上限 100 MB；上传时自动解析表头、统计行数并计算 SHA-256。删除为硬删除（记录与文件级联），场景绑定将显式报错。</span>
+            </div>
+          </div>
+          <div class="df-side">
+            <div class="card">
+              <div class="card-head"><h3>用户数据 · 版本时间线</h3></div>
+              <div class="card-desc">执行装配时始终取最新版本，manifest 记录实际版本与 SHA-256</div>
+              <div class="timeline">
+                <div class="tl-item current">
+                  <div class="tl-head"><span class="ver-dot">●</span>v3 <span class="chip chip-accent" style="margin-left:6px">执行取此版</span></div>
+                  <div class="tl-meta">users-v3.csv · 4.2 MB · sha256 3f9a21c0…</div>
+                  <div class="tl-meta">09-16 14:22 · wangk · <span style="color:var(--accent); cursor:pointer">下载</span></div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-head"><span class="ver-dot">○</span>v2</div>
+                  <div class="tl-meta">users-v2.csv · 4.2 MB · sha256 8d1077ab…</div>
+                  <div class="tl-meta">09-12 09:40 · wangk · <span style="color:var(--accent); cursor:pointer">下载</span></div>
+                </div>
+                <div class="tl-item">
+                  <div class="tl-head"><span class="ver-dot">○</span>v1</div>
+                  <div class="tl-meta">users-v1.csv · 2.8 MB · sha256 c4450e19…</div>
+                  <div class="tl-meta">09-08 16:55 · liuy · <span style="color:var(--accent); cursor:pointer">下载</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3>v3 预览</h3><span class="hint">前 3 行 · 共 128,540 行</span></div>
+              <table class="preview-tbl" style="margin-top:8px">
+                <thead><tr><th>mobile</th><th>name</th><th>id_card</th><th>balance</th></tr></thead>
+                <tbody>
+                  <tr><td>13812345678</td><td>张三</td><td>1101011990…</td><td>5200.00</td></tr>
+                  <tr><td>13987654321</td><td>李四</td><td>4403011992…</td><td>1350.50</td></tr>
+                  <tr><td>13711223344</td><td>王五</td><td>3301021995…</td><td>88.00</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= B. CSV 步骤表单 ================= -->
+  <div class="section">
+    <div class="section-head">
+      <h2>B · 脚本编辑器 · CSV 数据步骤表单升级</h2>
+      <span class="note">补齐 CSVDataSet 全量属性；文件绑定移至场景侧（见 C）</span><span class="badge-new">NEW</span>
+    </div>
+    <div class="app-frame">
+      <div class="editor-layout">
+        <div class="step-tree">
+          <div style="font-size:11px; font-weight:700; color:var(--muted); padding:2px 9px 8px; letter-spacing:.5px">步骤结构</div>
+          <div class="st-row lv0"><span class="t-ico">▤</span><span class="t-name">订单主流程</span></div>
+          <div class="st-row lv1"><span class="t-ico">◉</span><span class="t-name">查询商品</span></div>
+          <div class="st-row lv2"><span class="t-ico">▤</span><span class="t-name">响应断言</span></div>
+          <div class="st-row lv1"><span class="t-ico">◉</span><span class="t-name">提交订单</span></div>
+          <div class="st-row lv2"><span class="t-ico">◉</span><span class="t-name">签名 PreProcessor</span><span class="t-tag">JSR223</span></div>
+          <div class="st-row lv1 selected"><span class="t-ico">▦</span><span class="t-name">用户数据 (CSV)</span><span class="t-tag">CSV</span></div>
+          <div class="st-row lv1"><span class="t-ico">▦</span><span class="t-name">订单数据 (CSV)</span><span class="t-tag">CSV</span></div>
+          <div class="st-row lv0"><span class="t-ico">▤</span><span class="t-name">回流场景</span></div>
+        </div>
+        <div class="step-detail">
+          <div class="head-row">
+            <span class="chip chip-accent type-chip">CSV_DATA</span>
+            <span style="font-weight:700; font-size:14px">用户数据</span>
+            <div class="vis-xml" style="margin-left:auto"><span class="on">可视化</span><span>XML 源码</span></div>
+          </div>
+          <div class="info-bar accent">
+            <span class="ico">ⓘ</span>
+            <span class="grow">文件名与变量在此定义；<b>数据文件本体在「计划 → 场景 → CSV 数据文件」中绑定分发</b>，执行时按绑定把内容投递到各节点。</span>
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label>步骤名称</label>
+              <input class="inp" value="用户数据">
+            </div>
+            <div class="field">
+              <label>文件名 <span class="opt-tip">fileName · 相对路径</span></label>
+              <input class="inp mono inp-focus" value="users.csv">
+              <div class="assist">导出 JMX 本地运行时，将同名文件放在 JMX 同目录即可</div>
+            </div>
+            <div class="field full">
+              <label>变量名称 <span class="opt-tip">variableNames · 逗号分隔，需与绑定文件的表头一致</span></label>
+              <input class="inp mono" value="mobile,name,id_card,balance">
+            </div>
+            <fieldset class="adv">
+              <legend>CSVDataSet 属性（本期补齐往返）</legend>
+              <div class="field">
+                <label>分隔符</label>
+                <input class="inp mono" value=",">
+              </div>
+              <div class="field">
+                <label>文件编码</label>
+                <div class="select" style="min-width:0">UTF-8<span class="caret">▾</span></div>
+              </div>
+              <div class="field">
+                <label>共享模式</label>
+                <div class="select" style="min-width:0">所有线程<span class="caret">▾</span></div>
+              </div>
+              <div class="field">
+                <label>忽略首行</label>
+                <div class="switch-row"><span class="switch on"></span><span style="color:var(--muted); font-size:11.5px">文件首行为表头</span></div>
+              </div>
+              <div class="field">
+                <label>读到文件尾后</label>
+                <div class="switch-row"><span class="switch on"></span><span style="color:var(--muted); font-size:11.5px">recycle · 循环读取</span></div>
+              </div>
+              <div class="field">
+                <label>EOF 时停止线程</label>
+                <div class="switch-row"><span class="switch"></span><span style="color:var(--muted); font-size:11.5px">stopThread · 默认关闭</span></div>
+              </div>
+            </fieldset>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= C. 场景弹窗 CSV 绑定 ================= -->
+  <div class="section">
+    <div class="section-head">
+      <h2>C · 计划文档 · 场景编辑：CSV 数据文件绑定</h2>
+      <span class="note">关联脚本后按 stepId 列出 CSV 步骤，逐步骤下拉选择项目数据文件（复用线程组预设联动模式）</span><span class="badge-new">NEW</span>
+    </div>
+    <div class="modal-stage">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>编辑场景</h3>
+          <span class="chip chip-plain">执行阶段</span>
+          <span class="x">✕</span>
+        </div>
+        <div class="modal-body">
+          <div class="bind-row">
+            <div class="step-info">
+              <div class="nm">关联脚本</div>
+              <div class="meta mono">v12 · order-flow.jmx · 3 个线程组 · 2 个 CSV 步骤</div>
+            </div>
+            <button class="btn mini" style="margin-left:auto">更换脚本</button>
+          </div>
+
+          <div>
+            <div class="group-label">线程组档位<span class="sub">现有能力 · 按脚本步骤引用</span></div>
+            <div class="card" style="padding: 2px 8px; margin-top:9px">
+              <table class="tbl">
+                <thead><tr><th>线程组</th><th>并发</th><th>Ramp-up</th><th>持续时间</th></tr></thead>
+                <tbody>
+                  <tr><td>订单主流程</td><td class="mono">200</td><td class="mono">60s</td><td class="mono">10min</td></tr>
+                  <tr><td>回流场景</td><td class="mono">50</td><td class="mono">30s</td><td class="mono">10min</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <div class="group-label">CSV 数据文件<span class="badge-new">NEW</span><span class="sub">绑定后执行时取最新版本，分发至 controller 与全部 worker</span></div>
+            <div style="display:flex; flex-direction:column; gap:9px; margin-top:9px">
+              <div class="bind-row">
+                <div class="step-info">
+                  <div class="nm">用户数据 <span class="chip chip-accent">users.csv</span></div>
+                  <div class="meta mono">vars: mobile, name, id_card, balance</div>
+                </div>
+                <div class="select open">
+                  <span>用户数据.csv</span><span class="sel-meta">v3 · 12.9万行 · 4.2 MB</span><span class="caret">▴</span>
+                  <div class="select-dropdown">
+                    <div class="opt selected">用户数据.csv<span class="opt-meta">v3 · 12.9万行 · 4.2 MB</span></div>
+                    <div class="opt-cols"><i>mobile</i><i>name</i><i>id_card</i><i>balance</i></div>
+                    <div class="opt">订单数据.csv<span class="opt-meta">v2 · 3.6万行 · 1.1 MB</span></div>
+                    <div class="opt-cols"><i>oid</i><i>amount</i><i>status</i></div>
+                    <div class="opt" style="color:var(--muted)">不绑定（按同名文件兜底匹配）</div>
+                  </div>
+                </div>
+              </div>
+              <div class="bind-row">
+                <div class="step-info">
+                  <div class="nm">订单数据 <span class="chip chip-accent">orders.csv</span></div>
+                  <div class="meta mono">vars: oid, amount, status</div>
+                </div>
+                <div class="unbound-hint">
+                  <span class="chip chip-warn">未绑定</span>
+                  执行时按 orders.csv 同名兜底
+                  <span class="caret" style="color:var(--muted); font-size:11px">▾ 选择数据文件</span>
+                </div>
+              </div>
+            </div>
+            <div class="info-bar" style="margin-top:11px">
+              <span class="ico">ⓘ</span>
+              <span class="grow">同一脚本在不同场景可绑定不同数据文件；换绑脚本版本后失效绑定自动剔除（同线程组档位行为）。</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; justify-content:flex-end; padding: 13px 22px 17px; border-top:1px solid var(--line)">
+          <button class="btn">取消</button>
+          <button class="btn primary">保存场景</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= D. JSR223 ================= -->
+  <div class="section">
+    <div class="section-head">
+      <h2>D · 脚本编辑器 · JSR223 前后置处理器</h2>
+      <span class="note">挂请求 / 线程组两级 · Groovy · 片段库后端下发 · 保存时明文密钥扫描警告</span><span class="badge-new">NEW</span>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>新增子元素 · 类型卡片</h3><span class="hint">StepCreateDialog · 新增两种类型（虚线卡）</span></div>
+      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-top:10px">
+        <div style="border:1px solid var(--line); border-radius:10px; padding:11px 13px; color:var(--muted); font-size:12.5px">HTTP 请求</div>
+        <div style="border:1px solid var(--line); border-radius:10px; padding:11px 13px; color:var(--muted); font-size:12.5px">CSV 数据文件</div>
+        <div style="border:1px solid var(--line); border-radius:10px; padding:11px 13px; color:var(--muted); font-size:12.5px">响应断言</div>
+        <div style="border:1px solid var(--line); border-radius:10px; padding:11px 13px; color:var(--muted); font-size:12.5px">JSON 断言</div>
+        <div style="border:1.5px dashed var(--accent); border-radius:10px; padding:11px 13px; background:var(--accent-soft)">
+          <div style="font-size:13px; font-weight:700; color:var(--accent)">JSR223 前置处理器</div>
+          <div style="font-size:11.5px; color:var(--accent); opacity:.85">Groovy · 采样前执行（签名 / 加密 / 参数预处理）</div>
+        </div>
+        <div style="border:1.5px dashed var(--accent); border-radius:10px; padding:11px 13px; background:var(--accent-soft)">
+          <div style="font-size:13px; font-weight:700; color:var(--accent)">JSR223 后置处理器</div>
+          <div style="font-size:11.5px; color:var(--accent); opacity:.85">Groovy · 采样后执行（响应解析 / 提取 / 落变量）</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-frame">
+      <div class="editor-layout with-snippet">
+        <div class="step-tree">
+          <div style="font-size:11px; font-weight:700; color:var(--muted); padding:2px 9px 8px; letter-spacing:.5px">步骤结构</div>
+          <div class="st-row lv0"><span class="t-ico">▤</span><span class="t-name">订单主流程</span></div>
+          <div class="st-row lv1"><span class="t-ico">◉</span><span class="t-name">查询商品</span></div>
+          <div class="st-row lv1 selected"><span class="t-ico">◉</span><span class="t-name">提交订单</span></div>
+          <div class="st-row lv2"><span class="t-ico">◈</span><span class="t-name">签名 PreProcessor</span><span class="t-tag">JSR223</span></div>
+          <div class="st-row lv2"><span class="t-ico">▤</span><span class="t-name">响应断言</span></div>
+          <div class="st-row lv1"><span class="t-ico">▦</span><span class="t-name">用户数据 (CSV)</span><span class="t-tag">CSV</span></div>
+          <div class="st-row lv0"><span class="t-ico">▤</span><span class="t-name">回流场景</span></div>
+        </div>
+        <div class="step-detail">
+          <div class="head-row">
+            <span class="chip chip-purple type-chip">JSR223_PRE_PROCESSOR</span>
+            <span style="font-weight:700; font-size:14px">签名 PreProcessor</span>
+            <div class="vis-xml" style="margin-left:auto"><span class="on">可视化</span><span>XML 源码</span></div>
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label>步骤名称</label>
+              <input class="inp" value="签名 PreProcessor">
+            </div>
+            <div class="field">
+              <label>脚本语言</label>
+              <div class="select" style="min-width:0; cursor:default">groovy<span class="chip chip-plain" style="font-size:10px; padding:0 6px">锁定</span></div>
+            </div>
+            <div class="field full">
+              <label>参数 <span class="opt-tip">parameters · 逗号分隔，脚本内 args[] 取用</span></label>
+              <input class="inp mono" value="env=prod,algo=HmacSHA256">
+            </div>
+          </div>
+          <div class="cm">
+            <div class="cm-head">
+              <span class="lang">Groovy</span> script
+              <span style="margin-left:auto; font-family:var(--font-data); font-size:10.5px; color:var(--muted)">cacheKey · true</span>
+            </div>
+            <div class="cm-body">
+              <div class="cm-gutter"><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i></div>
+              <div class="cm-code"><span class="tok-com">// 请求签名：密钥经场景属性注入，不落脚本明文（D17）</span>
+<span class="tok-kw">def</span> signKey = <span class="tok-prop">${__P(signKey)}</span>
+<span class="tok-kw">def</span> ts = <span class="tok-prop">${__time()}</span>
+<span class="hl-line"><span class="tok-kw">def</span> secret = <span class="tok-str">'a3f8d02c9e17b6f4ad55'</span>  <span class="tok-com">// ← 疑似明文密钥</span></span>
+<span class="tok-kw">def</span> body = <span class="tok-str">"mobile=${mobile}&amp;ts="</span> + ts
+<span class="tok-kw">def</span> sign = <span class="tok-fn">hmac</span>(signKey, body, args[<span class="tok-num">1</span>])
+vars.<span class="tok-fn">put</span>(<span class="tok-str">'sign'</span>, sign)  <span class="tok-com">// 请求参数引用 ${sign}</span>
+<span class="tok-fn">log</span>.info(<span class="tok-str">'signed ok'</span>)</div>
+            </div>
+          </div>
+          <div class="info-bar warn">
+            <span class="ico">⚠</span>
+            <span class="grow">检测到疑似明文密钥（第 5 行 <code>secret = 'a3f8d02c…'</code>）：建议改用 <code>${__P(...)}</code> 参数化引用，密钥经场景属性 / CSV 注入。已保存，不阻断。</span>
+            <span class="link">查看建议</span>
+          </div>
+        </div>
+        <div class="snippet-panel">
+          <h4>内置片段库<span class="cnt">GET /api/jsr223-snippets</span></h4>
+          <div class="sn-group-label">签名 / SIGN</div>
+          <div class="sn-item">
+            <div class="sn-name">HMAC-SHA256 签名<span class="insert">插入 →</span></div>
+            <div class="sn-desc">请求体签名并写入变量，Header 携带</div>
+            <div class="sn-keys">密钥 <code>${__P(signKey)}</code></div>
+          </div>
+          <div class="sn-item">
+            <div class="sn-name">MD5 摘要<span class="insert">插入 →</span></div>
+            <div class="sn-desc">参数排序拼接后取 MD5</div>
+          </div>
+          <div class="sn-group-label">加解密 / CRYPTO</div>
+          <div class="sn-item">
+            <div class="sn-name">AES-256 加密<span class="insert">插入 →</span></div>
+            <div class="sn-desc">CBC/PKCS5，Base64 输出</div>
+            <div class="sn-keys">密钥 <code>${__P(aesKey)}</code> · 盐 <code>${__P(aesIv)}</code></div>
+          </div>
+          <div class="sn-item">
+            <div class="sn-name">RSA 签名<span class="insert">插入 →</span></div>
+            <div class="sn-desc">私钥签名，配套验签片段</div>
+            <div class="sn-keys">私钥 <code>${__P(rsaKey)}</code></div>
+          </div>
+          <div class="sn-group-label">工具 / UTIL</div>
+          <div class="sn-item">
+            <div class="sn-name">UUID / 时间戳<span class="insert">插入 →</span></div>
+            <div class="sn-desc">唯一标识与毫秒时间戳生成</div>
+          </div>
+          <div class="info-bar" style="font-size:11.5px; margin-top:2px">
+            <span class="ico">ⓘ</span>
+            <span class="grow">片段随平台版本演进；密钥位一律参数化占位，不落明文。</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= E. 执行链路 ================= -->
+  <div class="section">
+    <div class="section-head">
+      <h2>E · 执行链路修复点</h2>
+      <span class="note">两项功能各自打通一个现有断点</span>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
+      <div class="card flow-card">
+        <div class="flow-title"><span class="chip chip-accent">P1-5</span>CSV 分发（worker 断点修复）<span class="badge-fix">FIX</span></div>
+        <div class="flow-line">
+          <span class="hop">场景绑定 dataFileId</span><span class="arr">→</span>
+          <span class="hop">装配：复制最新版本 → 执行目录</span><span class="arr">→</span>
+          <span class="hop">payload dependencies</span><span class="arr">→</span>
+          <span class="hop">controller SFTP <code>/test/</code></span><span class="arr">→</span>
+          <span class="hop hot">worker SFTP <code>/test/</code>（原先只收 .jar）</span>
+        </div>
+      </div>
+      <div class="card flow-card">
+        <div class="flow-title"><span class="chip chip-purple">P1-7</span>${__P()} 属性透传（断点修复）<span class="badge-fix">FIX</span></div>
+        <div class="flow-line">
+          <span class="hop">场景属性 jmeterProperties</span><span class="arr">→</span>
+          <span class="hop hot">payload（原先丢弃）</span><span class="arr">→</span>
+          <span class="hop">controller <code>-Jk=v</code></span><span class="arr">→</span>
+          <span class="hop hot"><code>-Gk=v</code> 经 RMI 同步全部 worker</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+function toggleTheme() {
+  const root = document.documentElement;
+  root.dataset.theme = root.dataset.theme === 'dark' ? 'default' : 'dark';
+}
+</script>
+</body>
+</html>

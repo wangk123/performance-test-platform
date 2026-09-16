@@ -1891,7 +1891,7 @@ Expected: 成功。
 - [ ] **Step 4: 提交剩余变更（如有）并汇总**
 
 ```bash
-git status --short   # 确认无遗漏文件（report-prototype.html 为无关未跟踪文件，不提交）
+git status --short   # 确认无遗漏文件（prototype-assets/report/report-prototype.html 为无关未跟踪文件，不提交）
 ```
 
 ---

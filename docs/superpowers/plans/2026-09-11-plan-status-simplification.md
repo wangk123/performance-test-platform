@@ -691,7 +691,7 @@ git commit -m "feat：前端接入简化状态机——状态徽标单值化+五
 **Files:**
 - Modify: `CONTEXT.md`（TaskPlan 词条）
 - Modify: `docs/superpowers/specs/2026-09-11-plan-status-simplification-design.md`（状态行改"已实现"）
-- Modify: `plan-lifecycle-flowchart.html`（仓库根，重画为目标终版）
+- Modify: `prototype-assets/plan-lifecycle-flowchart/plan-lifecycle-flowchart.html`（仓库根，重画为目标终版）
 
 **Interfaces:**
 - Consumes: Task 1/2 的最终行为。
@@ -708,7 +708,7 @@ TaskPlan 词条（第 9 行）替换为：
 
 spec 头部 `状态：待评审（brainstorming 收敛稿）` 改 `状态：已实现（2026-09-11）`。
 
-`plan-lifecycle-flowchart.html` 重画为最终版，结构要求：
+`prototype-assets/plan-lifecycle-flowchart/plan-lifecycle-flowchart.html` 重画为最终版，结构要求：
 - 五条泳道对应五状态（含中文标签与枚举名）；
 - 主链：创建 → 计划中 →（提交评审）→ 评审中 →（评审通过）→ 执行中 →（执行完成）→ 报告编辑中 →（发布）→ 已发布（终态）；
 - 「新增版本」画为横跨全部泳道的旁路动作（非状态迁移）；
@@ -720,7 +720,7 @@ spec 头部 `状态：待评审（brainstorming 收敛稿）` 改 `状态：已�
 
 Run:
 ```bash
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu --screenshot=/tmp/plan-flow-final.png --window-size=1280,<按画布高度> --hide-scrollbars "file://$(pwd)/plan-lifecycle-flowchart.html"
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu --screenshot=/tmp/plan-flow-final.png --window-size=1280,<按画布高度> --hide-scrollbars "file://$(pwd)/prototype-assets/plan-lifecycle-flowchart/plan-lifecycle-flowchart.html"
 ```
 检查截图：无重叠/裁切/断行（可交 judge 子代理验收）。发现问题修 HTML 后重渲。
 
@@ -734,7 +734,7 @@ Expected: BUILD SUCCESSFUL。
 - [ ] **Step 5: 提交**
 
 ```bash
-git add CONTEXT.md docs/superpowers/specs/2026-09-11-plan-status-simplification-design.md plan-lifecycle-flowchart.html
+git add CONTEXT.md docs/superpowers/specs/2026-09-11-plan-status-simplification-design.md prototype-assets/plan-lifecycle-flowchart/plan-lifecycle-flowchart.html
 git commit -m "docs：CONTEXT.md 域模型同步简化状态机 + spec 标记已实现 + 流程图终版（单状态五段/四流转/新增版本旁路/软门禁标注）"
 ```
 

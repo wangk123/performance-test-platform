@@ -12,7 +12,7 @@
 对照基准：
 
 - **效果图**：用户提供的截图（真实应用骨架 GlobalRail + ProjectContextNav + TopBar 之上，计划详情页的目标形态）。
-- **原型规格**：仓库内 `plan-document-prototype.html`（P0-1 时期改版效果图，与截图同族设计语言，含步骤条、工具栏、TOC、文档排版、评审时间线、发布快照、冲突对比屏的**完整 CSS 规格**，本计划的数值规格全部取自该文件）。
+- **原型规格**：仓库内 `prototype-assets/plan-document/plan-document-prototype.html`（P0-1 时期改版效果图，与截图同族设计语言，含步骤条、工具栏、TOC、文档排版、评审时间线、发布快照、冲突对比屏的**完整 CSS 规格**，本计划的数值规格全部取自该文件）。
 - **设计令牌基座**：`frontend/src/styles/base.css` + `frontend/src/constants/design-tokens.ts` 已与原型同源（IBM Plex Sans/Mono、canvas `#F4F6F8`、accent `#0B7F8A`、ok/warn/danger、全套暗色令牌）。**基座健康，问题全部出在计划模块实现层未按规格落地。**
 
 结论：不需要新建设计体系，是一次"按已有规格落地 + 补全"的重构。
@@ -117,7 +117,7 @@
 
 实现要点：`.content:has(.task-detail)` 时 `overflow:hidden`（项目已用 `:has`，见 `base.css:123`）；a-tabs 覆盖为 flex 列撑满且 `.ant-tabs-content` 高度 100%，作用域限定 `.task-detail` 命名空间，不影响其它页面。
 
-### 3.2 组件规格（数值取自 `plan-document-prototype.html`）
+### 3.2 组件规格（数值取自 `prototype-assets/plan-document/plan-document-prototype.html`）
 
 | 组件 | 规格 |
 |---|---|

@@ -1,7 +1,7 @@
 # 环境检查信息架构重构 · 详细设计
 
 > 2026-09-16 头脑风暴定稿。前置：P1-1 环境检查（`2026-09-15-p1-1-env-check-design.md` E1–E9 决策全部不变，本次是 UI 信息架构层重构，不碰执行链路）。
-> 原型：`env-check-restructure-prototype.html` + `env-check-restructure-light.png` / `env-check-restructure-dark.png`（仓库根目录，双主题）。
+> 原型：`prototype-assets/env-check/env-check-restructure-prototype.html` + `prototype-assets/env-check/env-check-restructure-light.png` / `prototype-assets/env-check/env-check-restructure-dark.png`（仓库根目录，双主题）。
 
 ## 1. 目标与验收
 

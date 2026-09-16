@@ -14,8 +14,8 @@
 
 1. `AGENTS.md` —— 工作区规则。Gradle 后端命令必须设置 `JAVA_HOME=/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home/`。
 2. 计划文档 —— review 结论、六批修复计划（§4）、组件规格数值（§3.2）、补全决策（§3.3）、风险约束（§5）。
-3. `plan-document-prototype.html`（仓库根目录）—— 效果图同族原型的完整 CSS 规格，步骤条/工具条/TOC/文档排版/评审/发布/冲突屏的数值全部以它为准。
-4. `design-mockup-redesign.html`、`report-prototype.html` —— 全局视觉语言参照（用户的效果图截图不在仓库内，以上述两个原型文件为可执行规格源）。
+3. `prototype-assets/plan-document/plan-document-prototype.html`（仓库根目录）—— 效果图同族原型的完整 CSS 规格，步骤条/工具条/TOC/文档排版/评审/发布/冲突屏的数值全部以它为准。
+4. `prototype-assets/design-mockup/design-mockup-redesign.html`、`prototype-assets/report/report-prototype.html` —— 全局视觉语言参照（用户的效果图截图不在仓库内，以上述两个原型文件为可执行规格源）。
 5. `frontend/src/constants/design-tokens.ts`、`frontend/src/styles/base.css` —— 设计令牌基座（canvas #F4F6F8 / accent #0B7F8A / IBM Plex / 明暗双主题），新样式一律复用，不得另起色板。
 6. 用 Skill 工具加载 `using-superpowers`，按其指引建立本次会话的技能使用习惯；随后创建 TodoWrite 任务清单（0~5 步 + 批次 A~F），全程维护。
 
@@ -44,7 +44,7 @@
 
 - `npm run build` 必须真实执行并在报告中贴出结果，不得以"应当通过"替代。
 - 尽量起真实栈冒烟：后端按 `README.md` 部署章节启动（默认连 216 MySQL；不可达时按 README 用本机 compose 或 H2 方案）；前端 `npm run dev`；用 `browser-use` 技能走计划文档 §4-F 的冒烟清单（新建计划→整篇/章节编辑→冲突三选一→TOC 跳转→提交评审→批注/通过/驳回→关联脚本→执行→报告 verdict→发布→分享创建/复制/撤销），并截图留证：文档 Pretty / Markdown / 编辑态、步骤条、评审、报告、发布、冲突屏、暗色主题、≤1100px 窄屏。
-- 若后端经合理尝试仍无法启动：降级为构建验证 + 以浏览器打开 `plan-document-prototype.html` 做静态对照检查，并在最终报告**显著标注"未经运行时冒烟"**。
+- 若后端经合理尝试仍无法启动：降级为构建验证 + 以浏览器打开 `prototype-assets/plan-document/plan-document-prototype.html` 做静态对照检查，并在最终报告**显著标注"未经运行时冒烟"**。
 
 ## 第 4 步：ui-ux-pro-max 多轮整体 Review（改造完成后执行，至少 3 轮）
 
@@ -52,7 +52,7 @@
 
 - **第 1 轮 · 设计系统一致性**：检索 `--domain style` / `color` / `typography`；核对：全部新样式 token 化无裸 hex、字号阶梯（正文 14 / 页题 20 / 按钮与 Tab 13 / 辅助 12 / pill 11）、明暗两主题下文字对比度 ≥4.5:1、无 Ant 预设色残留（green/red/orange/cyan 类）。
 - **第 2 轮 · 交互与导航 UX**：检索 `--domain ux`（粘性导航补偿、焦点可见、触达尺寸）；核对：滚动容器唯一（仅 `.doc-main`）、sticky 元素有 `scroll-margin-top` 补偿、TOC scrollspy 与两模式跳转可用、步骤条语义、键盘可达、图标按钮有 aria-label。
-- **第 3 轮 · 视觉还原走查**：以第 3 步截图逐组件对照 `plan-document-prototype.html` 与计划文档 §3.2 规格表（步骤条/工具条/TOC/文档排版/场景卡/约束清单/评审/报告/发布/冲突屏），记录偏差。
+- **第 3 轮 · 视觉还原走查**：以第 3 步截图逐组件对照 `prototype-assets/plan-document/plan-document-prototype.html` 与计划文档 §3.2 规格表（步骤条/工具条/TOC/文档排版/场景卡/约束清单/评审/报告/发布/冲突屏），记录偏差。
 
 每轮产出问题清单并分级：**P0 阻断 / P1 应修 / P2 记录**；先修复再复核（重新 build + 重新截图），P0/P1 清零才进入下一轮；单轮修复迭代不超过 3 次，仍不达标则如实记录为遗留项，不得静默放弃。
 全部轮次记录写入 `docs/superpowers/plans/2026-09-08-plan-module-ui-restyle-review.md`（每轮：检索结论 → 发现清单 → 修复内容 → 复核证据）。

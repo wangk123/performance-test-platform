@@ -8,7 +8,7 @@
 
 **Tech Stack:** Spring Boot 3 / JPA / JUnit5（后端）；Vue 3 + ant-design-vue + ECharts + vitest（前端）。
 
-**Spec:** `docs/superpowers/specs/2026-09-15-test-method-chapter-design.md`（本计划从 spec 出发，执行者需同时阅读 spec 与原型 `test-method-optimization-prototype.html`）
+**Spec:** `docs/superpowers/specs/2026-09-15-test-method-chapter-design.md`（本计划从 spec 出发，执行者需同时阅读 spec 与原型 `prototype-assets/test-method-optimization/test-method-optimization-prototype.html`）
 
 ## Global Constraints
 
@@ -573,7 +573,7 @@ git commit -m "feat：测试方法章节前端 API 客户端——章节聚合/�
 
 - [ ] **Step 2: MethodExecTable**
 
-列与交互对齐原型（`test-method-optimization-prototype.html`）：`# | 用户数 | Ramp-up(s) | 压测时间 | 样本数 | 成功率 | 平均RT(ms) | P95(ms) | TPS | 状态 | 执行时间 | 操作(眼睛/垃圾桶图标)`；数字列等宽字体右对齐；未终态结果列 `—`；状态徽标复用 `toUiStatus/executionStatusText`（`api/task-plans.ts` 既有）。
+列与交互对齐原型（`prototype-assets/test-method-optimization/test-method-optimization-prototype.html`）：`# | 用户数 | Ramp-up(s) | 压测时间 | 样本数 | 成功率 | 平均RT(ms) | P95(ms) | TPS | 状态 | 执行时间 | 操作(眼睛/垃圾桶图标)`；数字列等宽字体右对齐；未终态结果列 `—`；状态徽标复用 `toUiStatus/executionStatusText`（`api/task-plans.ts` 既有）。
 - 新增执行行：三个 `a-input-number`（默认值 = 该场景最近一次执行参数，无历史取场景 preset/`threads/rampUp/duration`），「执行」=圆形主色播放图标按钮（24px，样式抄原型 `.btn-exec`）；点击 → `triggerExecutionApi(scenarioId, { overrides: {...}, executionName: 'S{n} {threads}并发 {MM-dd HH:mm}' })` → 成功 `openExecution` 跳详情页；`PLAN_PRECHECK_FAILED` 复用确认跳过弹窗；`canExecute=false` 时禁用 + tooltip「需进入执行阶段」；未绑脚本禁用 + tooltip「先绑定压测脚本」；
 - 行点击（非按钮区）→ `openExecution`；操作列图标按钮：眼睛=详情、垃圾桶=打开删行弹窗；
 - 删行弹窗（a-modal）：两单选——「仅从表格移出」调 `setExecutionVisibilityApi(id, true)`；「彻底删除」红字警示后调 `deleteExecutionsApi([id])`（既有）；完成后 emit `refresh`；

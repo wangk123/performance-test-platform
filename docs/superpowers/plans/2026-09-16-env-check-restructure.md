@@ -864,7 +864,7 @@ cd frontend && npm test && npx vue-tsc --noEmit
 4. 状态条缺失点名与「去项目配置凭据 ↗」路由跳转正确。
 5. 勾选远程项保存 → 适用项数刷新（mysql 项只对模块含 mysql 机器计数）。
 6. E8 拦截不回归：缺凭据时执行 → 弹窗列缺失机器；配齐后执行 → 结果矩阵正常；修复/回滚入口仍在。
-7. 深浅主题下新组件样式正常（对照原型 `env-check-restructure-prototype.html`）。
+7. 深浅主题下新组件样式正常（对照原型 `prototype-assets/env-check/env-check-restructure-prototype.html`）。
 
 - [ ] **Step 4: 收尾 commit（如有修复）**
 

@@ -149,7 +149,7 @@ default String usageExample() { return ""; }
 - `frontend/src/api/mcp-directory.ts`（新建，调用 `GET /api/mcp/tools`）；
 - `frontend/src/components/mcp/McpToolDirectoryPage.vue`（新建）+ 详情抽屉子组件；
 - `types/index.ts` 补 `McpToolSummary` / `McpDirectory` 类型；
-- **视觉基准**：仓库根 `mcp-directory-prototype.html`（2026-09-04 可交互效果图，布局/两态状态图标/平铺列表/页脚/抽屉均按评审定稿，实施时对照还原）。
+- **视觉基准**：仓库根 `prototype-assets/mcp-directory/mcp-directory-prototype.html`（2026-09-04 可交互效果图，布局/两态状态图标/平铺列表/页脚/抽屉均按评审定稿，实施时对照还原）。
 
 ## 6. ①：计划 MCP 工具契约（2026-09-07 按 P0-1 实际实现对齐修订）
 
@@ -225,7 +225,7 @@ SKILL.md 流程骨架：
 | 5 | skill 放 `skill-pack/` 下并同步 D3 措辞；命名定为 `perf-platform-plan`（对齐既有 `perf-platform-*` 六技能） | 已确认（2026-09-07 修订定名） |
 | 6 | 状态两态 `ENABLED`/`DISABLED`，纯图标呈现；不设"规划中"第三态；启停为注册表未来能力，端点透传、页面自动跟随 | 已确认（2026-09-04 用户反馈修订） |
 | 7 | ① 服务层细节 + ③ skill 编写延后至 P0-1 落地（§8 清单跟踪） | 已确认（2026-09-04）；P0-1 已合并，§6.1 回填 |
-| 8 | 目录页列表 = 单一平铺网格，不做阶段分组渲染（阶段仅由筛选 tabs 承载）；内容区流式铺满；页脚收尾；视觉基准 = 仓库根 `mcp-directory-prototype.html` | 已确认（2026-09-04 效果图评审反馈） |
+| 8 | 目录页列表 = 单一平铺网格，不做阶段分组渲染（阶段仅由筛选 tabs 承载）；内容区流式铺满；页脚收尾；视觉基准 = 仓库根 `prototype-assets/mcp-directory/mcp-directory-prototype.html` | 已确认（2026-09-04 效果图评审反馈） |
 | 9 | 机器身份映射：`PlanToolsSupport.agentActor()` 合成 `HumanPrincipal("agent", ADMIN)`——与 agent 面"管理员签发 Key 即受信操作者"哲学一致，授权边界 = scope + 治理层 + D12 白名单，不做按项目成员判定 | 已确认（2026-09-07，§6.1 详述理由与代价） |
 | 10 | `TaskPlanService` 新增 9 参 `createPlan` 重载（`initialMarkdown` 直接作初始正文，revision=1 不加版）；`plan_get` 不做结构化摘要提取层（全文即内容）；`plan_query` 过滤分页在工具层内存完成 | 已确认（2026-09-07 按 P0-1 实际代码定稿） |
 | 11 | MCP 错误码与 REST `PlanErrorBody` 同词表（`PLAN_REVISION_CONFLICT`/`PLAN_STATE`/`PLAN_INVALID`/`PLAN_ACCESS_DENIED`），`AgentErrorCode` 枚举不动；`McpToolSupport.error` 增加 `details` 负载通道 | 已确认（2026-09-07） |
@@ -234,7 +234,7 @@ SKILL.md 流程骨架：
 
 - **后端（②，先行）**：
   - `McpDirectoryControllerTest`：返回与 `registry.all()` 严格一致（数量/字段/stage 集合含 PLAN 排序）；未登录 401；`usageExample` 默认空串不影响现有 8 工具（全量回归）。
-- **前端（②）**：手测清单——阶段筛选、搜索、两个配置片段复制、API Key 申请入口链接可达；宽屏铺满无成片空白、平铺无分组头、状态图标两态、页脚渲染；字段与端点响应对齐（对照 `mcp-directory-prototype.html` 视觉基准）。
+- **前端（②）**：手测清单——阶段筛选、搜索、两个配置片段复制、API Key 申请入口链接可达；宽屏铺满无成片空白、平铺无分组头、状态图标两态、页脚渲染；字段与端点响应对齐（对照 `prototype-assets/mcp-directory/mcp-directory-prototype.html` 视觉基准）。
 - **①（已交付 2026-09-07）**：五工具集成测试（`mcp/plan/` 下，覆盖：模板派生字段、create 初始正文 revision=1、get 全文、update 成功/`PLAN_REVISION_CONFLICT` details 负载/`PLAN_STATE`、query 过滤分页、未知模板 `PLAN_INVALID`、markdown 与 templateId 均缺省校验）；`McpServerApiTest` 工具清单断言扩至 13 个 + readonly scope 调用 `plan_create`/`plan_update` 被拒（ACCESS_DENIED）；`McpDirectoryControllerTest` 补 PLAN 工具排序断言。
 - **③（已交付 2026-09-07）**：skill 按验收口径人工走查"梳理→生成→同步→再修改"全流程；`skill-pack/verify/acceptance-smoke.sh` 扩展 `plan_templates` 只读调用与 13 工具清单断言（`plan_query` 由协议级 `McpServerApiTest` 覆盖，冒烟不依赖真实项目数据）。
 - 总验收 = roadmap P0-2 行两条口径。

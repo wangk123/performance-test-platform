@@ -4,7 +4,7 @@
 
 **Goal:** 交付 P0-2 中无阻塞依赖的 ②「MCP 工具目录页」——后端注册表 REST 端点 + 前端 `/mcp-tools` 页面，新成员打开页面复制配置即可在本地 Agent 接入。
 
-**Architecture:** 后端新增 `GET /api/mcp/tools` 直接映射内存 `McpToolRegistry`（单一事实源，工具随服务重启自动上下线、零页面配置）；`McpTool` 契约补 `default usageExample()` 元数据方法；stage 规范序列常量新增 `PLAN`（无工具注册，仅为序列与筛选 tab 预留）。前端新增顶级路由 `/mcp-tools`，页面按仓库根 `mcp-directory-prototype.html` 视觉基准 1:1 还原：接入指引横幅（Claude Code / DSH 配置片段一键复制）→ 阶段筛选 tabs + 搜索 → 单一平铺卡片网格（两态状态图标）→ 详情抽屉（参数表 / 使用示例）→ 页脚收尾。
+**Architecture:** 后端新增 `GET /api/mcp/tools` 直接映射内存 `McpToolRegistry`（单一事实源，工具随服务重启自动上下线、零页面配置）；`McpTool` 契约补 `default usageExample()` 元数据方法；stage 规范序列常量新增 `PLAN`（无工具注册，仅为序列与筛选 tab 预留）。前端新增顶级路由 `/mcp-tools`，页面按仓库根 `prototype-assets/mcp-directory/mcp-directory-prototype.html` 视觉基准 1:1 还原：接入指引横幅（Claude Code / DSH 配置片段一键复制）→ 阶段筛选 tabs + 搜索 → 单一平铺卡片网格（两态状态图标）→ 详情抽屉（参数表 / 使用示例）→ 页脚收尾。
 
 **Tech Stack:** Spring Boot 3 (Java 17, MockMvc + JUnit 5 集成测试)、Vue 3.5 `<script setup>` + TypeScript + scoped CSS（复用 `base.css` 设计令牌，不引入新依赖）。
 
@@ -25,12 +25,12 @@
 - Java 17 路径：`JAVA_HOME=/Users/wangk/Documents/config/jdk-17.0.17+10/Contents/Home/`（运行任何 Gradle 命令前设置，仓库根用 `./gradlew`）。
 - 后端测试风格：JUnit 5 `@SpringBootTest`（H2 内存库 properties）+ `@AutoConfigureMockMvc` + AssertJ，参照 `backend/src/test/java/com/yr/perftest/platform/mcp/McpServerApiTest.java`。
 - 前端无单测 runner：验证门槛 = `cd frontend && npm run build`（`vue-tsc --noEmit` 类型检查 + vite 构建必须零错误）。
-- 视觉基准：仓库根 `mcp-directory-prototype.html`（布局/配色/两态状态图标/平铺网格/页脚/抽屉均按它还原；CSS 令牌映射：`--accent-dark`→`--primary-dark`、`--accent-strong`→`--active-bg-strong`、`--font-mono`→`--font-data`、`--shadow-pop` 在组件内自定义）。
+- 视觉基准：仓库根 `prototype-assets/mcp-directory/mcp-directory-prototype.html`（布局/配色/两态状态图标/平铺网格/页脚/抽屉均按它还原；CSS 令牌映射：`--accent-dark`→`--primary-dark`、`--accent-strong`→`--active-bg-strong`、`--font-mono`→`--font-data`、`--shadow-pop` 在组件内自定义）。
 - 页面**纯只读**：无启停、无编辑、无运行时注册（D18）；内容区**流式铺满**（不限宽居中）；列表 = **单一平铺网格不做阶段分组渲染**（阶段仅由筛选 tabs 承载）；状态**两态纯图标**（绿圈勾=可用 / 灰圈斜杠=不可用，不用文字）。
 - `stages` = 服务端固定规范序列常量 `PLAN → NAVIGATE → DESIGN → OBSERVE → DIAGNOSE → VERIFY → CAPTURE`，不随注册表去重；空阶段 tab 也渲染（带计数 0，原型即如此）。
 - Web 目录页展示**全部**注册工具并标注写权限徽标；scope 过滤是 MCP 机器身份调用期语义，**不在**目录端点重复实现（spec §4.1）。
 - 提交信息风格：`类型：中文描述——细节`（对齐 git log 既有风格，如 `feat：...——...`）。
-- 仓库根有他人未跟踪文件 `report-prototype.html`：**禁止** `git add -A` / `git add .`，每次只 add 本任务明确列出的文件。
+- 仓库根有他人未跟踪文件 `prototype-assets/report/report-prototype.html`：**禁止** `git add -A` / `git add .`，每次只 add 本任务明确列出的文件。
 - 后端新代码放 `com.yr.perftest.platform` 既有包结构：目录端点在 `api/`（与现有控制器同层），不新建 Maven 模块。
 
 ---
@@ -1103,7 +1103,7 @@ Expected: `vue-tsc --noEmit` 零错误、vite build 成功输出 dist。
 cd /Users/wangk/Documents/Git/performance-test-platform/frontend && npm run dev
 ```
 
-浏览器登录后：全局导航出现「MCP 工具」图标按钮（执行器配置下方）→ 点击进入 `/mcp-tools`：页头两 chips、三步指引、配置片段 tab 切换、复制按钮变「已复制」+ toast、endpoint 显示当前 origin、页脚渲染。对照 `mcp-directory-prototype.html`。
+浏览器登录后：全局导航出现「MCP 工具」图标按钮（执行器配置下方）→ 点击进入 `/mcp-tools`：页头两 chips、三步指引、配置片段 tab 切换、复制按钮变「已复制」+ toast、endpoint 显示当前 origin、页脚渲染。对照 `prototype-assets/mcp-directory/mcp-directory-prototype.html`。
 
 - [ ] **Step 12: Commit**
 
@@ -2132,7 +2132,7 @@ Expected: 登录拿到 token；带 token 的 GET 返回 `server.name=performance
 已完成：
 
 1. 后端 `GET /api/mcp/tools`（`api/McpDirectoryController`）：直接映射内存 `McpToolRegistry` 单一事实源，固定规范 stage 序列（PLAN→NAVIGATE→DESIGN→OBSERVE→DIAGNOSE→VERIFY→CAPTURE）排序，登录可读；`McpTool` 契约补 `default usageExample()`（存量 8 工具零改动）。
-2. 前端 `/mcp-tools` 顶级路由 + 全局导航「MCP 工具」入口：接入指引横幅（Claude Code / DSH 配置片段一键复制、API Key 申请入口），阶段筛选 tabs + 本地搜索 + 单一平铺卡片网格（两态状态图标、写权限徽标），接口文档式详情抽屉（inputSchema 参数表 + 使用示例），页脚收尾；对照 `mcp-directory-prototype.html` 视觉基准实现。
+2. 前端 `/mcp-tools` 顶级路由 + 全局导航「MCP 工具」入口：接入指引横幅（Claude Code / DSH 配置片段一键复制、API Key 申请入口），阶段筛选 tabs + 本地搜索 + 单一平铺卡片网格（两态状态图标、写权限徽标），接口文档式详情抽屉（inputSchema 参数表 + 使用示例），页脚收尾；对照 `prototype-assets/mcp-directory/mcp-directory-prototype.html` 视觉基准实现。
 3. ① 计划工具 ×5 与 ③ perf-plan skill 依赖 P0-1（未开发），按 spec §8 保持延后跟踪。
 
 验证：
