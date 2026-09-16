@@ -38,7 +38,7 @@ class ExecutionConfigMergerTest {
         plan.updateProfile("plan", "", 10L, "[11]", "[1]");
 
         PersistentTaskScenarioRecord scenario = new PersistentTaskScenarioRecord(1L, 100L, "scene", 0);
-        scenario.updateProfile("scene", 100L, "{\"k\":\"v\"}", 99L, "[88]", "[3]", "[]");
+        scenario.updateProfile("scene", 100L, "{\"k\":\"v\"}", 99L, "[88]", "[3]", "[]", null);
 
         ExecutionConfig config = merger.merge(plan, scenario);
         assertEquals(99L, config.controllerNodeId());
@@ -60,7 +60,8 @@ class ExecutionConfigMergerTest {
                 null,
                 null,
                 null,
-                "[{\"id\":7,\"stepId\":\"thread-0\",\"stepName\":\"Login\",\"threads\":200,\"rampUp\":30,\"duration\":300,\"sortOrder\":0}]"
+                "[{\"id\":7,\"stepId\":\"thread-0\",\"stepName\":\"Login\",\"threads\":200,\"rampUp\":30,\"duration\":300,\"sortOrder\":0}]",
+                null
         );
 
         ExecutionConfig config = merger.merge(plan, scenario, 7L);
@@ -90,7 +91,8 @@ class ExecutionConfigMergerTest {
                         + "{\"id\":7,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":10,\"rampUp\":0,\"duration\":10,\"sortOrder\":0},"
                         + "{\"id\":8,\"stepId\":\"thread-1\",\"stepName\":\"TG2\",\"threads\":10,\"rampUp\":0,\"duration\":10,\"sortOrder\":0},"
                         + "{\"id\":9,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":5,\"rampUp\":0,\"duration\":30,\"sortOrder\":1}"
-                        + "]"
+                        + "]",
+                null
         );
 
         ExecutionConfig config = merger.merge(plan, scenario, 7L, 0);
@@ -118,7 +120,8 @@ class ExecutionConfigMergerTest {
                         + "{\"id\":7,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":10,\"rampUp\":0,\"duration\":10,\"sortOrder\":0},"
                         + "{\"id\":8,\"stepId\":\"thread-1\",\"stepName\":\"TG2\",\"threads\":10,\"rampUp\":0,\"duration\":10,\"sortOrder\":0},"
                         + "{\"id\":9,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":5,\"rampUp\":0,\"duration\":30,\"sortOrder\":1}"
-                        + "]"
+                        + "]",
+                null
         );
 
         ExecutionConfig config = merger.merge(plan, scenario, null, 1);
@@ -138,7 +141,8 @@ class ExecutionConfigMergerTest {
                 null,
                 null,
                 null,
-                "[{\"id\":7,\"stepId\":\"thread-0\",\"stepName\":\"Login\",\"threads\":200,\"rampUp\":30,\"duration\":300,\"sortOrder\":0}]"
+                "[{\"id\":7,\"stepId\":\"thread-0\",\"stepName\":\"Login\",\"threads\":200,\"rampUp\":30,\"duration\":300,\"sortOrder\":0}]",
+                null
         );
 
         ExecutionConfig config = merger.merge(plan, scenario, null);

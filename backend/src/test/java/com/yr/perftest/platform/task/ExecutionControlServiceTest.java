@@ -48,7 +48,7 @@ class ExecutionControlServiceTest {
         planRepository.save(plan);
         PersistentTaskScenarioRecord scenario = scenarioRepository.save(
                 new PersistentTaskScenarioRecord(plan.getId(), 1L, "scenario-a", 0));
-        scenario.updateProfile("scenario-a", 1L, "{}", 1L, null, null, null);
+        scenario.updateProfile("scenario-a", 1L, "{}", 1L, null, null, null, null);
         scenarioId = scenarioRepository.save(scenario).getId();
     }
 

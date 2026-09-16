@@ -93,7 +93,7 @@ class AuxScriptApiTest {
                 new PersistentTaskScenarioRecord(plan.getId(), 1L, "scenario-a", 0));
         PersistentExecutionNodeRecord node = nodeRepository.save(new PersistentExecutionNodeRecord(
                 "node-1", "10.0.0.1", 22, "ops", "/keys/id", ExecutionNodeRole.CONTROLLER, "/tmp/perf"));
-        scenario.updateProfile("scenario-a", 1L, "{}", node.getId(), null, null, null);
+        scenario.updateProfile("scenario-a", 1L, "{}", node.getId(), null, null, null, null);
         scenarioId = scenarioRepository.save(scenario).getId();
     }
 

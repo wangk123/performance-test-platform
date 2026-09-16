@@ -53,7 +53,7 @@ class PlanScenarioDocSyncTest {
                 new PersistentTaskScenarioRecord(planId, null, name, sortOrder));
         scenario.updateBusinessFields("验证" + name, TestType.SINGLE_TXN);
         scenario.updateProfile(name, null, "{}", null, null, null, configSupport.writeStored(List.of(
-                new ScenarioThreadGroupConfig(1, "tg-1", "并发档位", threads, rampUp, duration, 0, null))));
+                new ScenarioThreadGroupConfig(1, "tg-1", "并发档位", threads, rampUp, duration, 0, null))), null);
         scenarioRepository.save(scenario);
         return scenario;
     }
@@ -97,7 +97,7 @@ class PlanScenarioDocSyncTest {
         // 模拟改名流程：service 层先 remove 旧名再 sync（updateScenario 内实现）
         docSync.onScenarioDeleted(planId, "登录");
         PersistentTaskScenarioRecord renamed = scenarioRepository.findById(scenario.getId()).orElseThrow();
-        renamed.updateProfile("新登录", null, "{}", null, null, null, null);
+        renamed.updateProfile("新登录", null, "{}", null, null, null, null, null);
         scenarioRepository.save(renamed);
         docSync.syncPlanScenarios(planId);
         String body = planRepository.findById(planId).orElseThrow().getBody();

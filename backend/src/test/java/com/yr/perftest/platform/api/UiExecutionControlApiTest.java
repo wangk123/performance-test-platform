@@ -72,7 +72,7 @@ class UiExecutionControlApiTest {
                 new PersistentTaskScenarioRecord(plan.getId(), 1L, "scenario-a", 0));
         PersistentExecutionNodeRecord node = nodeRepository.save(new PersistentExecutionNodeRecord(
                 "node-1", "10.0.0.1", 22, "ops", "/keys/id", ExecutionNodeRole.CONTROLLER, "/tmp/perf"));
-        scenario.updateProfile("scenario-a", 1L, "{}", node.getId(), null, null, null);
+        scenario.updateProfile("scenario-a", 1L, "{}", node.getId(), null, null, null, null);
         scenarioId = scenarioRepository.save(scenario).getId();
     }
 
@@ -155,7 +155,8 @@ class UiExecutionControlApiTest {
                 scenario.getControllerNodeId(),
                 null,
                 null,
-                "[{\"id\":9,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":100,\"rampUp\":30,\"duration\":600,\"sortOrder\":1}]"
+                "[{\"id\":9,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":100,\"rampUp\":30,\"duration\":600,\"sortOrder\":1}]",
+                null
         );
         scenarioRepository.save(scenario);
 

@@ -58,6 +58,9 @@ public class PersistentTaskScenarioRecord {
     @Column(nullable = true)
     private String threadGroupConfigsJson;
 
+    @Column(nullable = true)
+    private String dataFileBindingsJson;
+
     @Lob
     private String purpose;
 
@@ -85,6 +88,7 @@ public class PersistentTaskScenarioRecord {
         this.loops = 1;
         this.jmeterPropertiesJson = "{}";
         this.threadGroupConfigsJson = "[]";
+        this.dataFileBindingsJson = "[]";
         this.createdAt = Instant.now();
         this.updatedAt = createdAt;
     }
@@ -145,6 +149,10 @@ public class PersistentTaskScenarioRecord {
         return threadGroupConfigsJson;
     }
 
+    public String getDataFileBindingsJson() {
+        return dataFileBindingsJson;
+    }
+
     public String getPurpose() { return purpose; }
     public TestType getTestType() { return testType; }
 
@@ -163,7 +171,8 @@ public class PersistentTaskScenarioRecord {
             Long controllerNodeId,
             String workerNodeIdsJson,
             String monitorTargetIdsJson,
-            String threadGroupConfigsJson
+            String threadGroupConfigsJson,
+            String dataFileBindingsJson
     ) {
         if (name != null && !name.trim().isEmpty()) {
             this.name = name.trim();
@@ -177,6 +186,9 @@ public class PersistentTaskScenarioRecord {
         this.monitorTargetIdsJson = monitorTargetIdsJson;
         if (threadGroupConfigsJson != null) {
             this.threadGroupConfigsJson = threadGroupConfigsJson;
+        }
+        if (dataFileBindingsJson != null) {
+            this.dataFileBindingsJson = dataFileBindingsJson;
         }
         this.updatedAt = Instant.now();
     }

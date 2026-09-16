@@ -64,7 +64,7 @@ class ExecutionPrecheckServiceTest {
         PersistentExecutionNodeRecord node = nodeRepository.save(new PersistentExecutionNodeRecord(
                 "node-1", "10.0.0.1", 22, "ops", "/keys/id", ExecutionNodeRole.CONTROLLER, "/tmp/perf"));
         PersistentTaskScenarioRecord scenario = scenarioRepository.findById(scenarioId).orElseThrow();
-        scenario.updateProfile("scenario-a", 1L, "{}", node.getId(), null, null, null);
+        scenario.updateProfile("scenario-a", 1L, "{}", node.getId(), null, null, null, null);
         scenarioRepository.save(scenario);
 
         ExecutionPrecheckService.PrecheckReport report = precheckService.precheck(scenarioId, null, null);
@@ -83,7 +83,7 @@ class ExecutionPrecheckServiceTest {
         PersistentExecutionNodeRecord node = nodeRepository.save(new PersistentExecutionNodeRecord(
                 "node-1", "10.0.0.1", 22, "ops", "/keys/id", ExecutionNodeRole.CONTROLLER, "/tmp/perf"));
         PersistentTaskScenarioRecord scenario = scenarioRepository.findById(scenarioId).orElseThrow();
-        scenario.updateProfile("scenario-a", 1L, "{}", node.getId(), "[999]", null, null);
+        scenario.updateProfile("scenario-a", 1L, "{}", node.getId(), "[999]", null, null, null);
         scenarioRepository.save(scenario);
 
         ExecutionPrecheckService.PrecheckReport report = precheckService.precheck(scenarioId, null, null);

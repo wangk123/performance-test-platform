@@ -133,7 +133,8 @@ public class TaskScenarioService {
                 resolvedController,
                 resolvedWorkers,
                 resolvedMonitors,
-                resolvedConfigs != null ? configSupport.writeStored(resolvedConfigs) : null
+                resolvedConfigs != null ? configSupport.writeStored(resolvedConfigs) : null,
+                null
         );
         // null = 保留现值（与 scriptVersionId 口径一致）；显式空串仍会清空（文档侧渲染为（待填写））
         String effectivePurpose = purpose != null ? purpose : scenario.getPurpose();
@@ -245,7 +246,8 @@ public class TaskScenarioService {
                 controllerNodeId,
                 workerNodeIds != null ? taskJson.writeLongList(workerNodeIds) : null,
                 monitorTargetIds != null ? taskJson.writeLongList(monitorTargetIds) : null,
-                configSupport.writeStored(normalized)
+                configSupport.writeStored(normalized),
+                null
         );
     }
 

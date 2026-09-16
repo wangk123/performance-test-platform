@@ -27,7 +27,8 @@ class ExecutionConfigMergerOverridesTest {
                 null,
                 null,
                 null,
-                "[{\"id\":9,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":100,\"rampUp\":30,\"duration\":600,\"sortOrder\":1}]"
+                "[{\"id\":9,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":100,\"rampUp\":30,\"duration\":600,\"sortOrder\":1}]",
+                null
         );
         return scenario;
     }

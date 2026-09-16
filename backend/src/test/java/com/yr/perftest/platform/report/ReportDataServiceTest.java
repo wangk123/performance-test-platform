@@ -87,7 +87,8 @@ class ReportDataServiceTest {
         "["
             + "{\"id\":7,\"stepId\":\"thread-0\",\"stepName\":\"TG1\",\"threads\":10,\"rampUp\":0,\"duration\":10,\"sortOrder\":0},"
             + "{\"id\":8,\"stepId\":\"thread-1\",\"stepName\":\"TG2\",\"threads\":10,\"rampUp\":0,\"duration\":10,\"sortOrder\":0}"
-            + "]"
+            + "]",
+        null
     );
 
     when(planService.getPlan(1L)).thenReturn(plan);
