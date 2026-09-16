@@ -40,6 +40,9 @@ server:
 platform:
   storage:
     root: ./storage
+  datafile:
+    # CSV 数据文件单文件上限（默认 100MB）；服务层校验 file.getSize()，超限抛 DATAFILE_TOO_LARGE
+    max-size: 104857600
   execution:
     max-concurrent-tasks: 1
     failure-sample:
