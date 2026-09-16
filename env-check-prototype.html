@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="default">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P1-1 环境检查 · 设计效果图</title>
+<style>
+  :root, :root[data-theme='default'] {
+    --canvas: #f4f6f8;
+    --surface: #ffffff;
+    --surface-soft: #f7fafb;
+    --ink: #1a2332;
+    --muted: #5c6b7a;
+    --line: #e2e8ee;
+    --line-strong: #c8d3dc;
+    --accent: #0b7f8a;
+    --accent-soft: #e6f5f6;
+    --accent-ink: #ffffff;
+    --ok: #2f9b6a;
+    --ok-soft: #e8f6ef;
+    --warn: #b97d10;
+    --warn-soft: #fdf3e3;
+    --orange: #c25e0e;
+    --orange-soft: #fbeee2;
+    --danger: #d14343;
+    --danger-soft: #fdeeee;
+    --shadow: 0 1px 2px rgb(16 24 40 / 4%);
+    --font-ui: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-data: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  :root[data-theme='dark'] {
+    --canvas: #0e141a;
+    --surface: #161d26;
+    --surface-soft: #1c2530;
+    --ink: rgba(255, 255, 255, 0.88);
+    --muted: rgba(255, 255, 255, 0.45);
+    --line: #2a3440;
+    --line-strong: #3a4654;
+    --accent: #2bb3bf;
+    --accent-soft: rgba(43, 179, 191, 0.16);
+    --accent-ink: #06282b;
+    --ok: #58c98f;
+    --ok-soft: rgba(47, 155, 106, 0.18);
+    --warn: #d9a441;
+    --warn-soft: rgba(185, 125, 16, 0.18);
+    --orange: #e8863c;
+    --orange-soft: rgba(194, 94, 14, 0.18);
+    --danger: #ef6a6a;
+    --danger-soft: rgba(209, 67, 67, 0.16);
+    --shadow: none;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--canvas); color: var(--ink);
+    font-family: var(--font-ui); font-size: 14px; line-height: 1.65;
+    padding: 40px 48px 72px; transition: background .2s, color .2s;
+  }
+  .page { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 26px; }
+
+  /* ---------- 页头 ---------- */
+  .page-head { display: flex; align-items: flex-start; gap: 16px; }
+  .page-head h1 { font-size: 21px; font-weight: 700; letter-spacing: 0.2px; }
+  .page-head .sub { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .theme-toggle {
+    margin-left: auto; border: 1px solid var(--line); background: var(--surface);
+    color: var(--muted); border-radius: 8px; padding: 6px 14px; font-size: 12.5px;
+    cursor: pointer; font-family: inherit;
+  }
+  .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+  .lead { color: var(--muted); font-size: 13px; max-width: 960px; }
+  .lead b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- 区块骨架 ---------- */
+  .section { display: flex; flex-direction: column; gap: 12px; }
+  .section-head { display: flex; align-items: baseline; gap: 12px; }
+  .section-head h2 { font-size: 17px; font-weight: 700; }
+  .section-head .note { color: var(--muted); font-size: 12px; }
+  .card {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    box-shadow: var(--shadow); padding: 18px 20px 20px;
+  }
+
+  /* ---------- ① 检查项设置（注册表驱动） ---------- */
+  .settings-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .settings-top .hint { color: var(--muted); font-size: 12.5px; }
+  .switch { position: relative; width: 36px; height: 20px; flex: none; cursor: pointer; }
+  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .switch .track {
+    position: absolute; inset: 0; border-radius: 999px; background: var(--line-strong); transition: background .15s;
+  }
+  .switch .dot {
+    position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgb(0 0 0 / 20%);
+  }
+  .switch input:checked ~ .track { background: var(--accent); }
+  .switch input:checked ~ .dot { left: 18px; }
+  .switch-label { font-size: 13px; font-weight: 600; }
+
+  .item-group { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .item-group + .item-group { margin-top: 10px; }
+  .group-head {
+    display: flex; align-items: center; gap: 8px; padding: 9px 14px;
+    background: var(--surface-soft); border-bottom: 1px solid var(--line);
+    font-size: 12.5px; font-weight: 600; color: var(--muted);
+  }
+  .group-head .tag {
+    font: 600 10.5px var(--font-data); color: var(--accent); background: var(--accent-soft);
+    border-radius: 5px; padding: 0 6px;
+  }
+  .group-head .cnt { margin-left: auto; font: 500 11.5px var(--font-data); color: var(--muted); }
+  .item-row {
+    display: flex; align-items: center; gap: 10px; padding: 9px 14px;
+    border-bottom: 1px solid var(--line); transition: background .12s;
+  }
+  .item-group .item-row:last-child { border-bottom: none; }
+  .item-row:hover { background: var(--surface-soft); }
+  .item-row .name { font-size: 13px; font-weight: 500; }
+  .item-row .desc { color: var(--muted); font-size: 11.5px; }
+  .item-row .meta { margin-left: auto; display: flex; align-items: center; gap: 6px; flex: none; }
+  .risk-chip {
+    font: 600 10.5px var(--font-ui); border-radius: 5px; padding: 0 7px; line-height: 18px;
+  }
+  .risk-chip.low { color: var(--warn); background: var(--warn-soft); }
+  .risk-chip.medium { color: var(--orange); background: var(--orange-soft); }
+  .risk-chip.high { color: var(--danger); background: var(--danger-soft); }
+  .chk {
+    appearance: none; width: 16px; height: 16px; border: 1.5px solid var(--line-strong);
+    border-radius: 4px; cursor: pointer; flex: none; position: relative; background: var(--surface);
+  }
+  .chk:checked { background: var(--accent); border-color: var(--accent); }
+  .chk:checked::after {
+    content: ""; position: absolute; left: 4.5px; top: 1.5px; width: 4px; height: 8px;
+    border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(42deg);
+  }
+  .kind-chip {
+    font: 500 10.5px var(--font-data); color: var(--muted); border: 1px solid var(--line);
+    border-radius: 5px; padding: 0 6px; line-height: 17px;
+  }
+  .new-badge {
+    font: 600 10px var(--font-ui); color: var(--ok); background: var(--ok-soft);
+    border-radius: 5px; padding: 0 6px; line-height: 17px;
+  }
+
+  /* ---------- ② 结果面板 ---------- */
+  .summary-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+  .sum-pill {
+    display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line);
+    border-radius: 999px; padding: 4px 12px; font-size: 12.5px; background: var(--surface-soft);
+  }
+  .sum-pill b { font-family: var(--font-data); font-size: 13px; }
+  .dot-ok { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+  .dot-warn { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+  .dot-fixed { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .summary-bar .when { color: var(--muted); font-size: 12px; }
+  .summary-bar .spacer { flex: 1; }
+  .history-select {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 8px; padding: 5px 10px; font-size: 12.5px; font-family: inherit; cursor: pointer;
+  }
+  .btn {
+    border: 1px solid transparent; border-radius: 8px; padding: 6px 16px; font-size: 12.5px;
+    font-weight: 600; font-family: inherit; cursor: pointer; transition: filter .12s, background .12s;
+  }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.ghost { background: var(--surface); color: var(--muted); border-color: var(--line-strong); }
+  .btn.ghost:hover { color: var(--accent); border-color: var(--accent); }
+  .btn.danger { background: var(--danger); color: #fff; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  .tbl-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  table.matrix { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .matrix thead th {
+    text-align: left; font-weight: 600; color: var(--muted); font-size: 11.5px;
+    background: var(--surface-soft); padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  .matrix tbody td { padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .matrix tbody tr:last-child td { border-bottom: none; }
+  .matrix tbody tr:hover td { background: var(--surface-soft); }
+  .matrix .host { font-family: var(--font-data); font-size: 12px; }
+  .matrix .mod { color: var(--muted); font-size: 11.5px; }
+  .state-badge {
+    display: inline-flex; align-items: center; gap: 5px; border-radius: 6px;
+    font-size: 11.5px; font-weight: 600; padding: 1px 8px; line-height: 20px;
+  }
+  .state-badge.ok { color: var(--ok); background: var(--ok-soft); }
+  .state-badge.warn-low { color: var(--warn); background: var(--warn-soft); }
+  .state-badge.warn-medium { color: var(--orange); background: var(--orange-soft); }
+  .state-badge.warn-high { color: var(--danger); background: var(--danger-soft); }
+  .state-badge.fixed { color: var(--accent); background: var(--accent-soft); }
+  .state-badge.na { color: var(--muted); background: transparent; border: 1px dashed var(--line-strong); }
+  .detail-cell { color: var(--muted); font-size: 11.5px; max-width: 360px; white-space: normal; }
+
+  /* ---------- 问题清单（勾选批量修复） ---------- */
+  .fix-panel { border: 1px solid var(--line); border-radius: 10px; margin-top: 16px; overflow: hidden; }
+  .fix-head {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    background: var(--surface-soft); border-bottom: 1px solid var(--line);
+  }
+  .fix-head .t { font-size: 13px; font-weight: 700; }
+  .fix-head .hint { color: var(--muted); font-size: 11.5px; }
+  .fix-head .ops { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .fix-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .fix-row:last-child { border-bottom: none; }
+  .fix-row .chk { margin-top: 3px; }
+  .fix-row .body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .fix-row .l1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .fix-row .l1 .name { font-size: 13px; font-weight: 600; }
+  .fix-row .l1 .host { font: 500 11.5px var(--font-data); color: var(--muted); }
+  .fix-row .why { color: var(--muted); font-size: 11.5px; }
+  .fix-row .why b { color: var(--ink); font-weight: 600; }
+  .fix-row .how { font-size: 11.5px; color: var(--muted); }
+  .fix-row .how code {
+    font-family: var(--font-data); font-size: 11px; background: var(--surface-soft);
+    border: 1px solid var(--line); border-radius: 4px; padding: 0 5px;
+  }
+
+  /* ---------- 修复历史 / diff ---------- */
+  .fix-history { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .fix-history h3 { font-size: 13.5px; font-weight: 700; }
+  .diff-card { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .diff-head {
+    display: flex; align-items: center; gap: 10px; padding: 9px 14px;
+    background: var(--surface-soft); border-bottom: 1px solid var(--line); font-size: 12.5px;
+  }
+  .diff-head .name { font-weight: 600; }
+  .diff-head .host { font: 500 11.5px var(--font-data); color: var(--muted); }
+  .diff-head .meta { margin-left: auto; color: var(--muted); font-size: 11.5px; display: flex; gap: 10px; align-items: center; }
+  .link-btn {
+    border: none; background: none; color: var(--accent); font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit; padding: 0;
+  }
+  .link-btn:hover { text-decoration: underline; }
+  .link-btn.roll { color: var(--danger); }
+  pre.diff {
+    font-family: var(--font-data); font-size: 11.5px; line-height: 1.7; padding: 10px 14px;
+    overflow-x: auto; color: var(--ink);
+  }
+  pre.diff .del { color: var(--danger); background: var(--danger-soft); display: block; border-radius: 3px; }
+  pre.diff .add { color: var(--ok); background: var(--ok-soft); display: block; border-radius: 3px; }
+  pre.diff .ctx { color: var(--muted); display: block; }
+
+  /* ---------- ③ 凭据管理 ---------- */
+  .cred-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .cred-top .hint { color: var(--muted); font-size: 12.5px; }
+  .cred-top .btn { margin-left: auto; }
+  .conn-state { font-size: 11.5px; }
+  .conn-state.ok { color: var(--ok); }
+  .conn-state.fail { color: var(--danger); }
+
+  /* ---------- 弹窗示意 ---------- */
+  .modals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .modal-shot {
+    border-radius: 12px; padding: 22px 18px 18px;
+    background:
+      linear-gradient(rgba(0,0,0,.28), rgba(0,0,0,.28)),
+      repeating-linear-gradient(45deg, var(--surface-soft) 0 12px, var(--surface) 12px 24px);
+    border: 1px solid var(--line);
+  }
+  .modal-shot .cap { color: rgba(255,255,255,.85); font-size: 11.5px; margin-bottom: 10px; font-weight: 600; }
+  .modal-card {
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px;
+    box-shadow: 0 12px 32px rgb(16 24 40 / 18%); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .modal-card h4 { font-size: 14px; font-weight: 700; }
+  .modal-card p { color: var(--muted); font-size: 12.5px; }
+  .modal-card .hosts { display: flex; flex-direction: column; gap: 4px; }
+  .modal-card .host-line {
+    font: 500 12px var(--font-data); background: var(--danger-soft); color: var(--danger);
+    border-radius: 6px; padding: 3px 10px;
+  }
+  .modal-card .ops { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  .modal-card .warn-icon {
+    width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    font-size: 17px; flex: none;
+  }
+  .modal-card .head { display: flex; gap: 12px; align-items: center; }
+  .modal-card .head > div { display: flex; flex-direction: column; gap: 2px; }
+
+  footer.note { color: var(--muted); font-size: 11.5px; text-align: center; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="page-head">
+    <div>
+      <h1>P1-1 环境检查 · 设计效果图</h1>
+      <div class="sub">检查项注册表驱动 · 三态结果 · 确认后批量修复 · 凭据池 —— 设计文档见 docs/superpowers/specs/2026-09-15-p1-1-env-check-design.md</div>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()">切换深色 / 浅色</button>
+  </div>
+  <p class="lead">
+    <b>① 检查项设置</b>的清单来自后端注册表接口（新增检查项 = 写一个类，页面自动出现）；<b>② 结果面板</b>展示三态矩阵与勾选批量修复；<b>③ 凭据池</b>按项目配置、计划可覆盖。
+  </p>
+
+  <!-- ① 检查项设置 -->
+  <div class="section">
+    <div class="section-head">
+      <h2>① 环境检查设置</h2>
+      <span class="note">挂在计划执行设置（非文档内容，不进评审）；目标机器来自文档「环境部署信息」表</span>
+    </div>
+    <div class="card">
+      <div class="settings-top">
+        <label class="switch"><input type="checkbox" checked><span class="track"></span><span class="dot"></span></label>
+        <span class="switch-label">启用环境检查</span>
+        <span class="hint">评审通过后首次执行时自动运行；可手动触发、可跳过（留痕）</span>
+      </div>
+
+      <div class="item-group">
+        <div class="group-head"><span>文档核验</span><span class="tag">LOCAL</span><span class="cnt">3 / 3 已选</span></div>
+        <label class="item-row"><input type="checkbox" class="chk" checked>
+          <span class="name">指标已定义</span><span class="desc">文档「测试指标」章节含指标表</span>
+          <span class="meta"><span class="kind-chip">平台内</span></span></label>
+        <label class="item-row"><input type="checkbox" class="chk" checked>
+          <span class="name">场景已配置</span><span class="desc">计划下存在业务场景</span>
+          <span class="meta"><span class="kind-chip">平台内</span></span></label>
+        <label class="item-row"><input type="checkbox" class="chk" checked>
+          <span class="name">脚本已关联</span><span class="desc">全部场景已绑定脚本版本</span>
+          <span class="meta"><span class="kind-chip">平台内</span></span></label>
+      </div>
+
+      <div class="item-group">
+        <div class="group-head"><span>操作系统</span><span class="tag">REMOTE</span><span class="cnt">4 / 5 已选</span></div>
+        <label class="item-row"><input type="checkbox" class="chk" checked>
+          <span class="name">文件句柄数 (ulimit -n)</span><span class="desc">建议 ≥ 65535，避免压测中断连</span>
+          <span class="meta"><span class="risk-chip medium">中风险 · 可修</span></span></label>
+        <label class="item-row"><input type="checkbox" class="chk" checked>
+          <span class="name">内核参数 (tw_reuse / somaxconn)</span><span class="desc">高并发下 TIME_WAIT 堆积与连接队列瓶颈</span>
+          <span class="meta"><span class="risk-chip medium">中风险 · 可修</span></span></label>
+        <label class="item-row"><input type="checkbox" class="chk" checked>
+          <span class="name">磁盘空间水位</span><span class="desc">数据盘使用率超过 80% 提示</span>
+          <span class="meta"><span class="risk-chip low">低风险 · 提示</span></span></label>
+        <label class="item-row"><input type="checkbox" class="chk" checked>
+          <span class="name">端口可达性</span><span class="desc">从平台本机探测被测服务端口</span>
+          <span class="meta"><span class="kind-chip">平台内拨测</span></span></label>
+        <label class="item-row"><input type="checkbox" class="chk">
+          <span class="name">CPU / 内存基础信息采集</span><span class="desc">记录目标机规格供报告引用</span>
+          <span class="meta"><span class="new-badge">新增项示意</span></span></label>
+      </div>
+
+      <div class="item-group">
+        <div class="group-head"><span>JVM / 中间件</span><span class="tag">REMOTE</span><span class="cnt">2 / 2 已选</span></div>
+        <label class="item-row"><input type="checkbox" class="chk" checked>
+          <span class="name">JVM 进程与堆参数发现</span><span class="desc">仅识别与建议，不修改</span>
+          <span class="meta"><span class="risk-chip high">高风险 · 建议</span></span></label>
+        <label class="item-row"><input type="checkbox" class="chk" checked>
+          <span class="name">MySQL 关键参数 (max_connections…)</span><span class="desc">按模块列匹配到 MySQL 机器才执行</span>
+          <span class="meta"><span class="risk-chip high">高风险 · 可修</span></span></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 结果面板 -->
+  <div class="section">
+    <div class="section-head">
+      <h2>② 检查结果面板</h2>
+      <span class="note">计划详情 · 环境检查区；矩阵 = 机器 × 检查项</span>
+    </div>
+    <div class="card">
+      <div class="summary-bar">
+        <span class="sum-pill"><span class="dot-ok"></span>通过 <b>8</b></span>
+        <span class="sum-pill"><span class="dot-warn"></span>待处理 <b>4</b></span>
+        <span class="sum-pill"><span class="dot-fixed"></span>已修复 <b>1</b></span>
+        <span class="when">2026-09-15 14:02 · 张三 触发</span>
+        <span class="spacer"></span>
+        <select class="history-select"><option>第 3 次运行（最新）</option><option>第 2 次运行 · 2026-09-14</option><option>第 1 次运行 · 2026-09-13</option></select>
+        <button class="btn primary">运行检查</button>
+      </div>
+
+      <div class="tbl-wrap">
+        <table class="matrix">
+          <thead><tr><th>机器</th><th>模块</th><th>检查项</th><th>状态</th><th>详情 / 建议</th></tr></thead>
+          <tbody>
+            <tr><td class="host">10.1.1.10</td><td class="mod">订单服务</td><td>文件句柄数</td>
+              <td><span class="state-badge warn-medium">⚠ 需处理 · 中</span></td>
+              <td class="detail-cell">当前 <b>1024</b>，建议 ≥ 65535；修改 limits.conf 后重新登录生效</td></tr>
+            <tr><td class="host">10.1.1.10</td><td class="mod">订单服务</td><td>内核参数</td>
+              <td><span class="state-badge warn-medium">⚠ 需处理 · 中</span></td>
+              <td class="detail-cell">somaxconn = 128，建议 ≥ 4096</td></tr>
+            <tr><td class="host">10.1.1.10</td><td class="mod">订单服务</td><td>JVM 进程与堆参数</td>
+              <td><span class="state-badge warn-high">⚠ 需处理 · 高</span></td>
+              <td class="detail-cell">堆上限 2G 偏小（4C8G 机器），建议 4G；需重启服务生效</td></tr>
+            <tr><td class="host">10.1.1.10</td><td class="mod">订单服务</td><td>端口可达性 :8080</td>
+              <td><span class="state-badge ok">✓ 正常</span></td><td class="detail-cell">连接 12ms</td></tr>
+            <tr><td class="host">10.1.1.20</td><td class="mod">MySQL 8.0</td><td>MySQL 关键参数</td>
+              <td><span class="state-badge warn-high">⚠ 需处理 · 高</span></td>
+              <td class="detail-cell">max_connections = 151，目标并发下建议 ≥ 500</td></tr>
+            <tr><td class="host">10.1.1.20</td><td class="mod">MySQL 8.0</td><td>文件句柄数</td>
+              <td><span class="state-badge fixed">🔧 已修复</span></td>
+              <td class="detail-cell">1024 → 65535（李四 14:10 确认修复，可回滚）</td></tr>
+            <tr><td class="host">10.1.1.20</td><td class="mod">MySQL 8.0</td><td>磁盘空间水位</td>
+              <td><span class="state-badge ok">✓ 正常</span></td><td class="detail-cell">/data 已用 41%</td></tr>
+            <tr><td class="host">10.1.1.20</td><td class="mod">MySQL 8.0</td><td>JVM 进程与堆参数</td>
+              <td><span class="state-badge na">不适用</span></td><td class="detail-cell">非 JVM 模块</td></tr>
+            <tr><td class="host">10.1.1.30</td><td class="mod">订单服务</td><td>文件句柄数</td>
+              <td><span class="state-badge warn-low">⚠ 需处理 · 低</span></td>
+              <td class="detail-cell">当前 4096，建议 ≥ 65535</td></tr>
+            <tr><td class="host">10.1.1.30</td><td class="mod">订单服务</td><td>端口可达性 :8080</td>
+              <td><span class="state-badge ok">✓ 正常</span></td><td class="detail-cell">连接 15ms</td></tr>
+            <tr><td class="host">10.1.1.30</td><td class="mod">订单服务</td><td>指标已定义</td>
+              <td><span class="state-badge ok">✓ 正常</span></td><td class="detail-cell">平台核验通过（与机器无关，全局一次）</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 问题清单：勾选批量修复 -->
+      <div class="fix-panel">
+        <div class="fix-head">
+          <span class="t">问题清单 · 勾选后批量修复</span>
+          <span class="hint">低风险默认勾选 · 中风险手动勾选 · 高风险勾选时单独确认</span>
+          <span class="ops">
+            <button class="btn ghost" onclick="selectAll(this)">一键全选</button>
+            <button class="btn primary" id="fixBtn">执行修复（已选 1 项）</button>
+          </span>
+        </div>
+        <div class="fix-row"><input type="checkbox" class="chk fix-chk" checked>
+          <div class="body">
+            <div class="l1"><span class="name">文件句柄数</span><span class="host">10.1.1.30</span><span class="risk-chip low">低</span></div>
+            <div class="why">当前 <b>4096</b>，建议 ≥ 65535</div>
+            <div class="how">修改 <code>/etc/security/limits.conf</code>，重新登录生效</div>
+          </div>
+        </div>
+        <div class="fix-row"><input type="checkbox" class="chk fix-chk">
+          <div class="body">
+            <div class="l1"><span class="name">文件句柄数</span><span class="host">10.1.1.10</span><span class="risk-chip medium">中</span></div>
+            <div class="why">当前 <b>1024</b>，建议 ≥ 65535</div>
+            <div class="how">修改 <code>/etc/security/limits.conf</code>，重新登录生效</div>
+          </div>
+        </div>
+        <div class="fix-row"><input type="checkbox" class="chk fix-chk">
+          <div class="body">
+            <div class="l1"><span class="name">内核参数</span><span class="host">10.1.1.10</span><span class="risk-chip medium">中</span></div>
+            <div class="why">somaxconn = <b>128</b>，建议 ≥ 4096</div>
+            <div class="how"><code>sysctl -w net.core.somaxconn=4096</code> 并写入 <code>sysctl.conf</code></div>
+          </div>
+        </div>
+        <div class="fix-row"><input type="checkbox" class="chk fix-chk">
+          <div class="body">
+            <div class="l1"><span class="name">JVM 堆参数</span><span class="host">10.1.1.10</span><span class="risk-chip high">高</span></div>
+            <div class="why">堆上限 2G 偏小，建议 4G；<b>需重启服务生效</b></div>
+            <div class="how">修改启动参数 <code>-Xmx4g</code>（勾选时将单独确认）</div>
+          </div>
+        </div>
+        <div class="fix-row"><input type="checkbox" class="chk fix-chk">
+          <div class="body">
+            <div class="l1"><span class="name">MySQL max_connections</span><span class="host">10.1.1.20</span><span class="risk-chip high">高</span></div>
+            <div class="why">151 → 建议 ≥ 500</div>
+            <div class="how"><code>SET GLOBAL max_connections=500</code> 并更新 my.cnf（勾选时将单独确认）</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 修复历史 -->
+      <div class="fix-history">
+        <h3>修复历史</h3>
+        <div class="diff-card">
+          <div class="diff-head">
+            <span class="name">文件句柄数</span><span class="host">10.1.1.20</span>
+            <span class="meta"><span>李四 · 14:10</span><span class="state-badge fixed">已修复</span>
+              <button class="link-btn roll">回滚</button></span>
+          </div>
+          <pre class="diff"><span class="ctx">/etc/security/limits.conf</span><span class="del">- * soft nofile 1024</span><span class="add">+ * soft nofile 65535</span><span class="del">- * hard nofile 1024</span><span class="add">+ * hard nofile 65535</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 凭据池 -->
+  <div class="section">
+    <div class="section-head">
+      <h2>③ 项目设置 · 环境检查凭据</h2>
+      <span class="note">密码加密存储、只写不回显；计划可用专属凭据覆盖某一台</span>
+    </div>
+    <div class="card">
+      <div class="cred-top">
+        <span class="hint">同项目所有计划的环境检查共用；未配置凭据的机器在检查开始前拦截提示</span>
+        <button class="btn ghost">+ 新增凭据</button>
+      </div>
+      <div class="tbl-wrap">
+        <table class="matrix">
+          <thead><tr><th>机器</th><th>端口</th><th>账号</th><th>认证方式</th><th>备注</th><th>连接状态</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr><td class="host">10.1.1.10</td><td>22</td><td>perftest</td><td>密码</td><td class="mod">订单服务</td>
+              <td><span class="conn-state ok">✓ 上次测试 14:01 通过</span></td>
+              <td><button class="link-btn">测试连接</button> · <button class="link-btn">编辑</button></td></tr>
+            <tr><td class="host">10.1.1.20</td><td>22</td><td>perftest</td><td>密码</td><td class="mod">MySQL</td>
+              <td><span class="conn-state ok">✓ 上次测试 14:01 通过</span></td>
+              <td><button class="link-btn">测试连接</button> · <button class="link-btn">编辑</button></td></tr>
+            <tr><td class="host">10.1.1.30</td><td>36000</td><td>deploy</td><td>密钥</td><td class="mod">订单服务 · 非 22 端口</td>
+              <td><span class="conn-state fail">✗ 认证失败（09-12）</span></td>
+              <td><button class="link-btn">测试连接</button> · <button class="link-btn">编辑</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗示意 -->
+  <div class="section">
+    <div class="section-head">
+      <h2>④ 关键弹窗</h2>
+      <span class="note">缺凭据开跑拦截 · 高风险勾选确认 · 一键全选含中高风险确认</span>
+    </div>
+    <div class="modals">
+      <div class="modal-shot">
+        <div class="cap">缺凭据：检查不启动（手动触发 / 首执行拦截同款文案）</div>
+        <div class="modal-card">
+          <div class="head">
+            <div class="warn-icon" style="background: var(--danger-soft); color: var(--danger);">⃠</div>
+            <div><h4>以下机器未配置 SSH 凭据</h4><p>配置后才能开始环境检查</p></div>
+          </div>
+          <div class="hosts"><span class="host-line">10.1.1.30:36000</span></div>
+          <div class="ops"><button class="btn ghost">取消</button><button class="btn primary">去配置</button></div>
+        </div>
+      </div>
+      <div class="modal-shot">
+        <div class="cap">高风险项勾选确认（中风险无弹窗）</div>
+        <div class="modal-card">
+          <div class="head">
+            <div class="warn-icon" style="background: var(--danger-soft); color: var(--danger);">!</div>
+            <div><h4>将该高风险项加入修复？</h4><p>MySQL max_connections · 10.1.1.20</p></div>
+          </div>
+          <p>该操作影响数据库配置，目标并发下生效，确认加入本次修复清单？</p>
+          <div class="ops"><button class="btn ghost">取消</button><button class="btn danger">确认加入</button></div>
+        </div>
+      </div>
+      <div class="modal-shot">
+        <div class="cap">一键全选：含中/高风险时弹一次确认</div>
+        <div class="modal-card">
+          <div class="head">
+            <div class="warn-icon" style="background: var(--orange-soft); color: var(--orange);">!</div>
+            <div><h4>全选将包含 4 项中/高风险修复</h4><p>其中高风险 2 项：JVM 堆参数、MySQL max_connections</p></div>
+          </div>
+          <p>修复前逐项备份、修后自动复查，全部可回滚。确认全选？</p>
+          <div class="ops"><button class="btn ghost">取消</button><button class="btn primary">确认全选</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note">效果图级别原型 · 静态数据演示 · 「执行修复」计数与全选为可交互示意</footer>
+</div>
+
+<script>
+  if (location.hash === '#dark') { document.documentElement.dataset.theme = 'dark'; }
+  function toggleTheme() {
+    const root = document.documentElement;
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'default' : 'dark';
+  }
+  function refreshCount() {
+    const n = document.querySelectorAll('.fix-chk:checked').length;
+    document.getElementById('fixBtn').textContent = n ? `执行修复（已选 ${n} 项）` : '执行修复';
+    document.getElementById('fixBtn').disabled = n === 0;
+  }
+  document.querySelectorAll('.fix-chk').forEach(chk => chk.addEventListener('change', refreshCount));
+  function selectAll(btn) {
+    const boxes = document.querySelectorAll('.fix-chk');
+    const all = [...boxes].every(b => b.checked);
+    boxes.forEach(b => b.checked = !all);
+    btn.textContent = all ? '一键全选' : '全不选';
+    refreshCount();
+  }
+  refreshCount();
+</script>
+</body>
+</html>
