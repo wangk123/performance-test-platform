@@ -5,6 +5,7 @@ import com.yr.perftest.platform.envcheck.EnvCheckFixService;
 import com.yr.perftest.platform.envcheck.EnvCheckProperties;
 import com.yr.perftest.platform.envcheck.EnvCheckRegistry;
 import com.yr.perftest.platform.envcheck.EnvCheckRunService;
+import com.yr.perftest.platform.envcheck.EnvironmentCheckRunner;
 import com.yr.perftest.platform.envcheck.PersistentEnvCheckFixRecord;
 import com.yr.perftest.platform.envcheck.PersistentEnvCheckFixRepository;
 import com.yr.perftest.platform.envcheck.RemoteCheckItem;
@@ -83,6 +84,13 @@ public class EnvCheckController {
     public List<EnvCheckRunService.RunSummary> history(@PathVariable long planId) {
         workflowService.requireActor(planId, requireHuman(), "PRECHECK_RUN");
         return runService.history(planId).stream().map(runService::toSummary).toList();
+    }
+
+    /** 检查目标预览（spec 2026-09-16 §4）：文档解析目标 + 凭据三态 + 适用项计数；只读。 */
+    @GetMapping("/task-plans/{planId}/env-check/targets")
+    public EnvironmentCheckRunner.TargetsPreview targets(@PathVariable long planId) {
+        workflowService.requireActor(planId, requireHuman(), "PRECHECK_RUN");
+        return runService.preview(planId);
     }
 
     @GetMapping("/env-check/runs/{runId}")

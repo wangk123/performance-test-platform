@@ -92,13 +92,17 @@ public class EnvCheckCredentialService {
         return probeClient.testConnection(toResolved(record));
     }
 
-    /** 计划覆盖 &gt; 项目池：planId 非空时先查计划级，未命中回落项目池。 */
-    public Optional<ResolvedCredential> resolve(long projectId, Long planId, String host) {
-        Optional<PersistentEnvCheckCredentialRecord> record = planId == null
+    /** 计划覆盖 &gt; 项目池：返回命中的凭据记录（planId 字段用于区分覆盖来源）；不命中返回 empty。 */
+    public Optional<PersistentEnvCheckCredentialRecord> resolveRecord(long projectId, Long planId, String host) {
+        return planId == null
                 ? repository.findByProjectIdAndPlanIdIsNullAndHost(projectId, host)
                 : repository.findByProjectIdAndPlanIdAndHost(projectId, planId, host)
                         .or(() -> repository.findByProjectIdAndPlanIdIsNullAndHost(projectId, host));
-        return record.map(this::toResolved);
+    }
+
+    /** 解析为解密后的可用凭据（ResolvedCredential 仅服务内部使用）；命中规则见 {@link #resolveRecord}。 */
+    public Optional<ResolvedCredential> resolve(long projectId, Long planId, String host) {
+        return resolveRecord(projectId, planId, host).map(this::toResolved);
     }
 
     private Optional<PersistentEnvCheckCredentialRecord> findByProjectPlanHost(long projectId, Long planId, String host) {

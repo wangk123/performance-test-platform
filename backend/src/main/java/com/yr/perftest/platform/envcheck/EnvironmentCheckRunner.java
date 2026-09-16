@@ -93,6 +93,38 @@ public class EnvironmentCheckRunner {
         return saved;
     }
 
+    /** 检查目标视图（spec 2026-09-16 §4）：credential ∈ "POOL" | "PLAN_OVERRIDE" | "MISSING"。 */
+    public record TargetView(String host, String module, String credential, int applicableRemoteItems) {
+    }
+
+    /** 检查目标预览响应：targets 清单 + total/ready 计数 + 缺凭据 host 清单。 */
+    public record TargetsPreview(List<TargetView> targets, int total, int ready, List<String> missing) {
+    }
+
+    /** 检查目标预览（spec 2026-09-16 §4）：文档解析 + 凭据三态 + 勾选远程项适用计数；只读，不产生 run。 */
+    public TargetsPreview previewTargets(long planId) {
+        PersistentTaskPlanRecord plan = planRepository.findById(planId)
+                .orElseThrow(() -> new EnvCheckValidationException("ENV_CHECK_INVALID：task plan does not exist"));
+        List<TargetHost> hosts = targetParser.parse(plan.getBody() == null ? "" : plan.getBody());
+        List<EnvCheckItem> checked = registry.resolve(PrecheckSettings.migrate(settingsOf(plan)).items());
+        List<RemoteCheckItem> remote = checked.stream()
+                .filter(RemoteCheckItem.class::isInstance).map(RemoteCheckItem.class::cast).toList();
+        List<TargetView> targets = new ArrayList<>();
+        List<String> missing = new ArrayList<>();
+        for (TargetHost host : hosts) {
+            String state = credentials.resolveRecord(plan.getProjectId(), plan.getId(), host.host())
+                    .map(record -> record.getPlanId() != null ? "PLAN_OVERRIDE" : "POOL")
+                    .orElse("MISSING");
+            if ("MISSING".equals(state)) {
+                missing.add(host.host());
+            }
+            int applicable = (int) remote.stream()
+                    .filter(item -> TargetHost.matches(host, item.appliesTo())).count();
+            targets.add(new TargetView(host.host(), host.module(), state, applicable));
+        }
+        return new TargetsPreview(targets, targets.size(), targets.size() - missing.size(), missing);
+    }
+
     /** 修复回写（供 Task 9）：按 host+itemKey 定位结果行更新 state/detail，重算 passed/warned 并持久化。 */
     public void updateResultState(long runId, String host, String itemKey, String state, String detail) {
         if (!RESULT_STATES.contains(state)) {

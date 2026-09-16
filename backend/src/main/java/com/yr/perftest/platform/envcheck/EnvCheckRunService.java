@@ -36,6 +36,11 @@ public class EnvCheckRunService {
         return runner.run(planId, actor, true);
     }
 
+    /** 检查目标预览（spec 2026-09-16 §4）：透传 Runner 只读方法。 */
+    public EnvironmentCheckRunner.TargetsPreview preview(long planId) {
+        return runner.previewTargets(planId);
+    }
+
     public List<PersistentEnvCheckRunRecord> history(long planId) {
         return runRepository.findTop50ByPlanIdOrderByStartedAtDesc(planId);
     }
