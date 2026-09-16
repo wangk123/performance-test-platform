@@ -8,6 +8,7 @@ import com.yr.perftest.platform.project.ProjectServiceTest;
 import com.yr.perftest.platform.script.JmeterScriptParserTest;
 import com.yr.perftest.platform.script.JmeterScriptPatcherTest;
 import com.yr.perftest.platform.script.JmeterScriptRendererTest;
+import com.yr.perftest.platform.script.Jsr223SnippetTest;
 import com.yr.perftest.platform.script.ScriptStepTypeTest;
 import com.yr.perftest.platform.script.ThreadGroupConfigTest;
 import com.yr.perftest.platform.task.ScenarioDataFileBindingTest;
@@ -21,6 +22,7 @@ public class TestRunner {
         JmeterScriptParserTest.runAll();
         JmeterScriptPatcherTest.runAll();
         JmeterScriptRendererTest.runAll();
+        Jsr223SnippetTest.runAll();
         DataFileServiceTest.runAll();
         DataFileAssemblyServiceTest.runAll();
         DataFileControllerTest.runAll();

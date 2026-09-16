@@ -1,5 +1,7 @@
 package com.yr.perftest.platform.api;
 
+import com.yr.perftest.platform.script.Jsr223SecretScanner;
+import com.yr.perftest.platform.script.SaveScriptDefinitionResult;
 import com.yr.perftest.platform.script.ScriptContent;
 import com.yr.perftest.platform.script.ScriptDefinition;
 import com.yr.perftest.platform.script.ScriptService;
@@ -27,9 +29,11 @@ import java.util.List;
 @RequestMapping("/api/projects/{projectId}/scripts")
 public class ScriptController {
     private final ScriptService scriptService;
+    private final Jsr223SecretScanner jsr223SecretScanner;
 
-    public ScriptController(ScriptService scriptService) {
+    public ScriptController(ScriptService scriptService, Jsr223SecretScanner jsr223SecretScanner) {
         this.scriptService = scriptService;
+        this.jsr223SecretScanner = jsr223SecretScanner;
     }
 
     @GetMapping
@@ -80,24 +84,27 @@ public class ScriptController {
 
     @PutMapping("/{versionId:\\d+}")
     @ResponseStatus(HttpStatus.CREATED)
-    public ScriptVersion saveScriptContent(
+    public SaveScriptDefinitionResult saveScriptContent(
             @PathVariable long projectId,
             @PathVariable long versionId,
             @Valid @RequestBody SaveScriptRequest request,
             @RequestHeader(name = "X-User", defaultValue = "admin") String uploadedBy
     ) {
-        return scriptService.saveScriptContent(projectId, versionId, request.content(), request.filename(), uploadedBy);
+        ScriptVersion version = scriptService.saveScriptContent(projectId, versionId, request.content(), request.filename(), uploadedBy);
+        return new SaveScriptDefinitionResult(version, jsr223SecretScanner.scanScriptContent(request.content()));
     }
 
     @PutMapping("/{versionId:\\d+}/definition")
     @ResponseStatus(HttpStatus.CREATED)
-    public ScriptDefinition saveScriptDefinition(
+    public SaveScriptDefinitionResult saveScriptDefinition(
             @PathVariable long projectId,
             @PathVariable long versionId,
             @Valid @RequestBody SaveScriptDefinitionRequest request,
             @RequestHeader(name = "X-User", defaultValue = "admin") String uploadedBy
     ) {
-        return scriptService.saveScriptDefinition(projectId, versionId, request.filename(), request.steps(), uploadedBy);
+        scriptService.saveScriptDefinition(projectId, versionId, request.filename(), request.steps(), uploadedBy);
+        ScriptContent content = scriptService.getScriptContent(projectId, versionId);
+        return new SaveScriptDefinitionResult(content.version(), jsr223SecretScanner.scanScriptContent(content.content()));
     }
 
     public record CreateScriptRequest(

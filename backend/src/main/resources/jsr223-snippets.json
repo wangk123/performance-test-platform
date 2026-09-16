@@ -1,0 +1,50 @@
+[
+  {
+    "key": "hmac-sha256-sign",
+    "name": "HMAC-SHA256 签名",
+    "category": "签名",
+    "description": "对变量 requestBody 计算 HMAC-SHA256 签名（十六进制小写）并写入变量 hmacSignature；密钥读取场景属性 hmacSecretKey（${__P(hmacSecretKey)}），请勿在脚本中写明文密钥",
+    "params": ["hmacSecretKey"],
+    "code": "import javax.crypto.Mac\nimport javax.crypto.spec.SecretKeySpec\n\n// 密钥从场景属性 hmacSecretKey 读取，避免明文写入脚本\ndef secret = '${__P(hmacSecretKey)}'\ndef plainText = vars.get('requestBody') ?: ''\ndef mac = Mac.getInstance('HmacSHA256')\nmac.init(new SecretKeySpec(secret.getBytes('UTF-8'), 'HmacSHA256'))\ndef signature = mac.doFinal(plainText.getBytes('UTF-8')).encodeHex().toString()\nvars.put('hmacSignature', signature)\nlog.info('HMAC-SHA256 签名生成成功')"
+  },
+  {
+    "key": "aes256-encrypt",
+    "name": "AES-256 加密",
+    "category": "加解密",
+    "description": "对变量 requestBody 做 AES/ECB/PKCS5Padding 加密并 Base64 输出到变量 encryptedBody；密钥读取场景属性 aesSecretKey（${__P(aesSecretKey)}，需 32 位），请勿明文写入",
+    "params": ["aesSecretKey"],
+    "code": "import javax.crypto.Cipher\nimport javax.crypto.spec.SecretKeySpec\n\n// 密钥从场景属性 aesSecretKey 读取，避免明文写入脚本\ndef key = '${__P(aesSecretKey)}'\ndef plainText = vars.get('requestBody') ?: ''\ndef cipher = Cipher.getInstance('AES/ECB/PKCS5Padding')\ncipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key.getBytes('UTF-8'), 'AES'))\ndef encrypted = cipher.doFinal(plainText.getBytes('UTF-8')).encodeBase64().toString()\nvars.put('encryptedBody', encrypted)\nlog.info('AES-256 加密完成')"
+  },
+  {
+    "key": "md5-digest",
+    "name": "MD5 摘要",
+    "category": "加解密",
+    "description": "对文本计算 MD5 摘要（十六进制小写）并写入变量 md5Digest；待摘要文本优先取变量 requestBody，缺省读取场景属性 plainText（${__P(plainText)}）",
+    "params": ["plainText"],
+    "code": "import java.security.MessageDigest\n\ndef plainText = vars.get('requestBody') ?: '${__P(plainText)}'\ndef digest = MessageDigest.getInstance('MD5').digest(plainText.getBytes('UTF-8')).encodeHex().toString()\nvars.put('md5Digest', digest)\nlog.info('MD5 摘要计算完成')"
+  },
+  {
+    "key": "rsa-sign",
+    "name": "RSA 签名",
+    "category": "签名",
+    "description": "使用 SHA256withRSA 对变量 requestBody 签名，Base64 结果写入变量 rsaSignature；私钥读取场景属性 rsaPrivateKey（${__P(rsaPrivateKey)}，Base64 编码的 PKCS#8），请勿明文写入",
+    "params": ["rsaPrivateKey"],
+    "code": "import java.security.KeyFactory\nimport java.security.Signature\nimport java.security.spec.PKCS8EncodedKeySpec\n\n// 私钥从场景属性 rsaPrivateKey 读取，避免明文写入脚本\ndef privateKeyBase64 = '${__P(rsaPrivateKey)}'\ndef plainText = vars.get('requestBody') ?: ''\ndef keyBytes = java.util.Base64.getDecoder().decode(privateKeyBase64)\ndef privateKey = KeyFactory.getInstance('RSA').generatePrivate(new PKCS8EncodedKeySpec(keyBytes))\ndef signer = Signature.getInstance('SHA256withRSA')\nsigner.initSign(privateKey)\nsigner.update(plainText.getBytes('UTF-8'))\nvars.put('rsaSignature', java.util.Base64.getEncoder().encodeToString(signer.sign()))\nlog.info('RSA SHA256withRSA 签名生成成功')"
+  },
+  {
+    "key": "uuid-timestamp",
+    "name": "UUID+时间戳单号",
+    "category": "工具",
+    "description": "生成带前缀的唯一单号写入变量 orderId，同时输出毫秒时间戳 timestampMillis；前缀读取场景属性 orderNoPrefix（${__P(orderNoPrefix)}）",
+    "params": ["orderNoPrefix"],
+    "code": "// 前缀从场景属性 orderNoPrefix 读取\ndef prefix = '${__P(orderNoPrefix)}'\ndef orderId = prefix + UUID.randomUUID().toString().replace('-', '') + System.currentTimeMillis()\nvars.put('orderId', orderId)\nvars.put('timestampMillis', String.valueOf(System.currentTimeMillis()))\nlog.info('生成唯一单号：' + orderId)"
+  },
+  {
+    "key": "base64",
+    "name": "Base64 编码",
+    "category": "工具",
+    "description": "对文本做 Base64 编码并写入变量 base64Encoded；待编码文本优先取变量 requestBody，缺省读取场景属性 plainText（${__P(plainText)}）",
+    "params": ["plainText"],
+    "code": "def plainText = vars.get('requestBody') ?: '${__P(plainText)}'\ndef encoded = plainText.getBytes('UTF-8').encodeBase64().toString()\nvars.put('base64Encoded', encoded)\nlog.info('Base64 编码完成')"
+  }
+]
