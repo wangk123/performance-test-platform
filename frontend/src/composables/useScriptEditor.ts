@@ -27,7 +27,7 @@ import { parseCurlCommand } from '../utils/curl-import';
 import { parseJmeterXmlFragment } from '../utils/jmeter-xml-import';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
-import { mapScriptDefinition, saveScriptDefinitionApi } from '../api/scripts';
+import { mapScriptDefinition, getScriptDefinitionApi, saveScriptDefinitionApi } from '../api/scripts';
 import { confirmAction } from '../utils/feedback';
 
 const editorScriptId = ref<number | null>(null);
@@ -43,6 +43,7 @@ const stepImportVisible = ref(false);
 const stepImportMode = ref<'xml' | 'curl'>('xml');
 const stepImportTargetId = ref<string | null>(null);
 const stepImportText = ref('');
+const saveWarnings = ref<string[]>([]);
 const stepDialogForm = ref<{
   relation: StepRelation;
   type: ScriptStepType;
@@ -423,12 +424,18 @@ function useEditor() {
     );
     const { currentUser } = useAuth();
     try {
-      const definition = await saveScriptDefinitionApi(
+      // Task 13 起 PUT /definition 仅回 { version, warnings }，保存成功后重新拉取 definition 同步状态
+      const result = await saveScriptDefinitionApi(
         editorScriptAsset.value.projectId,
         editorScriptAsset.value.id,
         editorScriptAsset.value.sourceFile,
         editorScriptAsset.value.steps,
         currentUser.value?.username ?? 'admin',
+      );
+      saveWarnings.value = result.warnings ?? [];
+      const definition = await getScriptDefinitionApi(
+        editorScriptAsset.value.projectId,
+        editorScriptAsset.value.id,
       );
       const saved = mapScriptDefinition(definition);
       const index = scriptAssets.value.findIndex((script) => script.id === editorScriptAsset.value?.id);
@@ -472,6 +479,7 @@ function useEditor() {
     stepImportMode,
     stepImportTargetId,
     stepImportText,
+    saveWarnings,
     availableStepTypeOptions: computed(() => availableStepTypeOptions()),
     isRootStep,
     isStepCollapsed,

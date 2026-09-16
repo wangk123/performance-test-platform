@@ -12,6 +12,7 @@
   "dependencies": {
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/lang-xml": "^6.1.0",
+    "@codemirror/language": "^6.12.4",
     "@codemirror/legacy-modes": "^6.5.4",
     "@vitejs/plugin-vue": "^6.0.1",
     "ant-design-vue": "^4.2.6",

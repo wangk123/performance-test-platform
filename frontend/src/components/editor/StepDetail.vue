@@ -21,6 +21,16 @@
         </div>
       </div>
 
+      <a-alert
+        v-if="saveWarnings.length"
+        type="warning"
+        show-icon
+        closable
+        class="save-warnings-alert"
+        :message="saveWarnings[0]"
+        @close="dismissSaveWarnings"
+      />
+
       <a-form v-if="detailMode === 'visual'" class="step-config-form" layout="vertical" @submit.prevent>
         <a-form-item label="步骤名称">
           <a-input v-model:value="step.name" />
@@ -135,6 +145,40 @@
             />
           </a-form-item>
         </template>
+
+        <template v-else-if="step.type === 'JSR223_PRE_PROCESSOR' || step.type === 'JSR223_POST_PROCESSOR'">
+          <a-form-item label="脚本语言">
+            <div class="jsr223-language-row">
+              <a-tag v-if="scriptLanguage === 'groovy'" class="jsr223-language-tag" color="geekblue">groovy</a-tag>
+              <template v-else>
+                <a-tag class="jsr223-language-tag">{{ scriptLanguage }}</a-tag>
+                <a-button size="small" @click="updateConfig('scriptLanguage', 'groovy')">切换为 groovy</a-button>
+              </template>
+            </div>
+          </a-form-item>
+          <a-form-item label="参数（parameters · 逗号分隔，脚本内 args[] 取用）">
+            <a-input
+              class="jsr223-parameters-input"
+              :value="(step.config.parameters as string)"
+              placeholder="env=prod,algo=HmacSHA256"
+              @update:value="updateConfig('parameters', $event)"
+            />
+          </a-form-item>
+          <a-form-item label="脚本">
+            <div class="jsr223-script-layout">
+              <div class="jsr223-script-editor">
+                <CodeEditor
+                  ref="codeRef"
+                  language="groovy"
+                  :model-value="(step.config.script as string)"
+                  placeholder="// Groovy 脚本，密钥请使用 ${__P(...)} 参数化引用"
+                  @update:model-value="updateConfig('script', $event)"
+                />
+              </div>
+              <Jsr223SnippetPanel :on-insert="insertSnippet" />
+            </div>
+          </a-form-item>
+        </template>
       </a-form>
 
       <StepComponentXmlEditor v-else :step="step" />
@@ -158,6 +202,8 @@ import JsonAssertionConfig from './JsonAssertionConfig.vue';
 import StepComponentXmlEditor from './StepComponentXmlEditor.vue';
 import StepTypeIcon from '../scripts/StepTypeIcon.vue';
 import ThreadGroupEditor from './ThreadGroupEditor.vue';
+import CodeEditor from './CodeEditor.vue';
+import Jsr223SnippetPanel from './Jsr223SnippetPanel.vue';
 
 defineProps<{
   saving: boolean;
@@ -170,6 +216,12 @@ const emit = defineEmits<{
 const editor = useScriptEditor();
 const step = computed(() => editor.selectedEditorStep.value);
 const meta = computed(() => (step.value ? stepTypeMeta[step.value.type] : stepTypeMeta.HTTP_REQUEST));
+const saveWarnings = computed(() => editor.saveWarnings.value);
+const codeRef = ref<InstanceType<typeof CodeEditor> | null>(null);
+const scriptLanguage = computed(() => {
+  const raw = step.value?.config.scriptLanguage;
+  return typeof raw === 'string' && raw ? raw : 'groovy';
+});
 const detailMode = ref<'visual' | 'xml'>('visual');
 const detailModeOptions = [
   { label: '可视化', value: 'visual' },
@@ -225,6 +277,14 @@ function csvBoolean(key: 'ignoreFirstLine' | 'recycle' | 'stopThread', fallback:
   return raw === true || raw === 'true';
 }
 
+function dismissSaveWarnings() {
+  editor.saveWarnings.value = [];
+}
+
+function insertSnippet(code: string) {
+  codeRef.value?.insertAtCursor(`\n${code}\n`);
+}
+
 watch(
   () => step.value?.id,
   () => {
@@ -239,7 +299,52 @@ watch(
   margin-bottom: 16px;
 }
 
+.save-warnings-alert {
+  margin-top: 12px;
+}
+
 .csv-advanced-collapse {
   margin-top: 4px;
+}
+
+.jsr223-language-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jsr223-language-tag {
+  margin-inline-end: 0;
+  font-family: var(--font-data);
+}
+
+.jsr223-parameters-input :deep(input) {
+  font-family: var(--font-data);
+}
+
+.jsr223-script-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.jsr223-script-editor {
+  min-height: 320px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--code-bg);
+}
+
+.jsr223-script-editor .code-editor {
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 1280px) {
+  .jsr223-script-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

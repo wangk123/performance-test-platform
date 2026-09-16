@@ -30,6 +30,12 @@ export type BackendScriptContent = {
   content: string;
 };
 
+// 保存响应（Task 13 起）：仅回新版本号 + 明文密钥扫描 warnings，不再回全量 definition
+export type SaveScriptResult = {
+  version: BackendScriptVersion;
+  warnings: string[];
+};
+
 export function listScriptDefinitionsApi(projectId: number) {
   return request<BackendScriptDefinition[]>(`/api/projects/${projectId}/scripts/definitions`);
 }
@@ -68,7 +74,7 @@ export function getScriptContentApi(projectId: number, versionId: number) {
 }
 
 export function saveScriptContentApi(projectId: number, versionId: number, filename: string, content: string, username: string) {
-  return request<BackendScriptVersion>(`/api/projects/${projectId}/scripts/${versionId}`, {
+  return request<SaveScriptResult>(`/api/projects/${projectId}/scripts/${versionId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', 'X-User': username },
     body: JSON.stringify({ filename, content }),
@@ -82,7 +88,7 @@ export function saveScriptDefinitionApi(
   steps: ScriptStep[],
   username: string,
 ) {
-  return request<BackendScriptDefinition>(`/api/projects/${projectId}/scripts/${versionId}/definition`, {
+  return request<SaveScriptResult>(`/api/projects/${projectId}/scripts/${versionId}/definition`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', 'X-User': username },
     body: JSON.stringify({ filename, steps }),

@@ -8,6 +8,8 @@ import { basicSetup } from 'codemirror';
 import { Decoration, EditorView, MatchDecorator, ViewPlugin, placeholder, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { json } from '@codemirror/lang-json';
 import { xml } from '@codemirror/lang-xml';
+import { StreamLanguage } from '@codemirror/language';
+import { groovy } from '@codemirror/legacy-modes/mode/groovy';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useTheme } from '../../composables/useTheme';
 
@@ -35,7 +37,7 @@ const placeholderHighlighter = ViewPlugin.fromClass(
 
 const props = withDefaults(defineProps<{
   modelValue: string;
-  language?: 'json' | 'xml' | 'html' | 'javascript' | 'text';
+  language?: 'json' | 'xml' | 'html' | 'javascript' | 'groovy' | 'text';
   placeholder?: string;
   readonly?: boolean;
   fieldId?: string;
@@ -142,6 +144,9 @@ function languageExtension() {
   }
   if (props.language === 'xml' || props.language === 'html') {
     return xml();
+  }
+  if (props.language === 'groovy') {
+    return StreamLanguage.define(groovy);
   }
   return [];
 }
