@@ -258,7 +258,7 @@ git commit -m "feat：P1-5 数据文件 REST 接口——上传/列表/版本/�
 - Test: `backend/src/test/java/com/yr/perftest/platform/script/JmeterScriptRendererTest.java`、`JmeterScriptParserTest.java`（追加用例）
 
 **Interfaces:**
-- Produces: CSV 步骤 config 扩展键（全部可选、缺省即现状）：`delimiter`（默认 `,`）、`fileEncoding`（默认 `UTF-8`）、`ignoreFirstLine`（默认 `true`）、`recycle`（默认 `true`）、`stopThread`（默认 `false`）、`shareMode`（默认 `shareMode.all`）。JMX stringProp 名与 JMeter CSVDataSet 对齐：`delimiter`/`fileEncoding`/`ignoreFirstLine`/`recycle`/`stopThread`/`shareMode`。
+- Produces: CSV 步骤 config 扩展键（全部可选、缺省即现状）：`delimiter`（默认 `,`）、`fileEncoding`（默认 `UTF-8`）、`ignoreFirstLine`（**解析缺省 `false` 对齐 JMeter 内建默认，防旧 JMX 往返翻转语义；前端新建步骤默认 `true`（Task 10 显式值）**）、`recycle`（默认 `true`）、`stopThread`（默认 `false`）、`shareMode`（默认 `shareMode.all`）。JMX stringProp 名与 JMeter CSVDataSet 对齐：`delimiter`/`fileEncoding`/`ignoreFirstLine`/`recycle`/`stopThread`/`shareMode`。
 
 - [ ] **Step 1: 追加失败测试（RendererTest：全属性 CSV 渲染含六个 stringProp；ParserTest：渲染产物解析回 config 键值相等；两者合成一个 round-trip 用例即可）**
 
