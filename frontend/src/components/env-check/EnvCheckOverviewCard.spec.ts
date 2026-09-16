@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { EnvCheckItemMeta } from '../../types';
 import {
+  credentialChip,
   groupEnvCheckItems,
   kindChip,
   parsePrecheckSettings,
@@ -62,6 +63,14 @@ describe('riskChip / kindChip（行尾标识）', () => {
     expect(riskChip(item())).toBeNull();
     expect(kindChip(item())).toBe('平台内');
     expect(kindChip(item({ kind: 'REMOTE' }))).toBe('平台内拨测');
+  });
+});
+
+describe('credentialChip（凭据三态展示）', () => {
+  it('POOL → 已覆盖/ok，PLAN_OVERRIDE → 计划覆盖/warn，MISSING → 缺失/danger', () => {
+    expect(credentialChip('POOL')).toEqual({ text: '✓ 已覆盖', level: 'ok' });
+    expect(credentialChip('PLAN_OVERRIDE')).toEqual({ text: '🔒 计划覆盖', level: 'warn' });
+    expect(credentialChip('MISSING')).toEqual({ text: '✗ 缺失', level: 'danger' });
   });
 });
 

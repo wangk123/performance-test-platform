@@ -1,4 +1,4 @@
-import type { EnvCheckItemMeta } from '../../types';
+import type { EnvCheckCredentialState, EnvCheckItemMeta } from '../../types';
 
 /** 设置卡渲染模型：清单完全由注册表接口驱动，前端不枚举检查项 key。 */
 export type EnvCheckItemGroup = {
@@ -65,4 +65,11 @@ export function selectedCountText(items: EnvCheckItemMeta[], selected: string[])
   const keys = new Set(selected);
   const chosen = items.filter((item) => keys.has(item.key)).length;
   return `${chosen} / ${items.length} 已选`;
+}
+
+/** 目标表凭据三态 chip：文案与色级。 */
+export function credentialChip(state: EnvCheckCredentialState): { text: string; level: 'ok' | 'warn' | 'danger' } {
+  if (state === 'POOL') return { text: '✓ 已覆盖', level: 'ok' };
+  if (state === 'PLAN_OVERRIDE') return { text: '🔒 计划覆盖', level: 'warn' };
+  return { text: '✗ 缺失', level: 'danger' };
 }

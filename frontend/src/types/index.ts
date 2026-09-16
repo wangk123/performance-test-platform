@@ -728,6 +728,21 @@ export interface EnvCheckItemsResponse {
   fixEnabled: boolean;
 }
 
+/** 检查总览目标行：credential 为凭据三态（项目池 / 计划覆盖 / 缺失），对照后端 TargetsPreview.TargetView。 */
+export type EnvCheckCredentialState = 'POOL' | 'PLAN_OVERRIDE' | 'MISSING';
+export interface EnvCheckTargetView {
+  host: string;
+  module: string;
+  credential: EnvCheckCredentialState;
+  applicableRemoteItems: number;
+}
+export interface EnvCheckTargetsPreview {
+  targets: EnvCheckTargetView[];
+  total: number;
+  ready: number;
+  missing: string[];
+}
+
 export interface EnvCheckCredential {
   id: number;
   host: string;

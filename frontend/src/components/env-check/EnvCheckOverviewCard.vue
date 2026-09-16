@@ -2,16 +2,48 @@
   <section class="ec-card">
     <header class="ec-card-head">
       <div>
-        <h3>环境检查设置</h3>
-        <p>挂在计划执行设置（非文档内容，不进评审）；目标机器来自文档「环境部署信息」表</p>
+        <h3>检查总览</h3>
+        <p>目标清单来自文档「环境部署信息」（只读）；勾选检查项并核对凭据后执行</p>
+      </div>
+      <div class="eco-head-actions">
+        <a-switch v-model:checked="enabled" :loading="saving" aria-label="启用环境检查" />
+        <span class="eco-switch-label">启用环境检查</span>
+        <a-button type="primary" size="small" :loading="saving" @click="save">保存设置</a-button>
       </div>
     </header>
 
-    <div class="ec-settings-top">
-      <a-switch v-model:checked="enabled" :loading="saving" aria-label="启用环境检查" />
-      <span class="ec-switch-label">启用环境检查</span>
-      <span class="ec-hint">评审通过后首次执行时自动运行；可手动触发、可跳过（留痕）</span>
-      <a-button type="primary" size="small" :loading="saving" @click="save">保存设置</a-button>
+    <div class="eco-targets">
+      <div class="eco-src-hint">
+        检查目标实时解析自计划文档「五、测试资源 → 环境部署信息」（{{ targets.total }} 台），修改部署表后刷新生效，平台侧不单独维护
+      </div>
+      <a-table
+        v-if="targets.targets.length"
+        :columns="targetColumns"
+        :data-source="targets.targets"
+        :pagination="false"
+        :loading="targetsLoading"
+        row-key="host"
+        size="small"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'host'">
+            <span class="ec-host">{{ record.host }}</span>
+          </template>
+          <template v-else-if="column.key === 'credential'">
+            <span class="eco-cred-chip" :class="credentialChip(record.credential).level">
+              {{ credentialChip(record.credential).text }}
+            </span>
+          </template>
+          <template v-else-if="column.key === 'applicable'">
+            {{ record.applicableRemoteItems }} / {{ remoteItemCount }}
+          </template>
+        </template>
+      </a-table>
+      <a-empty
+        v-else
+        :image-style="{ height: '48px' }"
+        description="文档「五、测试资源 → 环境部署信息」未识别到目标机，请先在文档中补充部署表"
+      />
     </div>
 
     <a-spin :spinning="loading">
@@ -43,11 +75,19 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
-import type { EnvCheckItemMeta } from '../../types';
+import type { TableColumnsType } from 'ant-design-vue';
+import type { EnvCheckItemMeta, EnvCheckTargetView, EnvCheckTargetsPreview } from '../../types';
 import { updatePrecheckSettingsApi } from '../../api/plan-doc';
-import { groupEnvCheckItems, kindChip, parsePrecheckSettings, riskChip, selectedCountText } from './envCheckSettings';
+import { credentialChip, groupEnvCheckItems, kindChip, parsePrecheckSettings, riskChip, selectedCountText } from './envCheckSettings';
 
-const props = defineProps<{ planId: number; precheckJson: string | null; items: EnvCheckItemMeta[]; loading: boolean }>();
+const props = defineProps<{
+  planId: number;
+  precheckJson: string | null;
+  items: EnvCheckItemMeta[];
+  loading: boolean;
+  targets: EnvCheckTargetsPreview;
+  targetsLoading: boolean;
+}>();
 const emit = defineEmits<{ (e: 'saved'): void }>();
 
 const enabled = ref(false);
@@ -55,6 +95,16 @@ const selected = ref<string[]>([]);
 const saving = ref(false);
 
 const groups = computed(() => groupEnvCheckItems(props.items));
+
+/** 注册表远程项总数：目标表「适用远程检查项」分母（分子由后端随 targets 重取刷新）。 */
+const remoteItemCount = computed(() => props.items.filter((entry) => entry.kind === 'REMOTE').length);
+
+const targetColumns: TableColumnsType<EnvCheckTargetView> = [
+  { title: '地址', dataIndex: 'host', key: 'host', width: 140 },
+  { title: '模块', dataIndex: 'module', key: 'module' },
+  { title: '凭据', key: 'credential', width: 120 },
+  { title: '适用远程检查项', key: 'applicable', width: 130 },
+];
 
 /** precheckJson 外部刷新（保存后 doc.refresh 回流）或清单首次到达时重放初始勾选态。 */
 function applyPrecheck() {
@@ -87,20 +137,49 @@ watch([() => props.precheckJson, () => props.items], applyPrecheck, { immediate:
 </script>
 
 <style scoped>
-.ec-settings-top {
+.eco-head-actions {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 14px;
+  flex: none;
 }
-.ec-switch-label {
+.eco-switch-label {
   font-size: 13px;
   font-weight: 600;
 }
-.ec-hint {
-  flex: 1;
+.eco-targets {
+  margin-bottom: 14px;
+}
+.eco-src-hint {
+  font-size: 12px;
   color: var(--muted);
-  font-size: 12.5px;
+  padding: 8px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.ec-host {
+  font-family: var(--font-data);
+  font-size: 12px;
+}
+.eco-cred-chip {
+  font: 600 10.5px var(--font-ui);
+  border-radius: 999px;
+  padding: 1px 9px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.eco-cred-chip.ok {
+  color: var(--ok);
+  background: var(--ok-soft);
+}
+.eco-cred-chip.warn {
+  color: var(--warn);
+  background: var(--warning-soft);
+}
+.eco-cred-chip.danger {
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 .ec-item-group {
   border: 1px solid var(--line);

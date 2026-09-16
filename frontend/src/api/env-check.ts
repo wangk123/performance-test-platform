@@ -5,6 +5,7 @@ import type {
   EnvCheckItemsResponse,
   EnvCheckRunDetail,
   EnvCheckRunSummary,
+  EnvCheckTargetsPreview,
 } from '../types';
 import { request } from './http';
 
@@ -13,6 +14,11 @@ const json = { 'Content-Type': 'application/json' };
 /** 检查项目录（含 risk：LOCAL 项为 null）；fixEnabled 为平台修复总闸。 */
 export function fetchEnvCheckItemsApi() {
   return request<EnvCheckItemsResponse>('/api/env-check/items', { method: 'GET' });
+}
+
+/** 检查总览目标预览：实时解析计划文档「环境部署信息」，只读。 */
+export function fetchEnvCheckTargetsApi(planId: number) {
+  return request<EnvCheckTargetsPreview>(`/api/task-plans/${planId}/env-check/targets`, { method: 'GET' });
 }
 
 export function fetchCredentialsApi(projectId: number) {
