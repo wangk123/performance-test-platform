@@ -43,6 +43,12 @@
         </template>
 
         <template v-else-if="step.type === 'CSV_DATA'">
+          <a-alert
+            type="info"
+            show-icon
+            message="文件名与变量在此定义；数据文件本体在 计划 → 场景 → CSV 数据文件 中绑定分发"
+            class="csv-binding-alert"
+          />
           <a-form-item label="CSV 文件">
             <a-input
               :value="(step.config.fileName as string)"
@@ -57,6 +63,55 @@
               @update:value="updateConfig('variableNames', $event)"
             />
           </a-form-item>
+          <a-collapse class="csv-advanced-collapse">
+            <a-collapse-panel key="advanced" header="高级属性">
+              <a-form-item label="分隔符">
+                <a-input
+                  :value="(step.config.delimiter as string | undefined) ?? ','"
+                  placeholder=","
+                  @update:value="updateConfig('delimiter', $event)"
+                />
+              </a-form-item>
+              <a-form-item label="文件编码">
+                <a-select
+                  :value="(step.config.fileEncoding as string | undefined) ?? 'UTF-8'"
+                  @change="updateConfig('fileEncoding', $event)"
+                >
+                  <a-select-option value="UTF-8">UTF-8</a-select-option>
+                  <a-select-option value="GBK">GBK</a-select-option>
+                  <a-select-option value="ISO-8859-1">ISO-8859-1</a-select-option>
+                </a-select>
+              </a-form-item>
+              <a-form-item label="共享模式">
+                <a-select
+                  :value="(step.config.shareMode as string | undefined) ?? 'shareMode.all'"
+                  @change="updateConfig('shareMode', $event)"
+                >
+                  <a-select-option value="shareMode.all">所有线程</a-select-option>
+                  <a-select-option value="shareMode.thread">当前线程</a-select-option>
+                  <a-select-option value="shareMode.threadGroup">线程组</a-select-option>
+                </a-select>
+              </a-form-item>
+              <a-form-item label="忽略首行" extra="开启后跳过 CSV 第一行表头">
+                <a-switch
+                  :checked="csvBoolean('ignoreFirstLine', true)"
+                  @update:checked="updateConfig('ignoreFirstLine', $event)"
+                />
+              </a-form-item>
+              <a-form-item label="循环读取" extra="读至文件末尾后回到开头继续取值">
+                <a-switch
+                  :checked="csvBoolean('recycle', true)"
+                  @update:checked="updateConfig('recycle', $event)"
+                />
+              </a-form-item>
+              <a-form-item label="读完停止线程" extra="不循环时读取完文件后停止该线程">
+                <a-switch
+                  :checked="csvBoolean('stopThread', false)"
+                  @update:checked="updateConfig('stopThread', $event)"
+                />
+              </a-form-item>
+            </a-collapse-panel>
+          </a-collapse>
         </template>
 
         <template v-else-if="step.type === 'USER_PARAMS'">
@@ -155,11 +210,19 @@ function updateThreadGroupConfig(config: ThreadGroup) {
   step.value.config = nextConfig;
 }
 
-function updateConfig(key: string, value: string | number | null | undefined) {
+function updateConfig(key: string, value: string | number | boolean | null | undefined) {
   if (!step.value || value === null || value === undefined) {
     return;
   }
   step.value.config = { ...step.value.config, [key]: value };
+}
+
+function csvBoolean(key: 'ignoreFirstLine' | 'recycle' | 'stopThread', fallback: boolean): boolean {
+  const raw = step.value?.config[key];
+  if (raw === undefined) {
+    return fallback;
+  }
+  return raw === true || raw === 'true';
 }
 
 watch(
@@ -170,3 +233,13 @@ watch(
 );
 
 </script>
+
+<style scoped>
+.csv-binding-alert {
+  margin-bottom: 16px;
+}
+
+.csv-advanced-collapse {
+  margin-top: 4px;
+}
+</style>

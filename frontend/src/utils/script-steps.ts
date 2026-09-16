@@ -219,7 +219,16 @@ export function createStepFromType(
     },
     ASSERTION: { target: 'body', match: 'contains', rule: 'success' },
     JSON_ASSERTION: { jsonPath: '$.code', validateValue: true, expectedValue: '0', useRegex: false },
-    CSV_DATA: { fileName: 'data/default.csv', variableNames: 'userId,token' },
+    CSV_DATA: {
+      fileName: 'data/default.csv',
+      variableNames: 'userId,token',
+      delimiter: ',',
+      fileEncoding: 'UTF-8',
+      ignoreFirstLine: true,
+      recycle: true,
+      stopThread: false,
+      shareMode: 'shareMode.all',
+    },
     USER_PARAMS: { paramsText: 'env=SIT\nchannel=APP' },
     HEADER_CONFIG: { headersText: 'Content-Type: application/json' },
   };
