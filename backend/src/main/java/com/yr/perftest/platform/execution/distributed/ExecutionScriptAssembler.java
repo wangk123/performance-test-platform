@@ -1,5 +1,7 @@
 package com.yr.perftest.platform.execution.distributed;
 
+import com.yr.perftest.platform.datafile.CsvAssemblyPlan;
+import com.yr.perftest.platform.datafile.DataFileAssemblyService;
 import com.yr.perftest.platform.execution.ExecutionConfig;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
 import com.yr.perftest.platform.script.JmeterScriptNormalizer;
@@ -17,7 +19,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * 执行脚本装配：装载 → 线程组预设补丁 → 监听器注入 → 写出。
+ * 执行脚本装配：装载 → 线程组预设补丁 → 数据文件装配 → 监听器注入 → 写出。
  * 唯一的调用方是 {@link DistributedJmeterExecutionRunner}，装配语义不再散落在编排代码里。
  */
 @Service
@@ -30,6 +32,7 @@ public class ExecutionScriptAssembler {
     private final JmeterScriptPatcher scriptPatcher;
     private final JmeterBackendListenerInjector backendListenerInjector;
     private final ScenarioThreadGroupConfigSupport threadGroupConfigSupport;
+    private final DataFileAssemblyService dataFileAssemblyService;
 
     public ExecutionScriptAssembler(
             JmeterScriptNormalizer scriptNormalizer,
@@ -37,7 +40,8 @@ public class ExecutionScriptAssembler {
             ThreadGroupStepPatcher threadGroupStepPatcher,
             JmeterScriptPatcher scriptPatcher,
             JmeterBackendListenerInjector backendListenerInjector,
-            ScenarioThreadGroupConfigSupport threadGroupConfigSupport
+            ScenarioThreadGroupConfigSupport threadGroupConfigSupport,
+            DataFileAssemblyService dataFileAssemblyService
     ) {
         this.scriptNormalizer = scriptNormalizer;
         this.scriptParser = scriptParser;
@@ -45,11 +49,14 @@ public class ExecutionScriptAssembler {
         this.scriptPatcher = scriptPatcher;
         this.backendListenerInjector = backendListenerInjector;
         this.threadGroupConfigSupport = threadGroupConfigSupport;
+        this.dataFileAssemblyService = dataFileAssemblyService;
     }
 
     public void prepare(
             ExecutionConfig config,
             String storedThreadGroupConfigsJson,
+            long projectId,
+            String storedDataFileBindingsJson,
             Path sourcePath,
             Path originalTestPlanPath,
             Path distributedTestPlanPath
@@ -57,6 +64,13 @@ public class ExecutionScriptAssembler {
         try {
             scriptNormalizer.copyNormalized(sourcePath, originalTestPlanPath);
             applyThreadGroupPresets(config, storedThreadGroupConfigsJson, originalTestPlanPath);
+            List<CsvAssemblyPlan> plans = dataFileAssemblyService.plan(
+                    projectId,
+                    storedDataFileBindingsJson,
+                    sourcePath,
+                    originalTestPlanPath.getParent()
+            );
+            dataFileAssemblyService.materialize(plans, originalTestPlanPath.getParent());
             backendListenerInjector.inject(originalTestPlanPath, distributedTestPlanPath, SNAPSHOT_BIN_PATH);
         } catch (ExecutionValidationException exception) {
             throw exception;

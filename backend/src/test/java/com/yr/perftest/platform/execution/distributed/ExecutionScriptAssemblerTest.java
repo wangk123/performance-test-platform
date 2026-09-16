@@ -1,6 +1,7 @@
 package com.yr.perftest.platform.execution.distributed;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yr.perftest.platform.datafile.DataFileAssemblyService;
 import com.yr.perftest.platform.execution.ExecutionConfig;
 import com.yr.perftest.platform.execution.ExecutionMode;
 import com.yr.perftest.platform.script.JmeterScriptNormalizer;
@@ -22,6 +23,9 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
+import static com.yr.perftest.platform.datafile.DataFileAssemblyServiceTest.assemblyService;
+import static com.yr.perftest.platform.datafile.DataFileAssemblyServiceTest.projectOwnedFiles;
+import static com.yr.perftest.platform.datafile.DataFileAssemblyServiceTest.stubService;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ExecutionScriptAssemblerTest {
@@ -37,8 +41,13 @@ class ExecutionScriptAssemblerTest {
                 new ThreadGroupStepPatcher(),
                 new JmeterScriptPatcher(new JmeterScriptRenderer(), normalizer),
                 new JmeterBackendListenerInjector(normalizer),
-                configSupport
+                configSupport,
+                dataFileAssemblyService()
         );
+    }
+
+    private static DataFileAssemblyService dataFileAssemblyService() {
+        return assemblyService(stubService(Map.of(), Map.of()), projectOwnedFiles(Map.of()));
     }
 
     @Test
@@ -62,7 +71,7 @@ class ExecutionScriptAssemblerTest {
 
         Path original = tempDir.resolve("original.jmx");
         Path distributed = tempDir.resolve("distributed.jmx");
-        assembler().prepare(config, storedJson, source, original, distributed);
+        assembler().prepare(config, storedJson, 1L, "[]", source, original, distributed);
 
         String distributedContent = Files.readString(distributed, StandardCharsets.UTF_8);
         assertThat(distributedContent)
@@ -89,7 +98,7 @@ class ExecutionScriptAssemblerTest {
 
         Path original = tempDir.resolve("original.jmx");
         Path distributed = tempDir.resolve("distributed.jmx");
-        assembler().prepare(config, "[]", source, original, distributed);
+        assembler().prepare(config, "[]", 1L, "[]", source, original, distributed);
 
         String distributedContent = Files.readString(distributed, StandardCharsets.UTF_8);
         assertThat(distributedContent)

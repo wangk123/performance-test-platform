@@ -157,6 +157,8 @@ public class DistributedJmeterExecutionRunner {
             scriptAssembler.prepare(
                     preparation.config(),
                     preparation.threadGroupConfigsJson(),
+                    preparation.projectId(),
+                    preparation.dataFileBindingsJson(),
                     preparation.sourcePath(),
                     preparation.originalTestPlanPath(),
                     preparation.distributedTestPlanPath()
@@ -307,8 +309,10 @@ public class DistributedJmeterExecutionRunner {
             String filename = sanitizeFilename(script.getOriginalFilename());
             return new DistributedExecutionPreparation(
                     "execution-" + execution.getId(),
+                    plan.getProjectId(),
                     config,
                     scenario.getThreadGroupConfigsJson(),
+                    scenario.getDataFileBindingsJson(),
                     Path.of(script.getStoredPath()),
                     executionDirectory,
                     executionDirectory.resolve(filename),
@@ -589,8 +593,10 @@ public class DistributedJmeterExecutionRunner {
 
     private record DistributedExecutionPreparation(
             String runId,
+            long projectId,
             ExecutionConfig config,
             String threadGroupConfigsJson,
+            String dataFileBindingsJson,
             Path sourcePath,
             Path executionDirectory,
             Path originalTestPlanPath,
