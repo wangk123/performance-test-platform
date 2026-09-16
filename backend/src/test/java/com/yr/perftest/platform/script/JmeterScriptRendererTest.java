@@ -19,6 +19,7 @@ public class JmeterScriptRendererTest {
         roundTripPreservesSchedulerMode();
         csvFullAttributesRoundTrip();
         csvDefaultRenderUnchanged();
+        jsr223RoundTripEscapesGroovy();
         rendersEmptyStepsList();
         System.out.println("JmeterScriptRendererTest passed");
     }
@@ -363,6 +364,64 @@ public class JmeterScriptRendererTest {
         assertFalse(output.contains("name=\"recycle\""), "no recycle prop when key absent");
         assertFalse(output.contains("name=\"stopThread\""), "no stopThread prop when key absent");
         assertFalse(output.contains("name=\"shareMode\""), "no shareMode prop when key absent");
+    }
+
+    static void jsr223RoundTripEscapesGroovy() {
+        JmeterScriptRenderer renderer = new JmeterScriptRenderer();
+        JmeterScriptParser parser = new JmeterScriptParser();
+        ScriptStepDefinition step = new ScriptStepDefinition(
+                "jsr223-pre-1",
+                ScriptStepType.JSR223_PRE_PROCESSOR.code(),
+                "签名",
+                Map.of(
+                        "scriptLanguage", "groovy",
+                        "script", "def s = \"a<b\" & 'c'\nif (x < 1) {}",
+                        "parameters", "env=prod",
+                        "cacheKey", true
+                ),
+                List.of()
+        );
+
+        String xml = renderer.renderStepFragment(step);
+
+        assertTrue(xml.contains("<JSR223PreProcessor guiclass=\"TestBeanGUI\" testclass=\"JSR223PreProcessor\""), "pre tag with TestBeanGUI");
+        assertTrue(xml.contains("&lt;"), "< escaped as entity");
+        assertTrue(xml.contains("&amp;"), "& escaped as entity");
+        assertFalse(xml.contains("<![CDATA["), "no CDATA wrapping");
+        assertTrue(xml.contains("<stringProp name=\"cacheKey\">true</stringProp>"), "cacheKey rendered");
+        assertTrue(xml.contains("<stringProp name=\"scriptLanguage\">groovy</stringProp>"), "scriptLanguage rendered");
+        assertTrue(xml.contains("<stringProp name=\"parameters\">env=prod</stringProp>"), "parameters rendered");
+        assertTrue(xml.contains("<stringProp name=\"filename\"></stringProp>"), "empty filename prop rendered");
+        assertTrue(xml.contains("<stringProp name=\"script\">def s = &quot;a&lt;b&quot; &amp; &apos;c&apos;\nif (x &lt; 1) {}</stringProp>"), "script fully escaped, newline preserved");
+
+        String jmx = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+                  <hashTree>
+                    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                    <hashTree>
+                      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Main" enabled="true">
+                        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+                        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+                        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+                          <stringProp name="LoopController.loops">1</stringProp>
+                        </elementProp>
+                      </ThreadGroup>
+                      <hashTree>
+                """ + xml + """
+                      </hashTree>
+                    </hashTree>
+                  </hashTree>
+                </jmeterTestPlan>
+                """;
+
+        ScriptStepDefinition parsed = parser.parseSteps(jmx).get(0).children().get(0);
+        assertEquals(ScriptStepType.JSR223_PRE_PROCESSOR.code(), parsed.type(), "jsr223 pre type round-trips");
+        assertEquals("签名", parsed.name(), "testname round-trips");
+        assertEquals("groovy", parsed.config().get("scriptLanguage"), "scriptLanguage round-trips");
+        assertEquals("def s = \"a<b\" & 'c'\nif (x < 1) {}", parsed.config().get("script"), "script round-trips with newline");
+        assertEquals("env=prod", parsed.config().get("parameters"), "parameters round-trips");
+        assertEquals(Boolean.TRUE, parsed.config().get("cacheKey"), "cacheKey round-trips as Boolean");
     }
 
     static void rendersEmptyStepsList() {

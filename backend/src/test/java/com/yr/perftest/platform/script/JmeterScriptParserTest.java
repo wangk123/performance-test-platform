@@ -57,6 +57,7 @@ public class JmeterScriptParserTest {
         parsesResponseAssertionConfig();
         parsesJsonAssertionConfig();
         parsesCsvFullAttributesAndDefaults();
+        parsesJsr223ExternalFragment();
         parseInvalidXmlThrows();
         System.out.println("JmeterScriptParserTest passed");
     }
@@ -330,6 +331,69 @@ public class JmeterScriptParserTest {
         assertEquals(Boolean.TRUE, legacy.config().get("recycle"), "recycle default");
         assertEquals(Boolean.FALSE, legacy.config().get("stopThread"), "stopThread default");
         assertEquals("shareMode.all", legacy.config().get("shareMode"), "shareMode default");
+    }
+
+    static void parsesJsr223ExternalFragment() {
+        String jmx = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+                  <hashTree>
+                    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                    <hashTree>
+                      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Main" enabled="true">
+                        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+                        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+                        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+                          <stringProp name="LoopController.loops">1</stringProp>
+                        </elementProp>
+                      </ThreadGroup>
+                      <hashTree>
+                        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="前置脚本" enabled="true">
+                          <stringProp name="cacheKey">true</stringProp>
+                          <stringProp name="scriptLanguage">beanshell</stringProp>
+                          <stringProp name="parameters">env=prod</stringProp>
+                          <stringProp name="filename"></stringProp>
+                          <stringProp name="script">String tag = "ok";</stringProp>
+                        </JSR223PreProcessor>
+                        <hashTree/>
+                        <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="后置脚本" enabled="true">
+                          <stringProp name="cacheKey">false</stringProp>
+                          <stringProp name="scriptLanguage">groovy</stringProp>
+                          <stringProp name="parameters"></stringProp>
+                          <stringProp name="filename"></stringProp>
+                          <stringProp name="script">prev.setData("done")</stringProp>
+                        </JSR223PostProcessor>
+                        <hashTree/>
+                        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="缺省脚本" enabled="true">
+                          <stringProp name="script">log.info("only script")</stringProp>
+                        </JSR223PreProcessor>
+                        <hashTree/>
+                      </hashTree>
+                    </hashTree>
+                  </hashTree>
+                </jmeterTestPlan>
+                """;
+        JmeterScriptParser parser = new JmeterScriptParser();
+        List<ScriptStepDefinition> children = parser.parseSteps(jmx).get(0).children();
+
+        assertEquals(3, children.size(), "three jsr223 steps");
+        ScriptStepDefinition pre = children.get(0);
+        assertEquals(ScriptStepType.JSR223_PRE_PROCESSOR.code(), pre.type(), "pre type");
+        assertTrue(pre.id().startsWith("jsr223-pre-"), "pre id prefix");
+        assertEquals("beanshell", pre.config().get("scriptLanguage"), "beanshell language preserved");
+        assertEquals("String tag = \"ok\";", pre.config().get("script"), "script text preserved");
+        assertEquals("env=prod", pre.config().get("parameters"), "parameters preserved");
+        assertEquals(Boolean.TRUE, pre.config().get("cacheKey"), "cacheKey parsed as Boolean");
+
+        ScriptStepDefinition post = children.get(1);
+        assertEquals(ScriptStepType.JSR223_POST_PROCESSOR.code(), post.type(), "post type");
+        assertTrue(post.id().startsWith("jsr223-post-"), "post id prefix");
+        assertEquals(Boolean.FALSE, post.config().get("cacheKey"), "cacheKey=false as Boolean");
+
+        ScriptStepDefinition minimal = children.get(2);
+        assertEquals("groovy", minimal.config().get("scriptLanguage"), "scriptLanguage default groovy");
+        assertEquals(Boolean.TRUE, minimal.config().get("cacheKey"), "cacheKey default true");
+        assertEquals("", minimal.config().get("parameters"), "parameters default empty");
     }
 
     static void parseInvalidXmlThrows() {

@@ -12,6 +12,7 @@ public class JmeterScriptPatcherTest {
         patchesKnownStepsWithoutDroppingUnknownNodes();
         patchesJsonAssertionUnderHttpSampler();
         patchesHttpHeadersWithoutDroppingUnknownNodes();
+        patchesJsr223StepsById();
         System.out.println("JmeterScriptPatcherTest passed");
     }
 
@@ -212,5 +213,103 @@ public class JmeterScriptPatcherTest {
         assertTrue(patched.contains("ConstantTimer"), "unknown timer remains");
         assertEquals(1, ((List<?>) reparsedHttp.config().get("headers")).size(), "headers round-trip");
         assertEquals("token-value", String.valueOf(((Map<?, ?>) ((List<?>) reparsedHttp.config().get("headers")).get(0)).get("value")), "header value round-trip");
+    }
+
+    static void patchesJsr223StepsById() {
+        String jmx = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+                  <hashTree>
+                    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                    <hashTree>
+                      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Main" enabled="true">
+                        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+                        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+                        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+                          <stringProp name="LoopController.loops">1</stringProp>
+                        </elementProp>
+                      </ThreadGroup>
+                      <hashTree>
+                        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET /api" enabled="true">
+                          <stringProp name="HTTPSampler.method">GET</stringProp>
+                          <stringProp name="HTTPSampler.path">/api</stringProp>
+                          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+                            <collectionProp name="Arguments.arguments"/>
+                          </elementProp>
+                        </HTTPSamplerProxy>
+                        <hashTree>
+                          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="前置脚本" enabled="true">
+                            <stringProp name="cacheKey">true</stringProp>
+                            <stringProp name="scriptLanguage">groovy</stringProp>
+                            <stringProp name="parameters"></stringProp>
+                            <stringProp name="filename"></stringProp>
+                            <stringProp name="script">old-pre-script</stringProp>
+                          </JSR223PreProcessor>
+                          <hashTree/>
+                        </hashTree>
+                        <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="后置脚本" enabled="true">
+                          <stringProp name="cacheKey">true</stringProp>
+                          <stringProp name="scriptLanguage">groovy</stringProp>
+                          <stringProp name="parameters"></stringProp>
+                          <stringProp name="filename"></stringProp>
+                          <stringProp name="script">old-post-script</stringProp>
+                        </JSR223PostProcessor>
+                        <hashTree/>
+                      </hashTree>
+                    </hashTree>
+                  </hashTree>
+                </jmeterTestPlan>
+                """;
+        JmeterScriptParser parser = new JmeterScriptParser();
+        ScriptStepDefinition threadGroup = parser.parseSteps(jmx).get(0);
+        ScriptStepDefinition http = threadGroup.children().get(0);
+        ScriptStepDefinition pre = http.children().get(0);
+        ScriptStepDefinition post = threadGroup.children().get(1);
+        ScriptStepDefinition updatedPre = new ScriptStepDefinition(
+                pre.id(),
+                pre.type(),
+                pre.name(),
+                Map.of(
+                        "scriptLanguage", "groovy",
+                        "script", "new-pre-script",
+                        "parameters", "",
+                        "cacheKey", true
+                ),
+                List.of()
+        );
+        ScriptStepDefinition updatedPost = new ScriptStepDefinition(
+                post.id(),
+                post.type(),
+                post.name(),
+                Map.of(
+                        "scriptLanguage", "groovy",
+                        "script", "new-post-script",
+                        "parameters", "",
+                        "cacheKey", false
+                ),
+                List.of()
+        );
+        ScriptStepDefinition updatedHttp = new ScriptStepDefinition(
+                http.id(),
+                http.type(),
+                http.name(),
+                http.config(),
+                List.of(updatedPre)
+        );
+        ScriptStepDefinition updatedThreadGroup = new ScriptStepDefinition(
+                threadGroup.id(),
+                threadGroup.type(),
+                threadGroup.name(),
+                threadGroup.config(),
+                List.of(updatedHttp, updatedPost)
+        );
+
+        String patched = new JmeterScriptPatcher(new JmeterScriptRenderer(), new JmeterScriptNormalizer()).patch(jmx, List.of(updatedThreadGroup));
+
+        assertTrue(patched.contains("<stringProp name=\"script\">new-pre-script</stringProp>"), "pre script updated by id");
+        assertFalse(patched.contains("old-pre-script"), "old pre script replaced");
+        assertTrue(patched.contains("<stringProp name=\"script\">new-post-script</stringProp>"), "post script updated by id");
+        assertFalse(patched.contains("old-post-script"), "old post script replaced");
+        assertTrue(patched.contains("HTTPSamplerProxy"), "sampler remains");
     }
 }

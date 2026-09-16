@@ -33,6 +33,8 @@ final class JmeterScriptDom {
             case "HeaderManager" -> ScriptStepType.HEADER_CONFIG;
             case "ResponseAssertion" -> ScriptStepType.RESPONSE_ASSERTION;
             case "JSONPathAssertion" -> ScriptStepType.JSON_ASSERTION;
+            case "JSR223PreProcessor" -> ScriptStepType.JSR223_PRE_PROCESSOR;
+            case "JSR223PostProcessor" -> ScriptStepType.JSR223_POST_PROCESSOR;
             default -> null;
         };
     }
@@ -46,6 +48,8 @@ final class JmeterScriptDom {
             case HEADER_CONFIG -> "header";
             case RESPONSE_ASSERTION -> "assert";
             case JSON_ASSERTION -> "jsonassert";
+            case JSR223_PRE_PROCESSOR -> "jsr223-pre";
+            case JSR223_POST_PROCESSOR -> "jsr223-post";
             default -> "step";
         };
     }

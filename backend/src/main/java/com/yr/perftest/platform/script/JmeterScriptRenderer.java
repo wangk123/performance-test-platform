@@ -99,6 +99,8 @@ public class JmeterScriptRenderer {
             case CSV_DATA -> appendCsv(builder, step);
             case USER_PARAMS -> appendUserParams(builder, step);
             case HEADER_CONFIG -> appendHeaderManager(builder, step);
+            case JSR223_PRE_PROCESSOR -> appendJsr223(builder, step, "JSR223PreProcessor");
+            case JSR223_POST_PROCESSOR -> appendJsr223(builder, step, "JSR223PostProcessor");
             default -> throw new ScriptValidationException("unsupported step type: " + step.type());
         }
     }
@@ -213,6 +215,23 @@ public class JmeterScriptRenderer {
             return;
         }
         builder.append("          <stringProp name=\"").append(key).append("\">").append(xml(value)).append("</stringProp>\n");
+    }
+
+    private void appendJsr223(StringBuilder builder, ScriptStepDefinition step, String tag) {
+        Map<String, Object> config = step.config() == null ? Map.of() : step.config();
+        String lang = text(config, "scriptLanguage", "groovy");
+        String params = text(config, "parameters", "");
+        String script = text(config, "script", "");
+        String cacheKey = String.valueOf(bool(config, "cacheKey", true));
+        builder.append("        <").append(tag).append(" guiclass=\"TestBeanGUI\" testclass=\"").append(tag)
+                .append("\" testname=\"").append(xml(step.name())).append("\" enabled=\"true\">\n");
+        builder.append("          <stringProp name=\"cacheKey\">").append(xml(cacheKey)).append("</stringProp>\n");
+        builder.append("          <stringProp name=\"scriptLanguage\">").append(xml(lang)).append("</stringProp>\n");
+        builder.append("          <stringProp name=\"parameters\">").append(xml(params)).append("</stringProp>\n");
+        builder.append("          <stringProp name=\"filename\"></stringProp>\n");
+        builder.append("          <stringProp name=\"script\">").append(xml(script)).append("</stringProp>\n");
+        builder.append("        </").append(tag).append(">\n");
+        builder.append("        <hashTree/>\n");
     }
 
     private void appendUserParams(StringBuilder builder, ScriptStepDefinition step) {

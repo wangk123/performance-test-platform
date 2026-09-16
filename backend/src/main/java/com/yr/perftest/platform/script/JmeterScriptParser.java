@@ -67,6 +67,8 @@ public class JmeterScriptParser {
                 case "HeaderManager" -> steps.add(parseHeaderManager(element));
                 case "ResponseAssertion" -> steps.add(parseAssertion(element));
                 case "JSONPathAssertion" -> steps.add(parseJsonAssertion(element));
+                case "JSR223PreProcessor" -> steps.add(parseJsr223(element, ScriptStepType.JSR223_PRE_PROCESSOR));
+                case "JSR223PostProcessor" -> steps.add(parseJsr223(element, ScriptStepType.JSR223_POST_PROCESSOR));
                 default -> {
                 }
             }
@@ -169,6 +171,21 @@ public class JmeterScriptParser {
                         "recycle", boolStringValue(element, "recycle", true),
                         "stopThread", boolStringValue(element, "stopThread", false),
                         "shareMode", stringValue(element, "shareMode", "shareMode.all")
+                ),
+                List.of()
+        );
+    }
+
+    private ScriptStepDefinition parseJsr223(Element element, ScriptStepType type) {
+        return new ScriptStepDefinition(
+                JmeterScriptDom.stepId(element, type),
+                type.code(),
+                element.getAttribute("testname"),
+                Map.of(
+                        "scriptLanguage", stringValue(element, "scriptLanguage", "groovy"),
+                        "script", stringValue(element, "script", ""),
+                        "parameters", stringValue(element, "parameters", ""),
+                        "cacheKey", boolStringValue(element, "cacheKey", true)
                 ),
                 List.of()
         );
