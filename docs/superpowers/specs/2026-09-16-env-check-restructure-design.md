@@ -64,13 +64,15 @@ GET /api/task-plans/{planId}/env-check/targets
     { "host": "10.190.123.164", "module": "nginx-web、fast-gateway…",
       "credential": "POOL", "applicableRemoteItems": 5 }
   ],
-  "summary": { "total": 7, "ready": 6, "missing": ["10.190.123.20"] }
+  "total": 7,
+  "ready": 6,
+  "missing": ["10.190.123.20"]
 }
 ```
 
 - `credential` ∈ `POOL | PLAN_OVERRIDE | MISSING`：`EnvTargetParser.parse(body)` 得目标 → 逐台 `EnvCheckCredentialService.resolve(projectId, planId, host)`，按命中的记录 `planId` 是否非空区分 POOL/PLAN_OVERRIDE，空为 MISSING。
 - `applicableRemoteItems`：`PrecheckSettings.migrate(settingsOf(plan))` 勾选的 REMOTE 项中 `TargetHost.matches(target, item.appliesTo())` 通过的数目（R4；未启用环境检查时按默认勾选集计）。
-- 文档无部署表：`targets: []`、`summary.total = 0`（不报错）。
+- 文档无部署表：`targets: []`、`total = 0`（不报错）。
 - 实现落点：`EnvironmentCheckRunner` 新公开方法（复用其既有依赖：parser、credentials、settings 读取），`EnvCheckController` 加 GET 端点。
 
 ## 5. 兼容性

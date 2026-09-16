@@ -99,9 +99,11 @@ async function save() {
       host: form.host.trim(),
       sshPort: form.sshPort,
       username: form.username.trim(),
+      // 认证方式由携带的字段推断（后端以 keyMaterial 优先）：密码或私钥只传其一
       password: form.authType === 'PASSWORD' && form.password ? form.password : undefined,
       keyMaterial: form.authType === 'KEY' && form.keyMaterial.trim() ? form.keyMaterial.trim() : undefined,
       remark: form.remark.trim() || undefined,
+      // 计划级覆盖：勾选「仅当前计划生效」时携带 planId，resolve 优先于项目池
       planId: props.planId != null && form.planScoped ? props.planId : undefined,
     });
     emit('update:open', false);

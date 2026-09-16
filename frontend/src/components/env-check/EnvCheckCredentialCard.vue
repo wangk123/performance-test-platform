@@ -27,7 +27,7 @@
           <span class="ec-remark">{{ record.remark || '—' }}</span>
         </template>
         <template v-else-if="column.key === 'scope'">
-          <span v-if="record.planId != null" class="ec-scope-chip plan">本计划</span>
+          <span v-if="record.planId != null" class="ec-scope-chip plan">计划覆盖</span>
           <span v-else class="ec-scope-chip">项目</span>
         </template>
         <template v-else-if="column.key === 'conn'">
@@ -38,7 +38,8 @@
         </template>
         <template v-else-if="column.key === 'actions'">
           <a-button type="link" size="small" :loading="testingId === record.id" @click="testConnection(record)">测试连接</a-button>
-          <a-button type="link" size="small" @click="openEditor(record)">编辑</a-button>
+          <!-- 覆盖行只能从所属计划侧编辑（spec R5），项目池卡编辑会以 planId=undefined 落池、静默改错记录 -->
+          <a-button v-if="record.planId == null" type="link" size="small" @click="openEditor(record)">编辑</a-button>
           <a-button type="link" size="small" danger @click="removeCredential(record)">删除</a-button>
         </template>
       </template>
@@ -97,7 +98,9 @@ function openEditor(record: EnvCheckCredential | null) {
 function removeCredential(record: EnvCheckCredential) {
   Modal.confirm({
     title: '删除凭据',
-    content: `确认删除 ${record.host}:${record.sshPort} 的凭据？删除后该机器无法参与环境检查。`,
+    content: record.planId != null
+      ? `确认删除 ${record.host} 的计划覆盖凭据（所属计划 #${record.planId}）？删除后该机器回落项目池凭据。`
+      : `确认删除 ${record.host}:${record.sshPort} 的凭据？删除后该机器无法参与环境检查。`,
     okText: '删除',
     okType: 'danger',
     async onOk() {
