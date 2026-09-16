@@ -281,7 +281,7 @@ def controller_status(client, run_id):
     return "finished", exit_code
 
 
-def start_worker(node, run_id, jar_sources=None):
+def start_worker(node, run_id, dependencies=None):
     client = connect(node)
     remote_dir = Path(node.get("remoteWorkDir", "/tmp/perftest-platform")) / run_id
     container_name = f"jmeter-worker-{run_id}"
@@ -290,8 +290,9 @@ def start_worker(node, run_id, jar_sources=None):
     if code != 0:
         client.close()
         return code, output
-    for jar_source in jar_sources or []:
-        sftp_put(client, Path(jar_source), remote_dir / Path(jar_source).name)
+    for dependency in dependencies or []:
+        target = Path(dependency["targetPath"])
+        sftp_put(client, Path(dependency["sourcePath"]), remote_dir / target)
     jmeter_args = " ".join([
         shell_quote(f"-Djava.rmi.server.hostname={node['host']}"),
         "-s",
@@ -309,6 +310,7 @@ def start_worker(node, run_id, jar_sources=None):
         "docker ps -a --filter name=jmeter-worker- -q | xargs -r docker rm -f >/dev/null 2>&1 || true;",
         "docker run -d --name", shell_quote(container_name),
         "--network host",
+        "-w /test",
         "-v", shell_quote(f"{remote_dir}:/test"),
         "--entrypoint", shell_quote("/bin/sh"),
         JMETER_IMAGE,
@@ -363,6 +365,7 @@ def launch_controller(controller, payload):
         "docker rm -f", shell_quote(container_name), ">/dev/null 2>&1 || true;",
         "docker run -d --name", shell_quote(container_name),
         "--network host",
+        "-w /test",
         "-v", shell_quote(f"{remote_dir}:/test"),
         "--entrypoint", shell_quote("/bin/sh"),
         JMETER_IMAGE,
@@ -474,23 +477,13 @@ def fetch_aggregate_snapshot(payload):
     return respond(True, "changed", "", 0, snapshots=snapshots, snapshot_mtime=overall_mtime)
 
 
-def runtime_jar_sources(payload):
-    jars = []
-    for dependency in payload.get("dependencies", []):
-        target = str(dependency.get("targetPath", ""))
-        if target.endswith(".jar"):
-            jars.append(dependency.get("sourcePath"))
-    return jars
-
-
 def start_run(payload):
     logs = []
     workers = [node_ref(node) for node in payload["workers"]]
     controller = node_ref(payload["controller"])
-    jar_sources = runtime_jar_sources(payload)
     try:
         for worker in workers:
-            code, output = start_worker(worker, payload["runId"], jar_sources=jar_sources)
+            code, output = start_worker(worker, payload["runId"], payload.get("dependencies", []))
             logs.append(f"worker {worker['host']}: {output.strip()}")
             if code != 0:
                 return respond(False, output.strip() or f"worker {worker['host']} failed to start", "\n".join(logs), code)
