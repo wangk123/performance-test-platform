@@ -45,5 +45,5 @@
 
 - [x] 7.1 `ReportPreviewPage` / 报告样式对齐设计 token 与字体角色
 - [ ] 7.2 全站暗色扫一遍：壳、表格、图表、编辑器、报告可读性
-- [ ] 7.3 对照 `design-mockup-redesign.html` 做壳与监控信息结构目视验收
+- [ ] 7.3 对照 `prototype-assets/design-mockup/design-mockup-redesign.html` 做壳与监控信息结构目视验收
 - [x] 7.4 抽查硬编码旧色（如 `#1677ff`）并收敛到 token

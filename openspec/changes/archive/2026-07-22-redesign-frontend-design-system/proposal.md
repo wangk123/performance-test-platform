@@ -9,7 +9,7 @@
 - 页面模式分层：日常业务页密度 B；监控/执行实时页密度 A（对齐现有 TPS/RT/服务器/JVM 图表面板结构）；脚本编辑器为工作台全屏模式
 - 深度换肤 Ant Design Vue（ConfigProvider + CSS），不替换组件库；业务 API、路由、权限、表单字段不变
 - 覆盖全站页面族：鉴权、首页、项目、脚本编辑器、执行监控、造数、配置、报告预览；暗色主题同期打磨
-- 视觉参考稿：`design-mockup-redesign.html`（非运行时代码，实现时对齐其壳与监控信息结构）
+- 视觉参考稿：`prototype-assets/design-mockup/design-mockup-redesign.html`（非运行时代码，实现时对齐其壳与监控信息结构）
 
 ## Capabilities
 

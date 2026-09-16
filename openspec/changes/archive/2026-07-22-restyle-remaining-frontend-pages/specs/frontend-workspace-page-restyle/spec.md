@@ -58,7 +58,7 @@ Remaining workspace pages and dialogs SHALL remain readable in dark theme using 
 
 ### Requirement: Visual acceptance against redesign mockup
 
-Shell and key workspace pages SHALL be visually checked against `design-mockup-redesign.html` for dual-rail structure and density intent before considering the restyle complete.
+Shell and key workspace pages SHALL be visually checked against `prototype-assets/design-mockup/design-mockup-redesign.html` for dual-rail structure and density intent before considering the restyle complete.
 
 #### Scenario: Mockup comparison gate
 - **WHEN** implementation of remaining pages is finished

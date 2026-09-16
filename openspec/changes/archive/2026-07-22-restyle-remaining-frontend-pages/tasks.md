@@ -35,5 +35,5 @@
 
 - [x] 6.1 暗色下走查：脚本、计划、造数、函数库、成员、弹层
 - [x] 6.2 暗色下走查：编辑器内部与执行详情
-- [x] 6.3 对照 `design-mockup-redesign.html` 验收双轨壳 + 关键工作区密度
+- [x] 6.3 对照 `prototype-assets/design-mockup/design-mockup-redesign.html` 验收双轨壳 + 关键工作区密度
 - [x] 6.4 `frontend` build / 类型检查通过

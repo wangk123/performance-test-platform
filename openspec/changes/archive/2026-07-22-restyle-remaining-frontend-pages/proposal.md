@@ -12,7 +12,7 @@
 - 统一 Dialog / Drawer 外壳与内边距到新 token（导入脚本、参数抽屉、场景配置等）
 - 脚本编辑器内部（Step 树 / StepDetail）去掉旧装饰，对齐工作台间距
 - 执行详情与报告预览结构细节收口（在已有色板基础上）
-- 完成暗色主题可读性扫读，并对照 `design-mockup-redesign.html` 做壳与关键页目视验收
+- 完成暗色主题可读性扫读，并对照 `prototype-assets/design-mockup/design-mockup-redesign.html` 做壳与关键页目视验收
 - 不改变 API、路由语义、权限与业务字段
 
 ## Capabilities

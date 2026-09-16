@@ -2,7 +2,7 @@
 
 前端为 Vue 3 + Ant Design Vue 4 + Vue Router。样式集中在 `frontend/src/styles/`（尤其 `pages.css` 体量过大），主题经 `useTheme` 切换 `default`/`dark`，Ant 主题几乎未定制。壳为 `MainLayout` + `SidebarNav` + `TopBar`；进项目后侧栏切换为模块列表。执行实时监控图表在 `ExecutionDetailView`（TPS/RT + 服务器/JVM 面板），项目「监控」页当前偏配置目标。
 
-探索结论与视觉稿：`design-mockup-redesign.html`。约束：不改 API/路由语义/权限/表单字段；不换组件库；不新增业务功能。
+探索结论与视觉稿：`prototype-assets/design-mockup/design-mockup-redesign.html`。约束：不改 API/路由语义/权限/表单字段；不换组件库；不新增业务功能。
 
 ## Goals / Non-Goals
 
@@ -18,7 +18,7 @@
 
 - 不更换 Ant Design Vue、不重写业务逻辑
 - 不新增监控指标采集或后端报表能力
-- 不把 `design-mockup-redesign.html` 当作运行时依赖（仅设计对照）
+- 不把 `prototype-assets/design-mockup/design-mockup-redesign.html` 当作运行时依赖（仅设计对照）
 - 不做营销向落地页；品牌通过壳与强调色表达
 
 ## Decisions
