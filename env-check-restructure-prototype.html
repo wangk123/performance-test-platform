@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="default">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>环境检查信息架构重构 · 设计效果图</title>
+<style>
+  :root, :root[data-theme='default'] {
+    --canvas: #f4f6f8; --surface: #ffffff; --surface-soft: #f7fafb;
+    --ink: #1a2332; --muted: #5c6b7a; --line: #e2e8ee; --line-strong: #c8d3dc;
+    --accent: #0b7f8a; --accent-soft: #e6f5f6; --accent-ink: #ffffff;
+    --ok: #2f9b6a; --ok-soft: #e8f6ef; --warn: #b97d10; --warn-soft: #fdf3e3;
+    --orange: #c25e0e; --orange-soft: #fbeee2;
+    --danger: #d14343; --danger-soft: #fdeeee;
+    --shadow: 0 1px 2px rgb(16 24 40 / 4%);
+    --font-ui: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-data: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  :root[data-theme='dark'] {
+    --canvas: #0e141a; --surface: #161d26; --surface-soft: #1c2530;
+    --ink: rgba(255, 255, 255, 0.88); --muted: rgba(255, 255, 255, 0.45);
+    --line: #2a3440; --line-strong: #3a4654;
+    --accent: #2bb3bf; --accent-soft: rgba(43, 179, 191, 0.16); --accent-ink: #06282b;
+    --ok: #58c98f; --ok-soft: rgba(47, 155, 106, 0.18);
+    --warn: #d9a441; --warn-soft: rgba(185, 125, 16, 0.18);
+    --orange: #e8863c; --orange-soft: rgba(194, 94, 14, 0.18);
+    --danger: #ef6a6a; --danger-soft: rgba(209, 67, 67, 0.16);
+    --shadow: none;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--canvas); color: var(--ink);
+    font-family: var(--font-ui); font-size: 14px; line-height: 1.65;
+    padding: 40px 48px 72px; transition: background .2s, color .2s;
+  }
+  .page { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 30px; }
+
+  .page-head { display: flex; align-items: flex-start; gap: 16px; }
+  .page-head h1 { font-size: 21px; font-weight: 700; letter-spacing: 0.2px; }
+  .page-head .sub { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .theme-toggle {
+    margin-left: auto; border: 1px solid var(--line); background: var(--surface);
+    color: var(--muted); border-radius: 8px; padding: 6px 14px; font-size: 12.5px;
+    cursor: pointer; font-family: inherit;
+  }
+  .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+  .lead { color: var(--muted); font-size: 13px; max-width: 1000px; }
+  .lead b { color: var(--ink); font-weight: 600; }
+
+  .section { display: flex; flex-direction: column; gap: 12px; }
+  .section-head { display: flex; align-items: baseline; gap: 12px; }
+  .section-head h2 { font-size: 17px; font-weight: 700; }
+  .section-head .note { color: var(--muted); font-size: 12px; }
+  .card {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    box-shadow: var(--shadow); padding: 18px 20px 20px;
+  }
+  .badge-new {
+    font: 600 10.5px var(--font-data); color: var(--accent); background: var(--accent-soft);
+    border-radius: 5px; padding: 1px 7px; vertical-align: 3px; margin-left: 6px;
+  }
+
+  /* ---------- 应用窗口模拟（侧边导航 + 内容区） ---------- */
+  .app-frame {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    box-shadow: var(--shadow); overflow: hidden; display: flex; min-height: 560px;
+  }
+  .app-nav {
+    width: 196px; flex: none; border-right: 1px solid var(--line);
+    background: var(--surface-soft); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .app-nav .proj {
+    padding: 6px 10px 14px; font-size: 13px; font-weight: 700; color: var(--ink);
+    border-bottom: 1px solid var(--line); margin-bottom: 10px;
+  }
+  .app-nav .proj .crumb { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
+  .nav-item {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px;
+    font-size: 13px; color: var(--muted);
+  }
+  .nav-item .ico { width: 15px; text-align: center; opacity: .75; flex: none; }
+  .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .nav-item.active .ico { opacity: 1; }
+  .app-main { flex: 1; padding: 20px 24px 26px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .app-main .crumb-bar { font-size: 12px; color: var(--muted); }
+  .app-main .crumb-bar b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- 通用卡片头 ---------- */
+  .card-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .card-head h3 { font-size: 15px; font-weight: 700; }
+  .card-head .hint { color: var(--muted); font-size: 12px; }
+  .card-desc { color: var(--muted); font-size: 12.5px; margin-bottom: 14px; }
+
+  /* ---------- 凭据池表（项目级） ---------- */
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tbl th {
+    text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted);
+    padding: 8px 10px; border-bottom: 1px solid var(--line-strong); white-space: nowrap;
+  }
+  .tbl td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl tr:hover td { background: var(--surface-soft); }
+  .tbl .mono { font-family: var(--font-data); font-size: 12.5px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 600; padding: 1px 10px; white-space: nowrap;
+  }
+  .chip-ok { color: var(--ok); background: var(--ok-soft); }
+  .chip-warn { color: var(--warn); background: var(--warn-soft); }
+  .chip-danger { color: var(--danger); background: var(--danger-soft); }
+  .chip-plain { color: var(--muted); background: transparent; border: 1px dashed var(--line-strong); }
+  .btn {
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+    border-radius: 8px; padding: 5px 13px; font-size: 12.5px; cursor: pointer; font-family: inherit;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.06); color: var(--accent-ink); }
+  .btn.mini { padding: 2px 9px; font-size: 11.5px; border-radius: 6px; }
+  .btn.danger-ghost { color: var(--danger); border-color: var(--danger); background: transparent; }
+  .card-tools { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
+  .card-tools .spacer { flex: 1; }
+
+  /* ---------- 计划侧：检查总览 ---------- */
+  .overview-grid { display: grid; grid-template-columns: 1fr 336px; gap: 16px; align-items: start; }
+  @media (max-width: 1080px) { .overview-grid { grid-template-columns: 1fr; } }
+  .target-src {
+    display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted);
+    padding: 8px 12px; border: 1px dashed var(--line-strong); border-radius: 8px; margin-bottom: 12px;
+  }
+  .target-src .go { color: var(--accent); cursor: pointer; font-weight: 600; white-space: nowrap; }
+  .target-src .go:hover { text-decoration: underline; }
+  .cred-cell { display: flex; align-items: center; gap: 6px; }
+  .lock-mini { font-size: 11px; }
+
+  .item-group { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .item-group + .item-group { margin-top: 10px; }
+  .group-head {
+    display: flex; align-items: center; gap: 8px; padding: 8px 13px;
+    background: var(--surface-soft); border-bottom: 1px solid var(--line);
+    font-size: 12px; font-weight: 600; color: var(--muted);
+  }
+  .group-head .tag {
+    font: 600 10px var(--font-data); color: var(--accent); background: var(--accent-soft);
+    border-radius: 5px; padding: 0 6px;
+  }
+  .group-head .cnt { margin-left: auto; font: 500 11px var(--font-data); color: var(--muted); }
+  .item-row {
+    display: flex; align-items: center; gap: 9px; padding: 7px 13px;
+    border-bottom: 1px solid var(--line);
+  }
+  .item-group .item-row:last-child { border-bottom: none; }
+  .item-row .box {
+    width: 15px; height: 15px; flex: none; border: 1.5px solid var(--line-strong); border-radius: 4px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 10px; color: var(--accent-ink); background: var(--surface);
+  }
+  .item-row.on .box { background: var(--accent); border-color: var(--accent); }
+  .item-row .box::after { content: '✓'; opacity: 0; }
+  .item-row.on .box::after { opacity: 1; }
+  .item-row .name { font-size: 12.5px; font-weight: 500; }
+  .item-row .risk { margin-left: auto; flex: none; }
+
+  /* ---------- 凭据状态条 ---------- */
+  .cred-bar {
+    display: flex; align-items: center; gap: 12px; padding: 11px 16px;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+  }
+  .cred-bar .stat { font-size: 13px; }
+  .cred-bar .stat b { font-weight: 700; }
+  .cred-bar .missing { color: var(--danger); font-size: 12.5px; }
+  .cred-bar .spacer { flex: 1; }
+
+  /* ---------- 结果面板示意（精简） ---------- */
+  .result-mini td, .result-mini th { padding: 7px 10px; font-size: 12.5px; }
+  .st { font-weight: 600; font-size: 11.5px; }
+  .st.ok { color: var(--ok); } .st.warn { color: var(--warn); } .st.na { color: var(--muted); }
+
+  /* ---------- 跳转关系标注 ---------- */
+  .flow-note {
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+    color: var(--muted); font-size: 12.5px; padding: 4px 0;
+  }
+  .flow-note .arrow { color: var(--accent); font-weight: 700; }
+  .flow-note .hop { display: flex; align-items: center; gap: 6px; }
+  .flow-note code {
+    font-family: var(--font-data); font-size: 11.5px; background: var(--surface-soft);
+    border: 1px solid var(--line); border-radius: 5px; padding: 1px 7px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="page-head">
+    <div>
+      <h1>环境检查 · 信息架构重构</h1>
+      <div class="sub">凭据池回归项目级 · 计划侧新增「检查总览」（检查项 × 检查目标）· 文档单一事实源</div>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()">切换深色 / 浅色</button>
+  </div>
+  <p class="lead">
+    改造要点：<b>①</b> 凭据池从「计划 → 环境检查」迁至项目级新 tab「环境检查」，项目内所有计划共用；
+    <b>②</b> 计划侧环境检查标签新增「检查总览」卡：上半为<b>检查目标</b>（实时解析文档「环境部署信息」，只读，三态凭据覆盖标记），
+    下半为<b>检查项</b>（注册表驱动分组勾选），勾选与目标覆盖同屏后再执行；
+    <b>③</b> 计划侧凭据大卡压缩为一条状态条 + 跳转 + 计划级覆盖入口。
+  </p>
+
+  <!-- ============ A. 项目级：环境检查 tab ============ -->
+  <div class="section">
+    <div class="section-head">
+      <h2>A · 项目详情 →「环境检查」tab（新增）</h2>
+      <span class="note">路由 /projects/1/env-check · 侧边栏位于「监控」之后 · 凭据池为项目内所有计划共用</span>
+    </div>
+    <div class="app-frame">
+      <div class="app-nav">
+        <div class="proj">信贷核心<span class="crumb">loan-core · 192.168.17.216</span></div>
+        <div class="nav-item"><span class="ico">◎</span>概览</div>
+        <div class="nav-item"><span class="ico">❯</span>脚本</div>
+        <div class="nav-item"><span class="ico">▤</span>测试计划</div>
+        <div class="nav-item"><span class="ico">▨</span>监控</div>
+        <div class="nav-item active"><span class="ico">✓</span>环境检查<span class="badge-new">NEW</span></div>
+        <div class="nav-item"><span class="ico">▦</span>报告</div>
+        <div class="nav-item"><span class="ico">λ</span>函数库</div>
+        <div class="nav-item"><span class="ico">☉</span>成员</div>
+      </div>
+      <div class="app-main">
+        <div class="crumb-bar">项目 / <b>环境检查</b></div>
+        <div class="card">
+          <div class="card-head"><h3>SSH 凭据池</h3><span class="hint">密码加密存储、只写不回显</span></div>
+          <div class="card-desc">按机器地址匹配计划文档解析出的检查目标；计划可在计划侧配置仅本计划生效的覆盖凭据（🔒 标记）。</div>
+          <div class="card-tools">
+            <button class="btn primary">+ 新增凭据</button>
+            <span class="hint" style="color:var(--muted);font-size:12px">共 6 条 · 覆盖 6/7 台常用目标机</span>
+            <span class="spacer"></span>
+            <button class="btn mini">连通性测试</button>
+          </div>
+          <table class="tbl">
+            <thead><tr><th>机器地址</th><th>端口</th><th>账号</th><th>认证方式</th><th>生效范围</th><th>最近验证</th><th style="width:150px">操作</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">10.190.123.164</td><td class="mono">22</td><td class="mono">perfops</td><td>密码</td><td><span class="chip chip-ok">项目池</span></td><td>09-15 10:22 · 成功</td><td><button class="btn mini">编辑</button> <button class="btn mini danger-ghost">删除</button></td></tr>
+              <tr><td class="mono">10.190.123.165</td><td class="mono">22</td><td class="mono">perfops</td><td>密码</td><td><span class="chip chip-ok">项目池</span></td><td>09-15 10:22 · 成功</td><td><button class="btn mini">编辑</button> <button class="btn mini danger-ghost">删除</button></td></tr>
+              <tr><td class="mono">10.190.123.166</td><td class="mono">22</td><td class="mono">perfops</td><td>密码</td><td><span class="chip chip-ok">项目池</span></td><td>09-15 10:22 · 成功</td><td><button class="btn mini">编辑</button> <button class="btn mini danger-ghost">删除</button></td></tr>
+              <tr><td class="mono">10.190.123.167</td><td class="mono">22</td><td class="mono">perfops</td><td>密码</td><td><span class="chip chip-ok">项目池</span></td><td>09-15 10:22 · 成功</td><td><button class="btn mini">编辑</button> <button class="btn mini danger-ghost">删除</button></td></tr>
+              <tr><td class="mono">10.190.123.168</td><td class="mono">22</td><td class="mono">perfops</td><td>密码</td><td><span class="chip chip-ok">项目池</span></td><td>09-15 10:22 · 成功</td><td><button class="btn mini">编辑</button> <button class="btn mini danger-ghost">删除</button></td></tr>
+              <tr><td class="mono">10.190.123.169</td><td class="mono">36000</td><td class="mono">deploy</td><td>SSH Key</td><td><span class="chip chip-ok">项目池</span> <span class="chip chip-plain">🔒 2 个计划覆盖</span></td><td>09-14 19:03 · 成功</td><td><button class="btn mini">编辑</button> <button class="btn mini danger-ghost">删除</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="flow-note">
+      <span class="hop">计划侧状态条 <span class="arrow">「去项目配置」→</span> <code>/projects/1/env-check</code></span>
+      <span style="opacity:.4">|</span>
+      <span class="hop">凭据按 <code>host</code> 精确匹配计划文档「环境部署信息」解析出的目标机</span>
+    </div>
+  </div>
+
+  <!-- ============ B. 计划级：环境检查标签改造 ============ -->
+  <div class="section">
+    <div class="section-head">
+      <h2>B · 计划详情 →「环境检查」标签（改造后）</h2>
+      <span class="note">信贷核心放款链路容量验证 · 检查总览 = 检查目标（上）+ 检查项（下）→ 同屏执行</span>
+    </div>
+
+    <!-- B-1 检查总览卡 -->
+    <div class="card">
+      <div class="card-head"><h3>检查总览</h3><span class="hint">执行前核对：目标清单来自文档 · 勾选检查项 · 凭据就绪后执行</span></div>
+      <div class="card-desc"></div>
+      <div class="overview-grid">
+        <div>
+          <div class="target-src">
+            ✎ 检查目标实时解析自计划文档 <b style="color:var(--ink)">「五、测试资源 → 环境部署信息」</b>（7 台），修改部署表后刷新生效，平台侧不单独维护。
+            <span class="go">跳到文档章节 ↗</span>
+          </div>
+          <table class="tbl">
+            <thead><tr><th>地址</th><th>模块</th><th>凭据</th><th>适用远程检查项</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">10.190.123.164</td><td>nginx-web、fast-gateway、fast-adapter、retail-center</td><td><span class="chip chip-ok">✓ 已覆盖</span></td><td class="mono">6 / 6</td></tr>
+              <tr><td class="mono">10.190.123.165</td><td>credit-management、guard、easyflow-dispatcher</td><td><span class="chip chip-ok">✓ 已覆盖</span></td><td class="mono">6 / 6</td></tr>
+              <tr><td class="mono">10.190.123.166</td><td>limit-center、limit-advance、guarantee-center</td><td><span class="chip chip-ok">✓ 已覆盖</span></td><td class="mono">6 / 6</td></tr>
+              <tr><td class="mono">10.190.123.167</td><td>risk-detection、core-batch、flow-center</td><td><span class="chip chip-ok">✓ 已覆盖</span></td><td class="mono">6 / 6</td></tr>
+              <tr><td class="mono">10.190.123.168</td><td>acctcenter、user-center、unify-query</td><td><span class="chip chip-ok">✓ 已覆盖</span></td><td class="mono">6 / 6</td></tr>
+              <tr><td class="mono">10.190.123.169</td><td>redis、rocketmq、es、mqconsole</td><td><span class="chip chip-warn">🔒 计划覆盖</span></td><td class="mono">5 / 6</td></tr>
+              <tr><td class="mono">10.190.123.20</td><td>oracle 19c 主备 + 只读副本</td><td><span class="chip chip-danger">✗ 缺失</span></td><td class="mono">5 / 6</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="item-group">
+            <div class="group-head"><span class="tag">LOCAL</span>本地文档检查<span class="cnt">3 项 · 平台内执行</span></div>
+            <div class="item-row on"><span class="box"></span><span class="name">指标已定义</span><span class="risk"></span></div>
+            <div class="item-row on"><span class="box"></span><span class="name">场景已配置</span><span class="risk"></span></div>
+            <div class="item-row on"><span class="box"></span><span class="name">脚本已关联</span><span class="risk"></span></div>
+          </div>
+          <div class="item-group">
+            <div class="group-head"><span class="tag">REMOTE</span>远程检查<span class="cnt">6 项 · 逐台执行</span></div>
+            <div class="item-row on"><span class="box"></span><span class="name">端口可达性</span><span class="risk"><span class="chip chip-plain">低</span></span></div>
+            <div class="item-row on"><span class="box"></span><span class="name">磁盘使用率</span><span class="risk"><span class="chip chip-plain">低</span></span></div>
+            <div class="item-row on"><span class="box"></span><span class="name">文件句柄上限</span><span class="risk"><span class="chip chip-warn">中</span></span></div>
+            <div class="item-row on"><span class="box"></span><span class="name">内核参数</span><span class="risk"><span class="chip chip-warn">中</span></span></div>
+            <div class="item-row on"><span class="box"></span><span class="name">JVM 进程发现</span><span class="risk"><span class="chip chip-plain">低</span></span></div>
+            <div class="item-row"><span class="box"></span><span class="name">MySQL 连接数上限</span><span class="risk"><span class="chip chip-warn">中</span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B-2 凭据状态条 -->
+    <div class="cred-bar">
+      <span class="stat">目标机 <b>7</b> 台 · 凭据就绪 <b style="color:var(--ok)">6</b> 台</span>
+      <span class="missing">✗ 10.190.123.20 未配置凭据，勾选远程检查项将被拦截</span>
+      <span class="spacer"></span>
+      <button class="btn mini">🔒 计划级覆盖</button>
+      <button class="btn mini primary">去项目配置凭据 ↗</button>
+    </div>
+
+    <!-- B-3 结果面板（保留，示意） -->
+    <div class="card">
+      <div class="card-head"><h3>检查结果</h3><span class="hint">矩阵 = 机器 × 检查项 · 问题清单勾选后批量修复 · 修复可回滚（沿用现有面板，不变）</span></div>
+      <table class="tbl result-mini">
+        <thead><tr><th>机器</th><th>模块</th><th>检查项</th><th>状态</th><th>详情</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">平台内</td><td>—</td><td>指标已定义</td><td><span class="st ok">OK</span></td><td>文档「三、测试指标」含 8 条指标</td><td></td></tr>
+          <tr><td class="mono">10.190.123.167</td><td>risk-detection…</td><td>文件句柄上限</td><td><span class="st warn">WARNING</span></td><td>ulimit -n = 4096（目标 ≥ 65535）</td><td><button class="btn mini">修复</button></td></tr>
+          <tr><td class="mono">10.190.123.20</td><td>oracle 19c</td><td>磁盘使用率</td><td><span class="st na">—</span></td><td>待执行（凭据补齐后可跑）</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+<script>
+  function toggleTheme() {
+    const root = document.documentElement;
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'default' : 'dark';
+  }
+</script>
+</body>
+</html>
