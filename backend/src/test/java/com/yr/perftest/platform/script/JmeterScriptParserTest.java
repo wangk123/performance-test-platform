@@ -56,6 +56,7 @@ public class JmeterScriptParserTest {
         parsesSteppingThreadGroup();
         parsesResponseAssertionConfig();
         parsesJsonAssertionConfig();
+        parsesCsvFullAttributesAndDefaults();
         parseInvalidXmlThrows();
         System.out.println("JmeterScriptParserTest passed");
     }
@@ -271,6 +272,64 @@ public class JmeterScriptParserTest {
         assertEquals(true, assertion.config().get("validateValue"), "validate value");
         assertEquals("0", assertion.config().get("expectedValue"), "expected value");
         assertEquals(false, assertion.config().get("useRegex"), "use regex");
+    }
+
+    static void parsesCsvFullAttributesAndDefaults() {
+        String jmx = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+                  <hashTree>
+                    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                    <hashTree>
+                      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Main" enabled="true">
+                        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+                        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+                        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+                          <stringProp name="LoopController.loops">1</stringProp>
+                        </elementProp>
+                      </ThreadGroup>
+                      <hashTree>
+                        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="用户数据" enabled="true">
+                          <stringProp name="filename">users.csv</stringProp>
+                          <stringProp name="variableNames">mobile,name</stringProp>
+                          <stringProp name="delimiter">|</stringProp>
+                          <stringProp name="fileEncoding">GBK</stringProp>
+                          <stringProp name="ignoreFirstLine">false</stringProp>
+                          <stringProp name="recycle">false</stringProp>
+                          <stringProp name="stopThread">true</stringProp>
+                          <stringProp name="shareMode">shareMode.thread</stringProp>
+                        </CSVDataSet>
+                        <hashTree/>
+                        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="旧数据" enabled="true">
+                          <stringProp name="filename">legacy.csv</stringProp>
+                          <stringProp name="variableNames">a,b</stringProp>
+                        </CSVDataSet>
+                        <hashTree/>
+                      </hashTree>
+                    </hashTree>
+                  </hashTree>
+                </jmeterTestPlan>
+                """;
+        JmeterScriptParser parser = new JmeterScriptParser();
+        List<ScriptStepDefinition> children = parser.parseSteps(jmx).get(0).children();
+
+        assertEquals(2, children.size(), "two csv steps");
+        ScriptStepDefinition full = children.get(0);
+        assertEquals(ScriptStepType.CSV_DATA.code(), full.type(), "csv step type");
+        assertEquals("|", full.config().get("delimiter"), "delimiter parsed");
+        assertEquals("GBK", full.config().get("fileEncoding"), "fileEncoding parsed");
+        assertEquals(Boolean.FALSE, full.config().get("ignoreFirstLine"), "ignoreFirstLine parsed as Boolean");
+        assertEquals(Boolean.FALSE, full.config().get("recycle"), "recycle parsed as Boolean");
+        assertEquals(Boolean.TRUE, full.config().get("stopThread"), "stopThread parsed as Boolean");
+        assertEquals("shareMode.thread", full.config().get("shareMode"), "shareMode parsed");
+
+        ScriptStepDefinition legacy = children.get(1);
+        assertEquals(",", legacy.config().get("delimiter"), "delimiter default");
+        assertEquals("UTF-8", legacy.config().get("fileEncoding"), "fileEncoding default");
+        assertEquals(Boolean.TRUE, legacy.config().get("ignoreFirstLine"), "ignoreFirstLine default");
+        assertEquals(Boolean.TRUE, legacy.config().get("recycle"), "recycle default");
+        assertEquals(Boolean.FALSE, legacy.config().get("stopThread"), "stopThread default");
+        assertEquals("shareMode.all", legacy.config().get("shareMode"), "shareMode default");
     }
 
     static void parseInvalidXmlThrows() {

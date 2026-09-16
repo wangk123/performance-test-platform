@@ -17,6 +17,8 @@ public class JmeterScriptRendererTest {
         roundTripPreservesHttpStepName();
         roundTripPreservesThreadGroupConfig();
         roundTripPreservesSchedulerMode();
+        csvFullAttributesRoundTrip();
+        csvDefaultRenderUnchanged();
         rendersEmptyStepsList();
         System.out.println("JmeterScriptRendererTest passed");
     }
@@ -294,6 +296,73 @@ public class JmeterScriptRendererTest {
         assertTrue(roundTripConfig.scheduler(), "round-trip scheduler=true");
         assertEquals(-1, roundTripConfig.loops(), "round-trip loops=-1");
         assertEquals(900, roundTripConfig.duration(), "round-trip duration=900");
+    }
+
+    static void csvFullAttributesRoundTrip() {
+        JmeterScriptRenderer renderer = new JmeterScriptRenderer();
+        JmeterScriptParser parser = new JmeterScriptParser();
+        ScriptStepDefinition threadGroup = new ScriptStepDefinition(
+                "thread-csv",
+                ScriptStepType.THREAD_GROUP.code(),
+                "Main",
+                ThreadGroupConfig.DEFAULT.toMap(),
+                List.of(new ScriptStepDefinition(
+                        "csv-1",
+                        ScriptStepType.CSV_DATA.code(),
+                        "用户数据",
+                        Map.of("fileName", "users.csv", "variableNames", "mobile,name", "delimiter", "|",
+                                "fileEncoding", "GBK", "ignoreFirstLine", false, "recycle", false,
+                                "stopThread", true, "shareMode", "shareMode.thread"),
+                        List.of()
+                ))
+        );
+
+        String output = renderer.render(List.of(threadGroup));
+
+        assertTrue(output.contains("<stringProp name=\"delimiter\">|</stringProp>"), "delimiter rendered");
+        assertTrue(output.contains("<stringProp name=\"fileEncoding\">GBK</stringProp>"), "fileEncoding rendered");
+        assertTrue(output.contains("<stringProp name=\"ignoreFirstLine\">false</stringProp>"), "ignoreFirstLine rendered");
+        assertTrue(output.contains("<stringProp name=\"recycle\">false</stringProp>"), "recycle rendered");
+        assertTrue(output.contains("<stringProp name=\"stopThread\">true</stringProp>"), "stopThread rendered");
+        assertTrue(output.contains("<stringProp name=\"shareMode\">shareMode.thread</stringProp>"), "shareMode rendered");
+
+        ScriptStepDefinition csv = parser.parseSteps(output).get(0).children().get(0);
+        assertEquals("users.csv", csv.config().get("fileName"), "fileName round-trips");
+        assertEquals("mobile,name", csv.config().get("variableNames"), "variableNames round-trips");
+        assertEquals("|", csv.config().get("delimiter"), "delimiter round-trips");
+        assertEquals("GBK", csv.config().get("fileEncoding"), "fileEncoding round-trips");
+        assertEquals(Boolean.FALSE, csv.config().get("ignoreFirstLine"), "ignoreFirstLine round-trips as Boolean");
+        assertEquals(Boolean.FALSE, csv.config().get("recycle"), "recycle round-trips as Boolean");
+        assertEquals(Boolean.TRUE, csv.config().get("stopThread"), "stopThread round-trips as Boolean");
+        assertEquals("shareMode.thread", csv.config().get("shareMode"), "shareMode round-trips");
+    }
+
+    static void csvDefaultRenderUnchanged() {
+        JmeterScriptRenderer renderer = new JmeterScriptRenderer();
+        ScriptStepDefinition threadGroup = new ScriptStepDefinition(
+                "thread-csv-default",
+                ScriptStepType.THREAD_GROUP.code(),
+                "Main",
+                ThreadGroupConfig.DEFAULT.toMap(),
+                List.of(new ScriptStepDefinition(
+                        "csv-default",
+                        ScriptStepType.CSV_DATA.code(),
+                        "默认数据",
+                        Map.of("fileName", "users.csv", "variableNames", "mobile,name"),
+                        List.of()
+                ))
+        );
+
+        String output = renderer.render(List.of(threadGroup));
+
+        assertTrue(output.contains("<stringProp name=\"filename\">users.csv</stringProp>"), "filename rendered");
+        assertTrue(output.contains("<stringProp name=\"variableNames\">mobile,name</stringProp>"), "variableNames rendered");
+        assertFalse(output.contains("name=\"delimiter\""), "no delimiter prop when key absent");
+        assertFalse(output.contains("name=\"fileEncoding\""), "no fileEncoding prop when key absent");
+        assertFalse(output.contains("name=\"ignoreFirstLine\""), "no ignoreFirstLine prop when key absent");
+        assertFalse(output.contains("name=\"recycle\""), "no recycle prop when key absent");
+        assertFalse(output.contains("name=\"stopThread\""), "no stopThread prop when key absent");
+        assertFalse(output.contains("name=\"shareMode\""), "no shareMode prop when key absent");
     }
 
     static void rendersEmptyStepsList() {

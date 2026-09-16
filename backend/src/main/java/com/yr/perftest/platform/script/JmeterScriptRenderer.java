@@ -192,12 +192,27 @@ public class JmeterScriptRenderer {
     }
 
     private void appendCsv(StringBuilder builder, ScriptStepDefinition step) {
+        Map<String, Object> config = step.config();
         builder.append("        <CSVDataSet guiclass=\"TestBeanGUI\" testclass=\"CSVDataSet\" testname=\"")
                 .append(xml(step.name())).append("\" enabled=\"true\">\n");
-        builder.append("          <stringProp name=\"filename\">").append(xml(text(step.config(), "fileName", ""))).append("</stringProp>\n");
-        builder.append("          <stringProp name=\"variableNames\">").append(xml(text(step.config(), "variableNames", ""))).append("</stringProp>\n");
+        builder.append("          <stringProp name=\"filename\">").append(xml(text(config, "fileName", ""))).append("</stringProp>\n");
+        builder.append("          <stringProp name=\"variableNames\">").append(xml(text(config, "variableNames", ""))).append("</stringProp>\n");
+        appendCsvProp(builder, config, "delimiter");
+        appendCsvProp(builder, config, "fileEncoding");
+        appendCsvProp(builder, config, "ignoreFirstLine");
+        appendCsvProp(builder, config, "recycle");
+        appendCsvProp(builder, config, "stopThread");
+        appendCsvProp(builder, config, "shareMode");
         builder.append("        </CSVDataSet>\n");
         builder.append("        <hashTree/>\n");
+    }
+
+    private void appendCsvProp(StringBuilder builder, Map<String, Object> config, String key) {
+        String value = text(config, key, "");
+        if (value.isBlank()) {
+            return;
+        }
+        builder.append("          <stringProp name=\"").append(key).append("\">").append(xml(value)).append("</stringProp>\n");
     }
 
     private void appendUserParams(StringBuilder builder, ScriptStepDefinition step) {
