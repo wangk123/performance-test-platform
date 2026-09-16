@@ -29,10 +29,9 @@ spring:
         dialect: com.yr.perftest.platform.config.MysqlLongtextDialect
   servlet:
     multipart:
-      # 截图上传红线 5MB（PlanEvidenceImageService 校验一致）；request 留 multipart 协议开销余量。
-      # 缺省时 Spring Boot 默认 1MB，容器层直接拒绝 1–5MB 的常见 PNG 且无 handler 落 500
-      max-file-size: 5MB
-      max-request-size: 6MB
+      # 截图上传红线 5MB 由 PlanEvidenceImageService 自行校验保持不变；全局上限放宽给数据文件（platform.datafile.max-size 二次校验）
+      max-file-size: 100MB
+      max-request-size: 110MB
 
 server:
   port: 8080

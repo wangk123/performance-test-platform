@@ -1,5 +1,6 @@
 package com.yr.perftest.platform;
 
+import com.yr.perftest.platform.api.DataFileControllerTest;
 import com.yr.perftest.platform.datafile.DataFileServiceTest;
 import com.yr.perftest.platform.identity.AuthenticationServiceTest;
 import com.yr.perftest.platform.project.ProjectServiceTest;
@@ -19,6 +20,7 @@ public class TestRunner {
         JmeterScriptPatcherTest.runAll();
         JmeterScriptRendererTest.runAll();
         DataFileServiceTest.runAll();
+        DataFileControllerTest.runAll();
         System.out.println("All backend core tests passed.");
     }
 }
