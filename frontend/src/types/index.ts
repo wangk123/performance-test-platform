@@ -195,6 +195,17 @@ export type JsonAssertionConfig = {
   useRegex: boolean;
 };
 
+export type CsvDataConfig = {
+  fileName: string;
+  variableNames: string;
+  delimiter?: string;
+  fileEncoding?: string;
+  ignoreFirstLine?: boolean;
+  recycle?: boolean;
+  stopThread?: boolean;
+  shareMode?: string;
+};
+
 export type ScriptParam = {
   key: string;
   label: string;
@@ -400,6 +411,43 @@ export type ScenarioThreadGroupConfig = {
   latestSummary?: ThreadGroupConfigSummary | null;
 };
 
+export type ScenarioDataFileBinding = {
+  stepId: string;
+  stepName: string;
+  dataFileId: number | null;
+};
+
+// ===== 数据文件（P1-5）：字段对照后端 DataFile / DataFileVersion / DataFileVersionDetail record，时间为 LocalDateTime ISO 字符串 =====
+
+export type DataFile = {
+  id: number;
+  projectId: number;
+  name: string;
+  remark?: string;
+  createdBy: string;
+  createdAt: string;
+  latestVersion?: DataFileVersion;
+};
+
+export type DataFileVersion = {
+  id: number;
+  dataFileId: number;
+  versionNo: number;
+  originalFilename: string;
+  sizeBytes: number;
+  rowCount: number | null;
+  headerColumns: string[] | null;
+  sha256: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  remark?: string;
+};
+
+export type DataFileVersionDetail = {
+  version: DataFileVersion;
+  previewRows: string[][];
+};
+
 export type ExecutionConfig = {
   threads: number;
   rampUp: number;
@@ -581,6 +629,7 @@ export type TaskScenario = {
   workerNodeIds: number[] | null;
   monitorTargetIds: number[] | null;
   threadGroupConfigs: ScenarioThreadGroupConfig[];
+  dataFileBindings: ScenarioDataFileBinding[];
   latestExecutionStatus: ExecutionStatus | null;
   latestExecutionAt: string | null;
   createdAt: string;

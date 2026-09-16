@@ -1,5 +1,6 @@
 import type {
   ExecutionDetail,
+  ScenarioDataFileBinding,
   ScenarioExecution,
   ScenarioThreadGroupConfig,
   TaskPlan,
@@ -83,6 +84,7 @@ export function createScenarioApi(
     testType?: string | null;
     jmeterProperties?: Record<string, string>;
     threadGroupConfigs?: ScenarioThreadGroupConfig[];
+    dataFileBindings?: ScenarioDataFileBinding[];
     overridePlanDefaults?: boolean;
     controllerNodeId?: number | null;
     workerNodeIds?: number[];
@@ -105,6 +107,7 @@ export function updateScenarioApi(
     testType?: string | null;
     jmeterProperties?: Record<string, string>;
     threadGroupConfigs?: ScenarioThreadGroupConfig[];
+    dataFileBindings?: ScenarioDataFileBinding[];
     overridePlanDefaults?: boolean;
     controllerNodeId?: number | null;
     workerNodeIds?: number[];
