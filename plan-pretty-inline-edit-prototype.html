@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="default">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>计划文档 Pretty 模式优化 · 设计效果图</title>
+<style>
+  :root, :root[data-theme='default'] {
+    --canvas: #f4f6f8;
+    --surface: #ffffff;
+    --surface-soft: #f7fafb;
+    --ink: #1a2332;
+    --muted: #5c6b7a;
+    --line: #e2e8ee;
+    --line-strong: #c8d3dc;
+    --accent: #0b7f8a;
+    --accent-soft: #e6f5f6;
+    --accent-16: rgba(11, 127, 138, 0.08);
+    --accent-40: rgba(11, 127, 138, 0.4);
+    --ok: #2f9b6a;
+    --ok-soft: #e8f6ef;
+    --danger: #d14343;
+    --danger-soft: #fdecec;
+    --shadow: 0 1px 2px rgb(16 24 40 / 4%);
+  }
+  :root[data-theme='dark'] {
+    --canvas: #0e141a;
+    --surface: #161d26;
+    --surface-soft: #1a222d;
+    --ink: rgba(255, 255, 255, 0.88);
+    --muted: rgba(255, 255, 255, 0.45);
+    --line: #2a3440;
+    --line-strong: #3a4654;
+    --accent: #2bb3bf;
+    --accent-soft: rgba(43, 179, 191, 0.14);
+    --accent-16: rgba(43, 179, 191, 0.09);
+    --accent-40: rgba(43, 179, 191, 0.42);
+    --ok: #58c98f;
+    --ok-soft: rgba(47, 155, 106, 0.18);
+    --danger: #ef6a6a;
+    --danger-soft: rgba(209, 67, 67, 0.18);
+    --shadow: none;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    padding: 40px 48px 72px;
+    transition: background .2s, color .2s;
+  }
+  .page { max-width: 1280px; margin: 0 auto; }
+
+  /* ---------- 页头 ---------- */
+  .page-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
+  .page-head h1 { font-size: 21px; font-weight: 700; letter-spacing: 0.2px; }
+  .page-head .sub { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .theme-toggle {
+    margin-left: auto; border: 1px solid var(--line); background: var(--surface);
+    color: var(--muted); border-radius: 8px; padding: 6px 14px; font-size: 12.5px;
+    cursor: pointer; font-family: inherit;
+  }
+  .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+  .page-sub { color: var(--muted); font-size: 12.5px; margin-bottom: 36px; }
+
+  .kicker { color: var(--muted); font-size: 11px; letter-spacing: 0.4px; margin: 0 0 10px; }
+  .scene { margin-bottom: 56px; }
+  .scene > .scene-title { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+  .scene > .scene-title h2 { font-size: 15px; font-weight: 700; }
+  .scene > .scene-title .tag { font-size: 11.5px; color: var(--muted); }
+
+  /* ①②③④ 序号标 */
+  .dot {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: var(--danger); color: #fff; font-size: 10px; font-style: normal;
+    font-weight: 700; vertical-align: 2px; flex: none;
+  }
+  .dot.add { background: var(--accent); }
+
+  /* 图例 */
+  .legend { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 14px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 8px 32px; }
+  .legend li { list-style: none; display: flex; gap: 9px; font-size: 12.5px; color: var(--muted); }
+  .legend li b { color: var(--ink); font-weight: 600; }
+  .legend .dot { margin-top: 3px; }
+
+  /* ---------- doc-main 模拟卡 ---------- */
+  .doc-main-mock {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 24px 20px;
+    box-shadow: var(--shadow);
+  }
+  .doc-section { padding: 18px 0 20px; }
+  .doc-section + .doc-section { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+  .doc-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .doc-section-head h3 { margin: 0; font-size: 17px; font-weight: 650; line-height: 1.4; }
+  .doc-section-head .head-spacer { flex: 1; }
+  .doc-body-text { color: var(--ink); font-size: 14px; line-height: 1.75; margin: 8px 0; }
+  .doc-body-text code {
+    padding: 1px 6px; border: 1px solid var(--line); border-radius: 4px;
+    background: var(--canvas); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px;
+  }
+
+  /* ---------- 阅读态表格（撑满 + 横线式） ---------- */
+  .rd-table-wrap { position: relative; }
+  table.rd-table {
+    width: 100%;                       /* 方案：去 880px 上限，撑满显示区域 */
+    margin: 12px 0; border-collapse: collapse; font-size: 13px;
+  }
+  table.rd-table th, table.rd-table td {
+    padding: 9px 14px; border: 0; border-bottom: 1px solid var(--line); text-align: left;
+  }
+  table.rd-table th {
+    background: var(--canvas); color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap;
+  }
+  table.rd-table tr:last-child td { border-bottom: 0; }
+  table.rd-table tbody tr { transition: background .15s; }
+  table.rd-table tbody tr:hover { background: var(--surface-soft); }
+
+  /* ---------- ① 图标编辑按钮（低存在感） ---------- */
+  .edit-ico {
+    width: 28px; height: 28px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 6px; background: transparent;
+    color: var(--muted); opacity: .45; cursor: pointer;
+    transition: opacity .15s, color .15s, background .15s;
+  }
+  .edit-ico svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .doc-section:hover .edit-ico { opacity: .8; }
+  .edit-ico:hover { opacity: 1 !important; color: var(--accent); background: var(--accent-16); }
+  .edit-ico:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; opacity: 1; }
+
+  /* ① 宽度对比示意 */
+  .width-demo { margin: 4px 0 18px; border: 1px dashed var(--line-strong); border-radius: 10px; padding: 16px 20px 14px; }
+  .width-demo .wd-track { position: relative; height: 30px; margin-bottom: 10px; }
+  .wd-bar { position: absolute; top: 0; height: 30px; border-radius: 6px; display: flex; align-items: center;
+    padding: 0 10px; font-size: 11.5px; white-space: nowrap; }
+  .wd-bar.now { width: 62%; background: color-mix(in srgb, var(--muted) 14%, transparent); color: var(--muted);
+    border: 1px dashed var(--line-strong); }
+  .wd-bar.plan { width: 100%; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-40); }
+  .wd-label { font-size: 11.5px; color: var(--muted); margin-bottom: 2px; }
+
+  /* ---------- ② 编辑态容器 ---------- */
+  .edit-shell {
+    border: 1px solid var(--accent-40);
+    background: var(--accent-16);
+    border-radius: 12px;
+    padding: 12px 16px 14px;
+  }
+  .edit-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .edit-state { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--accent); font-weight: 600; }
+  .edit-state .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-16); }
+  .edit-toolbar .tb-spacer { flex: 1; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    border-radius: 7px; border: 1px solid var(--line); background: var(--surface);
+    color: var(--ink); font-size: 12.5px; font-weight: 500; padding: 5px 13px;
+    cursor: pointer; font-family: inherit; transition: all .15s; white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--line-strong); background: var(--surface-soft); }
+  .btn svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn.ghost-ai { color: var(--accent); border-color: var(--accent-40); background: var(--surface); }
+  .btn.ghost-ai:hover { background: var(--accent-soft); }
+  .btn.danger-ghost { color: var(--muted); }
+  .btn.danger-ghost:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+  .btn.sm { padding: 3px 10px; font-size: 12px; }
+
+  /* ② markdown 源文本编辑区 */
+  .md-textarea {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px; line-height: 1.8; color: var(--ink);
+    min-height: 96px; resize: vertical; width: 100%; outline: none;
+    caret-color: var(--accent);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .md-textarea:focus { border-color: var(--accent-40); box-shadow: 0 0 0 3px var(--accent-16); }
+  .md-hint { font-size: 11.5px; color: var(--muted); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+  .md-hint kbd {
+    font-family: inherit; font-size: 10.5px; border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 4px; padding: 0 5px; background: var(--surface); color: var(--muted);
+  }
+
+  /* ---------- ② 块级格式工具条（跟随聚焦的文本块） ---------- */
+  .fmt-bar {
+    display: flex; align-items: center; gap: 1px; flex-wrap: wrap;
+    padding: 3px 5px; background: var(--surface-soft);
+    border: 1px solid var(--line); border-bottom: 0; border-radius: 8px 8px 0 0;
+  }
+  .fmt-bar + .md-textarea { border-radius: 0 0 8px 8px; border-color: var(--line); }
+  .fmt-btn {
+    width: 26px; height: 26px; flex: none; border: 0; border-radius: 6px; background: transparent;
+    color: var(--muted); display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: color .12s, background .12s; font-family: inherit;
+  }
+  .fmt-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .fmt-btn:hover { color: var(--ink); background: var(--accent-16); }
+  .fmt-sep { width: 1px; height: 15px; background: var(--line); margin: 0 4px; flex: none; }
+  .fmt-btn.ai {
+    margin-left: auto; width: auto; gap: 4px; padding: 0 8px; color: var(--accent);
+  }
+  .fmt-btn.ai:disabled { color: var(--muted); opacity: .45; cursor: not-allowed; }
+  .fmt-btn.ai:disabled:hover { background: transparent; }
+  .fmt-btn.ai.loading { opacity: .55; cursor: default; }
+
+  /* 章级动作图标按钮：幽灵 ✕ + 主题色轻底 ✓（贴合编辑容器底色，不做实心重按钮） */
+  .tool-ico {
+    width: 26px; height: 26px; flex: none; border: 0; border-radius: 7px;
+    background: transparent; color: var(--muted);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: color .15s, background .15s;
+  }
+  .tool-ico svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .tool-ico:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
+  .tool-ico.primary {
+    color: var(--accent); background: var(--accent-soft);
+    box-shadow: inset 0 0 0 1px var(--accent-40);
+  }
+  .tool-ico.primary:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+
+  /* 选区高亮（示意原生 text selection） */
+  .sel { background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent-40); border-radius: 3px; }
+
+  /* ---------- ③④ 可编辑表格 ---------- */
+  .etable { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+  .etable th, .etable td { padding: 0; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+  .etable thead th { background: var(--canvas); font-size: 12px; }
+  .etable thead th.locked { color: var(--muted); font-weight: 600; padding: 8px 14px; white-space: nowrap; }
+  .etable tbody tr:last-child td, .etable thead tr th { border-bottom: 1px solid var(--line); }
+  .etable tbody tr:last-child td { border-bottom: 0; }
+  .etable tbody tr { transition: background .15s; }
+  .etable tbody tr:hover { background: var(--surface-soft); }
+
+  /* 单元格输入（borderless） */
+  .cell { position: relative; display: flex; align-items: center; min-height: 38px; }
+  .cell input, .cell textarea {
+    flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink);
+    font: inherit; font-size: 13px; line-height: 1.5; padding: 8px 14px; outline: none; resize: none;
+    caret-color: var(--accent);
+  }
+  .cell input::placeholder, .cell textarea::placeholder { color: color-mix(in srgb, var(--muted) 62%, transparent); }
+  .cell input:focus, .cell textarea:focus { box-shadow: inset 0 0 0 2px var(--accent-40); border-radius: 6px; }
+  .cell.is-dirty input, .cell.is-dirty textarea { box-shadow: inset 2px 0 0 var(--accent); }
+  /* 表头可编辑（通用表格） */
+  .cell.head-cell input { color: var(--muted); font-size: 12px; font-weight: 600; }
+  .col-del {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px; border: 0; border-radius: 5px; background: transparent;
+    color: var(--muted); opacity: 0; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: opacity .15s, color .15s, background .15s;
+  }
+  .col-del svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+  th:hover .col-del { opacity: .7; }
+  .col-del:hover { opacity: 1 !important; color: var(--danger); background: var(--danger-soft); }
+
+  /* 行删除 */
+  .row-del {
+    width: 40px; text-align: center;
+  }
+  .row-del button {
+    width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent;
+    color: var(--muted); opacity: 0; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: opacity .15s, color .15s, background .15s;
+  }
+  .row-del button svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  tr:hover .row-del button { opacity: .75; }
+  .row-del button:hover { opacity: 1 !important; color: var(--danger); background: var(--danger-soft); }
+
+  /* 加行 / 加列 */
+  .et-add-row td { border-bottom: 0; padding: 0; }
+  .add-row-btn {
+    width: 100%; padding: 9px 0; border: 0; border-top: 1px dashed var(--line-strong);
+    background: transparent; color: var(--muted); font-size: 12.5px; cursor: pointer;
+    font-family: inherit; transition: color .15s, background .15s; text-align: center;
+  }
+  .add-row-btn:hover { color: var(--accent); background: var(--accent-16); }
+  .et-col-actions { padding: 6px 14px; display: flex; justify-content: flex-end; }
+  .add-col-btn {
+    display: inline-flex; align-items: center; gap: 5px; border: 1px dashed var(--line-strong);
+    background: transparent; color: var(--muted); font-size: 11.5px; border-radius: 6px;
+    padding: 2px 10px; cursor: pointer; font-family: inherit; transition: all .15s;
+  }
+  .add-col-btn:hover { color: var(--accent); border-color: var(--accent-40); background: var(--accent-16); }
+  .add-col-btn svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+  /* 脏标记图例芯片 */
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; background: var(--surface); }
+  .chip i { width: 8px; height: 8px; border-radius: 2px; background: var(--accent); flex: none; }
+
+  /* ---------- ④ 混合章节：块序列 ---------- */
+  .block { position: relative; margin: 0; }
+  .block + .block { margin-top: 12px; }
+  /* 块间插入点 */
+  .block-insert { position: relative; height: 0; margin: 0; }
+  .block-insert .bi-line {
+    position: absolute; left: 0; right: 0; top: -7px; height: 14px; display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .15s; cursor: pointer;
+  }
+  .block-insert .bi-line::before { content: ""; position: absolute; left: 0; right: 0; top: 50%;
+    border-top: 1px dashed var(--accent-40); }
+  .block-insert:hover .bi-line { opacity: 1; }
+  .bi-btn {
+    position: relative; z-index: 1; width: 22px; height: 22px; border-radius: 50%;
+    border: 1px solid var(--accent-40); background: var(--surface); color: var(--accent);
+    font-size: 14px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-family: inherit; transition: all .15s;
+  }
+  .bi-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  /* 尾部插入行（展开菜单态） */
+  .insert-row { position: relative; margin-top: 12px; }
+  .insert-trigger {
+    width: 100%; padding: 8px 0; border: 1px dashed var(--line-strong); border-radius: 8px;
+    background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; justify-content: center; gap: 6px; transition: all .15s;
+  }
+  .insert-trigger:hover { color: var(--accent); border-color: var(--accent-40); background: var(--accent-16); }
+  .insert-trigger svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  .insert-menu {
+    margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+  }
+  .insert-menu button {
+    display: inline-flex; align-items: center; gap: 7px; padding: 5px 14px; border: 1px solid var(--line);
+    border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 12px;
+    cursor: pointer; font-family: inherit; transition: all .15s;
+  }
+  .insert-menu button:hover { border-color: var(--accent-40); background: var(--accent-16); color: var(--accent); }
+  .insert-menu button svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .insert-menu .im-key { font-size: 10.5px; color: var(--muted); }
+
+  /* 图片块 */
+  .img-block { position: relative; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+  .img-canvas {
+    height: 168px; display: flex; align-items: center; justify-content: center; gap: 12px;
+    background:
+      linear-gradient(var(--canvas) 1px, transparent 1px) 0 0 / 24px 24px,
+      linear-gradient(90deg, var(--canvas) 1px, transparent 1px) 0 0 / 24px 24px,
+      var(--surface);
+    color: var(--muted); font-size: 12px;
+  }
+  .img-canvas .node { border: 1.5px solid var(--line-strong); border-radius: 8px; padding: 8px 14px;
+    font-size: 11.5px; color: var(--muted); background: var(--surface); white-space: nowrap; }
+  .img-canvas .arrow { color: var(--line-strong); font-size: 16px; }
+  .img-overlay {
+    position: absolute; top: 8px; right: 8px; display: flex; gap: 6px;
+    opacity: 0; transition: opacity .15s;
+  }
+  .img-block:hover .img-overlay { opacity: 1; }
+  .img-act {
+    display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px;
+    border: 1px solid var(--line); border-radius: 7px; background: var(--surface);
+    color: var(--muted); font-size: 11.5px; cursor: pointer; font-family: inherit; box-shadow: var(--shadow);
+    transition: all .15s;
+  }
+  .img-act:hover { color: var(--accent); border-color: var(--accent-40); }
+  .img-act.del:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+  .img-act svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .img-meta { padding: 6px 12px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted);
+    font-family: "JetBrains Mono", ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---------- ⑥ AI 润色对比 ---------- */
+  .polish-compare {
+    margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .pc-pane { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); display: flex; flex-direction: column; }
+  .pc-pane.ai { border-color: var(--accent-40); }
+  .pc-tag { padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--muted);
+    border-bottom: 1px solid var(--line); background: var(--surface-soft);
+    display: flex; align-items: center; gap: 6px; }
+  .pc-pane.ai .pc-tag { color: var(--accent); }
+  .pc-len { margin-left: 4px; font-size: 10.5px; font-weight: 400; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; }
+  .pc-tag .pc-actions { margin-left: auto; display: flex; gap: 6px; }
+  .pc-body { padding: 10px 14px; font-size: 12.5px; line-height: 1.8; color: var(--ink);
+    max-height: 150px; overflow-y: auto; font-family: "JetBrains Mono", ui-monospace, monospace; }
+  .pc-body mark { background: var(--accent-soft); color: var(--accent); border-radius: 3px; padding: 0 2px; }
+  .pc-diff-note { font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+  /* ---------- ⑦ 规则卡 ---------- */
+  .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(292px, 1fr)); gap: 14px; }
+  .rule-card { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 16px 18px; }
+  .rule-card h4 { font-size: 13px; margin-bottom: 9px; display: flex; align-items: center; gap: 8px; }
+  .rule-card h4 .dot { vertical-align: 0; }
+  .rule-card li { list-style: none; font-size: 12.5px; color: var(--muted); margin-bottom: 7px;
+    padding-left: 14px; position: relative; line-height: 1.6; }
+  .rule-card li::before { content: ""; position: absolute; left: 2px; top: 9px; width: 4px; height: 4px;
+    border-radius: 50%; background: var(--line-strong); }
+  .rule-card li b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="page-head">
+    <div>
+      <h1>计划文档 Pretty 模式优化 · 设计效果图</h1>
+      <div class="sub">表格撑满显示区域 / 整章行内编辑（免弹窗）/ 可编辑表格 / 图标化编辑入口 · 2026-09-11</div>
+    </div>
+    <button class="theme-toggle" onclick="const r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'default':'dark'">◐ 明暗切换</button>
+  </div>
+  <p class="page-sub">
+    已对齐决策：<b>整章编辑模式</b>（点章头编辑图标，整章进入编辑态，章内按块分解）·
+    <b>通用可编辑表格</b>（表头可改、行和列可增删；固定列表章节表头锁定）·
+    <b>AI 润色改为选区级</b>（划选文本后触发，只润色选中片段）·
+    <b>动作按钮图标化</b>（保留文字的按钮取最短表述）。保存沿用现有整文链路（revision 冲突保护不变）。
+  </p>
+
+  <!-- ============ ① 阅读态 ============ -->
+  <section class="scene">
+    <div class="scene-title">
+      <span class="dot">1</span>
+      <h2>阅读态：表格撑满显示区域 + 图标化编辑入口</h2>
+      <span class="tag">doc-main 显示区域内宽约 1,240px（含 TOC 栏时约 990px），方案与正文右缘对齐</span>
+    </div>
+
+    <div class="width-demo">
+      <div class="wd-label">现状：表格 <b>max-width: 880px</b>，在宽屏下仅占约 6 成宽度 —— 「只显示一半」的根因（plan-module.css:399）</div>
+      <div class="wd-track"><div class="wd-bar now">现状 · 880px ≈ 62%</div></div>
+      <div class="wd-track" style="margin-bottom:0"><div class="wd-bar plan">方案 · width: 100%，撑满显示区域，与正文同宽对齐</div></div>
+    </div>
+
+    <div class="doc-main-mock">
+      <div class="doc-section" style="padding-top:10px">
+        <div class="doc-section-head">
+          <h3>二、测试目的</h3>
+          <span class="head-spacer"></span>
+          <button class="edit-ico" title="编辑本章" aria-label="编辑本章"><svg viewBox="0 0 24 24"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
+        </div>
+        <p class="doc-body-text">验证核心查询与交易链路在目标容量下的性能表现，确认系统在预期峰值负载下满足 <code>SLA</code> 要求，并为容量规划提供数据依据。</p>
+      </div>
+
+      <div class="doc-section">
+        <div class="doc-section-head">
+          <h3>三、测试指标</h3>
+          <span class="head-spacer"></span>
+          <button class="edit-ico" title="编辑本章" aria-label="编辑本章"><svg viewBox="0 0 24 24"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
+        </div>
+        <p class="doc-body-text">本次压测以下列指标作为达成判定依据；已知指标别名（TPS / P95 / 错误率…）参与报告自动判定。</p>
+        <table class="rd-table">
+          <thead><tr><th>对象</th><th>指标</th><th>目标值</th><th>口径</th></tr></thead>
+          <tbody>
+            <tr><td>查询交易</td><td>TPS</td><td>≥ 1200</td><td>5 分钟均值</td></tr>
+            <tr><td>查询交易</td><td>平均 RT</td><td>≤ 80 ms</td><td>5 分钟均值</td></tr>
+            <tr><td>查询交易</td><td>P95</td><td>≤ 300 ms</td><td>5 分钟均值</td></tr>
+            <tr><td>提交订单</td><td>TPS</td><td>≥ 300</td><td>5 分钟均值</td></tr>
+            <tr><td>提交订单</td><td>错误率</td><td>&lt; 0.1%</td><td>全程累计</td></tr>
+          </tbody>
+        </table>
+        <p class="doc-body-text" style="color:var(--muted);font-size:12.5px">← 鼠标移入任意章节，右上角浮现铅笔图标（默认 45% 透明度，降低存在感；键盘 Tab 可聚焦，保留 aria-label）。</p>
+      </div>
+    </div>
+
+    <ul class="legend">
+      <li><span class="dot add">A</span><span><b>表格撑满</b>：去掉 880px 上限，<code>width:100%</code>；列宽仍按内容自适应，超宽表格（列很多时）外层容器保底横向滚动。</span></li>
+      <li><span class="dot add">B</span><span><b>图标编辑入口</b>：去文字，仅铅笔图标 28×28；默认 45% 透明度 → 章 hover 80% → 按钮 hover 主题色+浅底；<code>aria-label="编辑本章"</code> 保障可访问性。</span></li>
+      <li><span class="dot add">C</span><span><b>六、测试约束 / 八、场景设计</b>为交互模块章，不显示编辑图标（自带勾选与场景管理，不走 markdown 编辑）。</span></li>
+    </ul>
+  </section>
+
+  <!-- ============ ② 纯文本章节编辑态 ============ -->
+  <section class="scene">
+    <div class="scene-title">
+      <span class="dot">2</span>
+      <h2>编辑态 · 纯文本章节（整章行内编辑，免弹窗）</h2>
+      <span class="tag">点击铅笔 → 章节原位变为编辑容器；不再弹出 Modal</span>
+    </div>
+
+    <div class="doc-main-mock">
+      <div class="doc-section" style="padding-top:10px">
+        <div class="doc-section-head">
+          <h3>二、测试目的</h3>
+          <span class="head-spacer"></span>
+          <span class="chip">进入编辑后铅笔隐藏，保存/取消后恢复</span>
+        </div>
+        <div class="edit-shell">
+          <div class="edit-toolbar">
+            <span class="edit-state"><i class="pulse"></i>正在编辑 · 二、测试目的</span>
+            <span class="tb-spacer"></span>
+            <button class="tool-ico" title="取消编辑（Esc）" aria-label="取消编辑"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            <button class="tool-ico primary" title="保存本章（⌘/Ctrl+S）" aria-label="保存本章"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+          </div>
+          <div class="fmt-bar">
+            <button class="fmt-btn" title="加粗（⌘B）" aria-label="加粗"><svg viewBox="0 0 24 24"><path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/></svg></button>
+            <button class="fmt-btn" title="斜体（⌘I）" aria-label="斜体"><svg viewBox="0 0 24 24"><path d="M10 5h8M6 19h8M14 5l-4 14"/></svg></button>
+            <button class="fmt-btn" title="下划线" aria-label="下划线"><svg viewBox="0 0 24 24"><path d="M7 4v7a5 5 0 0 0 10 0V4M5 20h14"/></svg></button>
+            <button class="fmt-btn" title="删除线" aria-label="删除线"><svg viewBox="0 0 24 24"><path d="M5 12h14M8 7a3 3 0 0 1 3-2h3.5a3 3 0 0 1 0 6M16 17a3 3 0 0 1-3 2h-3.5a3 3 0 0 1-3-2"/></svg></button>
+            <span class="fmt-sep"></span>
+            <button class="fmt-btn" title="标题（H2/H3…）" aria-label="标题"><svg viewBox="0 0 24 24"><path d="M5 5v14M17 5v14M5 12h12M17.5 16.5l2.5 3 2.5-3"/></svg></button>
+            <span class="fmt-sep"></span>
+            <button class="fmt-btn" title="引用" aria-label="引用"><svg viewBox="0 0 24 24"><path d="M9 7H5v4h4zM9 11c0 3-2 5-4 6M19 7h-4v4h4zM19 11c0 3-2 5-4 6"/></svg></button>
+            <button class="fmt-btn" title="无序列表" aria-label="无序列表"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.1" fill="currentColor" stroke="none"/></svg></button>
+            <button class="fmt-btn" title="有序列表" aria-label="有序列表"><svg viewBox="0 0 24 24"><path d="M10 6h10M10 12h10M10 18h10"/><text x="3.2" y="8" font-size="6.5" fill="currentColor" stroke="none" font-family="inherit">1</text><text x="3.2" y="14.2" font-size="6.5" fill="currentColor" stroke="none" font-family="inherit">2</text><text x="3.2" y="20.4" font-size="6.5" fill="currentColor" stroke="none" font-family="inherit">3</text></svg></button>
+            <button class="fmt-btn" title="任务列表" aria-label="任务列表"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="7" rx="1.5"/><path d="M5 7.5l1.6 1.6L9.4 6.4M14 7.5h7"/><rect x="3" y="13" width="7" height="7" rx="1.5"/><path d="M14 16.5h7"/></svg></button>
+            <span class="fmt-sep"></span>
+            <button class="fmt-btn" title="行内代码" aria-label="行内代码"><svg viewBox="0 0 24 24"><path d="M9 8l-5 4 5 4M15 8l5 4-5 4"/></svg></button>
+            <button class="fmt-btn" title="代码块" aria-label="代码块"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 10.5l-2.5 2.5L9 15.5M15 10.5l2.5 2.5L15 15.5"/></svg></button>
+            <button class="fmt-btn" title="链接" aria-label="链接"><svg viewBox="0 0 24 24"><path d="M10.5 13.5a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.3 1.3M13.5 10.5a4 4 0 0 0-5.7 0l-2.6 2.6a4 4 0 0 0 5.7 5.7l1.3-1.3"/></svg></button>
+            <button class="fmt-btn" title="表格" aria-label="表格"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M12 10v10"/></svg></button>
+            <button class="fmt-btn" title="图片" aria-label="图片"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 15l-5-5-9 9"/></svg></button>
+            <span class="fmt-sep"></span>
+            <button class="fmt-btn" title="撤销（⌘Z）" aria-label="撤销"><svg viewBox="0 0 24 24"><path d="M8 5L4 9l4 4M4 9h10a5 5 0 0 1 0 10h-3"/></svg></button>
+            <button class="fmt-btn" title="重做（⌘⇧Z）" aria-label="重做"><svg viewBox="0 0 24 24"><path d="M16 5l4 4-4 4M20 9H10a5 5 0 0 0 0 10h3"/></svg></button>
+            <button class="fmt-btn ai" disabled title="划选文本后可润色"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/></svg>润色</button>
+          </div>
+          <div class="md-textarea">验证核心查询与交易链路在目标容量下的性能表现，确认系统在预期峰值负载下满足 `SLA` 要求，
+并为容量规划提供数据依据。</div>
+          <div class="md-hint">编辑 Markdown 源文本 · <kbd>Esc</kbd> 取消 · <kbd>⌘/Ctrl</kbd>+<kbd>S</kbd> 保存 · 高度随内容自适应 · ✨ 划选文本后可用</div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="legend">
+      <li><span class="dot add">A</span><span><b>编辑容器</b>：主题色 40% 细边框 + 8% 极浅底 + 12px 圆角，原地展开；阅读态其他章节不受影响、仍可滚动浏览。</span></li>
+      <li><span class="dot add">B</span><span><b>格式工具条跟随聚焦的文本块</b>：同一时刻只有聚焦块显示；图标化按钮（加粗/斜体/上下划/删除线·标题·引用/列表/任务·代码/链接/表格/图片·撤销重做），hover 出 tooltip，对齐 md-editor-v3 现有能力。</span></li>
+      <li><span class="dot add">C</span><span><b>章级动作图标化</b>：右上角 <b>✕ 取消</b>（幽灵按钮）/ <b>✓ 保存</b>（主题色轻底描边）；不做实心重按钮，贴合编辑容器底色；长章滚动时动作条 sticky，保存始终可达。</span></li>
+      <li><span class="dot add">D</span><span><b>未保存离开</b>：点击其他章编辑 / 切换视图 / 关页时，脏内容弹轻确认（复用现有「放弃未保存的修改？」）。</span></li>
+    </ul>
+  </section>
+
+  <!-- ============ ③ 表格章节编辑态（固定列） ============ -->
+  <section class="scene">
+    <div class="scene-title">
+      <span class="dot">3</span>
+      <h2>编辑态 · 表格章节（固定列表：三、测试指标 / 五、测试资源 / 九、风险与预案 / 十、排期与协作）</h2>
+      <span class="tag">原 SectionTableEditor 的能力平移到行内：表头锁定、行增删</span>
+    </div>
+
+    <div class="doc-main-mock">
+      <div class="doc-section" style="padding-top:10px">
+        <div class="doc-section-head"><h3>三、测试指标</h3><span class="head-spacer"></span></div>
+        <div class="edit-shell">
+          <div class="edit-toolbar">
+            <span class="edit-state"><i class="pulse"></i>正在编辑 · 表头由平台锁定（指标别名参与报告自动判定）</span>
+            <span class="tb-spacer"></span>
+            <button class="tool-ico" title="取消编辑（Esc）" aria-label="取消编辑"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            <button class="tool-ico primary" title="保存本章（⌘/Ctrl+S）" aria-label="保存本章"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+          </div>
+          <table class="etable">
+            <thead>
+              <tr>
+                <th class="locked">对象</th>
+                <th class="locked">指标</th>
+                <th class="locked">目标值</th>
+                <th class="locked">口径</th>
+                <th class="row-del" aria-hidden="true"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div class="cell"><input value="查询交易"></div></td>
+                <td><div class="cell"><input value="TPS"></div></td>
+                <td><div class="cell"><input value="≥ 1200"></div></td>
+                <td><div class="cell"><input value="5 分钟均值"></div></td>
+                <td class="row-del"><button title="删除本行" aria-label="删除第 1 行"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
+              </tr>
+              <tr>
+                <td><div class="cell"><input value="查询交易"></div></td>
+                <td><div class="cell"><input value="P95"></div></td>
+                <td><div class="cell is-dirty"><input value="≤ 260 ms"></div></td>
+                <td><div class="cell"><input value="5 分钟均值"></div></td>
+                <td class="row-del"><button title="删除本行" aria-label="删除第 2 行"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
+              </tr>
+              <tr>
+                <td><div class="cell"><input placeholder="如：查询交易"></div></td>
+                <td><div class="cell"><input placeholder="TPS / P95 / 错误率…"></div></td>
+                <td><div class="cell"><input placeholder="如：≥ 300 ms"></div></td>
+                <td><div class="cell"><input placeholder="如：5 分钟均值"></div></td>
+                <td class="row-del"><button title="删除本行" aria-label="删除第 3 行"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
+              </tr>
+              <tr class="et-add-row"><td colspan="5"><button class="add-row-btn">＋ 添加指标</button></td></tr>
+            </tbody>
+          </table>
+          <div class="md-hint">单元格点击直接输入（无边框输入框，聚焦显示主题色内描边）· <span class="chip"><i></i>左缘色条 = 本次修改过的单元格</span> · 删除按钮 hover 行尾浮现</div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="legend">
+      <li><span class="dot add">A</span><span><b>与现弹窗能力对齐</b>：列 schema（占位文案、列宽、提示语）复用现有注册表；保存时序列化回 markdown 表格，「指标章规范表头」契约不变。</span></li>
+      <li><span class="dot add">B</span><span><b>混合内容不丢</b>：章内表格外文本同样渲染为文本块（见场景 4），保存按块序列重组，替代现在「表格外内容原样保留」的粗粒度行为。</span></li>
+    </ul>
+  </section>
+
+  <!-- ============ ④ 混合章节编辑态 ============ -->
+  <section class="scene">
+    <div class="scene-title">
+      <span class="dot">4</span>
+      <h2>编辑态 · 混合章节（正文 + 表格 + 图片同时存在）</h2>
+      <span class="tag">核心场景：整章编辑态内，章内容按块分解为「文本块 / 表格块 / 图片块」顺序渲染</span>
+    </div>
+
+    <div class="doc-main-mock">
+      <div class="doc-section" style="padding-top:10px">
+        <div class="doc-section-head"><h3>七、测试策略</h3><span class="head-spacer"></span></div>
+        <div class="edit-shell">
+          <div class="edit-toolbar">
+            <span class="edit-state"><i class="pulse"></i>正在编辑 · 3 类内容块</span>
+            <span class="tb-spacer"></span>
+            <button class="tool-ico" title="取消编辑（Esc）" aria-label="取消编辑"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            <button class="tool-ico primary" title="保存本章（⌘/Ctrl+S）" aria-label="保存本章"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+          </div>
+
+          <!-- 块 1：文本（聚焦态 → 显示格式工具条） -->
+          <div class="block">
+            <div class="fmt-bar">
+              <button class="fmt-btn" title="加粗" aria-label="加粗"><svg viewBox="0 0 24 24"><path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/></svg></button>
+              <button class="fmt-btn" title="斜体" aria-label="斜体"><svg viewBox="0 0 24 24"><path d="M10 5h8M6 19h8M14 5l-4 14"/></svg></button>
+              <button class="fmt-btn" title="删除线" aria-label="删除线"><svg viewBox="0 0 24 24"><path d="M5 12h14M8 7a3 3 0 0 1 3-2h3.5a3 3 0 0 1 0 6M16 17a3 3 0 0 1-3 2h-3.5a3 3 0 0 1-3-2"/></svg></button>
+              <span class="fmt-sep"></span>
+              <button class="fmt-btn" title="引用" aria-label="引用"><svg viewBox="0 0 24 24"><path d="M9 7H5v4h4zM9 11c0 3-2 5-4 6M19 7h-4v4h4zM19 11c0 3-2 5-4 6"/></svg></button>
+              <button class="fmt-btn" title="无序列表" aria-label="无序列表"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.1" fill="currentColor" stroke="none"/></svg></button>
+              <button class="fmt-btn" title="有序列表" aria-label="有序列表"><svg viewBox="0 0 24 24"><path d="M10 6h10M10 12h10M10 18h10"/><text x="3.2" y="8" font-size="6.5" fill="currentColor" stroke="none">1</text><text x="3.2" y="14.2" font-size="6.5" fill="currentColor" stroke="none">2</text><text x="3.2" y="20.4" font-size="6.5" fill="currentColor" stroke="none">3</text></svg></button>
+              <span class="fmt-sep"></span>
+              <button class="fmt-btn" title="链接" aria-label="链接"><svg viewBox="0 0 24 24"><path d="M10.5 13.5a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.3 1.3M13.5 10.5a4 4 0 0 0-5.7 0l-2.6 2.6a4 4 0 0 0 5.7 5.7l1.3-1.3"/></svg></button>
+              <button class="fmt-btn" title="图片" aria-label="图片"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 15l-5-5-9 9"/></svg></button>
+              <button class="fmt-btn ai" title="润色选中文本"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/></svg>润色</button>
+            </div>
+            <div class="md-textarea" style="min-height:0">压测环境与生产同构，按 1:4 容量比部署；注入机与被测服务同 VPC，避免公网抖动干扰采样。环境规格见下表：</div>
+          </div>
+
+          <div class="block-insert" title="在此插入内容"><div class="bi-line"><button class="bi-btn">＋</button></div></div>
+
+          <!-- 块 2：通用表格（表头可编辑） -->
+          <div class="block">
+            <table class="etable">
+              <thead>
+                <tr>
+                  <th><div class="cell head-cell"><input value="主机用途"><button class="col-del" title="删除此列" aria-label="删除此列"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></th>
+                  <th><div class="cell head-cell"><input value="规格"></div></th>
+                  <th><div class="cell head-cell"><input value="数量"></div></th>
+                  <th><div class="cell head-cell"><input value="部署说明"><button class="col-del" title="删除此列" aria-label="删除此列"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></th>
+                  <th class="row-del" aria-hidden="true"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><div class="cell"><input value="JMeter 注入机"></div></td>
+                  <td><div class="cell"><input value="8C16G 云主机"></div></td>
+                  <td><div class="cell"><input value="3 台"></div></td>
+                  <td><div class="cell"><input value="与被测服务同 VPC"></div></td>
+                  <td class="row-del"><button title="删除本行" aria-label="删除第 1 行"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
+                </tr>
+                <tr>
+                  <td><div class="cell"><input value="被测服务节点"></div></td>
+                  <td><div class="cell"><input value="16C32G 容器"></div></td>
+                  <td><div class="cell"><input value="6 副本"></div></td>
+                  <td><div class="cell"><input value="HPA 关闭，固定副本"></div></td>
+                  <td class="row-del"><button title="删除本行" aria-label="删除第 2 行"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
+                </tr>
+                <tr class="et-add-row">
+                  <td colspan="4">
+                    <table style="width:100%;border-collapse:collapse"><tr>
+                      <td style="border:0;padding:0"><button class="add-row-btn" style="border-top:1px dashed var(--line-strong)">＋ 添加行</button></td>
+                      <td style="border:0;padding:0;width:120px"><div class="et-col-actions"><button class="add-col-btn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>添加列</button></div></td>
+                    </tr></table>
+                  </td>
+                  <td class="row-del" style="border-bottom:0"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="block-insert" title="在此插入内容"><div class="bi-line"><button class="bi-btn">＋</button></div></div>
+
+          <!-- 块 3：图片 -->
+          <div class="block">
+            <div class="img-block">
+              <div class="img-canvas">
+                <span class="node">注入机 ×3</span><span class="arrow">⇢</span>
+                <span class="node">SLB</span><span class="arrow">⇢</span>
+                <span class="node">被测服务 ×6</span><span class="arrow">⇢</span>
+                <span class="node">MySQL 主从</span>
+              </div>
+              <div class="img-overlay">
+                <button class="img-act" title="替换图片" aria-label="替换图片"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.6-5.7L20 8M20 4v4h-4M20 12a8 8 0 0 1-13.6 5.7L4 16M4 20v-4h4"/></svg></button>
+                <button class="img-act del" title="删除图片" aria-label="删除图片"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+              </div>
+              <div class="img-meta">![核心链路架构](https://…/arch.png) · alt 文本可在替换时修改</div>
+            </div>
+          </div>
+
+          <div class="block-insert" title="在此插入内容"><div class="bi-line"><button class="bi-btn">＋</button></div></div>
+
+          <!-- 块 4：尾部文本（非聚焦态 → 不显示工具条） -->
+          <div class="block">
+            <div class="md-textarea" style="min-height:0">监控采样周期 10s，压测期间同步采集 JVM、连接池与慢 SQL 指标。</div>
+          </div>
+
+          <!-- 尾部插入行（展开选项态） -->
+          <div class="insert-row">
+            <button class="insert-trigger" style="color:var(--accent);border-color:var(--accent-40);background:var(--accent-16)"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>插入…</button>
+            <div class="insert-menu">
+              <button title="插入 Markdown 文本段落"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>文本</button>
+              <button title="插入可编辑表格"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 10h16M10 5v14"/></svg>表格</button>
+              <button title="插入图片（粘贴 URL）"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 15l-5-5-9 9"/></svg>图片</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="legend">
+      <li><span class="dot add">A</span><span><b>块分解规则</b>：编辑进入时把章内容切成连续「文本段 / 表格 / 图片」序列，各自用对应编辑器渲染；保存时按原顺序重组回 markdown，不改变块间空行结构。</span></li>
+      <li><span class="dot add">B</span><span><b>图片块</b>：默认只读预览，hover 右上浮现 [替换] [删除]；插入/替换走 URL 粘贴（后端暂无上传接口，后续可无痛升级为上传）。</span></li>
+      <li><span class="dot add">C</span><span><b>插入点</b>：块间 hover 出现虚线＋圆钮，章尾固定「在本章末尾插入」入口 → 菜单选 [文本 / 表格 / 图片]；解决「本章原本没有表/图，想新增」的需求（现弹窗做不到）。</span></li>
+      <li><span class="dot add">D</span><span><b>工具条只在聚焦块显示</b>：点击某个文本块即浮现其格式工具条，其余块保持素净；图片替换/删除、插入菜单等动作全部图标化，hover 出 tooltip。</span></li>
+      <li><span class="dot add">E</span><span><b>润色作用于选区</b>：在文本块内划选文字后 ✨ 才可用（见场景 5）；表格与图片不参与润色。</span></li>
+    </ul>
+  </section>
+
+  <!-- ============ ⑤ AI 润色（选区级） ============ -->
+  <section class="scene">
+    <div class="scene-title">
+      <span class="dot">5</span>
+      <h2>编辑态 · AI 润色（选区级：只润色选中的文本片段）</h2>
+      <span class="tag">划选文本 → ✨ 可用 → 润色中 → 工具条下方展开该片段的左右对比 → 采纳只替换选中片段</span>
+    </div>
+
+    <div class="doc-main-mock">
+      <div class="doc-section" style="padding-top:10px">
+        <div class="doc-section-head"><h3>二、测试目的</h3><span class="head-spacer"></span></div>
+        <div class="edit-shell">
+          <div class="edit-toolbar">
+            <span class="edit-state"><i class="pulse"></i>正在编辑</span>
+            <span class="tb-spacer"></span>
+            <button class="tool-ico" title="取消编辑（Esc）" aria-label="取消编辑"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            <button class="tool-ico primary" title="保存本章（⌘/Ctrl+S）" aria-label="保存本章"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+          </div>
+          <div class="fmt-bar">
+            <button class="fmt-btn" title="加粗" aria-label="加粗"><svg viewBox="0 0 24 24"><path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/></svg></button>
+            <button class="fmt-btn" title="斜体" aria-label="斜体"><svg viewBox="0 0 24 24"><path d="M10 5h8M6 19h8M14 5l-4 14"/></svg></button>
+            <span class="fmt-sep"></span>
+            <button class="fmt-btn" title="引用" aria-label="引用"><svg viewBox="0 0 24 24"><path d="M9 7H5v4h4zM9 11c0 3-2 5-4 6M19 7h-4v4h4zM19 11c0 3-2 5-4 6"/></svg></button>
+            <button class="fmt-btn" title="无序列表" aria-label="无序列表"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.1" fill="currentColor" stroke="none"/></svg></button>
+            <button class="fmt-btn ai loading" title="润色中…"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/></svg>润色中…</button>
+          </div>
+          <div class="md-textarea">验证核心查询与交易链路在目标容量下的性能表现，确认系统在<span class="sel">预期峰值负载下满足 SLA 要求，并为容量规划提供数据依据</span>。</div>
+
+          <div class="polish-compare">
+            <div class="pc-pane">
+              <div class="pc-tag">选中原文 <span class="pc-len">26 字</span></div>
+              <div class="pc-body">预期峰值负载下满足 SLA 要求，并为容量规划提供数据依据</div>
+            </div>
+            <div class="pc-pane ai">
+              <div class="pc-tag">✨ 润色稿
+                <span class="pc-actions">
+                  <button class="tool-ico primary" style="width:24px;height:24px" title="采纳：仅替换选中片段" aria-label="采纳润色稿"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+                  <button class="tool-ico" style="width:24px;height:24px" title="放弃" aria-label="放弃润色稿"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                </span>
+              </div>
+              <div class="pc-body">在<mark>预期峰值负载</mark>下满足 SLA 要求，<mark>为容量规划提供数据依据</mark></div>
+            </div>
+          </div>
+          <div class="pc-diff-note">仅把选中文本发给润色接口 · 仅优化表达，结构与数字保持不变 · 采纳时只替换选中片段，块内其余内容原样保留 · 仍需「✓」保存本章后才生效</div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="legend">
+      <li><span class="dot add">A</span><span><b>选区驱动</b>：无选中文本时 ✨ 置灰（tooltip「划选文本后可润色」）；划选后点亮，点击仅发送选中片段。</span></li>
+      <li><span class="dot add">B</span><span><b>采纳只替换选中片段</b>：润色稿写回文本框时按选区偏移精确替换，选区外内容零改动；对比面板随即收起。</span></li>
+      <li><span class="dot add">C</span><span><b>竞态保护</b>：润色请求返回前若选区被改动/取消，过期结果丢弃并轻提示（沿用现弹窗「关闭即丢弃」语义）；润色中可继续编辑其他块。</span></li>
+      <li><span class="dot add">D</span><span><b>接口</b>：沿用 <code>polishPlanSectionApi</code>，body 由整章内容改为选中文本；表格块 / 图片块无润色入口。</span></li>
+    </ul>
+  </section>
+
+  <!-- ============ ⑥ 规则与边界 ============ -->
+  <section class="scene">
+    <div class="scene-title">
+      <span class="dot">6</span>
+      <h2>交互规则与边界</h2>
+    </div>
+    <div class="rules">
+      <div class="rule-card">
+        <h4><span class="dot">a</span>编辑互斥与焦点</h4>
+        <ul>
+          <li><b>同时只有一章处于编辑态</b>：编辑中点击其他章铅笔 → 若有未保存修改先弹确认，确认后切换。</li>
+          <li>进入编辑自动 focus 第一个可编辑块；<kbd>Esc</kbd> 取消、<kbd>⌘/Ctrl+S</kbd> 保存。</li>
+          <li>编辑态下该章的批注「＋」悬浮按钮与批注高亮暂停，保存恢复。</li>
+        </ul>
+      </div>
+      <div class="rule-card">
+        <h4><span class="dot">b</span>保存与冲突（链路不变）</h4>
+        <ul>
+          <li>保存 = 章内容重组 → <b>replaceSection 整文提交</b>，revision 冲突走现有三选一冲突弹窗。</li>
+          <li>保存成功后章内表格/图片立即以阅读态重新渲染（编辑态退出）。</li>
+          <li>表格序列化保持现有契约：指标章强制规范表头，其余章节保留文档原表头。</li>
+        </ul>
+      </div>
+      <div class="rule-card">
+        <h4><span class="dot">c</span>特殊章节与兼容</h4>
+        <ul>
+          <li><b>六、测试约束</b>（清单勾选）、<b>八、场景设计</b>（场景卡片）：交互模块章不提供行内编辑入口。</li>
+          <li>解析失败的非常规表格（列数不齐等）：该块降级为文本块编辑，不阻塞整章编辑。</li>
+          <li>ChecklistView / ScenarioDesignModule 渲染与批注层（anchor 行扫描）不受影响。</li>
+        </ul>
+      </div>
+      <div class="rule-card">
+        <h4><span class="dot">d</span>可访问性与暗色</h4>
+        <ul>
+          <li>图标按钮全部带 <code>aria-label / title</code>；focus 可见（主题色 outline）。</li>
+          <li>行/列删除为 hover 浮现 + 键盘可达（Tab 聚焦即显现）。</li>
+          <li>编辑态配色全部走 token，明暗主题自动适配（右上角可切换预览）。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</div>
+<script>
+  // 支持 #dark 直链截图/分享
+  if (location.hash === '#dark') document.documentElement.dataset.theme = 'dark';
+</script>
+</body>
+</html>

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="default">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>批注卡片优化 · 设计效果图</title>
+<style>
+  :root, :root[data-theme='default'] {
+    --canvas: #f4f6f8;
+    --surface: #ffffff;
+    --surface-soft: #f7fafb;
+    --ink: #1a2332;
+    --muted: #5c6b7a;
+    --line: #e2e8ee;
+    --line-strong: #c8d3dc;
+    --accent: #0b7f8a;
+    --accent-soft: #e6f5f6;
+    --ok: #2f9b6a;
+    --ok-soft: #e8f6ef;
+    --danger: #d14343;
+    --danger-soft: #fdecec;
+    --anno-bg: #fff7e6;
+    --anno-bar: #ffd591;
+    --anno-text: #d46b08;
+    --shadow: 0 1px 2px rgb(16 24 40 / 4%);
+  }
+  :root[data-theme='dark'] {
+    --canvas: #0e141a;
+    --surface: #161d26;
+    --surface-soft: #1a222d;
+    --ink: rgba(255, 255, 255, 0.88);
+    --muted: rgba(255, 255, 255, 0.45);
+    --line: #2a3440;
+    --line-strong: #3a4654;
+    --accent: #2bb3bf;
+    --accent-soft: rgba(43, 179, 191, 0.16);
+    --ok: #58c98f;
+    --ok-soft: rgba(47, 155, 106, 0.18);
+    --danger: #ef6a6a;
+    --danger-soft: rgba(209, 67, 67, 0.18);
+    --anno-bg: rgb(255 197 61 / 10%);
+    --anno-bar: #ffc53d;
+    --anno-text: #ffc53d;
+    --shadow: none;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    padding: 40px 48px 72px;
+    transition: background .2s, color .2s;
+  }
+  .page { max-width: 1180px; margin: 0 auto; }
+
+  /* ---------- 页头 ---------- */
+  .page-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 34px; }
+  .page-head h1 { font-size: 21px; font-weight: 700; letter-spacing: 0.2px; }
+  .page-head .sub { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .theme-toggle {
+    margin-left: auto; border: 1px solid var(--line); background: var(--surface);
+    color: var(--muted); border-radius: 8px; padding: 6px 14px; font-size: 12.5px;
+    cursor: pointer; font-family: inherit;
+  }
+  .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+  .kicker { color: var(--muted); font-size: 11px; letter-spacing: 0.4px; margin: 0 0 10px; }
+
+  /* ---------- 对照区 ---------- */
+  .compare { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 48px; }
+  .compare-col { width: 336px; }
+  .compare-col .col-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+  .compare-col .col-title { font-size: 13px; font-weight: 700; }
+  .compare-col.after .col-title { color: var(--accent); }
+  .h-chip {
+    font-size: 11px; color: var(--muted); border: 1px solid var(--line);
+    border-radius: 999px; padding: 0 9px; background: var(--surface);
+  }
+  .h-chip b { color: var(--ink); font-weight: 600; }
+  .save-chip { background: var(--ok-soft); color: var(--ok); border-color: transparent; font-weight: 600; }
+
+  /* ①②③④ 序号标 */
+  .dot {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: var(--danger); color: #fff; font-size: 10px; font-style: normal;
+    font-weight: 700; vertical-align: 2px; flex: none;
+  }
+  .dot.add { background: var(--accent); }
+
+  .legend { flex: 1; min-width: 300px; align-self: stretch; border-left: 1px dashed var(--line); padding-left: 28px; }
+  .legend h3 { font-size: 13px; margin-bottom: 12px; }
+  .legend li { list-style: none; display: flex; gap: 9px; font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+  .legend li b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- 现状卡片（1:1 复刻现网样式） ---------- */
+  .anno-card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 9px 11px;
+    font-size: 12.5px;
+    line-height: 1.65;
+    box-shadow: var(--shadow);
+  }
+  .anno-card-head { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11.5px; }
+  .anno-card-author { color: var(--ink); font-weight: 600; }
+  .anno-card-rev, .anno-card-state { border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 10.5px; }
+  .anno-card-quote {
+    margin: 6px 0; padding: 2px 8px; border-left: 2px solid var(--anno-bar);
+    background: var(--anno-bg); color: var(--muted); font-size: 11.5px; border-radius: 0 4px 4px 0;
+  }
+  .anno-card-body { white-space: pre-wrap; word-break: break-word; }
+  .anno-card-reply-entry {
+    margin-top: 6px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px;
+    color: var(--muted); font-size: 11.5px; background: var(--surface-soft);
+  }
+  .anno-card-actions { display: flex; align-items: center; gap: 10px; margin-top: 5px; font-size: 12px; }
+  .anno-card-actions .locate { color: var(--accent); margin-right: auto; }
+  .anno-card-actions .resolve { color: var(--accent); }
+  .anno-card-actions .del { color: var(--danger); }
+
+  /* ---------- 优化后卡片 ---------- */
+  .oc-card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 8px 11px 9px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    box-shadow: var(--shadow);
+    transition: border-color .15s;
+  }
+  .oc-card + .oc-card { margin-top: 8px; }
+  .oc-card:hover { border-color: var(--line-strong); }
+  .oc-card.grey { opacity: 0.62; }
+
+  .oc-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  .oc-avatar {
+    width: 20px; height: 20px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #fff;
+  }
+  .oc-avatar.t{ background: var(--accent); }
+  .oc-avatar.o{ background: #d46b08; }
+  .oc-avatar.p{ background: #7c5cbf; }
+  .oc-author { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .oc-time { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .oc-spacer { flex: 1; }
+  .oc-state {
+    flex: none; font-size: 10.5px; border-radius: 4px; padding: 0 6px; line-height: 1.7;
+    background: var(--anno-bg); color: var(--anno-text);
+  }
+  .oc-state.done { background: var(--ok-soft); color: var(--ok); }
+
+  .oc-acts { display: flex; align-items: center; gap: 2px; flex: none; }
+  .oc-card:not(:hover) .oc-acts { opacity: 0.55; }
+  .oc-ibtn {
+    position: relative;
+    width: 22px; height: 22px; border-radius: 6px; border: none;
+    background: transparent; color: var(--muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .12s, color .12s;
+  }
+  .oc-ibtn:hover { background: var(--accent-soft); color: var(--accent); }
+  .oc-ibtn.danger:hover { background: var(--danger-soft); color: var(--danger); }
+  .oc-ibtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .oc-ibtn svg { width: 13px; height: 13px; }
+  .oc-ibtn::after {
+    content: attr(data-tip);
+    position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%) scale(.96);
+    background: var(--ink); color: var(--surface);
+    font-size: 11px; line-height: 1; padding: 5px 8px; border-radius: 6px;
+    white-space: nowrap; opacity: 0; pointer-events: none;
+    transition: opacity .12s, transform .12s; z-index: 30;
+  }
+  .oc-ibtn:hover::after { opacity: 1; transform: translateX(-50%) scale(1); }
+
+  .oc-body { margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
+  .oc-reply {
+    display: flex; align-items: flex-start; gap: 6px;
+    border-top: 1px dashed var(--line); margin-top: 7px; padding-top: 6px;
+  }
+  .oc-reply p { flex: 1; min-width: 0; word-break: break-word; }
+  .oc-reply p b { font-weight: 600; }
+  .oc-reply .oc-ibtn { width: 18px; height: 18px; opacity: .5; flex: none; }
+  .oc-reply .oc-ibtn:hover { opacity: 1; }
+  .oc-reply .oc-ibtn svg { width: 11px; height: 11px; }
+  .oc-reply-entry {
+    margin-top: 7px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px;
+    color: var(--muted); font-size: 11.5px; background: var(--surface-soft); cursor: pointer;
+  }
+  .oc-reply-entry:hover { border-color: var(--accent); color: var(--accent); }
+  .oc-locked { margin-top: 6px; color: var(--muted); font-size: 11px; }
+
+  /* ---------- 完整面板效果 ---------- */
+  .full { display: flex; gap: 36px; align-items: flex-start; flex-wrap: wrap; }
+  .panel {
+    width: 328px; flex: none;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .panel-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 14px; border-bottom: 1px solid var(--line); font-size: 13px; font-weight: 700;
+  }
+  .panel-head .cnt { color: var(--muted); font-size: 11.5px; font-weight: 400; }
+  .panel-head .cnt b { color: var(--ink); font-weight: 600; }
+  .panel-scroll { padding: 10px 12px 14px; display: flex; flex-direction: column; }
+  .panel-group { color: var(--muted); font-size: 11px; letter-spacing: 0.4px; margin: 8px 0 6px; }
+  .panel-group.grey { opacity: .75; }
+
+  .notes { flex: 1; min-width: 320px; }
+  .notes h3 { font-size: 14px; margin: 0 0 6px; }
+  .notes .blk { margin-bottom: 22px; }
+  .notes ul { list-style: none; }
+  .notes li { display: flex; gap: 9px; font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+  .notes li b { color: var(--ink); font-weight: 600; }
+  .notes code {
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11px;
+    background: var(--surface-soft); border: 1px solid var(--line);
+    border-radius: 4px; padding: 0 5px; color: var(--accent);
+  }
+  .ic { width: 15px; height: 15px; flex: none; margin-top: 3px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="page-head">
+    <div>
+      <h1>批注卡片优化 · 设计效果图</h1>
+      <div class="sub">以节省卡片纵向空间为主 —— 删 rev 徽标 / 删引用块 / 动作并入首行图标化 / 新增编辑。悬停卡片可预览图标反馈与 Tooltip。</div>
+    </div>
+    <button class="theme-toggle" onclick="const r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'default':'dark'">切换明 / 暗</button>
+  </div>
+
+  <!-- ============ ① 单卡对照 ============ -->
+  <p class="kicker">一、单卡对照（同一批注，真实数据）</p>
+  <div class="compare">
+
+    <div class="compare-col">
+      <div class="col-head">
+        <span class="col-title">现状</span>
+        <span class="h-chip">卡片高度 <b id="h-before">—</b></span>
+      </div>
+      <div class="anno-card" id="before-card">
+        <div class="anno-card-head">
+          <span class="anno-card-author">admin</span>
+          <span>2026/9/11 09:55:15</span>
+          <span class="anno-card-rev">rev 23 <i class="dot">1</i></span>
+          <span class="anno-card-state">待处理</span>
+        </div>
+        <div class="anno-card-quote">「全链路 错误率 ≤ 0.1% 不含按设计拒绝的请求」<i class="dot">2</i></div>
+        <div class="anno-card-body">覆盖地方规划房贷好</div>
+        <div class="anno-card-reply-entry">回复…</div>
+        <div class="anno-card-actions"><i class="dot">3</i>
+          <a class="locate">↧ 定位</a>
+          <a class="resolve">✓ 解决</a>
+          <a class="del">删除</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="compare-col after">
+      <div class="col-head">
+        <span class="col-title">优化后</span>
+        <span class="h-chip">卡片高度 <b id="h-after">—</b></span>
+        <span class="h-chip save-chip" id="h-save">—</span>
+      </div>
+      <div class="oc-card">
+        <div class="oc-head">
+          <span class="oc-avatar t">A</span>
+          <span class="oc-author">admin</span>
+          <span class="oc-time" title="2026/9/11 09:55:15">09:55:15</span>
+          <span class="oc-spacer"></span>
+          <span class="oc-state">待处理</span>
+          <span class="oc-acts">
+            <button class="oc-ibtn" data-tip="定位到正文" aria-label="定位到正文">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+            </button>
+            <button class="oc-ibtn" data-tip="编辑批注" aria-label="编辑批注">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </button>
+            <button class="oc-ibtn" data-tip="标记解决" aria-label="标记解决">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </button>
+            <button class="oc-ibtn danger" data-tip="删除批注" aria-label="删除批注">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </button>
+          </span>
+        </div>
+        <div class="oc-body">覆盖地方规划房贷好</div>
+        <div class="oc-reply-entry">回复…</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h3>改动点</h3>
+      <ul>
+        <li><i class="dot">1</i><span><b>删除 rev 徽标</b>：rev 23 是批注创建时文档正文的修订号快照（bodyRevision），纯展示性元数据，前后端均无锚定逻辑消费，对评审者无意义。</span></li>
+        <li><i class="dot">2</i><span><b>删除引用块</b>：被批注的原文不再展示，需要上下文时点「定位」跳到正文处查看，避免长引用把卡片撑高数倍。</span></li>
+        <li><i class="dot">3</i><span><b>动作并入首行</b>：定位 / 解决 / 删除文字按钮整行删除，改为首行右侧 22px 图标按钮（hover 有底色反馈 + Tooltip），底部动作行整体消失。</span></li>
+        <li><i class="dot add">4</i><span><b>新增编辑</b>：批注内容支持修改，铅笔图标进入编辑态（与删除同样仅本人可见）。</span></li>
+        <li><i class="dot add">＋</i><span><b>首行加头像占位</b>：20px 圆形首字符头像，按人名取色区分，后续可平滑替换为真实头像。</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ ② 完整面板 ============ -->
+  <p class="kicker">二、批注面板整体效果（各状态：待处理 / 含回复 / 已解决 / 长引用来源）</p>
+  <div class="full">
+
+    <div class="panel">
+      <div class="panel-head">批注 <span class="cnt">未解决 <b>4</b> · 已解决 <b>1</b></span></div>
+      <div class="panel-scroll">
+
+        <div class="panel-group">三、测试指标</div>
+
+        <div class="oc-card">
+          <div class="oc-head">
+            <span class="oc-avatar t">A</span><span class="oc-author">admin</span>
+            <span class="oc-time">09:55:15</span><span class="oc-spacer"></span>
+            <span class="oc-state">待处理</span>
+            <span class="oc-acts">
+              <button class="oc-ibtn" data-tip="定位到正文" aria-label="定位到正文"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg></button>
+              <button class="oc-ibtn" data-tip="编辑批注" aria-label="编辑批注"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+              <button class="oc-ibtn" data-tip="标记解决" aria-label="标记解决"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+              <button class="oc-ibtn danger" data-tip="删除批注" aria-label="删除批注"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
+            </span>
+          </div>
+          <div class="oc-body">覆盖地方规划房贷好</div>
+          <div class="oc-reply-entry">回复…</div>
+        </div>
+
+        <div class="panel-group">五、测试资源</div>
+
+        <div class="oc-card">
+          <div class="oc-head">
+            <span class="oc-avatar t">A</span><span class="oc-author">admin</span>
+            <span class="oc-time">09:55:56</span><span class="oc-spacer"></span>
+            <span class="oc-state">待处理</span>
+            <span class="oc-acts">
+              <button class="oc-ibtn" data-tip="定位到正文" aria-label="定位到正文"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg></button>
+              <button class="oc-ibtn" data-tip="编辑批注" aria-label="编辑批注"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+              <button class="oc-ibtn" data-tip="标记解决" aria-label="标记解决"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+              <button class="oc-ibtn danger" data-tip="删除批注" aria-label="删除批注"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
+            </span>
+          </div>
+          <div class="oc-body">二个</div>
+          <div class="oc-reply">
+            <p><b>李工</b>：指标口径已确认，按设计拒绝不计入错误率。</p>
+            <button class="oc-ibtn danger" data-tip="删除回复" aria-label="删除回复"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+          </div>
+          <div class="oc-reply-entry">回复…</div>
+        </div>
+
+        <div class="oc-card grey">
+          <div class="oc-head">
+            <span class="oc-avatar t">A</span><span class="oc-author">admin</span>
+            <span class="oc-time">09:56:01</span><span class="oc-spacer"></span>
+            <span class="oc-state done">已解决</span>
+            <span class="oc-acts">
+              <button class="oc-ibtn" data-tip="定位到正文" aria-label="定位到正文"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg></button>
+              <button class="oc-ibtn" data-tip="编辑批注" aria-label="编辑批注"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+              <button class="oc-ibtn" data-tip="重新打开" aria-label="重新打开"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>
+              <button class="oc-ibtn danger" data-tip="删除批注" aria-label="删除批注"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
+            </span>
+          </div>
+          <div class="oc-body">给第三方</div>
+          <div class="oc-locked">已解决线程已锁定，先「重新打开」再回复。</div>
+        </div>
+
+        <div class="panel-group">十二、结论</div>
+
+        <div class="oc-card">
+          <div class="oc-head">
+            <span class="oc-avatar t">A</span><span class="oc-author">admin</span>
+            <span class="oc-time">10:50:08</span><span class="oc-spacer"></span>
+            <span class="oc-state">待处理</span>
+            <span class="oc-acts">
+              <button class="oc-ibtn" data-tip="定位到正文" aria-label="定位到正文"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg></button>
+              <button class="oc-ibtn" data-tip="编辑批注" aria-label="编辑批注"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+              <button class="oc-ibtn" data-tip="标记解决" aria-label="标记解决"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+              <button class="oc-ibtn danger" data-tip="删除批注" aria-label="删除批注"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
+            </span>
+          </div>
+          <div class="oc-body">结论章节整体缺少与压测证据的勾稽说明，建议补充各阶段 TPS / RT 数据归档位置后再上会。</div>
+          <div class="oc-reply-entry">回复…</div>
+        </div>
+
+        <div class="oc-card">
+          <div class="oc-head">
+            <span class="oc-avatar o">w</span><span class="oc-author">wshg df</span>
+            <span class="oc-time">11:02:44</span><span class="oc-spacer"></span>
+            <span class="oc-state">待处理</span>
+            <span class="oc-acts">
+              <button class="oc-ibtn" data-tip="定位到正文" aria-label="定位到正文"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg></button>
+            </span>
+          </div>
+          <div class="oc-body">wshg df</div>
+          <div class="oc-reply-entry">回复…</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="blk">
+        <h3>空间收益</h3>
+        <ul>
+          <li><span>单行批注卡片高度约 <b style="color:var(--danger)">150px → 98px</b>，省 <b style="color:var(--ok)">~36%</b>；</span></li>
+          <li><span>长引用批注（原十二章那条 10 行引用）由 <b style="color:var(--danger)">~230px</b> 降到 <b style="color:var(--ok)">~98px</b>，省 <b style="color:var(--ok)">~57%</b>；</span></li>
+          <li><span>同屏可见批注数量约提升 60%–100%，滚动显著减少。</span></li>
+        </ul>
+      </div>
+      <div class="blk">
+        <h3>交互与无障碍要点</h3>
+        <ul>
+          <li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>图标按钮<b>常驻显示</b>（非悬停才出现），默认 55% 弱化、悬停增强 —— 避免违反「唯一动作不得仅 hover 触达」的无障碍红线。</span></li>
+          <li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>每个图标带 <b>aria-label + Tooltip</b>（落地用 a-tooltip），键盘 focus-visible 有描边；「已解决」状态保留文字徽章，不只靠颜色。</span></li>
+          <li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>340px 侧栏的首行预算：头像 20 + 作者（超宽省略）+ 时间压缩为「09:55:15」（完整日期时间入 Tooltip）+ 状态徽章 + 4 图标 ≈ 266px，实际可用 294px，留 28px 弹性。</span></li>
+          <li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>删除为危险色 hover；「解决 ↔ 重新打开」同一位置切换图标（✓ / ↺），不增按钮。</span></li>
+          <li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>图标可见性沿用现有权限位：<code>canResolve</code> / <code>canDelete</code> 门控，编辑新增 <code>canEdit</code>（仅本人）；无 anchorLine 时隐藏定位。</span></li>
+        </ul>
+      </div>
+      <div class="blk">
+        <h3>落地映射</h3>
+        <ul>
+          <li><span>组件：<code>PlanCommentCard.vue</code>（文档侧栏与评审工作台 <code>.workbench-list</code> 共用，一处改两处生效）；样式：<code>plan-module.css</code> 的 <code>.anno-card-*</code> 系列整体替换为 <code>.oc-*</code>。</span></li>
+          <li><span>图标取自现有依赖 <code>@ant-design/icons-vue</code>：AimOutlined（定位）/ EditOutlined（编辑）/ CheckOutlined（解决）/ UndoOutlined（重新打开）/ DeleteOutlined（删除）。</span></li>
+          <li><span>编辑需要后端配套：批注域服务（<code>PlanCommentService</code>）当前只有增删查，需补 PATCH 端点 + <code>canEdit</code> 权限位；头像先按人名首字符 + 哈希取色占位。</span></li>
+          <li><span><code>bodyRevision</code> 仅从卡片 UI 移除，字段保留在数据层，不阻塞本改动。</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  if (location.search.includes('dark')) document.documentElement.dataset.theme = 'dark';
+  const hb = document.getElementById('before-card').offsetHeight;
+  const ha = document.querySelector('.compare-col.after .oc-card').offsetHeight;
+  document.getElementById('h-before').textContent = hb + 'px';
+  document.getElementById('h-after').textContent = ha + 'px';
+  document.getElementById('h-save').textContent = '↓ 省 ' + Math.round((1 - ha / hb) * 100) + '%';
+</script>
+</body>
+</html>

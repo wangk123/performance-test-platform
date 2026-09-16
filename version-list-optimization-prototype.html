@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="default">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>版本列表优化 · 设计效果图</title>
+<style>
+  :root, :root[data-theme='default'] {
+    --canvas: #f4f6f8;
+    --surface: #ffffff;
+    --surface-soft: #f7fafb;
+    --ink: #1a2332;
+    --muted: #5c6b7a;
+    --line: #e2e8ee;
+    --line-strong: #c8d3dc;
+    --accent: #0b7f8a;
+    --accent-soft: #e6f5f6;
+    --accent-ink: #ffffff;
+    --ok: #2f9b6a;
+    --ok-soft: #e8f6ef;
+    --danger: #d14343;
+    --shadow: 0 1px 2px rgb(16 24 40 / 4%);
+    --font-ui: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-data: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  :root[data-theme='dark'] {
+    --canvas: #0e141a;
+    --surface: #161d26;
+    --surface-soft: #1c2530;
+    --ink: rgba(255, 255, 255, 0.88);
+    --muted: rgba(255, 255, 255, 0.45);
+    --line: #2a3440;
+    --line-strong: #3a4654;
+    --accent: #2bb3bf;
+    --accent-soft: rgba(43, 179, 191, 0.16);
+    --accent-ink: #06282b;
+    --ok: #58c98f;
+    --ok-soft: rgba(47, 155, 106, 0.18);
+    --danger: #ef6a6a;
+    --shadow: none;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.65;
+    padding: 40px 48px 72px;
+    transition: background .2s, color .2s;
+  }
+  .page { max-width: 1280px; margin: 0 auto; }
+
+  /* ---------- 页头 ---------- */
+  .page-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 30px; }
+  .page-head h1 { font-size: 21px; font-weight: 700; letter-spacing: 0.2px; }
+  .page-head .sub { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .theme-toggle {
+    margin-left: auto; border: 1px solid var(--line); background: var(--surface);
+    color: var(--muted); border-radius: 8px; padding: 6px 14px; font-size: 12.5px;
+    cursor: pointer; font-family: inherit;
+  }
+  .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ---------- 对照区 ---------- */
+  .compare { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 44px; }
+  .compare-col { flex: 1; min-width: 420px; }
+  .col-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+  .col-title { font-size: 13px; font-weight: 700; }
+  .after .col-title { color: var(--accent); }
+  .h-chip {
+    font-size: 11px; color: var(--muted); border: 1px solid var(--line);
+    border-radius: 999px; padding: 0 9px; background: var(--surface);
+  }
+
+  /* 序号标 */
+  .dot {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: var(--danger); color: #fff; font-size: 10px; font-style: normal;
+    font-weight: 700; vertical-align: 2px; flex: none;
+  }
+  .dot.add { background: var(--accent); }
+
+  .legend { border-top: 1px dashed var(--line); padding-top: 22px; }
+  .legend h3 { font-size: 13px; margin-bottom: 12px; }
+  .legend-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px 32px; }
+  .legend li { list-style: none; display: flex; gap: 9px; font-size: 12.5px; color: var(--muted); margin-bottom: 9px; }
+  .legend li b { color: var(--ink); font-weight: 600; }
+
+  /* =======================================================
+     现状：1:1 复刻 PlanDetailVersions.vue 版本列表
+     ======================================================= */
+  .cur-main { display: flex; flex-direction: column; gap: 10px; }
+  .cur-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .cur-dirty { color: var(--ink); font-size: 12.5px; font-weight: 600; }
+  .btn-primary {
+    border: none; border-radius: 6px; background: var(--accent); color: var(--accent-ink);
+    font-size: 12.5px; font-weight: 600; padding: 4px 14px; cursor: pointer; font-family: inherit;
+  }
+  .cur-row {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  .cur-row-main { display: flex; align-items: baseline; gap: 10px; }
+  .cur-row-no { color: var(--ink); font: 650 13.5px var(--font-ui); }
+  .cur-row-note { color: var(--ink); font-size: 12.5px; }
+  .cur-row-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 12px; }
+  .cur-row-actions { display: flex; gap: 4px; margin-left: -8px; margin-top: 3px; }
+  .btn-text {
+    border: none; background: none; color: var(--accent); font-size: 12.5px;
+    padding: 2px 8px; cursor: pointer; font-family: inherit; border-radius: 6px;
+  }
+
+  /* =======================================================
+     优化后：单卡片时间轴列表
+     ======================================================= */
+  .new-main { display: flex; flex-direction: column; gap: 10px; }
+  .new-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .new-dirty { color: var(--ink); font-size: 12.5px; font-weight: 600; }
+
+  .timeline-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .tl-row {
+    display: flex; align-items: stretch; gap: 0;
+    padding: 0 16px 0 0;
+  }
+  .tl-row + .tl-row { border-top: 1px solid var(--line); }
+  .tl-row:hover { background: var(--surface-soft); }
+
+  /* 时间轴 rail */
+  .tl-rail { flex: none; width: 44px; position: relative; }
+  .tl-rail::before {
+    content: ""; position: absolute; left: 21px; top: 0; bottom: 0;
+    width: 2px; background: var(--line);
+  }
+  .tl-row:first-child .tl-rail::before { top: 50%; }
+  .tl-row:last-child .tl-rail::before { bottom: auto; height: 50%; }
+  .tl-node {
+    position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--line-strong); z-index: 1;
+  }
+  .tl-row.is-latest .tl-node { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  .tl-body { flex: 1; min-width: 0; padding: 11px 0; display: flex; flex-direction: column; gap: 2px; }
+  .tl-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .tl-no { font: 700 13px var(--font-data); color: var(--ink); letter-spacing: 0.2px; }
+  .tl-latest {
+    flex: none; padding: 0 7px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); font-size: 10.5px; font-weight: 700;
+  }
+  .tl-kind {
+    flex: none; padding: 0 8px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 600;
+  }
+  .tl-note { min-width: 0; color: var(--ink); font-size: 12.5px; font-weight: 500; overflow-wrap: anywhere; }
+  .tl-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: 12px; }
+  .tl-meta .sep { opacity: 0.55; }
+  .tl-meta .author { color: var(--muted); }
+
+  .tl-actions { flex: none; display: flex; align-items: center; gap: 2px; }
+  .tl-actions .btn-text { color: var(--muted); }
+  .tl-row:hover .tl-actions .btn-text { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-head">
+    <div>
+      <h1>版本列表优化 · 设计效果图</h1>
+      <div class="sub">任务计划详情 · 版本 Tab —— 现状对照与优化方案（数据为现网截图真实数据）</div>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()">🌙 暗色主题</button>
+  </div>
+
+  <div class="compare">
+    <!-- 现状 -->
+    <div class="compare-col">
+      <div class="col-head">
+        <span class="col-title">现状</span>
+        <span class="h-chip"><i class="dot">1</i> 每版本独立卡片 · 四段纵排</span>
+      </div>
+      <div class="cur-main">
+        <div class="cur-toolbar">
+          <span class="cur-dirty">有未发布的变更：当前文档与最新版本快照不一致</span>
+          <button class="btn-primary">新增版本</button>
+        </div>
+        <div class="cur-row">
+          <div class="cur-row-main">
+            <span class="cur-row-no">V2.0 <i class="dot">2</i></span>
+            <span class="cur-row-note">留痕-覆盖测试（同号小修）</span>
+          </div>
+          <div class="cur-row-meta">
+            <span>修订人 admin</span>
+            <span>修订于 09/10 17:27</span>
+            <span>DRAFT <i class="dot">4</i></span>
+          </div>
+          <div class="cur-row-actions">
+            <button class="btn-text">查看全文</button>
+            <button class="btn-text">回滚到此版本 <i class="dot">3</i></button>
+          </div>
+        </div>
+        <div class="cur-row">
+          <div class="cur-row-main">
+            <span class="cur-row-no">V1.0</span>
+            <span class="cur-row-note">留痕-小修覆盖</span>
+          </div>
+          <div class="cur-row-meta">
+            <span>修订人 admin</span>
+            <span>修订于 09/10 17:26</span>
+            <span>DRAFT</span>
+          </div>
+          <div class="cur-row-actions">
+            <button class="btn-text">查看全文</button>
+            <button class="btn-text">回滚到此版本</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 优化后 -->
+    <div class="compare-col after">
+      <div class="col-head">
+        <span class="col-title">优化后</span>
+        <span class="h-chip">单卡片时间轴 · 行密度约 ×2</span>
+      </div>
+      <div class="new-main">
+        <div class="new-toolbar">
+          <span class="new-dirty">有未发布的变更：当前文档与最新版本快照不一致</span>
+          <button class="btn-primary">新增版本</button>
+        </div>
+        <div class="timeline-card">
+          <div class="tl-row is-latest">
+            <div class="tl-rail"><i class="tl-node"></i></div>
+            <div class="tl-body">
+              <div class="tl-head">
+                <span class="tl-no">V2.0</span>
+                <span class="tl-latest">最新</span>
+                <span class="tl-note">留痕-覆盖测试（同号小修）</span>
+              </div>
+              <div class="tl-meta">
+                <span class="author">admin</span><span class="sep">·</span>
+                <span>修订于 09/10 17:27</span>
+              </div>
+            </div>
+            <div class="tl-actions">
+              <button class="btn-text">查看全文</button>
+              <button class="btn-text">回滚到此版本</button>
+            </div>
+          </div>
+          <div class="tl-row">
+            <div class="tl-rail"><i class="tl-node"></i></div>
+            <div class="tl-body">
+              <div class="tl-head">
+                <span class="tl-no">V1.0</span>
+                <span class="tl-note">留痕-小修覆盖</span>
+              </div>
+              <div class="tl-meta">
+                <span class="author">admin</span><span class="sep">·</span>
+                <span>修订于 09/10 17:26</span>
+              </div>
+            </div>
+            <div class="tl-actions">
+              <button class="btn-text">查看全文</button>
+              <button class="btn-text">回滚到此版本</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图例 -->
+  <div class="legend">
+    <h3>优化点说明</h3>
+    <ul class="legend-grid">
+      <li><i class="dot">1</i><span><b>问题 · 信息密度低</b>：每版本独立卡片 + 纵排四段信息，单版本占约 3 行高，版本多时页面被撑长、留白浪费。</span></li>
+      <li><i class="dot">2</i><span><b>问题 · 无演进感</b>：版本号与说明平铺，看不出时间先后，也分不出哪个是当前最新基线。</span></li>
+      <li><i class="dot">3</i><span><b>问题 · 操作喧宾夺主</b>：「查看全文 / 回滚」独占一行，次要操作占据了主要视觉空间。</span></li>
+      <li><i class="dot add">A</i><span><b>单卡片 + 分隔线</b>：版本收进一张卡片，行间分隔线替代独立边框，行高压缩约一半。</span></li>
+      <li><i class="dot add">B</i><span><b>时间轴节点</b>：左侧竖线 + 圆点表达版本演进顺序；最新版本实心高亮 + 光环，一眼定位。</span></li>
+      <li><i class="dot add">C</i><span><b>meta 内联</b>：修订人 / 时间合并为一行分隔点样式；操作按钮右对齐与行垂直居中，行 hover 时才高亮为品牌色（默认弱化为灰，减少噪声）。</span></li>
+      <li><i class="dot add">D</i><span><b>「最新」徽标</b>：标记列表头节点，配合「有未发布的变更」提示，快速判断快照基线；「报告发布」类型徽标位置保留（本次数据无 PUBLISH 版本故未展示）。</span></li>
+      <li><i class="dot">4</i><span><b>问题 · 冗余字段</b>：行尾的「阶段」字段（如 DRAFT）信息价值低，且历史版本存的是旧状态机裸枚举，显示出来反而造成困惑。</span></li>
+      <li><i class="dot add">E</i><span><b>移除「阶段」字段</b>：meta 仅保留 修订人 · 时间；该字段不再展示，前端对应删除 statusLabel 渲染。</span></li>
+    </ul>
+  </div>
+</div>
+<script>
+  if (location.hash === '#dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.querySelector('.theme-toggle').textContent = '☀️ 亮色主题';
+  }
+  function toggleTheme() {
+    const root = document.documentElement;
+    const dark = root.getAttribute('data-theme') === 'dark';
+    root.setAttribute('data-theme', dark ? 'default' : 'dark');
+    document.querySelector('.theme-toggle').textContent = dark ? '🌙 暗色主题' : '☀️ 亮色主题';
+  }
+</script>
+</body>
+</html>
