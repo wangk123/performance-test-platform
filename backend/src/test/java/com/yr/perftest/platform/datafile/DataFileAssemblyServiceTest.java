@@ -99,6 +99,8 @@ public class DataFileAssemblyServiceTest {
             missingBindingFailsWithStepName();
             bareFilenameUniqueFallback();
             duplicateTargetFileNameRejected();
+            parentPathTargetFileNameRejected();
+            absolutePathTargetFileNameRejected();
         } catch (AssertionError error) {
             throw error;
         } catch (Exception exception) {
@@ -221,6 +223,31 @@ public class DataFileAssemblyServiceTest {
                 "message lists conflicting filename: " + exception.getMessage());
     }
 
+    static void parentPathTargetFileNameRejected() throws Exception {
+        assertIllegalTargetFileNameRejected("../evil.csv", "assembly-traversal-parent");
+    }
+
+    static void absolutePathTargetFileNameRejected() throws Exception {
+        assertIllegalTargetFileNameRejected("/tmp/evil.csv", "assembly-traversal-absolute");
+    }
+
+    private static void assertIllegalTargetFileNameRejected(String fileName, String tempDirPrefix) throws Exception {
+        Path root = Files.createTempDirectory(tempDirPrefix);
+        Path scriptPath = writeScript(root.resolve("plan.jmx"), singleCsvStepJmx(fileName));
+        DataFileAssemblyService assembly = assemblyService(
+                new StubDataFileService(Map.of(), Map.of()),
+                projectOwnedFiles(Map.of()));
+
+        ExecutionValidationException exception = TestSupport.assertThrows(ExecutionValidationException.class,
+                () -> assembly.plan(PROJECT_ID, "[]", scriptPath, root),
+                "illegal target file name should be rejected: " + fileName);
+
+        assertTrue(exception.getMessage().contains("用户数据"),
+                "message contains step name: " + exception.getMessage());
+        assertTrue(exception.getMessage().contains(fileName),
+                "message contains illegal file name: " + exception.getMessage());
+    }
+
     static void bindingJsonRoundTrip() {
         ScenarioThreadGroupConfigSupport support =
                 new ScenarioThreadGroupConfigSupport(new ObjectMapper(), new JmeterScriptParser());
@@ -298,6 +325,32 @@ public class DataFileAssemblyServiceTest {
     private static Path writeScript(Path scriptPath, String jmx) throws Exception {
         Files.createDirectories(scriptPath.getParent());
         return Files.writeString(scriptPath, jmx);
+    }
+
+    private static String singleCsvStepJmx(String fileName) {
+        return """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+                  <hashTree>
+                    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                    <hashTree>
+                      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Main" enabled="true">
+                        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+                        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+                        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+                          <stringProp name="LoopController.loops">1</stringProp>
+                        </elementProp>
+                      </ThreadGroup>
+                      <hashTree>
+                        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="用户数据" enabled="true">
+                          <stringProp name="filename">%s</stringProp>
+                        </CSVDataSet>
+                        <hashTree/>
+                      </hashTree>
+                    </hashTree>
+                  </hashTree>
+                </jmeterTestPlan>
+                """.formatted(fileName);
     }
 
     private static String csvStepId(String jmx, int index) {

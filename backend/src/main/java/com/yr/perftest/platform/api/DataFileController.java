@@ -4,7 +4,6 @@ import com.yr.perftest.platform.datafile.DataFile;
 import com.yr.perftest.platform.datafile.DataFileVersion;
 import com.yr.perftest.platform.datafile.DataFileVersionDetail;
 import com.yr.perftest.platform.datafile.DataFileService;
-import com.yr.perftest.platform.datafile.DataFileValidationException;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
@@ -12,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,7 +25,6 @@ import java.net.MalformedURLException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/projects/{projectId}/data-files")
@@ -96,10 +93,5 @@ public class DataFileController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable long projectId, @PathVariable long dataFileId) {
         dataFileService.delete(projectId, dataFileId);
-    }
-
-    @ExceptionHandler(DataFileValidationException.class)
-    public ResponseEntity<Map<String, String>> handleValidation(DataFileValidationException exception) {
-        return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
     }
 }

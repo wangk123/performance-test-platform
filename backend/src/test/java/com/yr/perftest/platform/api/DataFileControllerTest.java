@@ -129,12 +129,14 @@ public class DataFileControllerTest {
                         .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", is("data file name is required")));
+                .andExpect(jsonPath("$.code", is("DATAFILE_VALIDATION_FAILED")))
+                .andExpect(jsonPath("$.message", is("data file name is required")));
 
         mockMvc.perform(get("/api/projects/1/data-files/999/versions/1")
                         .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", is(
+                .andExpect(jsonPath("$.code", is("DATAFILE_VALIDATION_FAILED")))
+                .andExpect(jsonPath("$.message", is(
                         "data file does not exist: dataFileId=999")));
     }
 

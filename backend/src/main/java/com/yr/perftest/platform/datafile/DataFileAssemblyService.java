@@ -52,7 +52,7 @@ public class DataFileAssemblyService {
             ScenarioDataFileBinding binding = bindings.get(step.id());
             if (binding != null) {
                 plans.add(boundPlan(projectId, binding, step, fileName));
-            } else if (Files.notExists(executionDirectory.resolve(fileName))) {
+            } else if (Files.notExists(resolveTarget(executionDirectory, fileName, step.name()))) {
                 CsvAssemblyPlan fallback = fallbackPlan(projectId, step, fileName);
                 if (fallback != null) {
                     plans.add(fallback);
@@ -70,8 +70,8 @@ public class DataFileAssemblyService {
         try {
             Files.createDirectories(executionDirectory);
             for (CsvAssemblyPlan plan : plans) {
-                Files.copy(plan.sourcePath(), executionDirectory.resolve(plan.targetFileName()),
-                        StandardCopyOption.REPLACE_EXISTING);
+                Path target = resolveTarget(executionDirectory, plan.targetFileName(), plan.stepName());
+                Files.copy(plan.sourcePath(), target, StandardCopyOption.REPLACE_EXISTING);
             }
             objectMapper.writeValue(executionDirectory.resolve("data-files.json").toFile(), plans);
         } catch (Exception exception) {
@@ -143,6 +143,21 @@ public class DataFileAssemblyService {
         if (!conflicts.isEmpty()) {
             throw new ExecutionValidationException("数据文件目标文件名冲突: " + String.join("; ", conflicts));
         }
+    }
+
+    /** 目标文件名围栏：只允许裸文件名落执行目录，拒绝空名、路径分隔符与 .. 段，resolve 归一化后仍须留在执行目录内。 */
+    private Path resolveTarget(Path executionDirectory, String fileName, String stepName) {
+        String illegal = "步骤 [" + stepName + "] 的数据文件名非法: " + fileName;
+        if (fileName == null || fileName.isBlank()
+                || fileName.contains("/") || fileName.contains("\\")
+                || fileName.equals(".") || fileName.equals("..")) {
+            throw new ExecutionValidationException(illegal);
+        }
+        Path target = executionDirectory.resolve(fileName).normalize();
+        if (!target.startsWith(executionDirectory.normalize())) {
+            throw new ExecutionValidationException(illegal);
+        }
+        return target;
     }
 
     private String fileNameOf(ScriptStepDefinition step) {

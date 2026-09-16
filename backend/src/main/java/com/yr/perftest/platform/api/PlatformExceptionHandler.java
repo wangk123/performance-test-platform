@@ -1,5 +1,6 @@
 package com.yr.perftest.platform.api;
 
+import com.yr.perftest.platform.datafile.DataFileValidationException;
 import com.yr.perftest.platform.identity.AuthenticationException;
 import com.yr.perftest.platform.execution.ExecutionConflictException;
 import com.yr.perftest.platform.execution.ExecutionValidationException;
@@ -29,6 +30,12 @@ public class PlatformExceptionHandler {
     public ResponseEntity<ApiError> handleProjectValidation(ProjectValidationException exception) {
         return ResponseEntity.badRequest()
                 .body(new ApiError("PROJECT_VALIDATION_FAILED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(DataFileValidationException.class)
+    public ResponseEntity<ApiError> handleDataFileValidation(DataFileValidationException exception) {
+        return ResponseEntity.badRequest()
+                .body(new ApiError("DATAFILE_VALIDATION_FAILED", exception.getMessage()));
     }
 
     @ExceptionHandler(ScriptValidationException.class)
