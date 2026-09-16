@@ -222,7 +222,8 @@ public class DataFileController {
     //      + String encoding(默认UTF-8) + String remark(可空)；调用 service.upload，DataFileValidationException
     //      → ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()))
     // GET/DELETE 逐一映射 service 方法；download 用 UrlResource + ResponseEntity.ok()
-    //      .header(CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + URLEncoder.encode(...))
+    //      .header(CONTENT_DISPOSITION, "attachment; filename*=UTF-8''"
+    //      + URLEncoder.encode(...).replace("+", "%20"))  // RFC 5987：空格必须 %20，URLEncoder 的 + 会污染文件名
 }
 ```
 
