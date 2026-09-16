@@ -64,6 +64,8 @@
     </div>
 
     <aside class="panel parsed-detail-panel">
+      <a-tabs v-model:activeKey="sideTab" class="workspace-side-tabs">
+        <a-tab-pane key="script" tab="脚本">
       <template v-if="selectedScriptAsset">
         <div class="detail-heading">
           <div>
@@ -129,6 +131,11 @@
         <h2>选择脚本资产</h2>
         <p>右侧展示解析后的线程组、接口、监控和参数，而不是上传文件列表。</p>
       </div>
+        </a-tab-pane>
+        <a-tab-pane key="data-files" tab="数据文件">
+          <DataFilePanel :project-id="currentProject?.id ?? null" />
+        </a-tab-pane>
+      </a-tabs>
     </aside>
     </div>
   </section>
@@ -147,8 +154,10 @@ import { useThreadGroups } from '../../composables/useThreadGroups';
 import { useWorkspace } from '../../composables/useWorkspace';
 import type { ScriptAsset, ThreadGroup } from '../../types';
 import { scriptExecutableStatus } from '../../utils/script-status';
+import DataFilePanel from './DataFilePanel.vue';
 
 const editor = useScriptEditor();
+const sideTab = ref<'script' | 'data-files'>('script');
 const { openScriptImportDialog } = useScriptImport();
 const { openScriptCreateDialog } = useScriptCreate();
 const { openParamDrawer } = useScriptParams();
