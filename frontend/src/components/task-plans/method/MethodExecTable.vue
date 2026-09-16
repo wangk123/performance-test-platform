@@ -1,5 +1,5 @@
 <template>
-  <div class="method-exec">
+  <div v-if="!preview || visibleRows.length" class="method-exec">
     <div class="tbl-wrap">
       <table class="exec">
         <thead>
@@ -15,15 +15,10 @@
             <th class="num-h">TPS</th>
             <th>状态</th>
             <th>执行时间</th>
-            <th class="ops-h">操作</th>
+            <th v-if="!preview" class="ops-h">操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="visibleRows.length === 0">
-            <td colspan="12" class="empty-cell">
-              {{ scenario.scriptVersionId ? '尚无执行记录——调整参数后点「执行」发起首次压测' : '尚无执行记录——绑定脚本后即可发起首次压测' }}
-            </td>
-          </tr>
           <tr
             v-for="(row, index) in visibleRows"
             :key="row.executionId"
@@ -45,8 +40,18 @@
               </span>
             </td>
             <td class="dim">{{ startedAtText(row) }}</td>
-            <td>
+            <td v-if="!preview">
               <span class="ops-cell">
+                <button
+                  v-if="!isRunning(row)"
+                  class="icon-op"
+                  type="button"
+                  :title="props.canExecute ? `重新执行（${row.threads}并发 / ${row.rampUpSec}s / ${durationText(row.durationSec)}）` : '需进入执行阶段'"
+                  :disabled="!props.canExecute || triggeringId !== null"
+                  @click.stop="rerun(row)"
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.6 8A5.6 5.6 0 1 1 11 3.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M11.2 1.2l.2 2.5-2.5.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
                 <button class="icon-op" type="button" title="查看执行详情" @click.stop="openRow(row)">
                   <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.6 8S4 3.8 8 3.8 14.4 8 14.4 8 12 12.2 8 12.2 1.6 8 1.6 8z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="8" r="2.1" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
                 </button>
@@ -62,27 +67,67 @@
               </span>
             </td>
           </tr>
-          <tr class="new-run">
+          <tr
+            v-for="(m, mi) in manualRows"
+            :key="m.key"
+            class="data-row manual-row"
+          >
+            <td class="row-no">{{ visibleRows.length + mi + 1 }}</td>
+            <td class="num">{{ m.threads }}</td>
+            <td class="num">{{ m.rampUpSec }}</td>
+            <td class="num">{{ durationText(m.durationSec) }}</td>
+            <td class="num dim">—</td>
+            <td class="num dim">—</td>
+            <td class="num dim">—</td>
+            <td class="num dim">—</td>
+            <td class="num dim">—</td>
+            <td><span class="badge pending">待执行</span></td>
+            <td class="dim">—</td>
+            <td v-if="!preview">
+              <span class="ops-cell">
+                <button
+                  class="icon-op"
+                  type="button"
+                  :title="props.canExecute ? '执行此行' : '需进入执行阶段'"
+                  :disabled="!props.canExecute || triggeringId !== null"
+                  @click.stop="executeManualRow(m)"
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.4 3.5v9l7.6-4.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+                </button>
+                <button class="icon-op danger" type="button" title="移除此行" @click.stop="removeManualRow(m.key)">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.2V3h3v1.2M4.8 4.5l.6 8.2h5.2l.6-8.2M6.7 7v3.3M9.3 7v3.3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </span>
+            </td>
+          </tr>
+          <tr v-if="!preview" class="new-run">
             <td />
-            <td>
-              <a-input-number v-model:value="form.threads" class="cell-input" size="small" :min="1" :precision="0" :disabled="inputsDisabled" />
+            <td class="input-col">
+              <a-input-number v-model:value="form.threads" class="cell-input" size="small" :min="1" :precision="0" :controls="false" :disabled="inputsDisabled" />
             </td>
-            <td>
-              <a-input-number v-model:value="form.rampUpSec" class="cell-input" size="small" :min="0" :precision="0" :disabled="inputsDisabled" />
+            <td class="input-col">
+              <a-input-number v-model:value="form.rampUpSec" class="cell-input" size="small" :min="0" :precision="0" :controls="false" :disabled="inputsDisabled" />
             </td>
-            <td>
-              <a-input-number v-model:value="form.durationSec" class="cell-input" size="small" :min="1" :precision="0" :disabled="inputsDisabled" />
+            <td class="input-col">
+              <a-input-number v-model:value="form.durationSec" class="cell-input" size="small" :min="1" :precision="0" :controls="false" :disabled="inputsDisabled" />
             </td>
             <td class="dim new-run-hint" colspan="5">结果列执行完成后自动回填，无需手填</td>
             <td colspan="3" class="run-cell">
               <button
-                class="btn-exec"
+                class="btn-add"
+                type="button"
+                :disabled="inputsDisabled"
+                title="按当前参数添加一行（不执行）"
+                @click="addManualRow"
+              >＋ 添加行</button>
+              <button
+                class="icon-op"
                 type="button"
                 :disabled="runDisabled || triggering"
                 :title="runTooltip || '发起执行'"
                 @click="run"
               >
-                <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3.5 2.2v9.6L11.5 7z" fill="currentColor"/></svg>
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.4 3.5v9l7.6-4.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
               </button>
             </td>
           </tr>
@@ -90,11 +135,11 @@
       </table>
     </div>
 
-    <div v-if="hiddenCount > 0" class="removed-bar">
+    <div v-if="!preview && hiddenCount > 0" class="removed-bar">
       <span>已从表格移出 {{ hiddenCount }} 条记录（数据保留，执行详情页历史可见）</span>
       <button type="button" @click="showHidden = !showHidden">{{ showHidden ? '收起' : '恢复展示' }}</button>
     </div>
-    <div v-if="showHidden && hiddenRows.length" class="hidden-list">
+    <div v-if="!preview && showHidden && hiddenRows.length" class="hidden-list">
       <div v-for="row in hiddenRows" :key="row.executionId" class="hidden-row">
         <span class="mono">#{{ row.executionId }}</span>
         <span class="hidden-name">{{ row.executionName }}</span>
@@ -115,6 +160,13 @@
   </div>
 </template>
 
+<script lang="ts">
+/** 手动参数行按场景缓存（模块级，会话内跨导航保留；不落库，刷新页面后清空）。 */
+interface ManualRow { key: number; threads: number; rampUpSec: number; durationSec: number }
+const manualRowStore = reactive(new Map<number, ManualRow[]>());
+let manualKeySeed = 0;
+</script>
+
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 import { message, Modal } from 'ant-design-vue';
@@ -134,6 +186,8 @@ const props = defineProps<{
   /** 无历史执行时的参数缺省（场景实体 threads/rampUp/duration）。 */
   preset: { threads: number; rampUpSec: number; durationSec: number };
   canExecute: boolean;
+  /** 只读预览（Markdown 视图）：隐藏新增执行行/操作列/移出管理，仅展示记录。 */
+  preview?: boolean;
 }>();
 const emit = defineEmits<{ (e: 'refresh'): void }>();
 
@@ -225,13 +279,32 @@ async function restore(row: MethodExecutionRow) {
 
 const form = reactive({ threads: 1, rampUpSec: 0, durationSec: 600 });
 
+/** 当前场景的手动参数行（模块级缓存，跨导航保留）。 */
+const manualRows = computed<ManualRow[]>(() => manualRowStore.get(props.scenario.scenarioId) ?? []);
+
+function setManualRows(rows: ManualRow[]) {
+  manualRowStore.set(props.scenario.scenarioId, rows);
+}
+
+function addManualRow() {
+  if (!form.threads || !form.durationSec) {
+    message.warning('请填写用户数与压测时间');
+    return;
+  }
+  setManualRows([...manualRows.value, { key: ++manualKeySeed, threads: form.threads, rampUpSec: form.rampUpSec ?? 0, durationSec: form.durationSec }]);
+}
+
+function removeManualRow(key: number) {
+  setManualRows(manualRows.value.filter((m) => m.key !== key));
+}
+
 watch(() => props.scenario.scenarioId, resetForm, { immediate: true });
 
 function resetForm() {
   const last = props.scenario.executions.at(-1);
-  form.threads = last?.threads ?? props.preset.threads;
+  form.threads = last?.threads || props.preset.threads;
   form.rampUpSec = last?.rampUpSec ?? props.preset.rampUpSec;
-  form.durationSec = last?.durationSec ?? props.preset.durationSec;
+  form.durationSec = last?.durationSec || props.preset.durationSec;
 }
 
 const inputsDisabled = computed(() => !props.scenario.scriptVersionId || !props.canExecute);
@@ -251,20 +324,7 @@ async function run() {
   }
   triggering.value = true;
   try {
-    const execution = await triggerExecutionApi(props.scenario.scenarioId, {
-      executionName: `${props.scenarioNo} ${form.threads}并发 ${timeLabel()}`,
-      idempotencyKey: `ui-${Date.now()}`,
-      overrides: { threads: form.threads, rampUpSec: form.rampUpSec, durationSec: form.durationSec },
-    });
-    // 同 useTaskPlans().openExecution：跳执行详情页跟进进度
-    void router.push(`/projects/${execution.projectId}/executions/${execution.id}`);
-  } catch (error) {
-    const text = error instanceof Error ? error.message : '';
-    if (text.includes('PLAN_PRECHECK_FAILED')) {
-      confirmSkipPrecheck(text);
-      return;
-    }
-    message.error(text || '执行失败');
+    await doTrigger({ threads: form.threads, rampUpSec: form.rampUpSec ?? 0, durationSec: form.durationSec });
   } finally {
     triggering.value = false;
   }
@@ -284,6 +344,56 @@ function confirmSkipPrecheck(text: string) {
   });
 }
 
+/** 统一触发入口：就地刷新聚合（新执行行立即出现，进度由轮询跟进），不跳转；预检失败走跳过确认，其余报错 toast。返回是否成功。 */
+async function doTrigger(overrides: { threads: number; rampUpSec: number; durationSec: number }): Promise<boolean> {
+  try {
+    await triggerExecutionApi(props.scenario.scenarioId, {
+      executionName: `${props.scenarioNo} ${overrides.threads}并发 ${timeLabel()}`,
+      idempotencyKey: `ui-${Date.now()}`,
+      overrides,
+    });
+    emit('refresh');
+    return true;
+  } catch (error) {
+    const text = error instanceof Error ? error.message : '';
+    if (text.includes('PLAN_PRECHECK_FAILED')) {
+      confirmSkipPrecheck(text);
+      return false;
+    }
+    message.error(text || '执行失败');
+    return false;
+  }
+}
+
+/** 行级重新执行：按该行参数快照再发起，成功后旧行移出表格（数据保留可恢复），新行原地顶替——覆盖语义，不限次数。 */
+const triggeringId = ref<number | null>(null);
+
+async function rerun(row: MethodExecutionRow) {
+  if (!props.canExecute || triggeringId.value !== null) return;
+  triggeringId.value = row.executionId;
+  try {
+    if (await doTrigger({ threads: row.threads, rampUpSec: row.rampUpSec, durationSec: row.durationSec })) {
+      await setExecutionVisibilityApi(row.executionId, true); // 覆盖原行：旧行移出（可恢复展示），新执行顶位
+      emit('refresh');
+    }
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '操作失败');
+  } finally {
+    triggeringId.value = null;
+  }
+}
+
+async function executeManualRow(m: ManualRow) {
+  if (!props.canExecute || triggeringId.value !== null) return;
+  triggeringId.value = m.key;
+  try {
+    if (await doTrigger({ threads: m.threads, rampUpSec: m.rampUpSec, durationSec: m.durationSec })) {
+      removeManualRow(m.key); // 该参数行已升级为真实执行记录，避免重复
+    }
+  } finally {
+    triggeringId.value = null;
+  }
+}
 function timeLabel() {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, '0');
@@ -343,7 +453,7 @@ table.exec {
 }
 
 .exec tr.data-row:hover { background: var(--surface-soft); }
-.exec .row-no { color: var(--muted); font: 600 11.5px var(--font-data); }
+.exec .row-no { color: var(--muted); font: 600 11.5px var(--font-data); text-align: right; }
 
 .ops-cell {
   display: inline-flex;
@@ -370,6 +480,8 @@ table.exec {
 .icon-op svg { width: 15px; height: 15px; }
 .icon-op:hover { color: var(--accent); background: var(--accent-soft); }
 .icon-op.danger:hover { color: var(--danger); background: var(--danger-soft); }
+.icon-op:disabled { opacity: .35; cursor: not-allowed; }
+.icon-op:disabled:hover { color: var(--muted); background: none; }
 
 .badge {
   display: inline-flex;
@@ -384,6 +496,7 @@ table.exec {
 .badge.ok { color: var(--ok); background: var(--ok-soft); }
 .badge.running { color: var(--accent); background: var(--accent-soft); }
 .badge.fail { color: var(--danger); background: var(--danger-soft); }
+.badge.pending { color: var(--muted); background: var(--surface-soft); border: 1px solid var(--line); }
 
 .spinner {
   width: 10px;
@@ -401,9 +514,33 @@ table.exec {
   padding: 6px 8px;
 }
 
+/* 手动添加的参数行：略微弱化，与真实执行记录区分 */
+.exec tr.manual-row td { color: var(--ink); }
+
+.btn-add {
+  margin-right: 10px;
+  padding: 3px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-add:hover { color: var(--plan-accent-text); border-color: var(--accent); }
+.btn-add:disabled { opacity: .45; cursor: not-allowed; }
+
+/* 输入框贴单元格右缘，与右对齐的列头/数据列对齐 */
+.exec tr.new-run td.input-col {
+  text-align: right;
+}
+
 .exec :deep(.cell-input) {
-  width: 100%;
-  min-width: 56px;
+  width: 76px;
 }
 
 .exec :deep(.cell-input .ant-input-number-input) {
@@ -414,31 +551,6 @@ table.exec {
 
 .new-run-hint { text-align: left; }
 .run-cell { text-align: right; }
-
-.btn-exec {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.btn-exec svg { width: 11px; height: 11px; margin-left: 1px; }
-.btn-exec:hover { filter: brightness(1.08); }
-.btn-exec:disabled { opacity: .45; cursor: not-allowed; filter: none; }
-
-.empty-cell {
-  text-align: center;
-  color: var(--muted);
-  font-size: 12.5px;
-  padding: 18px 0 !important;
-}
 
 .removed-bar {
   display: flex;

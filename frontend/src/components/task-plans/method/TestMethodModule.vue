@@ -1,6 +1,6 @@
 <template>
   <div class="scenario-module method-module">
-    <div class="scenario-module-head">
+    <div v-if="!preview" class="scenario-module-head">
       <span class="scenario-module-hint">场景小节由场景实体同步生成 · 增删改名自动跟进；绑定脚本后可在执行记录表发起压测。</span>
       <a-button v-if="canEditScenario" type="primary" size="small" @click="emit('request-add')">+ 新增场景</a-button>
     </div>
@@ -35,29 +35,28 @@
           </div>
         </header>
 
-        <div v-if="item.methodText || (item.data && canEdit)" class="sc-method">
+        <div v-if="item.methodText || (item.data && canEdit && !preview)" class="sc-method">
           <div class="sc-method-head">
             <span class="sc-label">方法说明</span>
             <a-button
-              v-if="item.data && canEdit && editingKey !== item.key"
+              v-if="item.data && canEdit && !preview && editingKey !== item.key"
               size="small"
               type="text"
               class="sc-method-edit"
               @click="startEdit(item)"
             >编辑</a-button>
           </div>
-          <template v-if="editingKey === item.key">
-            <a-textarea
-              v-model:value="editingText"
-              class="sc-method-editor"
-              :rows="8"
-              placeholder="Markdown 自由编辑：目标 / 入口 / 模型 / 数据 / 通过判据…"
-            />
-            <div class="sc-method-editor-actions">
-              <a-button size="small" @click="cancelEdit">取消</a-button>
-              <a-button size="small" type="primary" :loading="methodSaving" @click="saveMethod(item)">保存</a-button>
-            </div>
-          </template>
+          <PlanSectionInlineEditor
+            v-if="editingKey === item.key"
+            :plan-id="plan.id"
+            :title="METHOD_SECTION_TITLE"
+            :heading="`${item.scenarioNo} ${item.name} · 方法说明`"
+            :content="editingText"
+            :busy="methodSaving"
+            @save="(content: string) => saveMethod(item, content)"
+            @cancel-request="requestCancelEdit"
+            @update:dirty="methodDirty = $event"
+          />
           <MdPreview
             v-else
             class="method-desc plan-md"
@@ -74,6 +73,7 @@
           :scenario-no="item.scenarioNo"
           :preset="presetOf(item.data.scenarioId)"
           :can-execute="canExecute"
+          :preview="preview"
           @refresh="load"
         />
 
@@ -82,13 +82,13 @@
           v-if="item.data"
           :plan-id="plan.id"
           :scenario="item.data"
-          :can-edit="canEdit"
+          :can-edit="canEdit && !preview"
           @refresh="load"
         />
       </article>
     </template>
 
-    <div v-else-if="loaded" class="plan-empty">
+    <div v-else-if="loaded && !preview" class="plan-empty">
       暂无场景。在评审前添加，或在文档中手写「测试方法」小节（与场景实体按名称对齐后可执行）。
       <div v-if="canEditScenario" class="plan-empty-action">
         <a-button type="primary" size="small" @click="emit('request-add')">+ 新增场景</a-button>
@@ -99,7 +99,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { message } from 'ant-design-vue';
+import { message, Modal } from 'ant-design-vue';
 import { MdPreview } from 'md-editor-v3';
 import 'md-editor-v3/lib/style.css';
 import type { MethodScenarioData, MethodSectionData } from '../../../api/plan-method';
@@ -108,12 +108,22 @@ import type { TaskPlan, TaskScenario } from '../../../types';
 import type { usePlanDoc } from '../../../composables/usePlanDoc';
 import { useTheme } from '../../../composables/useTheme';
 import { useWorkspace } from '../../../composables/useWorkspace';
-import { parseMethodSections } from '../../../utils/plan-markdown';
+import { parseMethodSections, METHOD_SECTION_TITLE } from '../../../utils/plan-markdown';
 import { bindScenarioScriptApi } from '../../../api/plan-doc';
 import MethodExecTable from './MethodExecTable.vue';
 import MethodEvidence from './MethodEvidence.vue';
+import PlanSectionInlineEditor from '../PlanSectionInlineEditor.vue';
 
-const props = defineProps<{ docPlan: ReturnType<typeof usePlanDoc>; plan: TaskPlan; scenarios: TaskScenario[] }>();
+const props = withDefaults(
+  defineProps<{
+    docPlan: ReturnType<typeof usePlanDoc>;
+    plan: TaskPlan;
+    scenarios: TaskScenario[];
+    /** 只读预览（Markdown 视图）：隐藏新增场景/绑定/编辑/执行入口，仅保留记录与证据展示。 */
+    preview?: boolean;
+  }>(),
+  { preview: false },
+);
 const emit = defineEmits<{
   (e: 'changed'): void;
   (e: 'request-add'): void;
@@ -169,7 +179,7 @@ const canEditScenario = computed(() => {
   return status === 'PLANNING' || status === 'IN_REVIEW' || status === 'REPORTING'
     || ((status === 'EXECUTING' || status === 'PUBLISHED') && active === 0);
 });
-const canBindScript = canEditScenario;
+const canBindScript = computed(() => !props.preview && canEditScenario.value);
 const canEdit = computed(() => Boolean(props.docPlan.permissions.value.EDIT));
 const canExecute = computed(() => Boolean(props.docPlan.permissions.value.EXECUTE));
 
@@ -218,35 +228,63 @@ function blockNo(heading: string) {
 
 function presetOf(scenarioId: number) {
   const entity = props.scenarios.find((s) => s.id === scenarioId);
+  // 场景实体可能缺省（0/空），兜底到可执行的最小默认，避免新增执行行默认值非法被拦截
   return {
-    threads: entity?.threads ?? 1,
-    rampUpSec: entity?.rampUp ?? 0,
-    durationSec: entity?.duration ?? 600,
+    threads: entity?.threads || 1,
+    rampUpSec: entity?.rampUp || 0,
+    durationSec: entity?.duration || 600,
   };
 }
 
 /* ---------- 关联脚本：小节头内联下拉，change 即绑定（数据源同 BindScriptDialog） ---------- */
 
-/* ---------- 方法说明就地编辑：textarea 改小节自由区，保存走整篇文档链路（含 409 冲突处理） ---------- */
+/* ---------- 方法说明就地编辑：复用章节行内编辑器（格式工具条/AI 润色同其他章节），保存走整篇文档链路（含 409 冲突处理） ---------- */
 
 const editingKey = ref<string | null>(null);
 const editingText = ref('');
 const methodSaving = ref(false);
+const methodDirty = ref(false);
+
+/** 编辑基底 = 自由文本：剥掉首行 `**方法说明**：` 标记与块尾「> 执行记录」指引行（展示仍走完整 methodText）。 */
+function editableMethodText(methodText: string): string {
+  const lines = methodText.split('\n');
+  if (lines[0]?.trim().startsWith('**方法说明**')) lines.shift();
+  if (lines.length && lines[lines.length - 1].trim().startsWith('> ')) lines.pop();
+  return lines.join('\n').replace(/^\n+|\n+$/g, '');
+}
 
 function startEdit(item: MethodSectionView) {
   editingKey.value = item.key;
-  editingText.value = item.methodText ?? '';
+  editingText.value = editableMethodText(item.methodText ?? '');
+  methodDirty.value = false;
+}
+
+/** 取消请求：脏稿先确认放弃（文案与 PlanDetailDocument 同口径），干净直接关闭。 */
+function requestCancelEdit() {
+  if (!methodDirty.value) {
+    cancelEdit();
+    return;
+  }
+  Modal.confirm({
+    title: '放弃未保存的修改？',
+    content: '方法说明草稿尚未保存，取消后修改将丢失。',
+    okText: '放弃修改',
+    okType: 'danger',
+    cancelText: '继续编辑',
+    onOk: cancelEdit,
+  });
 }
 
 function cancelEdit() {
   editingKey.value = null;
   editingText.value = '';
+  methodDirty.value = false;
 }
 
-async function saveMethod(item: MethodSectionView) {
+async function saveMethod(item: MethodSectionView, content: string) {
   const body = props.docPlan.plan.value?.body;
   if (!body) return;
-  const next = replaceMethodText(body, item.name, editingText.value.trim());
+  const next = replaceMethodText(body, item.name, content.trim());
   if (next === null) {
     message.error('未能在文档中定位该小节的方法说明区');
     return;
@@ -271,9 +309,11 @@ function replaceMethodText(body: string, scenarioName: string, text: string): st
   const head = body.match(headRe);
   if (head === null) return null;
   const blockStart = head.index!;
-  const rest = body.slice(blockStart + 1);
-  const nextSep = rest.search(/^### |^## /m);
-  const blockEnd = nextSep === -1 ? body.length : blockStart + 1 + nextSep;
+  // 从标题行之后开始找下一小节/章边界（若从标题中间截断，`### ` 会变成 `## ` 误命中）
+  const bodyStart = body.indexOf('\n', blockStart);
+  const contentStart = bodyStart === -1 ? body.length : bodyStart + 1;
+  const nextSep = body.slice(contentStart).search(/^### |^## /m);
+  const blockEnd = nextSep === -1 ? body.length : contentStart + nextSep;
   const block = body.slice(blockStart, blockEnd);
   const marker = '**方法说明**：';
   const markerIdx = block.indexOf(marker);
@@ -459,12 +499,5 @@ async function onScriptChange(scenario: MethodScenarioData, scriptVersionId: num
 .method-desc :deep(.md-editor-preview) {
   font-size: 12.5px;
   color: var(--ink);
-}
-
-.sc-method-editor-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 6px;
 }
 </style>

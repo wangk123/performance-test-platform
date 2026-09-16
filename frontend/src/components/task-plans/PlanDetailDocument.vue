@@ -157,14 +157,37 @@
                   <a-button size="small" type="primary" :disabled="!dirty" @click="saveEdit">保存全文</a-button>
                 </template>
               </div>
-              <MdPreview
-                v-if="!editing"
-                class="plan-md"
-                :model-value="plan.body ?? ''"
-                :theme="mdTheme"
-                :md-heading-id="headingId"
-                language="zh-CN"
-              />
+              <!-- 预览按章节分段渲染：「测试方法」章替换为结构化模块预览（执行记录/监控证据随视图可见），其余章渲染原文 -->
+              <template v-if="!editing">
+                <MdPreview
+                  v-if="mdPreamble"
+                  class="plan-md"
+                  :model-value="mdPreamble"
+                  :theme="mdTheme"
+                  :md-heading-id="headingId"
+                  language="zh-CN"
+                />
+                <template v-for="section in sections" :key="`md-${section.line}`">
+                  <template v-if="section.title === METHOD_SECTION_TITLE">
+                    <MdPreview
+                      class="plan-md"
+                      :model-value="`## ${section.heading}`"
+                      :theme="mdTheme"
+                      :md-heading-id="headingId"
+                      language="zh-CN"
+                    />
+                    <TestMethodModule preview :doc-plan="doc" :plan="plan" :scenarios="scenarios" />
+                  </template>
+                  <MdPreview
+                    v-else
+                    class="plan-md"
+                    :model-value="mdSectionBody(section)"
+                    :theme="mdTheme"
+                    :md-heading-id="headingId"
+                    language="zh-CN"
+                  />
+                </template>
+              </template>
               <MdEditor
                 v-else
                 v-model="editDraft"
@@ -265,6 +288,19 @@ const inlineSaving = ref(false);
 const sections = computed(() => splitSections(props.plan.body));
 const canEdit = computed(() => Boolean(props.doc.permissions.value.EDIT));
 const canComment = computed(() => Boolean(props.doc.permissions.value.COMMENT));
+
+/** Markdown 预览分段：首个章节标题前的散落内容（标题可能被改名丢失注册表匹配），无则空串。 */
+const mdPreamble = computed(() => {
+  const body = props.plan.body ?? '';
+  const first = sections.value[0];
+  if (!first) return body;
+  return body.split('\n').slice(0, first.line).join('\n').trim();
+});
+
+/** 非「测试方法」章按原文渲染：标题行拼回 content（splitSections 把标题行剥离在外）。 */
+function mdSectionBody(section: Section): string {
+  return `## ${section.heading}\n\n${section.content || '（本章暂无内容）'}`;
+}
 const docMainRef = ref<HTMLElement | null>(null);
 const currentSection = ref('');
 const dirty = computed(() => editing.value && editDraft.value !== (props.plan.body ?? ''));

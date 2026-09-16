@@ -1,10 +1,6 @@
 <template>
-  <!-- 规格：test-method-optimization-prototype.html 监控证据区（表格下方，场景级） -->
-  <div v-if="!hasExecutions" class="evidence-empty">
-    完成首次执行后，此处自动生成 TPS / 响应时间 / CPU / 内存趋势图
-  </div>
-
-  <div v-else class="evidence-zone">
+  <!-- 规格：test-method-optimization-prototype.html 监控证据区（表格下方，场景级）；无执行时整区不渲染 -->
+  <div v-if="hasExecutions" class="evidence-zone">
     <div class="zone-head">
       <b>监控证据</b>
       <a-select
@@ -56,7 +52,7 @@
     <MethodEvidenceShots
       :plan-id="planId"
       :scenario-id="scenario.scenarioId"
-      :images="scenario.images"
+      :images="selectedImages"
       :execution-id="selectedExecutionId"
       :can-edit="canEdit"
       @refresh="emit('refresh')"
@@ -98,11 +94,20 @@ const hasExecutions = computed(() => visibleExecutions.value.length > 0);
 const isSuccess = (row: { status: string }) =>
   toUiStatus(row.status as ScenarioExecution['status']) === 'SUCCESS';
 
+/** 与执行记录表行号对齐的时长显示（压测时间列同款格式）。 */
+const durationLabel = (sec: number) => (!sec ? '—' : sec % 60 === 0 ? `${sec / 60}min` : `${sec}s`);
+
 const executionOptions = computed(() =>
-  visibleExecutions.value.map((row) => ({
+  visibleExecutions.value.map((row, index) => ({
     value: row.executionId,
-    label: `#${row.executionId} · ${row.threads}并发 · ${row.startedAtText ? row.startedAtText.slice(5) : '—'}`,
+    // 序号 = 表内非隐藏执行的第 N 行，与上方执行记录表 # 列一致
+    label: `#${index + 1}-${row.threads}并发-${durationLabel(row.durationSec)}`,
   })),
+);
+
+/** 当前选中执行的截图：挂该执行的 + 仅挂场景的；挂其他执行的不在此显示。 */
+const selectedImages = computed(() =>
+  props.scenario.images.filter((img) => img.executionId == null || img.executionId === selectedExecutionId.value),
 );
 
 const selectedExecutionId = ref<number | null>(null);
@@ -207,16 +212,5 @@ async function loadDetail(executionId: number | null) {
 }
 
 /* 无执行场景整区空态 */
-.evidence-empty {
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px dashed var(--line-strong);
-  border-radius: 9px;
-  padding: 26px 0;
-  color: var(--muted);
-  font-size: 12.5px;
-}
+/* 空态已去除：无执行时整区不渲染（v-if） */
 </style>
