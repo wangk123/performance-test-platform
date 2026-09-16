@@ -17,6 +17,9 @@ function routeTab(name: string | symbol | null | undefined): ProjectTab {
   if (name === 'project-monitoring') {
     return 'monitoring';
   }
+  if (name === 'project-env-check') {
+    return 'env-check';
+  }
   if (name === 'project-reports') {
     return 'reports';
   }

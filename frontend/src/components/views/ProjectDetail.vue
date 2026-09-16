@@ -11,6 +11,8 @@
 
   <ProjectMonitoringView v-else-if="activeProjectTab === 'monitoring'" />
 
+  <ProjectEnvCheckView v-else-if="activeProjectTab === 'env-check'" />
+
   <section v-else-if="activeProjectTab === 'reports'" class="placeholder-grid">
     <div class="page-head">
       <div>
@@ -76,6 +78,7 @@ import { useTaskPlans } from '../../composables/useTaskPlans';
 import type { Project, ProjectMember } from '../../types';
 import ProjectOverview from './ProjectOverview.vue';
 import ProjectMonitoringView from './ProjectMonitoringView.vue';
+import ProjectEnvCheckView from './ProjectEnvCheckView.vue';
 import ScriptWorkspace from '../scripts/ScriptWorkspace.vue';
 import TaskPlanList from '../task-plans/TaskPlanList.vue';
 import FunctionLibraryView from './FunctionLibraryView.vue';

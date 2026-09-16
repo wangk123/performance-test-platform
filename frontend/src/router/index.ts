@@ -41,6 +41,7 @@ export const router = createRouter({
         { path: 'projects/:projectId/scenarios/:scenarioId', redirect: (to) => `/projects/${to.params.projectId}/task-plans` },
         { path: 'projects/:projectId/executions/:executionId', name: 'project-execution-detail', component: ProjectDetail },
         { path: 'projects/:projectId/monitoring', name: 'project-monitoring', component: ProjectDetail },
+        { path: 'projects/:projectId/env-check', name: 'project-env-check', component: ProjectDetail },
         { path: 'projects/:projectId/reports', name: 'project-reports', component: ProjectDetail },
         { path: 'projects/:projectId/data', name: 'project-data', component: ProjectDetail },
         { path: 'projects/:projectId/functions', name: 'project-functions', component: ProjectDetail },

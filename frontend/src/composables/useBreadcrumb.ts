@@ -23,6 +23,7 @@ function resolveProjectTab(routeName: string): ProjectTab {
     return 'task-plans';
   }
   if (routeName === 'project-monitoring') return 'monitoring';
+  if (routeName === 'project-env-check') return 'env-check';
   if (routeName === 'project-reports') return 'reports';
   if (routeName === 'project-data') return 'data';
   if (routeName === 'project-functions') return 'functions';

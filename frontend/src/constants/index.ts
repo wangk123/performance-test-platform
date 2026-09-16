@@ -14,6 +14,7 @@ export const projectTabOptions: Array<{ label: string; value: ProjectTab }> = [
   { label: '脚本管理', value: 'scripts' },
   { label: '任务计划', value: 'task-plans' },
   { label: '监控配置', value: 'monitoring' },
+  { label: '环境检查', value: 'env-check' },
   { label: '报告管理', value: 'reports' },
   { label: '造数工厂', value: 'data' },
   { label: '函数库', value: 'functions' },

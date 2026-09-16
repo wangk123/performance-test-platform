@@ -42,6 +42,7 @@ import {
   FunctionOutlined,
   LineChartOutlined,
   ProfileOutlined,
+  SafetyCertificateOutlined,
   TeamOutlined,
 } from '@ant-design/icons-vue';
 import { projectTabOptions } from '../../constants';
@@ -59,6 +60,7 @@ const tabIcons: Record<ProjectTab, Component> = {
   scripts: FileTextOutlined,
   'task-plans': ProfileOutlined,
   monitoring: LineChartOutlined,
+  'env-check': SafetyCertificateOutlined,
   reports: BarChartOutlined,
   data: DatabaseOutlined,
   functions: FunctionOutlined,
