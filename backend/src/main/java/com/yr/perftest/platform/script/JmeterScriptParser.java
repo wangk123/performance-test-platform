@@ -165,7 +165,7 @@ public class JmeterScriptParser {
                         "variableNames", stringValue(element, "variableNames", ""),
                         "delimiter", stringValue(element, "delimiter", ","),
                         "fileEncoding", stringValue(element, "fileEncoding", "UTF-8"),
-                        "ignoreFirstLine", boolStringValue(element, "ignoreFirstLine", true),
+                        "ignoreFirstLine", boolStringValue(element, "ignoreFirstLine", false),
                         "recycle", boolStringValue(element, "recycle", true),
                         "stopThread", boolStringValue(element, "stopThread", false),
                         "shareMode", stringValue(element, "shareMode", "shareMode.all")

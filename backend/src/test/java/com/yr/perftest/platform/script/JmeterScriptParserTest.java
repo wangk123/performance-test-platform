@@ -326,7 +326,7 @@ public class JmeterScriptParserTest {
         ScriptStepDefinition legacy = children.get(1);
         assertEquals(",", legacy.config().get("delimiter"), "delimiter default");
         assertEquals("UTF-8", legacy.config().get("fileEncoding"), "fileEncoding default");
-        assertEquals(Boolean.TRUE, legacy.config().get("ignoreFirstLine"), "ignoreFirstLine default");
+        assertEquals(Boolean.FALSE, legacy.config().get("ignoreFirstLine"), "ignoreFirstLine default aligns JMeter (false)");
         assertEquals(Boolean.TRUE, legacy.config().get("recycle"), "recycle default");
         assertEquals(Boolean.FALSE, legacy.config().get("stopThread"), "stopThread default");
         assertEquals("shareMode.all", legacy.config().get("shareMode"), "shareMode default");
