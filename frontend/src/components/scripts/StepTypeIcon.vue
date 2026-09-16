@@ -77,6 +77,26 @@
       <circle cx="7.8" cy="6.5" r="0.7" fill="currentColor" />
       <path d="M6 12h5M6 14h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
     </svg>
+
+    <svg
+      v-else-if="props.type === 'JSR223_PRE_PROCESSOR'"
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden="true"
+    >
+      <rect x="12.4" y="3.6" width="4.6" height="12.8" rx="1.4" stroke="currentColor" stroke-width="1.6" />
+      <path d="M11.6 10.6 7.2 6.6v2.5H2.8v3h4.4v2.5l4.4-4Z" fill="currentColor" />
+    </svg>
+
+    <svg
+      v-else-if="props.type === 'JSR223_POST_PROCESSOR'"
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden="true"
+    >
+      <rect x="3" y="3.6" width="4.6" height="12.8" rx="1.4" stroke="currentColor" stroke-width="1.6" />
+      <path d="M8.4 10.6l4.4-4v2.5h4.4v3h-4.4v2.5l-4.4-4Z" fill="currentColor" />
+    </svg>
   </span>
 </template>
 

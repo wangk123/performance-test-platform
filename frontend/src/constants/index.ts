@@ -44,6 +44,8 @@ export const stepTypeOptions: Array<{ label: string; value: ScriptStepType }> = 
   { label: 'CSV 数据文件', value: 'CSV_DATA' },
   { label: '用户参数', value: 'USER_PARAMS' },
   { label: 'Header 头配置', value: 'HEADER_CONFIG' },
+  { label: 'JSR223 前置处理器', value: 'JSR223_PRE_PROCESSOR' },
+  { label: 'JSR223 后置处理器', value: 'JSR223_POST_PROCESSOR' },
 ];
 
 export type StepTypeMeta = {
@@ -95,6 +97,18 @@ export const stepTypeMeta: Record<ScriptStepType, StepTypeMeta> = {
     shortLabel: 'Header',
     hint: '公共请求头配置',
     tone: 'header',
+  },
+  JSR223_PRE_PROCESSOR: {
+    label: 'JSR223 前置处理器',
+    shortLabel: 'Pre',
+    hint: '采样前执行：签名、加密、参数预处理',
+    tone: 'jsr223',
+  },
+  JSR223_POST_PROCESSOR: {
+    label: 'JSR223 后置处理器',
+    shortLabel: 'Post',
+    hint: '采样后执行：响应解析、提取、落变量',
+    tone: 'jsr223',
   },
 };
 

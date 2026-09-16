@@ -231,6 +231,8 @@ export function createStepFromType(
     },
     USER_PARAMS: { paramsText: 'env=SIT\nchannel=APP' },
     HEADER_CONFIG: { headersText: 'Content-Type: application/json' },
+    JSR223_PRE_PROCESSOR: { scriptLanguage: 'groovy', script: '', parameters: '', cacheKey: true },
+    JSR223_POST_PROCESSOR: { scriptLanguage: 'groovy', script: '', parameters: '', cacheKey: true },
   };
   return {
     id: createStepId(type.toLowerCase()),

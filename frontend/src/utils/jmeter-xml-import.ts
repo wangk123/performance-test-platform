@@ -35,6 +35,10 @@ function parseElement(element: Element, hashTree: Element | null): ScriptStep | 
         fileName: stringValue(element, 'filename', ''),
         variableNames: stringValue(element, 'variableNames', ''),
       });
+    case 'JSR223PreProcessor':
+      return createStepFromType('JSR223_PRE_PROCESSOR', element.getAttribute('testname') || 'JSR223 前置处理器', jsr223Config(element));
+    case 'JSR223PostProcessor':
+      return createStepFromType('JSR223_POST_PROCESSOR', element.getAttribute('testname') || 'JSR223 后置处理器', jsr223Config(element));
     case 'Arguments':
       return createStepFromType('USER_PARAMS', element.getAttribute('testname') || '用户参数', {
         paramsText: parseUserParamsText(element),
@@ -62,6 +66,15 @@ function parseElement(element: Element, hashTree: Element | null): ScriptStep | 
     default:
       return null;
   }
+}
+
+function jsr223Config(element: Element) {
+  return {
+    scriptLanguage: stringValue(element, 'scriptLanguage', 'groovy'),
+    script: stringValue(element, 'script', ''),
+    parameters: stringValue(element, 'parameters', ''),
+    cacheKey: boolStringValue(element, 'cacheKey', true),
+  };
 }
 
 function parseHttpSampler(sampler: Element, hashTree: Element | null): ScriptStep {

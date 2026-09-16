@@ -89,7 +89,15 @@ export type ScriptStepType =
   | 'JSON_ASSERTION'
   | 'CSV_DATA'
   | 'USER_PARAMS'
-  | 'HEADER_CONFIG';
+  | 'HEADER_CONFIG'
+  | 'JSR223_PRE_PROCESSOR'
+  | 'JSR223_POST_PROCESSOR';
+export type Jsr223Config = {
+  scriptLanguage: string;
+  script: string;
+  parameters: string;
+  cacheKey: boolean;
+};
 export type StepRelation = 'root' | 'child';
 export type StepDropMode = 'before' | 'after' | 'child';
 export type ThreadGroupMode = 'count' | 'duration' | 'stepping';

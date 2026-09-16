@@ -642,6 +642,11 @@
   --tone-soft: rgba(71, 85, 105, 0.14);
 }
 
+.tone-jsr223 {
+  --tone-strong: #9333ea;
+  --tone-soft: rgba(147, 51, 234, 0.12);
+}
+
 .step-detail-tag {
   display: inline-flex;
   align-items: center;
