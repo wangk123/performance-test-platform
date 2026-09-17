@@ -4,7 +4,7 @@
     title="发布脚本版本"
     ok-text="发布"
     cancel-text="取消"
-    :ok-button-props="{ disabled: !remark.trim() }"
+    :ok-button-props="{ disabled: !remark.trim() || !versionLabel.trim() }"
     :confirm-loading="publishing"
     @ok="handlePublish"
     @cancel="close"
@@ -13,12 +13,11 @@
       发布后生成不可变版本快照，场景绑定与执行只使用已发布版本；草稿可继续编辑再次发布新版本。
     </p>
     <a-form layout="vertical">
-      <a-form-item label="版本号（仅限递增）" required>
-        <a-input-number
-          v-model:value="versionNo"
-          :min="defaultVersionNo"
-          :precision="0"
-          style="width: 100%"
+      <a-form-item label="版本号（x.x.x，仅限递增）" required :validate-status="labelError ? 'error' : ''" :help="labelError">
+        <a-input
+          v-model:value="versionLabel"
+          placeholder="如 1.0.1"
+          @blur="labelError = versionLabel.trim() && !LABEL_PATTERN.test(versionLabel.trim()) ? '版本号格式必须为 x.x.x（三段纯数字，如 1.0.1）' : ''"
         />
       </a-form-item>
       <a-form-item label="变更说明" required>
@@ -44,7 +43,7 @@ import { useAuth } from '../../composables/useAuth';
 const props = defineProps<{
   open: boolean;
   script: ScriptAsset | null;
-  defaultVersionNo: number;
+  defaultVersionLabel: string;
 }>();
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void;
@@ -52,13 +51,16 @@ const emit = defineEmits<{
 }>();
 
 const { currentUser } = useAuth();
-const versionNo = ref(1);
+const LABEL_PATTERN = /^\d+\.\d+\.\d+$/;
+const versionLabel = ref('');
+const labelError = ref('');
 const remark = ref('');
 const publishing = ref(false);
 
 watch(() => props.open, (open) => {
   if (open) {
-    versionNo.value = props.defaultVersionNo;
+    versionLabel.value = props.defaultVersionLabel;
+    labelError.value = '';
     remark.value = '';
   }
 });
@@ -67,16 +69,20 @@ async function handlePublish() {
   if (!props.script || !remark.value.trim()) {
     return;
   }
+  if (!LABEL_PATTERN.test(versionLabel.value.trim())) {
+    labelError.value = '版本号格式必须为 x.x.x（三段纯数字，如 1.0.1）';
+    return;
+  }
   publishing.value = true;
   try {
     const version = await publishScriptApi(
       props.script.projectId,
       props.script.scriptId,
-      versionNo.value,
+      versionLabel.value.trim(),
       remark.value.trim(),
       currentUser.value?.username ?? 'admin',
     );
-    message.success(`已发布 v${version.versionNo}`);
+    message.success(`已发布 ${version.versionLabel}`);
     emit('published');
     close();
   } catch (error) {

@@ -7,6 +7,7 @@ export type BackendScriptVersion = {
   projectId: number;
   scriptId: number | null;
   versionNo: number;
+  versionLabel: string | null;
   originalFilename: string;
   uploadedBy: string;
   uploadedAt: string;
@@ -45,6 +46,7 @@ export type BackendScriptAssetSummary = {
   projectId: number;
   name: string;
   latestVersionNo: number;
+  latestVersionLabel: string | null;
   latestPublished: BackendScriptVersion | null;
   hasDraft: boolean;
   draftUpdatedAt: string | null;
@@ -75,11 +77,11 @@ export function saveDraftApi(projectId: number, scriptId: number, filename: stri
   });
 }
 
-export function publishScriptApi(projectId: number, scriptId: number, versionNo: number, remark: string, username: string) {
+export function publishScriptApi(projectId: number, scriptId: number, versionLabel: string, remark: string, username: string) {
   return request<BackendScriptVersion>(`/api/projects/${projectId}/scripts/${scriptId}/publish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-User': username },
-    body: JSON.stringify({ versionNo, remark }),
+    body: JSON.stringify({ versionLabel, remark }),
   });
 }
 
@@ -113,6 +115,7 @@ export function mapScriptAsset(
     id: active?.version.id ?? summary.id,
     projectId: summary.projectId,
     scriptId: summary.id,
+    latestVersionLabel: summary.latestVersionLabel ?? '',
     hasDraft: summary.hasDraft,
     draftVersionId: draftRow?.version.id ?? null,
     currentScenarioCount: summary.currentScenarioCount,
@@ -133,6 +136,7 @@ export function mapScriptAsset(
       status: row.version.status,
       remark: row.version.remark ?? '',
       versionNo: row.version.versionNo,
+      versionLabel: row.version.versionLabel ?? '',
       fileName: row.version.originalFilename,
       fileSize: 0,
       fileHash: '',
@@ -207,6 +211,7 @@ export function mapScriptDefinition(definition: BackendScriptDefinition): Script
     id: definition.id,
     projectId: definition.projectId,
     scriptId: definition.scriptId ?? definition.id,
+    latestVersionLabel: '',
     hasDraft: definition.status === 'DRAFT',
     draftVersionId: definition.status === 'DRAFT' ? definition.id : null,
     currentScenarioCount: 0,
@@ -237,6 +242,7 @@ function mapVersion(version: BackendScriptVersion): ScriptVersionRecord {
     status: version.status ?? 'PUBLISHED',
     remark: version.remark ?? '',
     versionNo: version.versionNo,
+    versionLabel: version.versionLabel ?? '',
     fileName: version.originalFilename,
     fileSize: 0,
     fileHash: '',

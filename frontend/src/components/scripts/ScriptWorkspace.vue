@@ -24,7 +24,7 @@
         :row-selection="scriptRowSelection"
         :custom-row="scriptRowEvents"
         :row-class-name="scriptRowClassName"
-        :scroll="{ x: 1120 }"
+        :scroll="{ x: 1180 }"
         :locale="{ emptyText: '暂无匹配脚本，可新建空白脚本或导入 JMX 脚本资产。' }"
       >
         <template #bodyCell="{ column, record, index }">
@@ -35,13 +35,17 @@
               <small>{{ scriptSummary(record) }}</small>
             </div>
           </template>
+          <template v-else-if="column.key === 'version'">
+            <span v-if="record.latestVersionLabel" class="mono version-label">{{ record.latestVersionLabel }}</span>
+            <span v-else class="muted-version">未发布</span>
+          </template>
           <template v-else-if="column.key === 'type'">{{ scriptType(record) }}</template>
           <template v-else-if="column.key === 'status'">
             <div class="status-cell">
               <span class="asset-status" :class="scriptStatus(record).tone">{{ scriptStatusText(record.status) }}</span>
-              <a-tag v-if="record.hasDraft" color="orange">有草稿</a-tag>
-              <a-tooltip v-if="record.outdatedScenarioCount > 0" :title="`${record.outdatedScenarioCount} 个场景绑定的版本落后于最新发布`">
-                <a-tag color="gold">{{ record.outdatedScenarioCount }} 场景用旧版</a-tag>
+              <a-tag v-if="record.hasDraft" class="status-tag" color="orange">草稿</a-tag>
+              <a-tooltip v-else-if="record.outdatedScenarioCount > 0" :title="`${record.outdatedScenarioCount} 个场景绑定的版本落后于最新发布`">
+                <a-tag class="status-tag" color="gold">旧版</a-tag>
               </a-tooltip>
             </div>
           </template>
@@ -155,7 +159,7 @@
     <ScriptPublishDialog
       v-model:open="publishDialogOpen"
       :script="publishDialogScript"
-      :default-version-no="(publishDialogScript?.latestVersion ?? 0) + 1"
+      :default-version-label="nextPatchLabel(publishDialogScript?.latestVersionLabel ?? '')"
       @published="reloadScripts"
     />
   </section>
@@ -207,6 +211,14 @@ function openVersions(script: ScriptAsset) {
   versionDrawerOpen.value = true;
 }
 
+function nextPatchLabel(label: string): string {
+  if (!/^\d+\.\d+\.\d+$/.test(label)) {
+    return '1.0.0';
+  }
+  const [major, minor, patch] = label.split('.').map(Number);
+  return `${major}.${minor}.${patch + 1}`;
+}
+
 function openPublish(script: ScriptAsset) {
   publishDialogScript.value = script;
   publishDialogOpen.value = true;
@@ -222,13 +234,14 @@ const selectedRows = computed(() =>
   filteredScriptAssets.value.filter((script) => selectedScriptIds.value.includes(script.id)),
 );
 const scriptColumns: TableColumnsType<ScriptAsset> = [
-  { title: '序号', key: 'index', width: 72, align: 'center' },
-  { title: '脚本', key: 'script', width: 360 },
-  { title: '类型', key: 'type', width: 90 },
-  { title: '状态', key: 'status', width: 104 },
+  { title: '序号', key: 'index', width: 64, align: 'center' },
+  { title: '脚本', key: 'script', width: 280 },
+  { title: '最新版本', key: 'version', width: 110, align: 'center' },
+  { title: '类型', key: 'type', width: 80, align: 'center' },
+  { title: '状态', key: 'status', width: 168 },
   { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt', width: 132 },
-  { title: '更新人', key: 'updatedBy', width: 100 },
-  { title: '操作栏', key: 'actions', width: 210 },
+  { title: '更新人', key: 'updatedBy', width: 96 },
+  { title: '操作栏', key: 'actions', width: 300, align: 'center' },
 ];
 const scriptRowSelection = computed(() => ({
   selectedRowKeys: selectedScriptIds.value,
@@ -275,7 +288,7 @@ function latestVersionRecord(script: ScriptAsset) {
 }
 
 function scriptSummary(script: ScriptAsset) {
-  return `${script.sourceFile} · v${script.latestVersion}${script.hasDraft ? ' · 有未发布草稿' : ''}`;
+  return `${script.sourceFile}${script.hasDraft ? ' · 有未发布草稿' : ''}`;
 }
 
 function getThreadGroups(script: ScriptAsset): ThreadGroup[] {
@@ -296,3 +309,23 @@ function threadGroupSummary(group: ThreadGroup) {
   return `${group.threads} 线程 / Ramp-Up ${group.rampUp}s / 循环 ${group.loops} 次`;
 }
 </script>
+
+<style scoped>
+.status-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.status-tag {
+  margin-inline-end: 0;
+  line-height: 18px;
+}
+.version-label {
+  font-weight: 600;
+}
+.muted-version {
+  color: var(--muted);
+  font-size: 12px;
+}
+</style>

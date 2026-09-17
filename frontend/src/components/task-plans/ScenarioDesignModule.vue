@@ -46,7 +46,7 @@
           :title="`脚本版本 #${scenarioOf(block.name)?.scriptVersionId}`"
         >已关联脚本 <b class="mono">#{{ scenarioOf(block.name)?.scriptVersionId }}</b>
           <template v-if="boundVersionOutdated(block.name)">
-            （有新版本 v{{ boundScript(block.name)?.latestVersion }}）
+            （有新版本 {{ boundScript(block.name)?.latestVersionLabel || 'v' + (boundScript(block.name)?.latestVersion ?? 0) }}）
             <a class="upgrade-link" @click.prevent="upgradeScript(block.name)">升级到最新</a>
           </template>
         </span>
@@ -215,16 +215,15 @@ function boundScript(name: string): ScriptAsset | null {
         return false;
       }
       const bound = script.versions.find((version) => version.id === boundId);
-      return Boolean(bound && script.latestVersion > bound.versionNo);
+      const latest = script.versions.find((version) => version.status === 'PUBLISHED') ?? null;
+      return Boolean(bound && latest && bound.id !== latest.id);
     }
 
     async function upgradeScript(name: string) {
       const script = boundScript(name);
-      if (!script) {
-        return;
-      }
-      const latest = script.versions.find((version) => version.status === 'PUBLISHED'
-        && version.versionNo === script.latestVersion);
+      const latest = script
+        ? script.versions.find((version) => version.status === 'PUBLISHED') ?? null
+        : null;
       if (!latest) {
         return;
       }

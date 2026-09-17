@@ -24,7 +24,7 @@
       <div v-for="row in publishedRows" :key="row.version.id" class="version-row">
         <div class="version-main">
           <div class="version-head">
-            <a-tag color="green">v{{ row.version.versionNo }}</a-tag>
+            <a-tag color="green">{{ row.version.versionLabel || `v${row.version.versionNo}` }}</a-tag>
             <span class="version-title">{{ row.version.remark || '（无变更说明）' }}</span>
           </div>
           <p class="version-meta">
@@ -126,7 +126,7 @@ async function forkRow(row: BackendScriptVersionWithRefs) {
       row.version.id,
       currentUser.value?.username ?? 'admin',
     );
-    message.success(`已基于 v${row.version.versionNo} 重建草稿`);
+    message.success(`已基于 ${row.version.versionLabel || 'v' + row.version.versionNo} 重建草稿`);
     emit('changed');
     await reload();
   } catch (error) {

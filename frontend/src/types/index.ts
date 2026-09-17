@@ -224,6 +224,7 @@ export type ScriptVersionRecord = {
   status: 'DRAFT' | 'PUBLISHED';
   remark: string;
   versionNo: number;
+  versionLabel: string;
   fileName: string;
   fileSize: number;
   fileHash: string;
@@ -244,6 +245,7 @@ export type ScriptAsset = {
   id: number;
   projectId: number;
   scriptId: number;
+  latestVersionLabel: string;
   hasDraft: boolean;
   draftVersionId: number | null;
   currentScenarioCount: number;

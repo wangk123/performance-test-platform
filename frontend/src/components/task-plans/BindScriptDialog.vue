@@ -60,7 +60,7 @@ const scriptOptions = computed(() =>
       .filter((version) => version.status === 'PUBLISHED')
       .map((version) => ({
         value: version.id,
-        label: `${script.name} · v${version.versionNo}${version.remark ? `（${version.remark.slice(0, 20)}）` : ''}`,
+        label: `${script.name} · ${version.versionLabel || `v${version.versionNo}`}${version.remark ? `（${version.remark.slice(0, 20)}）` : ''}`,
       })),
   ),
 );

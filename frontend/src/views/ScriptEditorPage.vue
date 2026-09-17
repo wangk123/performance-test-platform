@@ -8,7 +8,7 @@
         </div>
         <div class="script-editor-platform-actions">
           <a-tag v-if="script.status === 'DRAFT'" color="orange">草稿</a-tag>
-          <a-tag v-else color="green">v{{ script.latestVersion }} 已发布</a-tag>
+          <a-tag v-else color="green">{{ script.latestVersionLabel || `v${script.latestVersion}` }} 已发布</a-tag>
           <a-button size="small" @click="publishDialogOpen = true">发布</a-button>
           <UserMenu />
         </div>
@@ -39,7 +39,7 @@
       <ScriptPublishDialog
         v-model:open="publishDialogOpen"
         :script="script"
-        :default-version-no="script.latestVersion + 1"
+        :default-version-label="nextPatchLabel(script.latestVersionLabel)"
         @published="onPublished"
       />
     </template>
@@ -166,6 +166,14 @@ function closeCurrentTab() {
 
 function currentScriptSnapshot() {
   return JSON.stringify(script.value?.steps ?? []);
+}
+
+function nextPatchLabel(label: string): string {
+  if (!/^\d+\.\d+\.\d+$/.test(label)) {
+    return '1.0.0';
+  }
+  const [major, minor, patch] = label.split('.').map(Number);
+  return `${major}.${minor}.${patch + 1}`;
 }
 
 async function onPublished() {
