@@ -7,24 +7,7 @@
           <h1>{{ projectName(script.projectId) }} · {{ script.name }}</h1>
         </div>
         <div class="script-editor-platform-actions">
-          <a-dropdown v-if="currentUser" trigger="click">
-            <button class="user-menu-trigger" type="button">
-              <a-avatar class="user-avatar" :size="26">{{ userInitial }}</a-avatar>
-              <span>{{ currentUser.displayName }}</span>
-            </button>
-            <template #overlay>
-              <a-menu>
-                <a-menu-item key="theme">
-                  <div class="user-menu-section" @click.stop>
-                    <span>主题</span>
-                    <a-segmented v-model:value="themeMode" :options="themeModeOptions" />
-                  </div>
-                </a-menu-item>
-                <a-menu-divider />
-                <a-menu-item key="logout" danger @click="fullLogout">退出登录</a-menu-item>
-              </a-menu>
-            </template>
-          </a-dropdown>
+          <UserMenu />
         </div>
       </header>
 
@@ -64,23 +47,19 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useAuth } from '../composables/useAuth';
 import { useScriptEditor } from '../composables/useScriptEditor';
-import { useTheme } from '../composables/useTheme';
 import { useWorkspace } from '../composables/useWorkspace';
 import StepSidebar from '../components/editor/StepSidebar.vue';
 import StepDetail from '../components/editor/StepDetail.vue';
 import StepCreateDialog from '../components/editor/StepCreateDialog.vue';
 import StepImportDialog from '../components/editor/StepImportDialog.vue';
+import UserMenu from '../components/layout/UserMenu.vue';
 
 const editor = useScriptEditor();
 const route = useRoute();
 const router = useRouter();
-const { currentUser } = useAuth();
-const { projectName, loadProjectContext, fullLogout } = useWorkspace();
-const { themeMode, themeModeOptions } = useTheme();
+const { projectName, loadProjectContext } = useWorkspace();
 const script = computed(() => editor.editorScriptAsset.value);
-const userInitial = computed(() => currentUser.value?.displayName?.slice(0, 1).toUpperCase() ?? 'U');
 const savedSnapshot = ref('');
 const hasUnsavedChanges = computed(() => Boolean(script.value) && currentScriptSnapshot() !== savedSnapshot.value);
 
