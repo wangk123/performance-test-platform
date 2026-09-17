@@ -48,7 +48,7 @@ async function importScriptAsset() {
   scriptUploading.value = true;
   try {
     const importedBy = currentUser.value?.username ?? 'admin';
-    const definition = await uploadScriptApi(currentProject.value.id, scriptFile.value, importedBy);
+    const definition = await uploadScriptApi(currentProject.value.id, scriptFile.value, importedBy, scriptForm.remark.trim());
     const asset = mapScriptDefinition(definition);
     scriptAssets.value = [asset, ...scriptAssets.value.filter((item) => item.id !== asset.id)];
     selectedScriptId.value = asset.id;

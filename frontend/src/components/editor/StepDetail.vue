@@ -13,7 +13,7 @@
           <div class="editor-mode-switch">
             <a-segmented v-model:value="detailMode" :options="detailModeOptions" size="small" />
           </div>
-          <a-tooltip title="保存脚本">
+          <a-tooltip title="保存草稿">
             <a-button class="editor-toolbar-button" type="primary" size="small" :loading="saving" @click="emit('save')">
               保存
             </a-button>

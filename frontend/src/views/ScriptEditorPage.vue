@@ -7,6 +7,9 @@
           <h1>{{ projectName(script.projectId) }} · {{ script.name }}</h1>
         </div>
         <div class="script-editor-platform-actions">
+          <a-tag v-if="script.status === 'DRAFT'" color="orange">草稿</a-tag>
+          <a-tag v-else color="green">v{{ script.latestVersion }} 已发布</a-tag>
+          <a-button size="small" @click="publishDialogOpen = true">发布</a-button>
           <UserMenu />
         </div>
       </header>
@@ -33,6 +36,12 @@
 
       <StepCreateDialog />
       <StepImportDialog />
+      <ScriptPublishDialog
+        v-model:open="publishDialogOpen"
+        :script="script"
+        :default-version-no="script.latestVersion + 1"
+        @published="onPublished"
+      />
     </template>
 
     <div v-else class="script-editor-missing panel">
@@ -53,6 +62,7 @@ import StepSidebar from '../components/editor/StepSidebar.vue';
 import StepDetail from '../components/editor/StepDetail.vue';
 import StepCreateDialog from '../components/editor/StepCreateDialog.vue';
 import StepImportDialog from '../components/editor/StepImportDialog.vue';
+import ScriptPublishDialog from '../components/dialogs/ScriptPublishDialog.vue';
 import UserMenu from '../components/layout/UserMenu.vue';
 
 const editor = useScriptEditor();
@@ -64,6 +74,7 @@ const savedSnapshot = ref('');
 const hasUnsavedChanges = computed(() => Boolean(script.value) && currentScriptSnapshot() !== savedSnapshot.value);
 
 const saving = ref(false);
+const publishDialogOpen = ref(false);
 const sidebarWidth = ref(380);
 const resizing = ref(false);
 const SIDEBAR_MIN = 340;
@@ -133,7 +144,7 @@ async function onSave() {
   try {
     if (await editor.saveEditorScript()) {
       savedSnapshot.value = currentScriptSnapshot();
-      message.success('脚本已保存为后端 JMX 新版本');
+      message.success('草稿已保存');
     }
   } finally {
     saving.value = false;
@@ -155,5 +166,13 @@ function closeCurrentTab() {
 
 function currentScriptSnapshot() {
   return JSON.stringify(script.value?.steps ?? []);
+}
+
+async function onPublished() {
+  const projectId = Number(route.params.projectId);
+  if (projectId) {
+    await loadProjectContext(projectId);
+  }
+  editor.syncEditorRoute();
 }
 </script>

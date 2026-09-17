@@ -37,7 +37,13 @@
           </template>
           <template v-else-if="column.key === 'type'">{{ scriptType(record) }}</template>
           <template v-else-if="column.key === 'status'">
-            <span class="asset-status" :class="scriptStatus(record).tone">{{ scriptStatus(record).label }}</span>
+            <div class="status-cell">
+              <span class="asset-status" :class="scriptStatus(record).tone">{{ scriptStatusText(record.status) }}</span>
+              <a-tag v-if="record.hasDraft" color="orange">有草稿</a-tag>
+              <a-tooltip v-if="record.outdatedScenarioCount > 0" :title="`${record.outdatedScenarioCount} 个场景绑定的版本落后于最新发布`">
+                <a-tag color="gold">{{ record.outdatedScenarioCount }} 场景用旧版</a-tag>
+              </a-tooltip>
+            </div>
           </template>
           <template v-else-if="column.key === 'updatedAt'">{{ formatDate(record.updatedAt) }}</template>
           <template v-else-if="column.key === 'updatedBy'">{{ latestVersionRecord(record)?.importedBy ?? '-' }}</template>
@@ -49,13 +55,15 @@
                 target="_blank"
                 rel="noopener"
                 @click.stop="editor.ensureScriptSteps(record)"
-              >编辑</a-button>
+              >{{ record.hasDraft ? '编辑草稿' : '编辑' }}</a-button>
               <a-button
                 size="small"
                 type="primary"
                 :disabled="!scriptStatus(record).executable"
                 @click.stop="runScriptAsset(record)"
               >执行</a-button>
+              <a-button v-if="record.hasDraft" size="small" @click.stop="openPublish(record)">发布</a-button>
+              <a-button size="small" @click.stop="openVersions(record)">版本</a-button>
               <a-button size="small" danger @click.stop="deleteScriptAsset(record)">删除</a-button>
             </div>
           </template>
@@ -138,6 +146,18 @@
       </a-tabs>
     </aside>
     </div>
+
+    <ScriptVersionDrawer
+      v-model:open="versionDrawerOpen"
+      :script="versionDrawerScript"
+      @changed="reloadScripts"
+    />
+    <ScriptPublishDialog
+      v-model:open="publishDialogOpen"
+      :script="publishDialogScript"
+      :default-version-no="(publishDialogScript?.latestVersion ?? 0) + 1"
+      @published="reloadScripts"
+    />
   </section>
 </template>
 
@@ -154,7 +174,10 @@ import { useThreadGroups } from '../../composables/useThreadGroups';
 import { useWorkspace } from '../../composables/useWorkspace';
 import type { ScriptAsset, ThreadGroup } from '../../types';
 import { scriptExecutableStatus } from '../../utils/script-status';
+import { scriptStatusText } from '../../utils/format';
 import DataFilePanel from './DataFilePanel.vue';
+import ScriptVersionDrawer from './ScriptVersionDrawer.vue';
+import ScriptPublishDialog from '../dialogs/ScriptPublishDialog.vue';
 
 const editor = useScriptEditor();
 const sideTab = ref<'script' | 'data-files'>('script');
@@ -171,7 +194,29 @@ const {
   currentProject,
   deleteScriptAsset,
   deleteScriptAssets,
+  loadProjectScripts,
 } = useWorkspace();
+
+const versionDrawerOpen = ref(false);
+const versionDrawerScript = ref<ScriptAsset | null>(null);
+const publishDialogOpen = ref(false);
+const publishDialogScript = ref<ScriptAsset | null>(null);
+
+function openVersions(script: ScriptAsset) {
+  versionDrawerScript.value = script;
+  versionDrawerOpen.value = true;
+}
+
+function openPublish(script: ScriptAsset) {
+  publishDialogScript.value = script;
+  publishDialogOpen.value = true;
+}
+
+function reloadScripts() {
+  if (currentProject.value) {
+    void loadProjectScripts(currentProject.value.id, true);
+  }
+}
 
 const selectedRows = computed(() =>
   filteredScriptAssets.value.filter((script) => selectedScriptIds.value.includes(script.id)),
@@ -230,7 +275,7 @@ function latestVersionRecord(script: ScriptAsset) {
 }
 
 function scriptSummary(script: ScriptAsset) {
-  return `${script.sourceFile} · ${getThreadGroupCount(script)} 线程组 · ${script.apis.length} API · ${scriptStatus(script).reason} · v${script.latestVersion}`;
+  return `${script.sourceFile} · v${script.latestVersion}${script.hasDraft ? ' · 有未发布草稿' : ''}`;
 }
 
 function getThreadGroups(script: ScriptAsset): ThreadGroup[] {

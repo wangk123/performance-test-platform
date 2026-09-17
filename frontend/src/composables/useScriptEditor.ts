@@ -27,7 +27,7 @@ import { parseCurlCommand } from '../utils/curl-import';
 import { parseJmeterXmlFragment } from '../utils/jmeter-xml-import';
 import { useWorkspace } from './useWorkspace';
 import { useAuth } from './useAuth';
-import { mapScriptDefinition, getScriptDefinitionApi, saveScriptDefinitionApi } from '../api/scripts';
+import { mapScriptDefinition, getScriptDefinitionApi, saveDraftApi } from '../api/scripts';
 import { confirmAction } from '../utils/feedback';
 
 const editorScriptId = ref<number | null>(null);
@@ -78,6 +78,7 @@ function ensureInit() {
     }
   });
 
+
   watch(
     () => stepDialogForm.value.relation,
     () => {
@@ -108,6 +109,26 @@ function useEditor() {
 
   const scriptEditorVisible = computed(() => editorScriptId.value !== null);
 
+  // 列表态 steps 为空：进入编辑器时现拉 definition（优先草稿版本），并切到该版本
+  let refreshing = false;
+  watch(editorScriptId, async (versionId) => {
+    if (!versionId || refreshing) {
+      return;
+    }
+    const script = scriptAssets.value.find((item) => item.id === versionId);
+    if (!script || (script.steps.length > 0 && script.id === (script.draftVersionId ?? script.id))) {
+      return;
+    }
+    refreshing = true;
+    try {
+      await refreshEditorDefinition(script);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '脚本加载失败');
+    } finally {
+      refreshing = false;
+    }
+  });
+
   const flatEditorSteps = computed<FlatStepItem[]>(() =>
     flattenScriptSteps(editorScriptAsset.value?.steps ?? [], collapsedStepIds.value),
   );
@@ -127,10 +148,25 @@ function useEditor() {
     return editorScriptAsset.value?.steps.some((step) => step.id === stepId) ?? false;
   }
 
-  function ensureScriptSteps(script: ScriptAsset) {
-    if (!script.steps || script.steps.length === 0) {
-      const created: ScriptStep[] = [];
-      script.steps = created;
+  async function ensureScriptSteps(script: ScriptAsset) {
+    if (script.steps.length === 0 || script.draftVersionId) {
+      await refreshEditorDefinition(script);
+    }
+  }
+
+  async function refreshEditorDefinition(script: ScriptAsset) {
+    const versionId = script.draftVersionId ?? script.id;
+    const definition = await getScriptDefinitionApi(script.projectId, versionId);
+    const saved = mapScriptDefinition(definition);
+    const index = scriptAssets.value.findIndex((item) => item.scriptId === script.scriptId);
+    if (index >= 0) {
+      scriptAssets.value.splice(index, 1, saved);
+    } else {
+      scriptAssets.value.unshift(saved);
+    }
+    if (editorScriptId.value !== null) {
+      editorScriptId.value = saved.id;
+      void router.replace(scriptEditorUrl(saved));
     }
   }
 
@@ -424,10 +460,9 @@ function useEditor() {
     );
     const { currentUser } = useAuth();
     try {
-      // Task 13 起 PUT /definition 仅回 { version, warnings }，保存成功后重新拉取 definition 同步状态
-      const result = await saveScriptDefinitionApi(
+      const result = await saveDraftApi(
         editorScriptAsset.value.projectId,
-        editorScriptAsset.value.id,
+        editorScriptAsset.value.scriptId,
         editorScriptAsset.value.sourceFile,
         editorScriptAsset.value.steps,
         currentUser.value?.username ?? 'admin',
@@ -435,10 +470,10 @@ function useEditor() {
       saveWarnings.value = result.warnings ?? [];
       const definition = await getScriptDefinitionApi(
         editorScriptAsset.value.projectId,
-        editorScriptAsset.value.id,
+        result.version.id,
       );
       const saved = mapScriptDefinition(definition);
-      const index = scriptAssets.value.findIndex((script) => script.id === editorScriptAsset.value?.id);
+      const index = scriptAssets.value.findIndex((script) => script.scriptId === editorScriptAsset.value?.scriptId);
       if (index >= 0) {
         scriptAssets.value.splice(index, 1, saved);
       } else {
