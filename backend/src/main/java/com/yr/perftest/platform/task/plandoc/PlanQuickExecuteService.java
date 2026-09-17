@@ -6,7 +6,11 @@ import com.yr.perftest.platform.execution.distributed.PersistentExecutionNodeRec
 import com.yr.perftest.platform.execution.distributed.PersistentExecutionNodeRepository;
 import com.yr.perftest.platform.identity.HumanPrincipal;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
+import com.yr.perftest.platform.script.PersistentScriptRecord;
+import com.yr.perftest.platform.script.PersistentScriptRepository;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
+import com.yr.perftest.platform.script.ScriptPublicationService;
+import com.yr.perftest.platform.script.ScriptVersionStatus;
 import com.yr.perftest.platform.task.ExecutionControlService;
 import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
 import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
@@ -29,6 +33,8 @@ public class PlanQuickExecuteService {
     private final TaskScenarioService scenarioService;
     private final ExecutionControlService executionControlService;
     private final PlanCommentService commentService;
+    private final ScriptPublicationService publicationService;
+    private final PersistentScriptRepository scriptRepository;
 
     public PlanQuickExecuteService(
             PersistentScriptVersionRepository scriptVersionRepository,
@@ -37,7 +43,9 @@ public class PlanQuickExecuteService {
             TaskPlanService planService,
             TaskScenarioService scenarioService,
             ExecutionControlService executionControlService,
-            PlanCommentService commentService
+            PlanCommentService commentService,
+            ScriptPublicationService publicationService,
+            PersistentScriptRepository scriptRepository
     ) {
         this.scriptVersionRepository = scriptVersionRepository;
         this.executionNodeRepository = executionNodeRepository;
@@ -46,6 +54,8 @@ public class PlanQuickExecuteService {
         this.scenarioService = scenarioService;
         this.executionControlService = executionControlService;
         this.commentService = commentService;
+        this.publicationService = publicationService;
+        this.scriptRepository = scriptRepository;
     }
 
     @Transactional
@@ -53,6 +63,15 @@ public class PlanQuickExecuteService {
         PersistentScriptVersionRecord script = scriptVersionRepository.findById(scriptVersionId)
                 .orElseThrow(() -> new PlanValidationException("PLAN_INVALID：脚本版本不存在"));
         String username = actor == null ? "admin" : actor.username();
+        // 快捷执行即"立刻跑这个脚本"：草稿先原地转发布快照（id 不变），保证执行必为 PUBLISHED；
+        // 整体事务回滚时发布一并回滚。
+        if (script.getStatus() == ScriptVersionStatus.DRAFT) {
+            int nextVersionNo = scriptRepository.findById(script.getScriptId())
+                    .map(PersistentScriptRecord::getLatestVersionNo)
+                    .orElse(0) + 1;
+            publicationService.publish(script.getProjectId(), script.getScriptId(),
+                    nextVersionNo, "快捷执行自动发布", username);
+        }
         String planName = scriptDisplayName(script) + " / 即时执行";
         com.yr.perftest.platform.task.TaskPlan plan = planService.createPlan(
                 script.getProjectId(), planName, "从脚本列表直接执行", firstAvailableControllerNodeId(),
