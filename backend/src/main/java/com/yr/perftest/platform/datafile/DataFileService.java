@@ -124,6 +124,13 @@ public class DataFileService {
                         record.getCreatedBy(),
                         record.getCreatedAt(),
                         latestOf(record.getId())))
+                // 按最近一次上传时间倒序，后上传的在前；无版本记录的排末尾
+                .sorted(Comparator
+                        .comparing((DataFile file) -> file.latestVersion() != null
+                                ? file.latestVersion().uploadedAt()
+                                : LocalDateTime.MIN)
+                        .thenComparing(DataFile::id)
+                        .reversed())
                 .toList();
     }
 
