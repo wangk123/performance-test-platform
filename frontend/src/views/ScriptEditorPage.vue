@@ -7,7 +7,7 @@
           <h1>{{ projectName(script.projectId) }} · {{ script.name }}</h1>
         </div>
         <div class="script-editor-platform-actions">
-          <a-tag v-if="script.status === 'DRAFT'" color="orange">草稿</a-tag>
+          <a-tag v-if="script.draftVersionId === script.id" color="orange">草稿</a-tag>
           <a-tag v-else color="green">{{ script.latestVersionLabel || `v${script.latestVersion}` }} 已发布</a-tag>
           <a-button size="small" @click="publishDialogOpen = true">发布</a-button>
           <UserMenu />

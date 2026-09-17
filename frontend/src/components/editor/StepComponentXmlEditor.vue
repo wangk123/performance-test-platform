@@ -117,7 +117,7 @@ async function applyComponentXml() {
 
 async function refreshScriptDefinition(projectId: number, scriptId: number, selectedId: string) {
   const definition = await getScriptDefinitionApi(projectId, scriptId);
-  const saved = mapScriptDefinition(definition);
+  const saved = mapScriptDefinition(definition, scriptAssets.value.find((item) => item.id === definition.id));
   const index = scriptAssets.value.findIndex((item) => item.id === saved.id);
   if (index >= 0) {
     scriptAssets.value.splice(index, 1, saved);

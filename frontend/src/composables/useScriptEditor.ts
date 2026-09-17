@@ -157,7 +157,7 @@ function useEditor() {
   async function refreshEditorDefinition(script: ScriptAsset) {
     const versionId = script.draftVersionId ?? script.id;
     const definition = await getScriptDefinitionApi(script.projectId, versionId);
-    const saved = mapScriptDefinition(definition);
+    const saved = mapScriptDefinition(definition, script);
     const index = scriptAssets.value.findIndex((item) => item.scriptId === script.scriptId);
     if (index >= 0) {
       scriptAssets.value.splice(index, 1, saved);
@@ -472,7 +472,7 @@ function useEditor() {
         editorScriptAsset.value.projectId,
         result.version.id,
       );
-      const saved = mapScriptDefinition(definition);
+      const saved = mapScriptDefinition(definition, editorScriptAsset.value ?? undefined);
       const index = scriptAssets.value.findIndex((script) => script.scriptId === editorScriptAsset.value?.scriptId);
       if (index >= 0) {
         scriptAssets.value.splice(index, 1, saved);

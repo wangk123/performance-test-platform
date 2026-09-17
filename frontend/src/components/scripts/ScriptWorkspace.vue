@@ -42,7 +42,7 @@
           <template v-else-if="column.key === 'type'">{{ scriptType(record) }}</template>
           <template v-else-if="column.key === 'status'">
             <div class="status-cell">
-              <span class="asset-status" :class="scriptStatus(record).tone">{{ scriptStatusText(record.status) }}</span>
+              <span class="asset-status" :class="record.status === 'PUBLISHED' ? 'ready' : 'blocked'">{{ scriptStatusText(record.status) }}</span>
               <a-tag v-if="record.hasDraft" class="status-tag" color="orange">草稿</a-tag>
               <a-tooltip v-else-if="record.outdatedScenarioCount > 0" :title="`${record.outdatedScenarioCount} 个场景绑定的版本落后于最新发布`">
                 <a-tag class="status-tag" color="gold">旧版</a-tag>
@@ -63,7 +63,7 @@
               <a-button
                 size="small"
                 type="primary"
-                :disabled="!scriptStatus(record).executable"
+                :disabled="record.status !== 'PUBLISHED'"
                 @click.stop="runScriptAsset(record)"
               >执行</a-button>
               <a-button v-if="record.hasDraft" size="small" @click.stop="openPublish(record)">发布</a-button>
@@ -177,7 +177,6 @@ import { useTaskPlans } from '../../composables/useTaskPlans';
 import { useThreadGroups } from '../../composables/useThreadGroups';
 import { useWorkspace } from '../../composables/useWorkspace';
 import type { ScriptAsset, ThreadGroup } from '../../types';
-import { scriptExecutableStatus } from '../../utils/script-status';
 import { scriptStatusText } from '../../utils/format';
 import DataFilePanel from './DataFilePanel.vue';
 import ScriptVersionDrawer from './ScriptVersionDrawer.vue';
@@ -273,10 +272,6 @@ function scriptRowEvents(record: ScriptAsset) {
 
 function scriptRowClassName(record: ScriptAsset) {
   return selectedScriptAsset.value?.id === record.id ? 'selected-table-row' : '';
-}
-
-function scriptStatus(script: ScriptAsset) {
-  return scriptExecutableStatus(script);
 }
 
 function scriptType(script: ScriptAsset) {

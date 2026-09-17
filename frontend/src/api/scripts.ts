@@ -206,20 +206,28 @@ export function saveScriptDefinitionApi(
   });
 }
 
-export function mapScriptDefinition(definition: BackendScriptDefinition): ScriptAsset {
+/** definition → ScriptAsset；previous 为列表中旧行时沿用 assets summary 的场景绑定统计（definition 不含该数据）。 */
+export function mapScriptDefinition(definition: BackendScriptDefinition, previous?: ScriptAsset): ScriptAsset {
+  const scriptId = definition.scriptId ?? definition.id;
+  // definition.versions 是全项目版本列表，必须按 scriptId 过滤，否则会把别的脚本的版本灌进本行
+  const versionRecords = definition.versions
+    .filter((version) => version.scriptId === scriptId)
+    .map(mapVersion);
+  const latestPublished = versionRecords.find((version) => version.status === 'PUBLISHED') ?? null;
+  const draftRecord = versionRecords.find((version) => version.status === 'DRAFT') ?? null;
   return {
     id: definition.id,
     projectId: definition.projectId,
-    scriptId: definition.scriptId ?? definition.id,
-    latestVersionLabel: '',
-    hasDraft: definition.status === 'DRAFT',
-    draftVersionId: definition.status === 'DRAFT' ? definition.id : null,
-    currentScenarioCount: 0,
-    outdatedScenarioCount: 0,
+    scriptId,
+    latestVersionLabel: latestPublished?.versionLabel ?? '',
+    hasDraft: draftRecord !== null,
+    draftVersionId: draftRecord?.id ?? null,
+    currentScenarioCount: previous?.currentScenarioCount ?? 0,
+    outdatedScenarioCount: previous?.outdatedScenarioCount ?? 0,
     name: definition.name,
     sourceFile: definition.sourceFile,
-    latestVersion: definition.latestVersion,
-    status: definition.status ?? 'PUBLISHED',
+    latestVersion: latestPublished?.versionNo ?? 0,
+    status: latestPublished ? 'PUBLISHED' : 'DRAFT',
     remark: definition.remark,
     updatedAt: definition.updatedAt,
     steppingThreadGroupSupported: definition.steppingThreadGroupSupported ?? false,
@@ -231,7 +239,7 @@ export function mapScriptDefinition(definition: BackendScriptDefinition): Script
     monitors: [],
     variables: [],
     params: defaultParams(),
-    versions: definition.versions.map(mapVersion),
+    versions: versionRecords,
     steps: definition.steps,
   };
 }

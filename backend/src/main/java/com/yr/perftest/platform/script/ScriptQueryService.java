@@ -88,8 +88,11 @@ public class ScriptQueryService {
                 .findFirst().orElse(null);
         int currentCount = latestPublished == null ? 0 : refsByVersion
                 .getOrDefault(latestPublished.getId(), List.of()).size();
-        int outdatedCount = refsByVersion.values().stream()
-                .mapToInt(List::size).sum() - currentCount;
+        // 仅统计本脚本非最新发布版本上的场景绑定，不能拿全项目引用总数求差
+        int outdatedCount = versions.stream()
+                .filter(v -> latestPublished == null || v.getId() != latestPublished.getId())
+                .mapToInt(v -> refsByVersion.getOrDefault(v.getId(), List.of()).size())
+                .sum();
         return new ScriptAssetSummary(
                 script.getPersistentId(),
                 script.getProjectId(),
