@@ -61,11 +61,12 @@ class ScriptApiBehaviorTest {
                 .andExpect(jsonPath("$.versionNo", is(1)))
                 .andExpect(jsonPath("$.originalFilename", is("loan-search.jmx")));
 
-        mockMvc.perform(get("/api/projects/1/scripts")
+        mockMvc.perform(get("/api/projects/1/scripts/assets")
                         .header("Authorization", "Bearer " + authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].versionNo", is(1)));
+                .andExpect(jsonPath("$[0].latestVersionNo", is(1)))
+                .andExpect(jsonPath("$[0].name", is("loan-search")));
     }
 
     @Test

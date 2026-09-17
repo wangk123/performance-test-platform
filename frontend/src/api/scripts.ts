@@ -40,10 +40,6 @@ export type SaveScriptResult = {
   warnings: string[];
 };
 
-export function listScriptDefinitionsApi(projectId: number) {
-  return request<BackendScriptDefinition[]>(`/api/projects/${projectId}/scripts/definitions`);
-}
-
 export type BackendScriptAssetSummary = {
   id: number;
   projectId: number;

@@ -74,32 +74,42 @@
 2. 新建任务时自动带出默认参数。
 3. 修改脚本默认参数不会改变已存在执行记录中的执行配置。
 
-## 4. 关键实体
+## 4. 关键实体与版本状态机
 
 | 实体 | 关键字段 | 说明 |
 |------|----------|------|
-| `script` | `id`, `project_id`, `name`, `status`, `created_by`, `created_at` | 脚本主表 |
-| `script_version` | `id`, `script_id`, `version_no`, `file_name`, `file_hash`, `file_path`, `parse_status`, `remark`, `created_by`, `created_at` | 脚本版本 |
+| `scripts` | `id`, `project_id`, `name`, `latest_version_no`(水位，只增不减), `created_by`, `created_at` | 脚本主表 |
+| `script_versions` | `id`, `script_id`, `version_no`(DRAFT 固定 0), `status`, `remark`, `original_filename`, `stored_path`, `uploaded_by`, `uploaded_at`, `updated_at` | 脚本版本（每脚本至多一条 DRAFT，`(script_id, version_no)` 唯一） |
 | `script_param` | `id`, `script_version_id`, `param_key`, `param_value`, `value_type`, `description`, `updated_at` | 默认参数 |
 
-脚本版本状态：
+版本状态机（DRAFT/PUBLISHED 两态单向，详见 spec `2026-09-17-script-version-publish-design.md`）：
 
 ```text
-UPLOADED -> PARSED
-UPLOADED -> PARSE_FAILED
-PARSED -> DISABLED
+DRAFT --发布(手动版本号 + 必填变更说明)--> PUBLISHED（不可变快照）
+DRAFT --删除/丢弃--> 物理删除（随时）
+PUBLISHED --删除(当前无场景引用)--> 物理删除；被引用则拒绝并报出场景名
 ```
+
+要点：
+
+1. 版本号发布时手动指定，仅限大于 `latest_version_no`；水位只增不减，杜绝同号复用。
+2. 场景绑定钉死具体已发布版本（`script_version_id`），绑定/执行入口校验 `status = PUBLISHED`；快捷执行遇 DRAFT 自动发布为快照。
+3. 删除脚本 = 级联删全部版本与文件，任一 PUBLISHED 版本被场景引用则整体拒绝。
+4. 历史执行追溯靠 `storage/executions/` 执行目录中的 JMX 复制件自包含，不依赖源版本存活。
 
 ## 5. 接口草案
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| `GET` | `/api/projects/{projectId}/scripts` | 脚本版本列表 |
-| `POST` | `/api/projects/{projectId}/scripts` | 上传 JMX 并生成版本 |
-| `GET` | `/api/projects/{projectId}/scripts/{scriptId}` | 脚本详情 |
-| `GET` | `/api/script-versions/{versionId}/params` | 脚本版本默认参数 |
-| `PUT` | `/api/script-versions/{versionId}/params` | 保存默认参数 |
-| `GET` | `/api/script-versions/{versionId}/download` | 下载原始 JMX |
+| `GET` | `/api/projects/{projectId}/scripts/assets` | 脚本维度聚合列表（最新发布 + 草稿标记 + 场景使用统计） |
+| `GET` | `/api/projects/{projectId}/scripts/{scriptId}/versions` | 版本历史（含每版本引用场景名） |
+| `POST` | `/api/projects/{projectId}/scripts` | 上传 JMX（建脚本 + PUBLISHED v1，同名追加新发布版本）或 JSON 新建空白脚本（DRAFT 脚手架） |
+| `PUT` | `/api/projects/{projectId}/scripts/{scriptId}/draft` | 保存草稿（惰性创建，基准 = 最新已发布或脚手架） |
+| `POST` | `/api/projects/{projectId}/scripts/{scriptId}/publish` | 发布（版本号 + 变更说明必填） |
+| `POST` | `/api/projects/{projectId}/scripts/{scriptId}/fork-draft` | 以指定已发布版本内容重建草稿（回滚便利键） |
+| `DELETE` | `/api/projects/{projectId}/scripts/{scriptId}/versions/{versionId}` | 删版本（引用守卫） |
+| `DELETE` | `/api/projects/{projectId}/scripts/{scriptId}` | 删脚本（级联守卫） |
+| `GET` | `/api/projects/{projectId}/scripts/{versionId}` / `/{versionId}/definition` | 版本内容/结构定义（编辑器现拉） |
 
 ## 6. 详细设计调整点
 

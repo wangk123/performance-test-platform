@@ -122,31 +122,6 @@ public class ScriptService {
     }
 
     @Transactional(readOnly = true)
-    public List<ScriptVersion> listScripts(long projectId) {
-        if (!projectRepository.existsById(projectId)) {
-            throw new ProjectValidationException("project does not exist");
-        }
-        return scriptVersionRepository.findAllByProjectIdOrderByVersionNoDesc(projectId).stream()
-                .map(PersistentScriptVersionRecord::toScriptVersion)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<ScriptDefinition> listScriptDefinitions(long projectId) {
-        if (!projectRepository.existsById(projectId)) {
-            throw new ProjectValidationException("project does not exist");
-        }
-        List<PersistentScriptVersionRecord> records =
-                scriptVersionRepository.findAllByProjectIdOrderByVersionNoDesc(projectId);
-        List<ScriptVersion> versions = records.stream()
-                .map(PersistentScriptVersionRecord::toScriptVersion)
-                .toList();
-        return records.stream()
-                .map(record -> toScriptDefinition(record, versions))
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
     public ScriptDefinition getScriptDefinition(long projectId, long versionId) {
         PersistentScriptVersionRecord record = requireScriptVersion(projectId, versionId);
         List<ScriptVersion> versions = scriptVersionRepository.findAllByProjectIdOrderByVersionNoDesc(projectId).stream()

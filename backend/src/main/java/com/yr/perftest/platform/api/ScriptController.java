@@ -37,16 +37,6 @@ public class ScriptController {
         this.jsr223SecretScanner = jsr223SecretScanner;
     }
 
-    @GetMapping
-    public List<ScriptVersion> listScripts(@PathVariable long projectId) {
-        return scriptService.listScripts(projectId);
-    }
-
-    @GetMapping("/definitions")
-    public List<ScriptDefinition> listScriptDefinitions(@PathVariable long projectId) {
-        return scriptService.listScriptDefinitions(projectId);
-    }
-
     @GetMapping("/{versionId:\\d+}")
     public ScriptContent getScriptContent(@PathVariable long projectId, @PathVariable long versionId) {
         return scriptService.getScriptContent(projectId, versionId);
