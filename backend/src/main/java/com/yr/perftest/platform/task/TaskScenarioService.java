@@ -7,6 +7,7 @@ import com.yr.perftest.platform.execution.aggregate.AggregateReportService;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
 import com.yr.perftest.platform.script.ScriptStepDefinition;
+import com.yr.perftest.platform.script.ScriptVersionStatus;
 import com.yr.perftest.platform.task.plandoc.PlanScenarioDocSync;
 import com.yr.perftest.platform.task.plandoc.PlanStateException;
 import com.yr.perftest.platform.task.plandoc.PlanStatus;
@@ -382,6 +383,9 @@ public class TaskScenarioService {
                 .orElseThrow(() -> new ExecutionValidationException("script version does not exist"));
         if (!script.getProjectId().equals(projectId)) {
             throw new ExecutionValidationException("script version does not exist");
+        }
+        if (script.getStatus() != ScriptVersionStatus.PUBLISHED) {
+            throw new ExecutionValidationException("script version is not published");
         }
         return script;
     }

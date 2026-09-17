@@ -131,6 +131,48 @@ class ScriptPublicationApiTest {
                 .andExpect(jsonPath("$.message", is("published version is immutable, edit the draft instead")));
     }
 
+    @Test
+    void bindingDraftVersionIsRejected() throws Exception {
+        createProjectAndBlankScript();
+        long planId = createPlan();
+        long draftVersionId = draftVersionIdOfScript(1);
+
+        mockMvc.perform(post("/api/task-plans/" + planId + "/scenarios")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
+                        .header("X-User", "admin")
+                        .content(objectMapper.writeValueAsString(
+                                new CreateScenarioBody(draftVersionId, "下单场景"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", is("script version is not published")));
+    }
+
+    private long createPlan() throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/projects/1/task-plans")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
+                        .header("X-User", "admin")
+                        .content("{\"name\":\"下单链路压测计划\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString()).path("id").asLong();
+    }
+
+    private long draftVersionIdOfScript(long scriptId) throws Exception {
+        MvcResult result = mockMvc.perform(put("/api/projects/1/scripts/" + scriptId + "/draft")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
+                        .header("X-User", "admin")
+                        .content("{\"filename\":\"登录链路压测.jmx\",\"steps\":[]}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString())
+                .path("version").path("id").asLong();
+    }
+
+    private record CreateScenarioBody(long scriptVersionId, String name) {
+    }
+
     private void createProjectAndBlankScript() throws Exception {
         mockMvc.perform(post("/api/projects")
                         .contentType(MediaType.APPLICATION_JSON)

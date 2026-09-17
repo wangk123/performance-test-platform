@@ -13,6 +13,7 @@ import com.yr.perftest.platform.monitoring.ExecutionMonitorBindingService;
 import com.yr.perftest.platform.monitoring.TargetMetricsSnapshotService;
 import com.yr.perftest.platform.script.PersistentScriptVersionRecord;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
+import com.yr.perftest.platform.script.ScriptVersionStatus;
 import com.yr.perftest.platform.task.PersistentScenarioExecutionRecord;
 import com.yr.perftest.platform.task.PersistentScenarioExecutionRepository;
 import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
@@ -288,6 +289,9 @@ public class DistributedJmeterExecutionRunner {
                     .orElseThrow(() -> new ExecutionValidationException("task plan does not exist"));
             PersistentScriptVersionRecord script = scriptVersionRepository.findById(scenario.getScriptVersionId())
                     .orElseThrow(() -> new ExecutionValidationException("script version does not exist"));
+            if (script.getStatus() != ScriptVersionStatus.PUBLISHED) {
+                throw new ExecutionValidationException("script version is not published");
+            }
             ExecutionConfig config = readConfig(execution.getConfigJson());
             if (config.controllerNodeId() == null || config.workerNodeIds().isEmpty()) {
                 throw new ExecutionValidationException("distributed execution nodes are required");
