@@ -80,12 +80,15 @@ public class ScriptService {
         }
 
         PersistentScriptVersionRecord record = scriptVersionRepository.save(new PersistentScriptVersionRecord(
+                null,
                 projectId,
                 versionNo,
                 originalFilename,
                 target.toString(),
                 uploadedBy,
-                Instant.now()
+                Instant.now(),
+                ScriptVersionStatus.PUBLISHED,
+                null
         ));
         return record.toScriptVersion();
     }
