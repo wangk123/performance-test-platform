@@ -11,7 +11,7 @@
           <span class="sc-id">{{ item.scenarioNo }}</span>
           <div class="sc-title">
             <strong class="sc-name">{{ item.name }}</strong>
-            <span v-if="item.testType" class="sc-type">{{ item.testType }}</span>
+            <span v-if="item.testType" class="sc-type">{{ testTypeLabel(item.testType) }}</span>
           </div>
           <div v-if="item.data" class="sc-script">
             <span class="sc-script-label">关联脚本</span>
@@ -109,6 +109,7 @@ import type { usePlanDoc } from '../../../composables/usePlanDoc';
 import { useTheme } from '../../../composables/useTheme';
 import { useWorkspace } from '../../../composables/useWorkspace';
 import { parseMethodSections, METHOD_SECTION_TITLE } from '../../../utils/plan-markdown';
+import { testTypeLabel } from '../../../utils/test-type';
 import { bindScenarioScriptApi } from '../../../api/plan-doc';
 import MethodExecTable from './MethodExecTable.vue';
 import MethodEvidence from './MethodEvidence.vue';

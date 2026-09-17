@@ -10,7 +10,7 @@
         <span class="sc-id">{{ scenarioNo(block.heading) }}</span>
         <div class="sc-title">
           <strong class="sc-name">{{ block.name }}</strong>
-          <span v-if="block.testType" class="sc-type">{{ block.testType }}</span>
+          <span v-if="block.testType" class="sc-type">{{ testTypeLabel(block.testType) }}</span>
         </div>
         <div class="sc-latest">
           <span class="sc-status-pill" :class="latestStatusClass(block.name)">{{ latestStatusText(block.name) }}</span>
@@ -100,6 +100,7 @@ import { useRoute, useRouter } from 'vue-router';
 import type { ScriptAsset, TaskPlan, TaskScenario } from '../../types';
 import type { usePlanDoc } from '../../composables/usePlanDoc';
 import { useTheme } from '../../composables/useTheme';
+import { testTypeLabel } from '../../utils/test-type';
 import { useWorkspace } from '../../composables/useWorkspace';
 import { parseScenarioBlocks } from '../../utils/plan-markdown';
 import { bindScenarioScriptApi, precheckSkipApi } from '../../api/plan-doc';

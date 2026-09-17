@@ -24,6 +24,8 @@
           role="region"
           aria-label="计划文档内容"
           @scroll="onDocScroll"
+          @scrollend="resumeSpy()"
+          @wheel="resumeSpy(true)"
           @mouseover="commentLayer.onHover"
           @mouseleave="commentLayer.hideButton"
         >
@@ -493,10 +495,9 @@ async function resolveConflict(kind: 'keep-server' | 'take-local' | 'manual') {
   }
 }
 
-/** 交互模块章（清单勾选 / 场景卡片）自带编辑能力，不提供行内 markdown 编辑入口。 */
+/** 交互模块章（场景卡片/测试方法）自带编辑能力，不提供行内 markdown 编辑入口；测试约束清单勾选与行内编辑并存。 */
 function isModuleSection(section: Section): boolean {
-  return section.title === '六、测试约束'
-    || (section.title === '八、场景设计' && section.heading.startsWith('八、场景设计'))
+  return (section.title === '八、场景设计' && section.heading.startsWith('八、场景设计'))
     || section.title === METHOD_SECTION_TITLE;
 }
 
@@ -585,6 +586,10 @@ function jumpTo(section: Section) {
     el = document.getElementById(anchorDomId(section.heading));
   }
   if (!el || !main.contains(el)) return;
+  spySuspended = true;
+  if (spyResumeTimer !== null) window.clearTimeout(spyResumeTimer);
+  // smooth 时长由浏览器按距离决定；scrollend 到位即恢复，旧内核由超时兜底（连续点击时重置）
+  spyResumeTimer = window.setTimeout(() => resumeSpy(), 3000);
   main.scrollTo({
     top: main.scrollTop + el.getBoundingClientRect().top - main.getBoundingClientRect().top - 8,
     behavior: 'smooth',
@@ -594,11 +599,28 @@ function jumpTo(section: Section) {
 
 let scrollRaf: number | null = null;
 function onDocScroll() {
+  if (spySuspended) return; // 程序化平滑滚动中：高亮已锁定目标，途经章节不回写
   if (scrollRaf !== null) return;
   scrollRaf = window.requestAnimationFrame(() => {
     scrollRaf = null;
     updateCurrentSection();
   });
+}
+
+/** 程序化滚动期间挂起 scrollspy：否则高亮先跳目标、再被途经章节逐个拉回（视觉闪烁）。
+ *  resync 仅用于用户中断（滚轮）：自然滚到位时视口即目标章，重算反而会在文档尾部
+ *  （尾章够不到 96px 判定线）把高亮弹回倒数几章，又一次闪烁。 */
+let spySuspended = false;
+let spyResumeTimer: number | null = null;
+
+function resumeSpy(resync = false) {
+  if (spyResumeTimer !== null) {
+    window.clearTimeout(spyResumeTimer);
+    spyResumeTimer = null;
+  }
+  if (!spySuspended) return;
+  spySuspended = false;
+  if (resync) updateCurrentSection();
 }
 
 function anchorElements(): { el: HTMLElement; title: string }[] {
