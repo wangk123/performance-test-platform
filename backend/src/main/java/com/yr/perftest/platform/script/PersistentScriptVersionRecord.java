@@ -123,6 +123,10 @@ public class PersistentScriptVersionRecord {
         return storedPath;
     }
 
+    public String getUploadedBy() {
+        return uploadedBy;
+    }
+
     public ScriptVersionStatus getStatus() {
         return status;
     }

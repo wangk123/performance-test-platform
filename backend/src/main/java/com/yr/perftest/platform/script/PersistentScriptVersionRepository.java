@@ -13,4 +13,9 @@ public interface PersistentScriptVersionRepository extends JpaRepository<Persist
     Optional<PersistentScriptVersionRecord> findByIdAndProjectId(Long id, Long projectId);
 
     List<PersistentScriptVersionRecord> findAllByProjectIdOrderByVersionNoDesc(Long projectId);
+
+    Optional<PersistentScriptVersionRecord> findFirstByScriptIdAndStatusOrderByVersionNoDesc(
+            Long scriptId, ScriptVersionStatus status);
+
+    List<PersistentScriptVersionRecord> findAllByScriptIdOrderByVersionNoDesc(Long scriptId);
 }
