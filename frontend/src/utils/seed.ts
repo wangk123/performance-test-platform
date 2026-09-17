@@ -12,13 +12,15 @@ export function createVersionRecord(
   importedBy: string,
 ): ScriptVersionRecord {
   return {
+    id: versionNo * 1000,
+    status: 'PUBLISHED',
+    remark,
     versionNo,
     fileName,
     fileSize: file.size,
     fileHash: mockHash(`${fileName}-${file.size}-${importedAt}-${versionNo}`),
     importedAt,
     importedBy,
-    remark,
   };
 }
 
@@ -47,6 +49,11 @@ function createMockAsset(
   return {
     id,
     projectId,
+    scriptId: id,
+    hasDraft: false,
+    draftVersionId: null,
+    currentScenarioCount: 0,
+    outdatedScenarioCount: 0,
     name,
     sourceFile,
     latestVersion,

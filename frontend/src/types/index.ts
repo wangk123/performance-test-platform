@@ -220,13 +220,16 @@ export type ScriptParam = {
 };
 
 export type ScriptVersionRecord = {
+  id: number;
+  status: 'DRAFT' | 'PUBLISHED';
+  remark: string;
   versionNo: number;
   fileName: string;
   fileSize: number;
   fileHash: string;
   importedAt: string;
   importedBy: string;
-  remark: string;
+  referencedScenarioNames?: string[];
 };
 
 export type ScriptStep = {
@@ -240,6 +243,11 @@ export type ScriptStep = {
 export type ScriptAsset = {
   id: number;
   projectId: number;
+  scriptId: number;
+  hasDraft: boolean;
+  draftVersionId: number | null;
+  currentScenarioCount: number;
+  outdatedScenarioCount: number;
   name: string;
   sourceFile: string;
   latestVersion: number;

@@ -4,7 +4,7 @@ import type { Project, ProjectMember, ProjectRole, ScriptAsset, StatusFilter } f
 import { createSeedData, normalizeScriptAsset } from '../utils/seed';
 import { useAuth } from './useAuth';
 import { addMemberApi, archiveProjectApi, createProjectApi, getProjectApi, listMembersApi, listProjectsApi, removeMemberApi, restoreProjectApi, updateProjectApi } from '../api/projects';
-import { deleteScriptApi, listScriptDefinitionsApi, mapScriptDefinition } from '../api/scripts';
+import { deleteScriptAssetApi, listScriptAssetsApi, listScriptVersionsApi, mapScriptAsset } from '../api/scripts';
 import { confirmAction } from '../utils/feedback';
 
 const projects = ref<Project[]>([]), members = ref<ProjectMember[]>([]), scriptAssets = ref<ScriptAsset[]>([]);
@@ -110,8 +110,13 @@ async function loadProjectScripts(projectId: number, force = false) {
   if (!scriptRequests.has(projectId) || force) {
     scriptRequests.set(
       projectId,
-      listScriptDefinitionsApi(projectId)
-        .then((items) => items.map(mapScriptDefinition).map(normalizeScriptAsset))
+      listScriptAssetsApi(projectId)
+        .then(async (summaries) => Promise.all(
+          summaries.map(async (summary) => {
+            const versionRows = await listScriptVersionsApi(projectId, summary.id);
+            return mapScriptAsset(summary, versionRows);
+          }),
+        ))
         .then((items) => {
           replaceProjectScripts(projectId, items);
           return items;
@@ -270,8 +275,8 @@ async function deleteScriptAsset(script: ScriptAsset) {
       okText: '删除',
       okType: 'danger',
     });
-    await deleteScriptApi(script.projectId, script.id);
-    scriptAssets.value = scriptAssets.value.filter((item) => item.id !== script.id);
+    await deleteScriptAssetApi(script.projectId, script.scriptId);
+    scriptAssets.value = scriptAssets.value.filter((item) => item.scriptId !== script.scriptId);
     message.success('脚本已删除');
     return true;
   } catch {
@@ -291,10 +296,10 @@ async function deleteScriptAssets(scripts: ScriptAsset[]) {
       okType: 'danger',
     });
     for (const script of scripts) {
-      await deleteScriptApi(script.projectId, script.id);
+      await deleteScriptAssetApi(script.projectId, script.scriptId);
     }
-    const deletedIds = new Set(scripts.map((script) => script.id));
-    scriptAssets.value = scriptAssets.value.filter((item) => !deletedIds.has(item.id));
+    const deletedIds = new Set(scripts.map((script) => script.scriptId));
+    scriptAssets.value = scriptAssets.value.filter((item) => !deletedIds.has(item.scriptId));
     if (selectedScriptId.value !== null && deletedIds.has(selectedScriptId.value)) {
       selectedScriptId.value = currentProjectScripts.value[0]?.id ?? null;
     }
