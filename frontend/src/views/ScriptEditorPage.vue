@@ -40,6 +40,7 @@
         v-model:open="publishDialogOpen"
         :script="script"
         :default-version-label="nextPatchLabel(script.latestVersionLabel)"
+        :before-publish="ensureDraftBeforePublish"
         @published="onPublished"
       />
     </template>
@@ -146,6 +147,26 @@ async function onSave() {
       savedSnapshot.value = currentScriptSnapshot();
       message.success('草稿已保存');
     }
+  } finally {
+    saving.value = false;
+  }
+}
+
+// 后端发布只消费草稿：编辑器停在已发布版本（无草稿）或有未保存改动时，先保存草稿再发布
+async function ensureDraftBeforePublish() {
+  if (!script.value) {
+    return false;
+  }
+  if (script.value.draftVersionId === script.value.id && !hasUnsavedChanges.value) {
+    return true;
+  }
+  saving.value = true;
+  try {
+    if (!await editor.saveEditorScript()) {
+      return false;
+    }
+    savedSnapshot.value = currentScriptSnapshot();
+    return true;
   } finally {
     saving.value = false;
   }

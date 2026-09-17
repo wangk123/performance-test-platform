@@ -44,6 +44,7 @@ const props = defineProps<{
   open: boolean;
   script: ScriptAsset | null;
   defaultVersionLabel: string;
+  beforePublish?: () => Promise<boolean>;
 }>();
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void;
@@ -75,6 +76,10 @@ async function handlePublish() {
   }
   publishing.value = true;
   try {
+    // 发布消费草稿：未保存的编辑（或尚无草稿）必须先落盘，否则发布的是旧内容或直接失败
+    if (props.beforePublish && !(await props.beforePublish())) {
+      return;
+    }
     const version = await publishScriptApi(
       props.script.projectId,
       props.script.scriptId,
