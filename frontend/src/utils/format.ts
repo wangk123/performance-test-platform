@@ -1,4 +1,4 @@
-import type { ConfigTab, LlmConfigTab, ParseStatus, ProjectRole, ProjectStatus, ProjectTab, ScriptStepType } from '../types';
+import type { ConfigTab, LlmConfigTab, ProjectRole, ProjectStatus, ProjectTab, ScriptStepType } from '../types';
 import { configTabOptions, llmConfigTabOptions, projectTabOptions, stepTypeMeta } from '../constants';
 
 export function delay(ms: number) {
@@ -93,8 +93,8 @@ export function projectRoleText(role: ProjectRole) {
   return role === 'OWNER' ? '项目负责人' : '项目成员';
 }
 
-export function parseStatusText(status: ParseStatus) {
-  return status === 'PARSED' ? '解析成功' : '解析失败';
+export function scriptStatusText(status: 'DRAFT' | 'PUBLISHED') {
+  return status === 'DRAFT' ? '草稿' : '已发布';
 }
 
 export function stepTypeLabel(type: ScriptStepType) {

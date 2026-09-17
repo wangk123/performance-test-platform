@@ -17,7 +17,8 @@ export type BackendScriptDefinition = {
   name: string;
   sourceFile: string;
   latestVersion: number;
-  parseStatus: 'PARSED' | 'PARSE_FAILED';
+  status: 'DRAFT' | 'PUBLISHED';
+  scriptId?: number;
   remark: string;
   updatedAt: string;
   steppingThreadGroupSupported?: boolean;
@@ -102,7 +103,7 @@ export function mapScriptDefinition(definition: BackendScriptDefinition): Script
     name: definition.name,
     sourceFile: definition.sourceFile,
     latestVersion: definition.latestVersion,
-    parseStatus: definition.parseStatus,
+    status: definition.status ?? 'PUBLISHED',
     remark: definition.remark,
     updatedAt: definition.updatedAt,
     steppingThreadGroupSupported: definition.steppingThreadGroupSupported ?? false,

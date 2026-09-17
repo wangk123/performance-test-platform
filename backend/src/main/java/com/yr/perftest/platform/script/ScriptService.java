@@ -255,7 +255,6 @@ public class ScriptService {
                 record.getScriptId() == null ? 0 : record.getScriptId(),
                 record.getStatus().name(),
                 record.getRemark() == null ? "" : record.getRemark(),
-                "PARSED",
                 record.toScriptVersion().uploadedAt(),
                 steppingThreadGroupSupported(),
                 steps,

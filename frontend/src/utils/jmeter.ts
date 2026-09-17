@@ -1,4 +1,4 @@
-import type { ParseStatus, ScriptParam } from '../types';
+import type { ScriptParam } from '../types';
 import { clamp, countMatches } from './format';
 
 export function defaultParams(): ScriptParam[] {
@@ -36,7 +36,7 @@ export async function parseJmeterFile(file: File, scriptName: string) {
   const hasMonitor = /BackendListener|ResultCollector|PerfMon|kg\.apc/i.test(text);
 
   return {
-    parseStatus: 'PARSED' as ParseStatus,
+    status: 'PUBLISHED' as const,
     threadGroups: Array.from({ length: threadCount }, (_, index) => ({
       name: index === 0 ? '主业务线程组' : `辅助链路线程组 ${index}`,
       threads: index === 0 ? 100 : 40 + index * 20,

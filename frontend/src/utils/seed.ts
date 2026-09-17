@@ -50,7 +50,7 @@ function createMockAsset(
     name,
     sourceFile,
     latestVersion,
-    parseStatus: 'PARSED',
+    status: 'PUBLISHED',
     remark: 'Mock 解析结果，可按需求继续调整字段。',
     updatedAt: now,
     steppingThreadGroupSupported: true,

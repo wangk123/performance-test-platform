@@ -9,8 +9,8 @@ export type ScriptExecutableStatus = {
 };
 
 export function scriptExecutableStatus(script: ScriptAsset): ScriptExecutableStatus {
-  if (script.parseStatus !== 'PARSED') {
-    return blocked('解析失败', '脚本解析失败');
+  if (script.status !== 'PUBLISHED') {
+    return blocked('未发布', '脚本尚未发布，请先发布再执行');
   }
   const { threadGroups } = useThreadGroups(() => script.steps);
   if (!threadGroups.value.length) {

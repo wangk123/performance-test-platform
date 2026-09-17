@@ -6,7 +6,6 @@ export type User = {
 
 export type ProjectStatus = 'ACTIVE' | 'ARCHIVED';
 export type ProjectRole = 'OWNER' | 'MEMBER';
-export type ParseStatus = 'PARSED' | 'PARSE_FAILED';
 export type StatusFilter = 'ALL' | ProjectStatus;
 export type ProjectTab = 'overview' | 'scripts' | 'task-plans' | 'monitoring' | 'env-check' | 'reports' | 'data' | 'functions' | 'members';
 export type MainNav = 'home' | 'projects' | 'executionNodes' | 'mcpTools' | 'settings' | 'llmConfig';
@@ -244,7 +243,7 @@ export type ScriptAsset = {
   name: string;
   sourceFile: string;
   latestVersion: number;
-  parseStatus: ParseStatus;
+  status: 'DRAFT' | 'PUBLISHED';
   remark: string;
   updatedAt: string;
   steppingThreadGroupSupported: boolean;
