@@ -128,16 +128,6 @@
             </span>
           </div>
         </div>
-
-        <div class="parsed-section">
-          <h3>版本记录</h3>
-          <div class="version-timeline">
-            <div v-for="version in selectedScriptAsset.versions" :key="version.versionNo">
-              <strong>v{{ version.versionNo }}</strong>
-              <span>{{ version.fileName }} · {{ formatDate(version.importedAt) }}</span>
-            </div>
-          </div>
-        </div>
       </template>
       <div v-else class="empty-detail">
         <h2>选择脚本资产</h2>

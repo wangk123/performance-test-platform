@@ -730,14 +730,12 @@
 
 .parsed-table,
 .api-list,
-.param-chips,
-.version-timeline {
+.param-chips {
   display: grid;
   gap: 8px;
 }
 
-.parsed-table div,
-.version-timeline div {
+.parsed-table div {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -745,14 +743,11 @@
 }
 
 .parsed-table strong,
-.parsed-table span,
-.version-timeline strong,
-.version-timeline span {
+.parsed-table span {
   display: block;
 }
 
-.parsed-table span,
-.version-timeline span {
+.parsed-table span {
   margin-top: 5px;
   color: var(--muted);
   font-size: 12px;
