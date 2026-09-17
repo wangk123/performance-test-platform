@@ -1483,6 +1483,12 @@
   width: 100%;
 }
 
+.script-editor-loading {
+  display: flex;
+  justify-content: center;
+  padding-top: 120px;
+}
+
 .script-editor-missing {
   max-width: 560px;
   margin: 15vh auto 0;

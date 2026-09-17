@@ -45,6 +45,10 @@
       />
     </template>
 
+    <div v-else-if="loading" class="script-editor-loading">
+      <a-spin size="large" tip="加载脚本..." />
+    </div>
+
     <div v-else class="script-editor-missing panel">
       <h1>脚本不存在或已被删除</h1>
       <p>返回项目工作台后重新选择脚本。</p>
@@ -75,6 +79,7 @@ const savedSnapshot = ref('');
 const hasUnsavedChanges = computed(() => Boolean(script.value) && currentScriptSnapshot() !== savedSnapshot.value);
 
 const saving = ref(false);
+const loading = ref(false);
 const publishDialogOpen = ref(false);
 const sidebarWidth = ref(380);
 const resizing = ref(false);
@@ -86,7 +91,13 @@ watch(
   async ([projectId]) => {
     const id = Number(projectId);
     if (id) {
-      await loadProjectContext(id);
+      // 加载期间 editorScriptId 尚未同步，不能闪现“脚本不存在”兜底页
+      loading.value = true;
+      try {
+        await loadProjectContext(id);
+      } finally {
+        loading.value = false;
+      }
     }
     editor.syncEditorRoute();
   },
