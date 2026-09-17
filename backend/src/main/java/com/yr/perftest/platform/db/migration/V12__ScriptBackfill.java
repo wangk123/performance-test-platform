@@ -3,6 +3,7 @@ package com.yr.perftest.platform.db.migration;
 import com.yr.perftest.platform.script.ScriptBackfillCalculator;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
+import org.springframework.stereotype.Component;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -16,7 +17,9 @@ import java.util.Map;
 /**
  * V12：为每条 script_id IS NULL 的存量版本记录建 scripts 壳并回填归属。
  * 版本记录 id 与 version_no 原样保留（task_scenarios.script_version_id 引用零断裂），全部标 PUBLISHED。
+ * 声明为 Spring Bean 才会被 Spring Boot 的 Flyway 自动配置收集执行。
  */
+@Component
 public class V12__ScriptBackfill extends BaseJavaMigration {
     private final ScriptBackfillCalculator calculator = new ScriptBackfillCalculator();
 
