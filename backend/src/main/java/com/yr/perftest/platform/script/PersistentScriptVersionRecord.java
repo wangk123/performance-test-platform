@@ -27,6 +27,9 @@ public class PersistentScriptVersionRecord {
     @Column(nullable = false)
     private Integer versionNo;
 
+    @Column(name = "version_label", length = 20)
+    private String versionLabel;
+
     @Column(nullable = false, length = 255)
     private String originalFilename;
 
@@ -56,6 +59,7 @@ public class PersistentScriptVersionRecord {
             Long scriptId,
             Long projectId,
             Integer versionNo,
+            String versionLabel,
             String originalFilename,
             String storedPath,
             String uploadedBy,
@@ -66,6 +70,7 @@ public class PersistentScriptVersionRecord {
         this.scriptId = scriptId;
         this.projectId = projectId;
         this.versionNo = versionNo;
+        this.versionLabel = versionLabel;
         this.originalFilename = originalFilename;
         this.storedPath = storedPath;
         this.uploadedBy = uploadedBy;
@@ -81,6 +86,7 @@ public class PersistentScriptVersionRecord {
                 projectId,
                 scriptId,
                 versionNo,
+                versionLabel,
                 originalFilename,
                 storedPath,
                 uploadedBy,
@@ -90,8 +96,9 @@ public class PersistentScriptVersionRecord {
         );
     }
 
-    void markPublished(int versionNo, String remark, String publishedBy, Instant publishedAt) {
-        this.versionNo = versionNo;
+    void markPublished(int sequenceNo, String versionLabel, String remark, String publishedBy, Instant publishedAt) {
+        this.versionNo = sequenceNo;
+        this.versionLabel = versionLabel;
         this.remark = remark;
         this.uploadedBy = publishedBy;
         this.uploadedAt = publishedAt;
@@ -113,6 +120,10 @@ public class PersistentScriptVersionRecord {
 
     public Integer getVersionNo() {
         return versionNo;
+    }
+
+    public String getVersionLabel() {
+        return versionLabel;
     }
 
     public String getOriginalFilename() {

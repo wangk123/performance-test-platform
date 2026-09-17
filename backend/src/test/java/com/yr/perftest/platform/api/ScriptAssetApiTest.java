@@ -62,6 +62,7 @@ class ScriptAssetApiTest {
                 .andExpect(jsonPath("$[0].name", is("a")))
                 .andExpect(jsonPath("$[0].hasDraft", is(false)))
                 .andExpect(jsonPath("$[0].latestVersionNo", is(1)))
+                .andExpect(jsonPath("$[0].latestVersionLabel", is("1.0.0")))
                 .andExpect(jsonPath("$[0].currentScenarioCount", is(1)))
                 .andExpect(jsonPath("$[0].outdatedScenarioCount", is(0)))
                 .andExpect(jsonPath("$[1].name", is("b")))

@@ -55,33 +55,58 @@ class ScriptPublicationApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
-                        .content("{\"versionNo\":1,\"remark\":\"首发版本\"}"))
+                        .content("{\"versionLabel\":\"1.0.0\",\"remark\":\"首发版本\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("PUBLISHED")))
                 .andExpect(jsonPath("$.versionNo", is(1)))
+                .andExpect(jsonPath("$.versionLabel", is("1.0.0")))
                 .andExpect(jsonPath("$.remark", is("首发版本")));
     }
 
     @Test
-    void publishRejectsNonIncreasingVersionNoAndBlankRemark() throws Exception {
+    void publishRejectsNonIncreasingOrBadlyFormattedLabel() throws Exception {
         createProjectAndBlankScript();
         saveDraft();
-        publishOk(1, "首发");
+        publishOk("1.0.0", "首发");
         saveDraft();
 
         mockMvc.perform(post("/api/projects/1/scripts/1/publish")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
-                        .content("{\"versionNo\":1,\"remark\":\"重复号\"}"))
+                        .content("{\"versionLabel\":\"1.0.0\",\"remark\":\"重复\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", is("version no must be greater than 1")));
+                .andExpect(jsonPath("$.message", is("version label must be greater than 1.0.0")));
 
         mockMvc.perform(post("/api/projects/1/scripts/1/publish")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
-                        .content("{\"versionNo\":2,\"remark\":\"   \"}"))
+                        .content("{\"versionLabel\":\"0.9.9\",\"remark\":\"回退\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", is("version label must be greater than 1.0.0")));
+
+        for (String bad : new String[]{"5", "1.0", "v1.0.0", "1.0.0.0", "1.0.x"}) {
+            mockMvc.perform(post("/api/projects/1/scripts/1/publish")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .header("Authorization", "Bearer " + authToken)
+                            .header("X-User", "admin")
+                            .content("{\"versionLabel\":\"" + bad + "\",\"remark\":\"格式\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message", is("version label must look like 1.0.0")));
+        }
+    }
+
+    @Test
+    void publishRejectsBlankRemark() throws Exception {
+        createProjectAndBlankScript();
+        saveDraft();
+
+        mockMvc.perform(post("/api/projects/1/scripts/1/publish")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
+                        .header("X-User", "admin")
+                        .content("{\"versionLabel\":\"1.0.0\",\"remark\":\"   \"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", is("change remark is required")));
     }
@@ -90,13 +115,13 @@ class ScriptPublicationApiTest {
     void publishRejectsWhenNoDraftExists() throws Exception {
         createProjectAndBlankScript();
         saveDraft();
-        publishOk(1, "首发");
+        publishOk("1.0.0", "首发");
 
         mockMvc.perform(post("/api/projects/1/scripts/1/publish")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
-                        .content("{\"versionNo\":2,\"remark\":\"草稿已转发布\"}"))
+                        .content("{\"versionLabel\":\"1.0.1\",\"remark\":\"草稿已转发布\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", is("no draft to publish")));
     }
@@ -105,7 +130,7 @@ class ScriptPublicationApiTest {
     void forkDraftCopiesPublishedContentAsNewDraft() throws Exception {
         createProjectAndBlankScript();
         saveDraft();
-        long publishedVersionId = publishOk(1, "首发");
+        long publishedVersionId = publishOk("1.0.0", "首发");
 
         mockMvc.perform(post("/api/projects/1/scripts/1/fork-draft")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -120,7 +145,7 @@ class ScriptPublicationApiTest {
     void savingDraftOnPublishedVersionEndpointIsRejected() throws Exception {
         createProjectAndBlankScript();
         saveDraft();
-        long publishedVersionId = publishOk(1, "首发");
+        long publishedVersionId = publishOk("1.0.0", "首发");
 
         mockMvc.perform(put("/api/projects/1/scripts/" + publishedVersionId + "/definition")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -197,17 +222,17 @@ class ScriptPublicationApiTest {
                 .andExpect(status().isCreated());
     }
 
-    private long publishOk(int versionNo, String remark) throws Exception {
+    private long publishOk(String versionLabel, String remark) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/projects/1/scripts/1/publish")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
-                        .content(objectMapper.writeValueAsString(new PublishRequest(versionNo, remark))))
+                        .content(objectMapper.writeValueAsString(new PublishRequest(versionLabel, remark))))
                 .andExpect(status().isOk())
                 .andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsString()).path("id").asLong();
     }
 
-    private record PublishRequest(int versionNo, String remark) {
+    private record PublishRequest(String versionLabel, String remark) {
     }
 }

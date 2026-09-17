@@ -142,6 +142,7 @@ class ScriptApiBehaviorTest {
                         .header("X-User", "admin"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.versionNo", is(2)))
+                .andExpect(jsonPath("$.versionLabel", is("2.0.0")))
                 .andExpect(jsonPath("$.scriptId", is(1)))
                 .andExpect(jsonPath("$.status", is("PUBLISHED")))
                 .andExpect(jsonPath("$.remark", is("修复登录接口路径")));

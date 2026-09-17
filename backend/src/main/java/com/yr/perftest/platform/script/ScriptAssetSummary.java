@@ -7,6 +7,7 @@ public record ScriptAssetSummary(
         long projectId,
         String name,
         int latestVersionNo,
+        String latestVersionLabel,
         ScriptVersion latestPublished,
         boolean hasDraft,
         Instant draftUpdatedAt,

@@ -64,9 +64,9 @@ class ScriptDeletionApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
-                        .content("{\"versionNo\":1,\"remark\":\"复用号应被拒绝\"}"))
+                        .content("{\"versionLabel\":\"1.0.0\",\"remark\":\"复用号应被拒绝\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", is("version no must be greater than 1")));
+                .andExpect(jsonPath("$.message", is("version label must be greater than 1.0.0")));
     }
 
     @Test
@@ -124,7 +124,7 @@ class ScriptDeletionApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", "Bearer " + authToken)
                         .header("X-User", "admin")
-                        .content("{\"versionNo\":1,\"remark\":\"首发\"}"))
+                        .content("{\"versionLabel\":\"1.0.0\",\"remark\":\"首发\"}"))
                 .andExpect(status().isOk())
                 .andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsString()).path("id").asLong();

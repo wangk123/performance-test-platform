@@ -91,6 +91,7 @@ public class ScriptService {
                 script.getPersistentId(),
                 script.getProjectId(),
                 versionNo,
+                versionNo + ".0.0",
                 originalFilename,
                 target.toString(),
                 uploadedBy,
@@ -98,7 +99,7 @@ public class ScriptService {
                 ScriptVersionStatus.PUBLISHED,
                 remark
         ));
-        script.bumpLatestVersionNo(versionNo);
+        script.recordPublished(versionNo, versionNo + ".0.0");
         scriptRepository.save(script);
         return record.toScriptVersion();
     }

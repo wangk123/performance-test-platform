@@ -25,6 +25,9 @@ public class PersistentScriptRecord {
     @Column(name = "latest_version_no", nullable = false)
     private int latestVersionNo;
 
+    @Column(name = "latest_version_label", length = 20)
+    private String latestVersionLabel;
+
     @Column(name = "created_by", length = 80)
     private String createdBy;
 
@@ -45,9 +48,12 @@ public class PersistentScriptRecord {
         return record;
     }
 
-    void bumpLatestVersionNo(int newNo) {
-        if (newNo > latestVersionNo) {
-            latestVersionNo = newNo;
+    void recordPublished(int sequenceNo, String versionLabel) {
+        if (sequenceNo > latestVersionNo) {
+            latestVersionNo = sequenceNo;
+        }
+        if (ScriptVersionLabels.compare(versionLabel, latestVersionLabel == null ? "0.0.0" : latestVersionLabel) > 0) {
+            latestVersionLabel = versionLabel;
         }
     }
 
@@ -65,5 +71,9 @@ public class PersistentScriptRecord {
 
     public int getLatestVersionNo() {
         return latestVersionNo;
+    }
+
+    public String getLatestVersionLabel() {
+        return latestVersionLabel;
     }
 }

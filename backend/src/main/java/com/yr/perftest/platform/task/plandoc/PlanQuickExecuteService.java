@@ -10,6 +10,7 @@ import com.yr.perftest.platform.script.PersistentScriptRecord;
 import com.yr.perftest.platform.script.PersistentScriptRepository;
 import com.yr.perftest.platform.script.PersistentScriptVersionRepository;
 import com.yr.perftest.platform.script.ScriptPublicationService;
+import com.yr.perftest.platform.script.ScriptVersionLabels;
 import com.yr.perftest.platform.script.ScriptVersionStatus;
 import com.yr.perftest.platform.task.ExecutionControlService;
 import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
@@ -66,11 +67,11 @@ public class PlanQuickExecuteService {
         // 快捷执行即"立刻跑这个脚本"：草稿先原地转发布快照（id 不变），保证执行必为 PUBLISHED；
         // 整体事务回滚时发布一并回滚。
         if (script.getStatus() == ScriptVersionStatus.DRAFT) {
-            int nextVersionNo = scriptRepository.findById(script.getScriptId())
-                    .map(PersistentScriptRecord::getLatestVersionNo)
-                    .orElse(0) + 1;
+            String autoLabel = ScriptVersionLabels.nextPatch(scriptRepository.findById(script.getScriptId())
+                    .map(PersistentScriptRecord::getLatestVersionLabel)
+                    .orElse(null));
             publicationService.publish(script.getProjectId(), script.getScriptId(),
-                    nextVersionNo, "快捷执行自动发布", username);
+                    autoLabel, "快捷执行自动发布", username);
         }
         String planName = scriptDisplayName(script) + " / 即时执行";
         com.yr.perftest.platform.task.TaskPlan plan = planService.createPlan(

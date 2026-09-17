@@ -74,19 +74,25 @@ public class ScriptPublicationService {
     }
 
     @Transactional
-    public ScriptVersion publish(long projectId, long scriptId, int versionNo, String remark, String publishedBy) {
+    public ScriptVersion publish(long projectId, long scriptId, String versionLabel, String remark, String publishedBy) {
         PersistentScriptRecord script = requireScript(projectId, scriptId);
         if (remark == null || remark.isBlank()) {
             throw new ScriptValidationException("change remark is required");
         }
-        if (versionNo <= script.getLatestVersionNo()) {
-            throw new ScriptValidationException("version no must be greater than " + script.getLatestVersionNo());
+        String label = versionLabel == null ? "" : versionLabel.trim();
+        if (!ScriptVersionLabels.isValid(label)) {
+            throw new ScriptValidationException("version label must look like 1.0.0");
+        }
+        String watermark = script.getLatestVersionLabel();
+        if (watermark != null && ScriptVersionLabels.compare(label, watermark) <= 0) {
+            throw new ScriptValidationException("version label must be greater than " + watermark);
         }
         PersistentScriptVersionRecord draft = versionRepository
                 .findFirstByScriptIdAndStatusOrderByVersionNoDesc(scriptId, ScriptVersionStatus.DRAFT)
                 .orElseThrow(() -> new ScriptValidationException("no draft to publish"));
-        draft.markPublished(versionNo, remark.trim(), publishedBy, Instant.now());
-        script.bumpLatestVersionNo(versionNo);
+        int sequenceNo = script.getLatestVersionNo() + 1;
+        draft.markPublished(sequenceNo, label, remark.trim(), publishedBy, Instant.now());
+        script.recordPublished(sequenceNo, label);
         scriptRepository.save(script);
         return draft.toScriptVersion();
     }
@@ -146,6 +152,7 @@ public class ScriptPublicationService {
                 script.getPersistentId(),
                 script.getProjectId(),
                 0,
+                null,
                 originalFilename,
                 target.toString(),
                 updatedBy,

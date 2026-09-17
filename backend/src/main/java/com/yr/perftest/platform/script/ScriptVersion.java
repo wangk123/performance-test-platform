@@ -7,6 +7,7 @@ public record ScriptVersion(
         long projectId,
         Long scriptId,
         int versionNo,
+        String versionLabel,
         String originalFilename,
         String storedPath,
         String uploadedBy,

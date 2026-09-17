@@ -95,6 +95,7 @@ public class ScriptQueryService {
                 script.getProjectId(),
                 script.getName(),
                 latestPublished == null ? 0 : latestPublished.getVersionNo(),
+                latestPublished == null ? null : latestPublished.getVersionLabel(),
                 latestPublished == null ? null : latestPublished.toScriptVersion(),
                 draft != null,
                 draft == null ? null : draft.getUpdatedAt(),

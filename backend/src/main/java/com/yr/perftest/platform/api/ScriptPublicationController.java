@@ -49,7 +49,7 @@ public class ScriptPublicationController {
             @Valid @RequestBody PublishRequest request,
             @RequestHeader(name = "X-User", defaultValue = "admin") String publishedBy
     ) {
-        return publicationService.publish(projectId, scriptId, request.versionNo(), request.remark(), publishedBy);
+        return publicationService.publish(projectId, scriptId, request.versionLabel(), request.remark(), publishedBy);
     }
 
     @PostMapping("/api/projects/{projectId}/scripts/{scriptId}/fork-draft")
@@ -71,7 +71,7 @@ public class ScriptPublicationController {
     }
 
     public record PublishRequest(
-            @NotNull Integer versionNo,
+            @NotNull String versionLabel,
             String remark
     ) {
     }
