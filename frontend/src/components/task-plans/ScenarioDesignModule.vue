@@ -44,7 +44,12 @@
           v-else-if="scriptBound(block.name)"
           class="sc-bind ok"
           :title="`脚本版本 #${scenarioOf(block.name)?.scriptVersionId}`"
-        >已关联脚本 <b class="mono">#{{ scenarioOf(block.name)?.scriptVersionId }}</b></span>
+        >已关联脚本 <b class="mono">#{{ scenarioOf(block.name)?.scriptVersionId }}</b>
+          <template v-if="boundVersionOutdated(block.name)">
+            （有新版本 v{{ boundScript(block.name)?.latestVersion }}）
+            <a class="upgrade-link" @click.prevent="upgradeScript(block.name)">升级到最新</a>
+          </template>
+        </span>
         <span v-else class="sc-bind warn">未关联脚本</span>
         <div class="sc-actions">
           <a-button size="small" :disabled="!scenarioOf(block.name)" @click="requestEdit(block.name)">编辑</a-button>
@@ -194,7 +199,39 @@ function bindScript(name: string) {
   bindDialogOpen.value = true;
 }
 
-async function confirmBind(scriptVersionId: number) {
+function boundScript(name: string): ScriptAsset | null {
+      const boundId = scenarioOf(name)?.scriptVersionId;
+      if (!boundId) {
+        return null;
+      }
+      return projectScripts.value.find((script) =>
+        script.versions.some((version) => version.id === boundId)) ?? null;
+    }
+
+    function boundVersionOutdated(name: string): boolean {
+      const script = boundScript(name);
+      const boundId = scenarioOf(name)?.scriptVersionId;
+      if (!script || !boundId) {
+        return false;
+      }
+      const bound = script.versions.find((version) => version.id === boundId);
+      return Boolean(bound && script.latestVersion > bound.versionNo);
+    }
+
+    async function upgradeScript(name: string) {
+      const script = boundScript(name);
+      if (!script) {
+        return;
+      }
+      const latest = script.versions.find((version) => version.status === 'PUBLISHED'
+        && version.versionNo === script.latestVersion);
+      if (!latest) {
+        return;
+      }
+      await confirmBind(latest.id);
+    }
+
+    async function confirmBind(scriptVersionId: number) {
   const scenario = scenarioOf(bindDialogScenario.value);
   if (!scenario) return;
   try {
@@ -507,5 +544,10 @@ function confirmSkipPrecheck(text: string, scenarioName: string) {
 
 .rec-dot.danger {
   background: var(--danger);
+}
+.upgrade-link {
+  color: var(--primary, #1677ff);
+  cursor: pointer;
+  margin-left: 4px;
 }
 </style>

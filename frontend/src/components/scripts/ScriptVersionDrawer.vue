@@ -9,7 +9,7 @@
       <div v-if="draftRow" class="version-row draft">
         <div class="version-main">
           <div class="version-head">
-            <a-tag color="orange">草稿</a>
+            <a-tag color="orange">草稿</a-tag>
             <span class="version-title">未发布修改</span>
             <span class="version-time">{{ formatDate(draftRow.version.uploadedAt) }}</span>
           </div>
@@ -21,7 +21,6 @@
           </a-popconfirm>
         </div>
       </div>
-
       <div v-for="row in publishedRows" :key="row.version.id" class="version-row">
         <div class="version-main">
           <div class="version-head">
@@ -30,9 +29,9 @@
           </div>
           <p class="version-meta">
             {{ formatDate(row.version.uploadedAt) }} · {{ row.version.uploadedBy }}
-            <template v-if="row.referencedScenarioNames?.length">
+            <span v-if="row.referencedScenarioNames?.length">
               · 被「{{ row.referencedScenarioNames.join('、') }}」引用
-            </template>
+            </span>
           </p>
         </div>
         <div class="version-actions">

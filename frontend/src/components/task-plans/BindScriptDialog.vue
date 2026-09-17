@@ -53,12 +53,16 @@ watch(() => props.open, (open) => {
   }
 });
 
-/** scripts 中的每项即一个脚本版本实体（id = scriptVersionId）。 */
+/** 每脚本展开其已发布版本（草稿不可绑定、不可执行）。 */
 const scriptOptions = computed(() =>
-  props.scripts.map((script) => ({
-    value: script.id,
-    label: `${script.name} · v${script.latestVersion}（#${script.id}）`,
-  })),
+  props.scripts.flatMap((script) =>
+    script.versions
+      .filter((version) => version.status === 'PUBLISHED')
+      .map((version) => ({
+        value: version.id,
+        label: `${script.name} · v${version.versionNo}${version.remark ? `（${version.remark.slice(0, 20)}）` : ''}`,
+      })),
+  ),
 );
 
 /** 手输 ID 优先，其次下拉选择。 */
