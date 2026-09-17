@@ -13,4 +13,8 @@ public interface PersistentTaskScenarioRepository extends JpaRepository<Persiste
     void deleteAllByPlanId(Long planId);
 
     long countByPlanId(Long planId);
+
+    List<PersistentTaskScenarioRecord> findByScriptVersionId(Long scriptVersionId);
+
+    List<PersistentTaskScenarioRecord> findByScriptVersionIdIn(List<Long> scriptVersionIds);
 }

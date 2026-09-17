@@ -166,17 +166,6 @@ public class ScriptService {
     }
 
     @Transactional
-    public void deleteScript(long projectId, long versionId) {
-        PersistentScriptVersionRecord record = requireScriptVersion(projectId, versionId);
-        scriptVersionRepository.delete(record);
-        try {
-            Files.deleteIfExists(Path.of(record.getStoredPath()));
-        } catch (IOException exception) {
-            throw new ScriptValidationException("failed to delete script file");
-        }
-    }
-
-    @Transactional
     public ScriptVersion saveScriptContent(long projectId, long versionId, String content, String filename, String uploadedBy) {
         PersistentScriptVersionRecord baseVersion = requireScriptVersion(projectId, versionId);
         requireDraftMutable(baseVersion);

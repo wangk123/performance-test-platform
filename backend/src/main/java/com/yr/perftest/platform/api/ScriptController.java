@@ -57,12 +57,6 @@ public class ScriptController {
         return scriptService.getScriptDefinition(projectId, versionId);
     }
 
-    @DeleteMapping("/{versionId:\\d+}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteScript(@PathVariable long projectId, @PathVariable long versionId) {
-        scriptService.deleteScript(projectId, versionId);
-    }
-
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public ScriptVersion uploadScript(
