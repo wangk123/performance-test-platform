@@ -20,10 +20,12 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.nio.file.StandardCopyOption;
 
 @Service
 public class ScriptService {
     private final PersistentProjectRepository projectRepository;
+    private final PersistentScriptRepository scriptRepository;
     private final PersistentScriptVersionRepository scriptVersionRepository;
     private final JmeterScriptParser jmeterScriptParser;
     private final JmeterScriptPatcher jmeterScriptPatcher;
@@ -32,6 +34,7 @@ public class ScriptService {
 
     public ScriptService(
             PersistentProjectRepository projectRepository,
+            PersistentScriptRepository scriptRepository,
             PersistentScriptVersionRepository scriptVersionRepository,
             JmeterScriptParser jmeterScriptParser,
             JmeterScriptPatcher jmeterScriptPatcher,
@@ -39,6 +42,7 @@ public class ScriptService {
             @Value("${platform.storage.root:./storage}") String storageRoot
     ) {
         this.projectRepository = projectRepository;
+        this.scriptRepository = scriptRepository;
         this.scriptVersionRepository = scriptVersionRepository;
         this.jmeterScriptParser = jmeterScriptParser;
         this.jmeterScriptPatcher = jmeterScriptPatcher;
@@ -47,7 +51,7 @@ public class ScriptService {
     }
 
     @Transactional
-    public ScriptVersion uploadScript(long projectId, MultipartFile file, String uploadedBy) {
+    public ScriptVersion uploadScript(long projectId, MultipartFile file, String uploadedBy, String remark) {
         if (!projectRepository.existsById(projectId)) {
             throw new ProjectValidationException("project does not exist");
         }
@@ -61,35 +65,38 @@ public class ScriptService {
         if (file.isEmpty()) {
             throw new ScriptValidationException("script file is empty");
         }
-        byte[] content = readFile(file);
-        validateJmx(new String(content, StandardCharsets.UTF_8));
-        return storeScript(projectId, originalFilename, new String(content, StandardCharsets.UTF_8), uploadedBy);
+        String content = new String(readFile(file), StandardCharsets.UTF_8);
+        validateJmx(content);
+        String name = nameOf(originalFilename);
+        PersistentScriptRecord script = scriptRepository.findByProjectIdAndName(projectId, name)
+                .orElseGet(() -> scriptRepository.save(PersistentScriptRecord.persistentOf(
+                        projectId, name, 0, uploadedBy, Instant.now())));
+        return storePublishedVersion(script, originalFilename, content, uploadedBy,
+                remark == null ? "" : remark.trim());
     }
 
-    private ScriptVersion storeScript(long projectId, String originalFilename, String content, String uploadedBy) {
-        int versionNo = scriptVersionRepository.countByProjectId(projectId) + 1;
+    private ScriptVersion storePublishedVersion(
+            PersistentScriptRecord script, String originalFilename, String content, String uploadedBy, String remark) {
+        int versionNo = script.getLatestVersionNo() + 1;
         Path target = storageRoot
                 .resolve("scripts")
-                .resolve(String.valueOf(projectId))
+                .resolve(String.valueOf(script.getProjectId()))
+                .resolve("s" + script.getPersistentId())
                 .resolve("v" + versionNo + "-" + sanitizeFilename(originalFilename));
-        try {
-            Files.createDirectories(target.getParent());
-            Files.writeString(target, content, StandardCharsets.UTF_8);
-        } catch (IOException exception) {
-            throw new ScriptValidationException("failed to store script file");
-        }
-
+        writeAtomically(target, content);
         PersistentScriptVersionRecord record = scriptVersionRepository.save(new PersistentScriptVersionRecord(
-                null,
-                projectId,
+                script.getPersistentId(),
+                script.getProjectId(),
                 versionNo,
                 originalFilename,
                 target.toString(),
                 uploadedBy,
                 Instant.now(),
                 ScriptVersionStatus.PUBLISHED,
-                null
+                remark
         ));
+        script.bumpLatestVersionNo(versionNo);
+        scriptRepository.save(script);
         return record.toScriptVersion();
     }
 
@@ -101,7 +108,13 @@ public class ScriptService {
         if (name == null || name.trim().isEmpty()) {
             throw new ScriptValidationException("script name is required");
         }
-        String originalFilename = toJmxFilename(name.trim());
+        String trimmed = name.trim();
+        if (scriptRepository.existsByProjectIdAndName(projectId, trimmed)) {
+            throw new ScriptValidationException("script name already exists");
+        }
+        PersistentScriptRecord script = scriptRepository.save(
+                PersistentScriptRecord.persistentOf(projectId, trimmed, 0, uploadedBy, Instant.now()));
+        String originalFilename = toJmxFilename(trimmed);
         ScriptStepDefinition threadGroup = new ScriptStepDefinition(
                 "thread-1",
                 ScriptStepType.THREAD_GROUP.code(),
@@ -111,8 +124,24 @@ public class ScriptService {
         );
         String content = jmeterScriptRenderer.render(List.of(threadGroup));
         validateJmx(content);
-        ScriptVersion version = storeScript(projectId, originalFilename, content, uploadedBy);
-        return getScriptDefinition(projectId, version.id());
+        Path target = storageRoot
+                .resolve("scripts")
+                .resolve(String.valueOf(projectId))
+                .resolve("s" + script.getPersistentId())
+                .resolve("draft-" + sanitizeFilename(originalFilename));
+        writeAtomically(target, content);
+        PersistentScriptVersionRecord draft = scriptVersionRepository.save(new PersistentScriptVersionRecord(
+                script.getPersistentId(),
+                projectId,
+                0,
+                originalFilename,
+                target.toString(),
+                uploadedBy,
+                Instant.now(),
+                ScriptVersionStatus.DRAFT,
+                null
+        ));
+        return getScriptDefinition(projectId, draft.getId());
     }
 
     @Transactional(readOnly = true)
@@ -185,12 +214,7 @@ public class ScriptService {
         validateJmx(content);
 
         Path target = Path.of(baseVersion.getStoredPath());
-        try {
-            Files.createDirectories(target.getParent());
-            Files.writeString(target, content, StandardCharsets.UTF_8);
-        } catch (IOException exception) {
-            throw new ScriptValidationException("failed to store script file");
-        }
+        writeAtomically(target, content);
 
         baseVersion.updateMetadata(targetFilename, uploadedBy, Instant.now());
         return baseVersion.toScriptVersion();
@@ -255,13 +279,26 @@ public class ScriptService {
                 nameOf(record.getOriginalFilename()),
                 record.getOriginalFilename(),
                 record.getVersionNo(),
+                record.getScriptId() == null ? 0 : record.getScriptId(),
+                record.getStatus().name(),
+                record.getRemark() == null ? "" : record.getRemark(),
                 "PARSED",
-                "",
                 record.toScriptVersion().uploadedAt(),
                 steppingThreadGroupSupported(),
                 steps,
                 versions
         );
+    }
+
+    private void writeAtomically(Path target, String content) {
+        Path tmp = target.resolveSibling(target.getFileName() + ".tmp");
+        try {
+            Files.createDirectories(target.getParent());
+            Files.writeString(tmp, content, StandardCharsets.UTF_8);
+            Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException exception) {
+            throw new ScriptValidationException("failed to store script file");
+        }
     }
 
     private String readStoredContent(PersistentScriptVersionRecord record) {

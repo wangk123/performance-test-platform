@@ -103,6 +103,69 @@ class ScriptApiBehaviorTest {
                 .andExpect(jsonPath("$.message", is("only .jmx files are supported")));
     }
 
+    @Test
+    void uploadCreatesScriptShellWithPublishedV1() throws Exception {
+        createProject();
+
+        mockMvc.perform(multipart("/api/projects/1/scripts")
+                        .file(jmxFile("loan-search.jmx"))
+                        .header("Authorization", "Bearer " + authToken)
+                        .header("X-User", "admin"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.versionNo", is(1)))
+                .andExpect(jsonPath("$.status", is("PUBLISHED")))
+                .andExpect(jsonPath("$.scriptId", is(1)))
+                .andExpect(jsonPath("$.remark", is("")));
+
+        mockMvc.perform(get("/api/projects/1/scripts/1/definition")
+                        .header("Authorization", "Bearer " + authToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name", is("loan-search")))
+                .andExpect(jsonPath("$.status", is("PUBLISHED")))
+                .andExpect(jsonPath("$.scriptId", is(1)));
+    }
+
+    @Test
+    void reuploadSameNameAppendsPublishedVersionWithRemark() throws Exception {
+        createProject();
+        mockMvc.perform(multipart("/api/projects/1/scripts")
+                        .file(jmxFile("loan-search.jmx"))
+                        .header("Authorization", "Bearer " + authToken)
+                        .header("X-User", "admin"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(multipart("/api/projects/1/scripts")
+                        .file(jmxFile("loan-search.jmx"))
+                        .param("remark", "修复登录接口路径")
+                        .header("Authorization", "Bearer " + authToken)
+                        .header("X-User", "admin"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.versionNo", is(2)))
+                .andExpect(jsonPath("$.scriptId", is(1)))
+                .andExpect(jsonPath("$.status", is("PUBLISHED")))
+                .andExpect(jsonPath("$.remark", is("修复登录接口路径")));
+    }
+
+    @Test
+    void createBlankScriptStartsAsDraft() throws Exception {
+        createProject();
+
+        mockMvc.perform(post("/api/projects/1/scripts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + authToken)
+                        .header("X-User", "admin")
+                        .content("{\"name\":\"登录链路压测\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name", is("登录链路压测")))
+                .andExpect(jsonPath("$.status", is("DRAFT")))
+                .andExpect(jsonPath("$.steps[0].type", is("THREAD_GROUP")));
+    }
+
+    private MockMultipartFile jmxFile(String name) {
+        return new MockMultipartFile("file", name, MediaType.APPLICATION_XML_VALUE,
+                "<jmeterTestPlan></jmeterTestPlan>".getBytes());
+    }
+
     private void createProject() throws Exception {
         mockMvc.perform(post("/api/projects")
                         .contentType(MediaType.APPLICATION_JSON)
