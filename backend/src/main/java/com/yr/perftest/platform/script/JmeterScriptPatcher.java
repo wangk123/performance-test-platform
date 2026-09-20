@@ -49,6 +49,7 @@ public class JmeterScriptPatcher {
         for (ScriptStepDefinition step : steps) {
             desired.put(step.id(), step);
         }
+        Map<String, Element> rendered = new LinkedHashMap<>();
         for (StepNode node : recognizedChildren(hashTree)) {
             ScriptStepDefinition step = desired.remove(node.id());
             if (step == null) {
@@ -62,12 +63,41 @@ public class JmeterScriptPatcher {
             if (step.stepType() == ScriptStepType.HTTP_REQUEST) {
                 syncHttpHeaders(document, childHashTree, pair);
             }
+            rendered.put(step.id(), patched);
         }
         for (ScriptStepDefinition step : steps) {
             if (desired.containsKey(step.id())) {
-                appendPair(document, hashTree, step);
+                rendered.put(step.id(), appendPair(document, hashTree, step));
             }
         }
+        reorderPairs(document, hashTree, steps, rendered);
+    }
+
+    /**
+     * steps 顺序即期望的最终顺序：就地替换不改变节点原位置、新增节点固定追加在末尾，
+     * 因此需要显式把元件+配套 hashTree 成对移动到 steps 给定的顺序（否则保存后重解析顺序回退）。
+     */
+    private void reorderPairs(Document document, Element hashTree, List<ScriptStepDefinition> steps, Map<String, Element> rendered) {
+        List<Element> ordered = new java.util.ArrayList<>();
+        for (ScriptStepDefinition step : steps) {
+            Element element = rendered.get(step.id());
+            if (element != null) {
+                ordered.add(element);
+            }
+        }
+        if (ordered.size() < 2) {
+            return;
+        }
+        Node sentinel = document.createTextNode("");
+        hashTree.insertBefore(sentinel, ordered.get(0));
+        for (Element element : ordered) {
+            Element pairTree = JmeterScriptDom.nextHashTree(element);
+            hashTree.insertBefore(element, sentinel);
+            if (pairTree != null && pairTree.getParentNode() == hashTree) {
+                hashTree.insertBefore(pairTree, sentinel);
+            }
+        }
+        hashTree.removeChild(sentinel);
     }
 
     private List<StepNode> recognizedChildren(Element hashTree) {
@@ -150,10 +180,12 @@ public class JmeterScriptPatcher {
         return false;
     }
 
-    private void appendPair(Document document, Element hashTree, ScriptStepDefinition step) throws Exception {
+    private Element appendPair(Document document, Element hashTree, ScriptStepDefinition step) throws Exception {
         RenderedPair pair = renderPair(step);
-        hashTree.appendChild(document.importNode(pair.element(), true));
+        Element element = (Element) document.importNode(pair.element(), true);
+        hashTree.appendChild(element);
         hashTree.appendChild(document.importNode(pair.hashTree(), true));
+        return element;
     }
 
     private RenderedPair renderPair(ScriptStepDefinition step) throws Exception {

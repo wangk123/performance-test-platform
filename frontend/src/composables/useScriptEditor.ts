@@ -9,7 +9,7 @@ import type {
   StepDropMode,
   StepRelation,
 } from '../types';
-import { stepTypeOptions, MAX_SCRIPT_STEP_LEVEL } from '../constants';
+import { stepTypeOptions, rootStepTypes, MAX_SCRIPT_STEP_LEVEL } from '../constants';
 import {
   appendChildStep,
   canAddChildStep,
@@ -56,6 +56,19 @@ const stepDialogForm = ref<{
 
 let initialized = false;
 
+// 刷新时 URL 携带的常是草稿版本 id（编辑会话内 router.replace 所致），
+// 而列表重建的条目 id 是最新发布版本 id——两种 id 都要能命中同一条目，否则误报“脚本不存在”。
+function findEditorScript(assets: ScriptAsset[], versionId: number | null): ScriptAsset | null {
+  if (versionId === null) {
+    return null;
+  }
+  return (
+    assets.find((script) => script.id === versionId) ??
+    assets.find((script) => script.draftVersionId === versionId) ??
+    null
+  );
+}
+
 function ensureInit() {
   if (initialized) {
     return;
@@ -64,7 +77,7 @@ function ensureInit() {
   const { scriptAssets } = useWorkspace();
 
   const editorScriptAsset = computed(
-    () => scriptAssets.value.find((script) => script.id === editorScriptId.value) ?? null,
+    () => findEditorScript(scriptAssets.value, editorScriptId.value),
   );
 
   watch(editorScriptAsset, (script) => {
@@ -92,7 +105,8 @@ function ensureInit() {
 
 function availableStepTypeOptions() {
   if (stepDialogForm.value.relation === 'root') {
-    return stepTypeOptions.filter((option) => option.value === 'THREAD_GROUP');
+    // 根层（测试计划级）支持线程组与公共配置元件（JMeter 中它们作用于全部线程组）
+    return stepTypeOptions.filter((option) => rootStepTypes.includes(option.value));
   }
   return stepTypeOptions.filter((option) => option.value !== 'THREAD_GROUP');
 }
@@ -104,7 +118,7 @@ function useEditor() {
   const router = useRouter();
 
   const editorScriptAsset = computed(
-    () => scriptAssets.value.find((script) => script.id === editorScriptId.value) ?? null,
+    () => findEditorScript(scriptAssets.value, editorScriptId.value),
   );
 
   const scriptEditorVisible = computed(() => editorScriptId.value !== null);
@@ -115,7 +129,7 @@ function useEditor() {
     if (!versionId || refreshing) {
       return;
     }
-    const script = scriptAssets.value.find((item) => item.id === versionId);
+    const script = findEditorScript(scriptAssets.value, versionId);
     if (!script || (script.steps.length > 0 && script.id === (script.draftVersionId ?? script.id))) {
       return;
     }
