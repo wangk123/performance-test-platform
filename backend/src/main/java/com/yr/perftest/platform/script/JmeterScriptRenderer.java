@@ -324,6 +324,9 @@ public class JmeterScriptRenderer {
                 .append(xml(step.name())).append("\"").append(enabledAttr(step)).append(">\n");
         builder.append("          <collectionProp name=\"HeaderManager.headers\">\n");
         for (Map<String, Object> header : headers) {
+            if (!rowEnabled(header)) {
+                continue;
+            }
             String key = text(header, "key", "");
             builder.append("            <elementProp name=\"").append(xml(key)).append("\" elementType=\"Header\">\n");
             builder.append("              <stringProp name=\"Header.name\">").append(xml(key)).append("</stringProp>\n");
@@ -478,6 +481,9 @@ public class JmeterScriptRenderer {
         builder.append("          <HeaderManager guiclass=\"HeaderPanel\" testclass=\"HeaderManager\" testname=\"HTTP Header Manager\" enabled=\"true\">\n");
         builder.append("            <collectionProp name=\"HeaderManager.headers\">\n");
         for (Map<String, Object> header : headers) {
+            if (!rowEnabled(header)) {
+                continue;
+            }
             builder.append("              <elementProp name=\"").append(xml(text(header, "key", ""))).append("\" elementType=\"Header\">\n");
             builder.append("                <stringProp name=\"Header.name\">").append(xml(text(header, "key", ""))).append("</stringProp>\n");
             builder.append("                <stringProp name=\"Header.value\">").append(xml(text(header, "value", ""))).append("</stringProp>\n");
@@ -512,6 +518,12 @@ public class JmeterScriptRenderer {
                 .filter(Map.class::isInstance)
                 .map(item -> (Map<String, Object>) item)
                 .toList();
+    }
+
+    /** 行级启用开关：enabled 为 false 的行不导出（JMeter Header 无行级 enabled 属性，禁用行直接剔除）。 */
+    private boolean rowEnabled(Map<String, Object> item) {
+        Object value = item.get("enabled");
+        return value == null || Boolean.parseBoolean(String.valueOf(value));
     }
 
     private String xml(String value) {

@@ -193,9 +193,15 @@ function describe(step: ScriptStep) {
     }
     case 'HEADER_CONFIG': {
       const headers = Array.isArray(config.headers)
-        ? (config.headers as unknown[])
+        ? (config.headers as Array<Record<string, unknown>>)
         : String(config.headersText ?? '').split('\n').filter(Boolean);
-      return headers.length ? `${headers.length} 个 Header` : '未配置 Header';
+      const enabledCount = headers.filter((item) =>
+        typeof item === 'object' && item !== null ? item.enabled !== false : true,
+      ).length;
+      if (enabledCount > 0) {
+        return `${enabledCount} 个 Header`;
+      }
+      return headers.length ? 'Header 已全部禁用' : '未配置 Header';
     }
     case 'CONSTANT_TIMER':
       return `固定 ${config.delay ?? 300} ms`;

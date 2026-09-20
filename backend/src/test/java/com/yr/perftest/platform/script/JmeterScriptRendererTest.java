@@ -549,11 +549,14 @@ public class JmeterScriptRendererTest {
         JmeterScriptRenderer renderer = new JmeterScriptRenderer();
         ScriptStepDefinition fromArray = new ScriptStepDefinition(
                 "header-1", "HEADER_CONFIG", "公共 Header",
-                Map.of("headers", List.of(Map.of("enabled", true, "key", "X-Env", "value", "SIT", "description", ""))),
+                Map.of("headers", List.of(
+                        Map.of("enabled", true, "key", "X-Env", "value", "SIT", "description", ""),
+                        Map.of("enabled", false, "key", "X-Debug", "value", "trace", "description", ""))),
                 List.of());
         String arrayOutput = renderer.renderStepFragment(fromArray);
         assertTrue(arrayOutput.contains("<stringProp name=\"Header.name\">X-Env</stringProp>"), "array headers render");
         assertTrue(arrayOutput.contains("<stringProp name=\"Header.value\">SIT</stringProp>"), "array header value renders");
+        assertFalse(arrayOutput.contains("X-Debug"), "disabled header row is skipped on export");
 
         ScriptStepDefinition fromText = new ScriptStepDefinition(
                 "header-2", "HEADER_CONFIG", "公共 Header",

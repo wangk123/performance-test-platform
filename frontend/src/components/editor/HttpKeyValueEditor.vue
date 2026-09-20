@@ -2,8 +2,8 @@
   <div class="kv-table" :class="{ 'kv-table--compact': !showDescription }">
     <div class="kv-header">
       <span class="kv-col-check"></span>
-      <span class="kv-col-key">Key</span>
-      <span class="kv-col-value">Value</span>
+      <span class="kv-col-key">{{ keyLabel }}</span>
+      <span class="kv-col-value">{{ valueLabel }}</span>
       <span v-if="showDescription" class="kv-col-desc">描述</span>
       <span class="kv-col-action"></span>
     </div>
@@ -136,6 +136,8 @@ const props = withDefaults(
   defineProps<{
     kind: string;
     items: HttpParamConfig[];
+    keyLabel?: string;
+    valueLabel?: string;
     keyPlaceholder: string;
     valuePlaceholder: string;
     descriptionPlaceholder: string;
@@ -144,8 +146,13 @@ const props = withDefaults(
     activeIndex: number;
     suggestions: VariableOption[];
   }>(),
-  { showDescription: true },
+  {
+    keyLabel: 'Key',
+    valueLabel: 'Value',
+    showDescription: true,
+  },
 );
+
 
 const emit = defineEmits<{
   update: [index: number, field: keyof HttpParamConfig, value: string | boolean];

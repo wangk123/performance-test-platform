@@ -143,15 +143,7 @@
         </template>
 
         <template v-else-if="step.type === 'HEADER_CONFIG'">
-          <KeyValueGrid
-            :items="headerItems"
-            key-label="Header 名称"
-            value-label="值"
-            key-placeholder="Content-Type"
-            value-placeholder="application/json"
-            add-label="添加 Header"
-            @change="updateHeaders"
-          />
+          <HeaderStepConfig :step="step" />
         </template>
 
         <template v-else-if="step.type === 'CONSTANT_TIMER'">
@@ -246,6 +238,7 @@ import ThreadGroupEditor from './ThreadGroupEditor.vue';
 import CodeEditor from './CodeEditor.vue';
 import Jsr223SnippetPanel from './Jsr223SnippetPanel.vue';
 import UserParamsConfig from './UserParamsConfig.vue';
+import HeaderStepConfig from './HeaderStepConfig.vue';
 import KeyValueGrid, { type KeyValueItem } from './KeyValueGrid.vue';
 
 defineProps<{
@@ -310,43 +303,6 @@ function updateConfig(key: string, value: string | number | boolean | null | und
     return;
   }
   step.value.config = { ...step.value.config, [key]: value };
-}
-
-// 旧 Header 数据只有 headersText（k: v 文本）：读取时转换，保存落结构化数组
-const headerItems = computed<KeyValueItem[]>(() => {
-  const config = step.value?.config;
-  if (!config) {
-    return [];
-  }
-  if (Array.isArray(config.headers)) {
-    return (config.headers as Array<Record<string, unknown>>).map((item) => ({
-      key: String(item.key ?? ''),
-      value: String(item.value ?? ''),
-      description: '',
-    }));
-  }
-  const text = typeof config.headersText === 'string' ? config.headersText : '';
-  return text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const separator = line.indexOf(':') >= 0 ? line.indexOf(':') : line.indexOf('=');
-      return separator > 0
-        ? { key: line.substring(0, separator).trim(), value: line.substring(separator + 1).trim(), description: '' }
-        : { key: line, value: '', description: '' };
-    });
-});
-
-function updateHeaders(items: KeyValueItem[]) {
-  if (!step.value) {
-    return;
-  }
-  step.value.config = {
-    ...step.value.config,
-    headers: items.map((item) => ({ enabled: true, key: item.key, value: item.value, description: '' })),
-    headersText: undefined,
-  };
 }
 
 const userVariableItems = computed<KeyValueItem[]>(() => {
