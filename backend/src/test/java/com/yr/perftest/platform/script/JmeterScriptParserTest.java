@@ -63,8 +63,44 @@ public class JmeterScriptParserTest {
         parsesUserVariablesFromArguments();
         parsesConstantAndRandomTimers();
         parsesRootLevelSharedComponentsInDocumentOrder();
+        parsesDisabledElementsToConfig();
         parseInvalidXmlThrows();
         System.out.println("JmeterScriptParserTest passed");
+    }
+
+    static void parsesDisabledElementsToConfig() {
+        String jmx = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+                  <hashTree>
+                    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                    <hashTree>
+                      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Main" enabled="false">
+                        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+                        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+                        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+                          <stringProp name="LoopController.loops">1</stringProp>
+                        </elementProp>
+                      </ThreadGroup>
+                      <hashTree>
+                        <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="停用定时器" enabled="false">
+                          <stringProp name="ConstantTimer.delay">300</stringProp>
+                        </ConstantTimer>
+                        <hashTree/>
+                        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET /api" enabled="true">
+                          <stringProp name="HTTPSampler.method">GET</stringProp>
+                          <stringProp name="HTTPSampler.path">/api</stringProp>
+                        </HTTPSamplerProxy>
+                        <hashTree/>
+                      </hashTree>
+                    </hashTree>
+                  </hashTree>
+                </jmeterTestPlan>
+                """;
+        List<ScriptStepDefinition> steps = new JmeterScriptParser().parseSteps(jmx);
+        assertEquals(Boolean.FALSE, steps.get(0).config().get("enabled"), "disabled thread group parsed");
+        assertEquals(Boolean.FALSE, steps.get(0).children().get(0).config().get("enabled"), "disabled timer parsed");
+        assertEquals(Boolean.TRUE, steps.get(0).children().get(1).config().get("enabled"), "enabled sampler defaults to true");
     }
 
     static void parsesThreadGroupWithCorrectConfig() {

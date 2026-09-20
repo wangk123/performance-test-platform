@@ -39,10 +39,10 @@ public class JmeterScriptParser {
             if (steps.isEmpty()) {
                 // 兜底：非标准结构（缺 TestPlan）时退回全局扫描线程组
                 for (Element threadGroup : elements(document, "ThreadGroup")) {
-                    steps.add(parseThreadGroup(threadGroup));
+                    steps.add(withEnabled(threadGroup, parseThreadGroup(threadGroup)));
                 }
                 for (Element threadGroup : elements(document, "kg.apc.jmeter.threads.SteppingThreadGroup")) {
-                    steps.add(parseSteppingThreadGroup(threadGroup));
+                    steps.add(withEnabled(threadGroup, parseSteppingThreadGroup(threadGroup)));
                 }
             }
             return steps;
@@ -70,7 +70,7 @@ public class JmeterScriptParser {
 
     /** 根层与各层级共用的元件分发：识别返回步骤定义，未知元件返回 null（由调用方保留在 DOM）。 */
     private ScriptStepDefinition parseStep(Element element) {
-        return switch (element.getTagName()) {
+        return withEnabled(element, switch (element.getTagName()) {
             case "ThreadGroup" -> parseThreadGroup(element);
             case "kg.apc.jmeter.threads.SteppingThreadGroup" -> parseSteppingThreadGroup(element);
             case "HTTPSamplerProxy" -> parseHttpSampler(element, nextHashTree(element));
@@ -85,7 +85,18 @@ public class JmeterScriptParser {
             case "JSR223PreProcessor" -> parseJsr223(element, ScriptStepType.JSR223_PRE_PROCESSOR);
             case "JSR223PostProcessor" -> parseJsr223(element, ScriptStepType.JSR223_POST_PROCESSOR);
             default -> null;
-        };
+        });
+    }
+
+    /** JMeter 元件的 enabled 属性（缺省 true）落入 config，禁用状态随导入导出往返。 */
+    private ScriptStepDefinition withEnabled(Element element, ScriptStepDefinition step) {
+        if (step == null) {
+            return null;
+        }
+        boolean enabled = !"false".equals(element.getAttribute("enabled"));
+        Map<String, Object> config = new LinkedHashMap<>(step.config());
+        config.put("enabled", enabled);
+        return new ScriptStepDefinition(step.id(), step.type(), step.name(), config, step.children());
     }
 
     private List<ScriptStepDefinition> parseChildren(Element hashTree) {

@@ -8,6 +8,7 @@
             <span>{{ meta.label }}</span>
           </div>
           <h2>{{ step.name }}</h2>
+          <a-tag v-if="step.config.enabled === false" class="step-disabled-tag" color="red">已禁用</a-tag>
         </div>
         <div class="detail-heading-actions">
           <div class="editor-mode-switch">

@@ -124,6 +124,25 @@ export function containsStep(steps: ScriptStep[], targetId: string): boolean {
   return steps.some((step) => step.id === targetId || containsStep(step.children, targetId));
 }
 
+export function isStepDisabled(step: ScriptStep): boolean {
+  return step.config.enabled === false;
+}
+
+/** 禁用/启用组件：连同其全部子组件一起设置（对称级联，禁一组、启一组）。 */
+export function setStepEnabledById(steps: ScriptStep[], stepId: string, enabled: boolean): boolean {
+  const step = findStepById(steps, stepId);
+  if (!step) {
+    return false;
+  }
+  applyStepEnabled(step, enabled);
+  return true;
+}
+
+function applyStepEnabled(step: ScriptStep, enabled: boolean) {
+  step.config = { ...step.config, enabled };
+  step.children.forEach((child) => applyStepEnabled(child, enabled));
+}
+
 export function findParentStepId(steps: ScriptStep[], targetId: string, parentId: string | null = null): string | null {
   for (const step of steps) {
     if (step.id === targetId) {

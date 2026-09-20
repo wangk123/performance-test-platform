@@ -49,7 +49,7 @@ public class JmeterScriptRenderer {
         int loops = useScheduler ? -1 : tgConfig.loops();
 
         builder.append("      <ThreadGroup guiclass=\"ThreadGroupGui\" testclass=\"ThreadGroup\" testname=\"")
-                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+                .append(xml(step.name())).append("\"").append(enabledAttr(step)).append(">\n");
         builder.append("        <stringProp name=\"ThreadGroup.num_threads\">").append(tgConfig.threads()).append("</stringProp>\n");
         builder.append("        <stringProp name=\"ThreadGroup.ramp_time\">").append(tgConfig.rampUp()).append("</stringProp>\n");
         if (useScheduler) {
@@ -70,7 +70,7 @@ public class JmeterScriptRenderer {
     private void appendSteppingThreadGroup(StringBuilder builder, ScriptStepDefinition step, ThreadGroupConfig config) {
         ThreadGroupConfig.SteppingConfig stepping = config.stepping();
         builder.append("      <kg.apc.jmeter.threads.SteppingThreadGroup guiclass=\"kg.apc.jmeter.threads.SteppingThreadGroupGui\" testclass=\"kg.apc.jmeter.threads.SteppingThreadGroup\" testname=\"")
-                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+                .append(xml(step.name())).append("\"").append(enabledAttr(step)).append(">\n");
         builder.append("        <stringProp name=\"ThreadGroup.num_threads\">").append(config.threads()).append("</stringProp>\n");
         builder.append("        <stringProp name=\"Threads initial delay\">").append(stepping.initialDelay()).append("</stringProp>\n");
         builder.append("        <stringProp name=\"Start users count\">").append(stepping.startUsersCount()).append("</stringProp>\n");
@@ -128,7 +128,7 @@ public class JmeterScriptRenderer {
             testName = defaultName;
         }
         builder.append("        <HTTPSamplerProxy guiclass=\"HttpTestSampleGui\" testclass=\"HTTPSamplerProxy\" testname=\"")
-                .append(xml(testName)).append("\" enabled=\"true\">\n");
+                .append(xml(testName)).append("\"").append(enabledAttr(step)).append(">\n");
         if ("raw".equals(bodyType)) {
             builder.append("          <boolProp name=\"HTTPSampler.postBodyRaw\">true</boolProp>\n");
         }
@@ -153,7 +153,7 @@ public class JmeterScriptRenderer {
         String target = assertionTarget(text(step.config(), "target", "body"));
         int matchType = assertionMatchType(text(step.config(), "match", "contains"));
         builder.append("          <ResponseAssertion guiclass=\"AssertionGui\" testclass=\"ResponseAssertion\" testname=\"")
-                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+                .append(xml(step.name())).append("\"").append(enabledAttr(step)).append(">\n");
         builder.append("            <collectionProp name=\"Assertion.test_strings\"><stringProp name=\"0\">")
                 .append(xml(text(step.config(), "rule", ""))).append("</stringProp></collectionProp>\n");
         builder.append("            <stringProp name=\"Assertion.test_field\">").append(target).append("</stringProp>\n");
@@ -184,7 +184,7 @@ public class JmeterScriptRenderer {
         boolean validateValue = bool(config, "validateValue", false);
         boolean useRegex = bool(config, "useRegex", false);
         builder.append("          <JSONPathAssertion guiclass=\"JSONPathAssertionGui\" testclass=\"JSONPathAssertion\" testname=\"")
-                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+                .append(xml(step.name())).append("\"").append(enabledAttr(step)).append(">\n");
         builder.append("            <stringProp name=\"JSON_PATH\">").append(xml(text(config, "jsonPath", ""))).append("</stringProp>\n");
         builder.append("            <stringProp name=\"EXPECTED_VALUE\">").append(xml(text(config, "expectedValue", ""))).append("</stringProp>\n");
         builder.append("            <boolProp name=\"JSONVALIDATION\">").append(validateValue).append("</boolProp>\n");
@@ -195,6 +195,13 @@ public class JmeterScriptRenderer {
         builder.append("          <hashTree/>\n");
     }
 
+    /** JMeter 元件启用属性：config.enabled 为 false 时输出 enabled="false"（JMeter 中灰显且不执行），缺省启用。 */
+    private String enabledAttr(ScriptStepDefinition step) {
+        Object value = step.config() == null ? null : step.config().get("enabled");
+        boolean enabled = value == null || Boolean.parseBoolean(String.valueOf(value));
+        return " enabled=\"" + enabled + "\"";
+    }
+
     private boolean bool(Map<String, Object> config, String key, boolean fallback) {
         Object value = config.get(key);
         return value == null ? fallback : Boolean.parseBoolean(String.valueOf(value));
@@ -203,7 +210,7 @@ public class JmeterScriptRenderer {
     private void appendCsv(StringBuilder builder, ScriptStepDefinition step) {
         Map<String, Object> config = step.config();
         builder.append("        <CSVDataSet guiclass=\"TestBeanGUI\" testclass=\"CSVDataSet\" testname=\"")
-                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+                .append(xml(step.name())).append("\"").append(enabledAttr(step)).append(">\n");
         builder.append("          <stringProp name=\"filename\">").append(xml(text(config, "fileName", ""))).append("</stringProp>\n");
         builder.append("          <stringProp name=\"variableNames\">").append(xml(text(config, "variableNames", ""))).append("</stringProp>\n");
         appendCsvProp(builder, config, "delimiter");
@@ -231,7 +238,7 @@ public class JmeterScriptRenderer {
         String script = text(config, "script", "");
         String cacheKey = String.valueOf(bool(config, "cacheKey", true));
         builder.append("        <").append(tag).append(" guiclass=\"TestBeanGUI\" testclass=\"").append(tag)
-                .append("\" testname=\"").append(xml(step.name())).append("\" enabled=\"true\">\n");
+                .append("\" testname=\"").append(xml(step.name())).append("\"").append(enabledAttr(step)).append(">\n");
         builder.append("          <stringProp name=\"cacheKey\">").append(xml(cacheKey)).append("</stringProp>\n");
         builder.append("          <stringProp name=\"scriptLanguage\">").append(xml(lang)).append("</stringProp>\n");
         builder.append("          <stringProp name=\"parameters\">").append(xml(params)).append("</stringProp>\n");
@@ -253,7 +260,7 @@ public class JmeterScriptRenderer {
             }
         }
         builder.append("        <UserParameters guiclass=\"UserParametersGui\" testclass=\"UserParameters\" testname=\"")
-                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+                .append(xml(step.name())).append("\"").append(enabledAttr(step)).append(">\n");
         builder.append("          <collectionProp name=\"UserParameters.names\">\n");
         for (int index = 0; index < names.size(); index++) {
             builder.append("            <stringProp name=\"").append(index).append("\">")
@@ -282,7 +289,7 @@ public class JmeterScriptRenderer {
     private void appendUserVariables(StringBuilder builder, ScriptStepDefinition step) {
         List<Map<String, Object>> variables = params(step.config() == null ? null : step.config().get("variables"));
         builder.append("        <Arguments guiclass=\"ArgumentsPanel\" testclass=\"Arguments\" testname=\"")
-                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+                .append(xml(step.name())).append("\"").append(enabledAttr(step)).append(">\n");
         builder.append("          <collectionProp name=\"Arguments.arguments\">\n");
         for (Map<String, Object> variable : variables) {
             String key = text(variable, "key", "");
@@ -304,7 +311,7 @@ public class JmeterScriptRenderer {
     private void appendConstantTimer(StringBuilder builder, ScriptStepDefinition step) {
         Map<String, Object> config = step.config() == null ? Map.of() : step.config();
         builder.append("        <ConstantTimer guiclass=\"ConstantTimerGui\" testclass=\"ConstantTimer\" testname=\"")
-                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+                .append(xml(step.name())).append("\"").append(enabledAttr(step)).append(">\n");
         builder.append("          <stringProp name=\"ConstantTimer.delay\">")
                 .append(xml(text(config, "delay", "300"))).append("</stringProp>\n");
         builder.append("        </ConstantTimer>\n");
@@ -314,7 +321,7 @@ public class JmeterScriptRenderer {
     private void appendHeaderManager(StringBuilder builder, ScriptStepDefinition step) {
         List<Map<String, Object>> headers = headerItems(step.config());
         builder.append("        <HeaderManager guiclass=\"HeaderPanel\" testclass=\"HeaderManager\" testname=\"")
-                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+                .append(xml(step.name())).append("\"").append(enabledAttr(step)).append(">\n");
         builder.append("          <collectionProp name=\"HeaderManager.headers\">\n");
         for (Map<String, Object> header : headers) {
             String key = text(header, "key", "");
@@ -375,7 +382,7 @@ public class JmeterScriptRenderer {
     private void appendRandomTimer(StringBuilder builder, ScriptStepDefinition step) {
         Map<String, Object> config = step.config() == null ? Map.of() : step.config();
         builder.append("        <UniformRandomTimer guiclass=\"UniformRandomTimerGui\" testclass=\"UniformRandomTimer\" testname=\"")
-                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+                .append(xml(step.name())).append("\"").append(enabledAttr(step)).append(">\n");
         builder.append("          <stringProp name=\"UniformRandomTimer.delay\">")
                 .append(xml(text(config, "delay", "0"))).append("</stringProp>\n");
         builder.append("          <stringProp name=\"UniformRandomTimer.range\">")

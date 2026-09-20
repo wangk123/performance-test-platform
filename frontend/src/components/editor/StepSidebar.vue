@@ -19,6 +19,7 @@
         class="step-node"
         :class="{
           active: editor.selectedEditorStepId.value === item.step.id,
+          disabled: isStepDisabled(item.step),
           dragging: editor.draggingStepId.value === item.step.id,
           'drop-before':
             editor.dragOverStepId.value === item.step.id && editor.dragOverMode.value === 'before',
@@ -80,6 +81,9 @@
           <template #overlay>
             <a-menu @click="({ key }: { key: string | number }) => handleStepMenu(String(key), item.step.id)">
               <a-menu-item key="add" :disabled="!editor.canAddChildStepTo(item.step.id)">新增</a-menu-item>
+              <a-menu-item key="toggle-enabled">
+                {{ isStepDisabled(item.step) ? '启用组件' : '禁用组件' }}
+              </a-menu-item>
               <a-menu-item key="delete" danger>删除</a-menu-item>
               <a-menu-divider />
               <a-menu-item key="xml" :disabled="!editor.canAddChildStepTo(item.step.id)">XML 导入</a-menu-item>
@@ -102,7 +106,9 @@
 <script setup lang="ts">
 import type { ScriptStep, ScriptStepType, ThreadGroup } from '../../types';
 import { stepTypeMeta } from '../../constants';
+import { findStepById, isStepDisabled, setStepEnabledById } from '../../utils/script-steps';
 import { useScriptEditor } from '../../composables/useScriptEditor';
+import { message } from 'ant-design-vue';
 import StepTypeIcon from '../scripts/StepTypeIcon.vue';
 import ThreadGroupSummary from './ThreadGroupSummary.vue';
 
@@ -111,6 +117,18 @@ const editor = useScriptEditor();
 function handleStepMenu(action: string, stepId: string) {
   if (action === 'add') {
     editor.openStepDialog('child', stepId);
+    return;
+  }
+  if (action === 'toggle-enabled') {
+    const steps = editor.editorScriptAsset.value?.steps;
+    if (!steps) {
+      return;
+    }
+    const step = findStepById(steps, stepId);
+    const enabling = step ? isStepDisabled(step) : false;
+    if (setStepEnabledById(steps, stepId, enabling)) {
+      message.success(enabling ? '组件已启用' : '组件已禁用（含子组件）');
+    }
     return;
   }
   if (action === 'delete') {

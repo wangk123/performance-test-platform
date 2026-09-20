@@ -23,7 +23,44 @@ public class JmeterScriptRendererTest {
         rendersEmptyStepsList();
         sharedComponentsRoundTripFromJmeterNativeFormat();
         headerManagerRendersHeadersArrayAndTextFallback();
+        disabledElementsRenderEnabledFalseAndRoundTrip();
         System.out.println("JmeterScriptRendererTest passed");
+    }
+
+    /** 禁用状态随渲染往返：config.enabled=false → enabled="false" → 再解析仍为 false。 */
+    static void disabledElementsRenderEnabledFalseAndRoundTrip() {
+        JmeterScriptRenderer renderer = new JmeterScriptRenderer();
+        ScriptStepDefinition disabled = new ScriptStepDefinition(
+                "http-1", "HTTP_REQUEST", "GET /api",
+                Map.of("method", "GET", "url", "${host}/api", "enabled", false),
+                List.of());
+        String output = renderer.renderStepFragment(disabled);
+        assertTrue(output.contains("enabled=\"false\""), "disabled sampler renders enabled=false");
+
+        ScriptStepDefinition enabled = new ScriptStepDefinition(
+                "http-2", "HTTP_REQUEST", "GET /api",
+                Map.of("method", "GET", "url", "${host}/api"),
+                List.of());
+        String enabledOutput = renderer.renderStepFragment(enabled);
+        assertTrue(enabledOutput.contains("enabled=\"true\""), "default sampler renders enabled=true");
+
+        String jmx = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+                  <hashTree>
+                    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                    <hashTree>
+                      <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="停用定时器" enabled="false">
+                        <stringProp name="ConstantTimer.delay">300</stringProp>
+                      </ConstantTimer>
+                      <hashTree/>
+                    </hashTree>
+                  </hashTree>
+                </jmeterTestPlan>
+                """;
+        JmeterScriptParser parser = new JmeterScriptParser();
+        List<ScriptStepDefinition> reparsed = parser.parseSteps(renderer.render(parser.parseSteps(jmx)));
+        assertEquals(Boolean.FALSE, reparsed.get(0).config().get("enabled"), "disabled state round-trips through render");
     }
 
     static void rendersThreadGroupWithCorrectValues() {
