@@ -1,21 +1,5 @@
 <template>
   <section class="mcp-directory">
-    <div class="page-head">
-      <div>
-        <h1>MCP 工具目录</h1>
-        <p class="sub">
-          平台全部已注册 MCP 工具的能力清单——本地 Agent（Claude Code / DSH）接入后即可调用。
-          工具随版本发布自动上下线，本页无需配置。
-        </p>
-      </div>
-      <div class="head-chips">
-        <span class="chip chip-ok"><span class="dot"></span>MCP 服务在线</span>
-        <span v-if="directory" class="chip chip-neutral">
-          {{ directory.server.toolCount }} 个工具 · {{ directory.stages.length }} 个阶段
-        </span>
-      </div>
-    </div>
-
     <section class="access" aria-label="接入指引">
       <div class="access-hd">
         <svg
@@ -145,6 +129,12 @@
           ><circle cx="12" cy="12" r="8.4"/><path d="M6.4 6.4 17.6 17.6"/></svg>
         </span>
       </span>
+      <div class="head-chips">
+        <span class="chip chip-ok"><span class="dot"></span>MCP 服务在线</span>
+        <span v-if="directory" class="chip chip-neutral">
+          {{ directory.server.toolCount }} 个工具 · {{ directory.stages.length }} 个阶段
+        </span>
+      </div>
     </div>
 
     <div v-if="directory" class="grid-area">
@@ -444,30 +434,6 @@ onBeforeUnmount(() => {
 
 .mcp-directory .ic.sm { width: 14px; height: 14px; }
 .mcp-directory .ic.xs { width: 12px; height: 12px; }
-
-/* ===== 页头 ===== */
-.mcp-directory .page-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
-  flex-wrap: wrap;
-}
-
-.mcp-directory .page-head h1 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  color: var(--ink);
-}
-
-.mcp-directory .page-head .sub {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--muted);
-}
 
 .mcp-directory .head-chips { display: flex; gap: 8px; }
 

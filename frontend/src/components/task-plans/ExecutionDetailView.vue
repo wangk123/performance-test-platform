@@ -3,7 +3,6 @@
     <div class="page-head">
       <div>
         <h1>{{ execution.scenarioName }}</h1>
-        <p>{{ script?.name }} · {{ executionStatusText(uiStatus) }}</p>
       </div>
       <a-button
         v-if="uiStatus === 'RUNNING' || uiStatus === 'PENDING' || uiStatus === 'STOPPING'"
@@ -302,7 +301,6 @@ const {
   selectedSample,
   selectedSampleId,
   sampleDetailLoading,
-  scriptById,
   stopActiveExecution,
   openExecution,
 } = useTaskPlans();
@@ -332,7 +330,6 @@ function loadHistoryExecutions() {
 }
 
 const uiStatus = computed(() => (props.execution ? toUiStatus(props.execution.status) : 'PENDING'));
-const script = computed(() => (props.execution ? scriptById(props.execution.scriptVersionId) : null));
 const aggregateRows = computed(() => props.execution?.aggregateRows ?? []);
 
 const accuracyLabel = computed(() => {

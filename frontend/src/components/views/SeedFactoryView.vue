@@ -1,12 +1,5 @@
 <template>
   <section class="seed-factory">
-    <div class="page-head">
-      <div>
-        <h1>造数工厂</h1>
-        <p>测环境写库：配置数据源 → 过滤录制 → 确认模板 → 批量克隆。</p>
-      </div>
-    </div>
-
     <div class="panel">
       <a-tabs v-model:activeKey="tab">
         <a-tab-pane key="datasource" tab="数据源">

@@ -14,12 +14,6 @@
   <ProjectEnvCheckView v-else-if="activeProjectTab === 'env-check'" />
 
   <section v-else-if="activeProjectTab === 'reports'" class="placeholder-grid">
-    <div class="page-head">
-      <div>
-        <h1>报告管理</h1>
-        <p>按测试计划生成性能测试报告，支持 HTML 预览与 Word/PDF 导出。</p>
-      </div>
-    </div>
     <div class="panel">
       <a-empty v-if="!projectPlans.length" description="暂无测试计划，请先创建计划并完成执行" />
       <a-list v-else :data-source="projectPlans" :pagination="false">
@@ -45,12 +39,6 @@
   <FunctionLibraryView v-else-if="activeProjectTab === 'functions'" />
 
   <section v-else class="members-page">
-    <div class="page-head">
-      <div>
-        <h1>成员权限</h1>
-        <p>成员关系仍是项目级权限前置校验，脚本、执行、报告不重复维护成员。</p>
-      </div>
-    </div>
     <div class="panel">
       <a-table
         v-if="currentProject"

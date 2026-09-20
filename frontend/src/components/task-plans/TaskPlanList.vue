@@ -19,16 +19,10 @@
   />
 
   <section v-else class="task-schedule">
-    <div class="page-head">
-      <div>
-        <h1>任务计划</h1>
-        <p>每个计划包含多个测试场景，按场景单独执行并保留历史记录。</p>
-      </div>
-      <a-button type="primary" @click="openCreatePlan">新建计划</a-button>
-    </div>
     <div class="panel">
-      <div class="task-filters">
+      <div class="task-filters with-action">
         <a-input v-model:value="planKeyword" allow-clear placeholder="搜索计划名称" />
+        <a-button type="primary" @click="openCreatePlan">新建计划</a-button>
       </div>
       <a-table
         class="workspace-table"

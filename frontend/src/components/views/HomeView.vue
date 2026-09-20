@@ -1,13 +1,7 @@
 <template>
-  <div class="page-head">
-    <div>
-      <h1>工作台</h1>
-      <p>项目资产、执行状态与监控告警的入口。从这里进入项目或创建压测任务。</p>
-    </div>
-    <div class="topbar-actions">
-      <a-button @click="selectMainNav('settings')">系统配置</a-button>
-      <a-button type="primary" @click="selectMainNav('projects')">进入项目</a-button>
-    </div>
+  <div class="panel-toolbar">
+    <a-button @click="selectMainNav('settings')">系统配置</a-button>
+    <a-button type="primary" @click="selectMainNav('projects')">进入项目</a-button>
   </div>
 
   <section class="metrics-grid">

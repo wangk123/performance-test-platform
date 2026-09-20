@@ -1,11 +1,5 @@
 <template>
   <section class="settings-shell">
-    <div class="page-head">
-      <div>
-        <h1>系统配置</h1>
-        <p>管理用户、角色、平台访问边界与 Agent 凭据。</p>
-      </div>
-    </div>
     <div class="panel">
     <SettingsTabBar v-model="activeConfigTab" :options="tabOptions" />
 

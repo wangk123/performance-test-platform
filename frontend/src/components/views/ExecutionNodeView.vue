@@ -1,13 +1,9 @@
 <template>
   <section class="settings-panel">
-    <div class="page-head">
-      <div>
-        <h1>执行器配置</h1>
-        <p>维护远程 JMeter Controller / Worker 节点。</p>
-      </div>
-      <a-button type="primary" @click="openCreateDialog">新增执行器</a-button>
-    </div>
     <div class="panel">
+      <div class="panel-toolbar">
+        <a-button type="primary" @click="openCreateDialog">新增执行器</a-button>
+      </div>
 
     <a-table
       :columns="nodeColumns"

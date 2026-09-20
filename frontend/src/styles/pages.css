@@ -219,6 +219,42 @@
   margin-bottom: 14px;
 }
 
+/* 面板级工具条：内容区右侧操作按钮 */
+.panel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.panel-toolbar .hint {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* 筛选行内右侧追加操作按钮 */
+.filters.with-action,
+.task-filters.with-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filters.with-action > :first-child,
+.task-filters.with-action > :first-child {
+  flex: 0 1 420px;
+}
+
+.filters.with-action > :nth-child(2) {
+  margin-left: auto;
+}
+
+.task-filters.with-action > .ant-btn {
+  margin-left: auto;
+}
+
 .compact-search {
   width: 300px;
   flex-shrink: 0;
@@ -491,15 +527,29 @@
   font-weight: 650;
 }
 
-.script-assets-actions {
+.script-list-toolbar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.script-list-toolbar .compact-search {
+  width: auto;
+  flex: 0 1 300px;
+  min-width: 200px;
+}
+
+.script-list-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.script-assets-actions .ant-btn {
+.script-list-actions .ant-btn {
   min-width: 88px;
 }
 
@@ -635,7 +685,7 @@
 .asset-row-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 6px;
   white-space: nowrap;
 }
@@ -643,6 +693,24 @@
 .asset-row-actions .ant-btn {
   min-width: 52px;
   padding-inline: 10px;
+}
+
+.asset-row-actions .more-btn {
+  min-width: 24px;
+  width: 24px;
+  padding-inline: 0;
+  font-weight: 600;
+}
+
+/* 右侧详情面板页签：与左侧工具栏行同高对齐 */
+.workspace-side-tabs .ant-tabs-nav {
+  margin-bottom: 12px;
+}
+
+.workspace-side-tabs .ant-tabs-tab {
+  padding: 6px 2px;
+  font-size: 13.5px;
+  line-height: 20px;
 }
 
 .asset-link-button {
@@ -725,38 +793,71 @@
 
 .parsed-section h3 {
   margin: 0 0 10px;
-  font-size: 15px;
+  font-size: 13.5px;
 }
 
-.parsed-table,
-.api-list,
-.param-chips {
-  display: grid;
-  gap: 8px;
-}
-
-.parsed-table div {
-  padding: 10px 12px;
+.tg-card {
+  padding: 9px 11px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   background: var(--surface-soft);
 }
 
-.parsed-table strong,
-.parsed-table span {
-  display: block;
+.tg-card + .tg-card {
+  margin-top: 6px;
 }
 
-.parsed-table span {
-  margin-top: 5px;
+.tg-card strong {
+  display: block;
+  font-size: 12.5px;
+}
+
+.tg-card span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font: 500 11px var(--font-data);
+}
+
+.sec-empty {
+  margin: 0;
   color: var(--muted);
   font-size: 12px;
+}
+
+.script-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+  margin-top: 12px;
+}
+
+.script-meta-grid .m {
+  min-width: 0;
+}
+
+.script-meta-grid .k {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.script-meta-grid .v {
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+
+.script-meta-grid .v.mono {
+  font-family: var(--font-data);
 }
 
 .api-list,
 .param-chips {
   display: flex;
   flex-wrap: wrap;
+  gap: 6px;
 }
 
 .api-list span,

@@ -273,11 +273,6 @@ export function useTaskPlans() {
     if (currentProject.value) void router.push(`/projects/${currentProject.value.id}/task-plans/${planId}`);
   }
 
-  function backToScenarioDetail(scenarioId: number, planId: number) {
-    void scenarioId;
-    void backToPlanDetail(planId);
-  }
-
   async function savePlan(payload: {
     id?: number;
     name: string;
@@ -465,7 +460,6 @@ export function useTaskPlans() {
     openExecution,
     backToPlanList,
     backToPlanDetail,
-    backToScenarioDetail,
     savePlan,
     removePlan,
     saveScenario,

@@ -1,20 +1,15 @@
 <template>
   <section class="script-workspace-page">
-    <div class="page-head">
-      <div>
-        <h1>脚本管理</h1>
-        <p>{{ currentProject?.name }} 下可用于任务计划的脚本，支持新建空白脚本或导入 JMX 资产。</p>
-      </div>
-      <div class="script-assets-actions">
-        <a-input v-model:value="scriptKeyword" class="compact-search" allow-clear placeholder="搜索脚本、接口、变量" />
-        <a-button :disabled="selectedRows.length === 0" danger @click="deleteSelectedScripts">批量删除</a-button>
-        <a-button @click="openScriptCreateDialog">新建脚本</a-button>
-        <a-button type="primary" @click="openScriptImportDialog">导入 JMX</a-button>
-      </div>
-    </div>
-
     <div class="script-workspace">
     <div class="panel script-assets-panel">
+      <div class="script-list-toolbar">
+        <a-input v-model:value="scriptKeyword" class="compact-search" allow-clear placeholder="搜索脚本、接口、变量" />
+        <div class="script-list-actions">
+          <a-button :disabled="selectedRows.length === 0" danger @click="deleteSelectedScripts">批量删除</a-button>
+          <a-button @click="openScriptCreateDialog">新建脚本</a-button>
+          <a-button type="primary" @click="openScriptImportDialog">导入 JMX</a-button>
+        </div>
+      </div>
       <a-table
         class="workspace-table"
         :columns="scriptColumns"
@@ -67,8 +62,16 @@
                 @click.stop="runScriptAsset(record)"
               >执行</a-button>
               <a-button v-if="record.hasDraft" size="small" @click.stop="openPublish(record)">发布</a-button>
-              <a-button size="small" @click.stop="openVersions(record)">版本</a-button>
-              <a-button size="small" danger @click.stop="deleteScriptAsset(record)">删除</a-button>
+              <a-dropdown :trigger="['click']">
+                <a-button size="small" class="more-btn" @click.stop>⋯</a-button>
+                <template #overlay>
+                  <a-menu @click="onRowMenu($event, record)">
+                    <a-menu-item key="versions">版本历史</a-menu-item>
+                    <a-menu-divider />
+                    <a-menu-item key="delete" danger>删除</a-menu-item>
+                  </a-menu>
+                </template>
+              </a-dropdown>
             </div>
           </template>
         </template>
@@ -85,41 +88,71 @@
           </div>
           <a-button type="primary" @click="openParamDrawer(selectedScriptAsset)">默认参数</a-button>
         </div>
-        <p class="detail-description">
-          来源 {{ selectedScriptAsset.sourceFile }}，当前 v{{ selectedScriptAsset.latestVersion }}，{{ selectedScriptAsset.remark || '暂无备注' }}。
-        </p>
+
+        <div class="script-meta-grid">
+          <div class="m">
+            <div class="k">来源文件</div>
+            <div class="v mono" :title="selectedScriptAsset.sourceFile">{{ selectedScriptAsset.sourceFile }}</div>
+          </div>
+          <div class="m">
+            <div class="k">当前版本</div>
+            <div class="v mono">{{ selectedScriptAsset.latestVersionLabel || '未发布' }}</div>
+          </div>
+          <div class="m">
+            <div class="k">状态</div>
+            <div class="v">{{ scriptStatusText(selectedScriptAsset.status) }}{{ selectedScriptAsset.hasDraft ? ' · 有未发布草稿' : '' }}</div>
+          </div>
+          <div class="m">
+            <div class="k">更新时间</div>
+            <div class="v">{{ formatDate(selectedScriptAsset.updatedAt) }}</div>
+          </div>
+          <div class="m">
+            <div class="k">更新人</div>
+            <div class="v">{{ latestVersionRecord(selectedScriptAsset)?.importedBy ?? '-' }}</div>
+          </div>
+          <div class="m">
+            <div class="k">绑定场景</div>
+            <div class="v">{{ selectedScriptAsset.currentScenarioCount }} 个</div>
+          </div>
+        </div>
 
         <div class="parsed-section">
           <h3>线程组</h3>
-          <div class="parsed-table">
-            <div v-for="group in getThreadGroups(selectedScriptAsset)" :key="group.name">
+          <template v-if="getThreadGroups(selectedScriptAsset).length">
+            <div v-for="group in getThreadGroups(selectedScriptAsset)" :key="group.name" class="tg-card">
               <strong>{{ group.name }}</strong>
               <span>{{ threadGroupSummary(group) }}</span>
             </div>
-          </div>
+          </template>
+          <p v-else class="sec-empty">未解析到线程组。</p>
         </div>
 
         <div class="parsed-section">
           <h3>API 配置</h3>
-          <div class="api-list">
+          <div v-if="selectedScriptAsset.apis.length" class="api-list">
             <span v-for="api in selectedScriptAsset.apis" :key="`${api.method}-${api.path}`">
               {{ api.method }} {{ api.path }}
             </span>
           </div>
+          <p v-else class="sec-empty">未解析到 API 配置。</p>
         </div>
 
         <div class="parsed-section">
           <h3>监控配置</h3>
-          <div class="api-list">
+          <div v-if="selectedScriptAsset.monitors.length" class="api-list">
             <span v-for="monitor in selectedScriptAsset.monitors" :key="monitor.target">
               {{ monitor.target }} · {{ monitor.metrics.join('/') }}
             </span>
           </div>
+          <p v-else class="sec-empty">未解析到监控配置。</p>
         </div>
 
         <div class="parsed-section">
           <h3>变量与默认参数</h3>
-          <div class="param-chips">
+          <div
+            v-if="selectedScriptAsset.variables.length || selectedScriptAsset.params.length"
+            class="param-chips"
+          >
             <span v-for="variable in selectedScriptAsset.variables" :key="variable.key">
               {{ variable.key }}={{ variable.value }}
             </span>
@@ -127,6 +160,7 @@
               {{ param.label }}：{{ param.value }}
             </span>
           </div>
+          <p v-else class="sec-empty">暂无变量与默认参数。</p>
         </div>
       </template>
       <div v-else class="empty-detail">
@@ -200,6 +234,14 @@ function openVersions(script: ScriptAsset) {
   versionDrawerOpen.value = true;
 }
 
+function onRowMenu(info: { key: string | number }, script: ScriptAsset) {
+  if (info.key === 'versions') {
+    openVersions(script);
+  } else if (info.key === 'delete') {
+    void deleteScriptAsset(script);
+  }
+}
+
 function nextPatchLabel(label: string): string {
   if (!/^\d+\.\d+\.\d+$/.test(label)) {
     return '1.0.0';
@@ -230,7 +272,7 @@ const scriptColumns: TableColumnsType<ScriptAsset> = [
   { title: '状态', key: 'status', width: 168 },
   { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt', width: 132 },
   { title: '更新人', key: 'updatedBy', width: 96 },
-  { title: '操作栏', key: 'actions', width: 300, align: 'center' },
+  { title: '操作栏', key: 'actions', width: 240 },
 ];
 const scriptRowSelection = computed(() => ({
   selectedRowKeys: selectedScriptIds.value,
@@ -307,7 +349,7 @@ function threadGroupSummary(group: ThreadGroup) {
   line-height: 18px;
 }
 .version-label {
-  font-weight: 600;
+  font-weight: 400;
 }
 .muted-version {
   color: var(--muted);

@@ -1,14 +1,10 @@
 <template>
   <section class="function-library">
-    <div class="page-head">
-      <div>
-        <h1>函数库</h1>
-        <p>平台 JMeter 自定义函数只读展示。压测执行走分布式节点；本地执行请导出 JMX 并安装函数包至 JMeter <code>lib/ext/</code>。</p>
-      </div>
-      <a-button type="primary" :loading="downloading" @click="downloadPackage">下载函数包</a-button>
-    </div>
-
     <div class="panel">
+      <div class="panel-toolbar">
+        <span class="hint">压测执行走分布式节点；本地执行需安装函数包至 JMeter lib/ext/</span>
+        <a-button type="primary" :loading="downloading" @click="downloadPackage">下载函数包</a-button>
+      </div>
       <a-table
         :columns="columns"
         :data-source="functions"

@@ -1,18 +1,12 @@
 <template>
   <template v-if="currentProject">
-    <section class="page-head">
-      <div>
-        <h1>{{ currentProject.name }}</h1>
-        <p>{{ currentProject.code }} · {{ currentProject.description }}</p>
-      </div>
-      <div class="script-assets-actions">
-        <a-tag :color="currentProject.status === 'ACTIVE' ? 'success' : 'default'">
-          {{ projectStatusText(currentProject.status) }}
-        </a-tag>
-        <a-button @click="$emit('edit', currentProject)">编辑项目</a-button>
-        <a-button @click="$emit('members', currentProject)">成员权限</a-button>
-      </div>
-    </section>
+    <div class="panel-toolbar">
+      <a-tag :color="currentProject.status === 'ACTIVE' ? 'success' : 'default'">
+        {{ projectStatusText(currentProject.status) }}
+      </a-tag>
+      <a-button @click="$emit('edit', currentProject)">编辑项目</a-button>
+      <a-button @click="$emit('members', currentProject)">成员权限</a-button>
+    </div>
 
     <section class="project-dashboard">
       <div class="metrics-grid compact">
