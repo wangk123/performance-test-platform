@@ -85,7 +85,7 @@
         <div class="plan-tab-scroll"><PlanDetailReview :doc="doc" @locate="locateComment" /></div>
       </a-tab-pane>
       <a-tab-pane key="envcheck" tab="环境检查">
-        <EnvCheckTab :plan="doc.plan.value ?? plan" :doc-plan="doc" />
+        <div class="plan-tab-scroll"><EnvCheckTab :plan="doc.plan.value ?? plan" :doc-plan="doc" /></div>
       </a-tab-pane>
       <a-tab-pane key="versions" tab="版本">
         <div class="plan-tab-scroll"><PlanDetailVersions :doc="doc" :refresh-tick="versionRefreshTick" @request-publish="publishOpen = true" /></div>
