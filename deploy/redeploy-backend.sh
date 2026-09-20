@@ -30,12 +30,12 @@ fi
 
 echo "==> 停止旧进程"
 pkill -f "backend-0.1.0-SNAPSHOT.jar" 2>/dev/null || true
-for _ in $(seq 1 30); do
+for _ in $(seq 1 60); do
     pgrep -f "backend-0.1.0-SNAPSHOT.jar" >/dev/null 2>&1 || break
     sleep 1
 done
 if pgrep -f "backend-0.1.0-SNAPSHOT.jar" >/dev/null 2>&1; then
-    echo "错误：旧进程 30s 内未退出（Spring 优雅关闭偏慢），确认无事后可 kill -9：pgrep -f backend-0.1.0-SNAPSHOT.jar" >&2
+    echo "错误：旧进程 60s 内未退出（Spring 优雅关闭偏慢），确认无事后可 kill -9：pgrep -f backend-0.1.0-SNAPSHOT.jar" >&2
     exit 1
 fi
 
