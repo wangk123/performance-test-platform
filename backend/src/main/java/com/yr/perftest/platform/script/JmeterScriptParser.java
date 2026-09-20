@@ -21,11 +21,29 @@ public class JmeterScriptParser {
         try {
             Document document = parseDocument(content);
             List<ScriptStepDefinition> steps = new ArrayList<>();
-            for (Element threadGroup : elements(document, "ThreadGroup")) {
-                steps.add(parseThreadGroup(threadGroup));
+            // 根层支持线程组与公共元件（用户参数/Header/定时器等）混排，保持 JMX 文档顺序
+            for (Element testPlan : elements(document, "TestPlan")) {
+                Element hashTree = nextHashTree(testPlan);
+                if (hashTree == null) {
+                    continue;
+                }
+                for (Node node = hashTree.getFirstChild(); node != null; node = node.getNextSibling()) {
+                    if (node instanceof Element element) {
+                        ScriptStepDefinition step = parseStep(element);
+                        if (step != null) {
+                            steps.add(step);
+                        }
+                    }
+                }
             }
-            for (Element threadGroup : elements(document, "kg.apc.jmeter.threads.SteppingThreadGroup")) {
-                steps.add(parseSteppingThreadGroup(threadGroup));
+            if (steps.isEmpty()) {
+                // 兜底：非标准结构（缺 TestPlan）时退回全局扫描线程组
+                for (Element threadGroup : elements(document, "ThreadGroup")) {
+                    steps.add(parseThreadGroup(threadGroup));
+                }
+                for (Element threadGroup : elements(document, "kg.apc.jmeter.threads.SteppingThreadGroup")) {
+                    steps.add(parseSteppingThreadGroup(threadGroup));
+                }
             }
             return steps;
         } catch (Exception exception) {
@@ -50,6 +68,26 @@ public class JmeterScriptParser {
         );
     }
 
+    /** 根层与各层级共用的元件分发：识别返回步骤定义，未知元件返回 null（由调用方保留在 DOM）。 */
+    private ScriptStepDefinition parseStep(Element element) {
+        return switch (element.getTagName()) {
+            case "ThreadGroup" -> parseThreadGroup(element);
+            case "kg.apc.jmeter.threads.SteppingThreadGroup" -> parseSteppingThreadGroup(element);
+            case "HTTPSamplerProxy" -> parseHttpSampler(element, nextHashTree(element));
+            case "CSVDataSet" -> parseCsv(element);
+            case "UserParameters" -> parseUserParams(element);
+            case "Arguments" -> parseUserVariables(element);
+            case "HeaderManager" -> parseHeaderManager(element);
+            case "ResponseAssertion" -> parseAssertion(element);
+            case "JSONPathAssertion" -> parseJsonAssertion(element);
+            case "ConstantTimer" -> parseConstantTimer(element);
+            case "UniformRandomTimer" -> parseRandomTimer(element);
+            case "JSR223PreProcessor" -> parseJsr223(element, ScriptStepType.JSR223_PRE_PROCESSOR);
+            case "JSR223PostProcessor" -> parseJsr223(element, ScriptStepType.JSR223_POST_PROCESSOR);
+            default -> null;
+        };
+    }
+
     private List<ScriptStepDefinition> parseChildren(Element hashTree) {
         if (hashTree == null) {
             return List.of();
@@ -59,18 +97,9 @@ public class JmeterScriptParser {
             if (!(node instanceof Element element)) {
                 continue;
             }
-            switch (element.getTagName()) {
-                case "HTTPSamplerProxy" -> steps.add(parseHttpSampler(element, nextHashTree(element)));
-                case "kg.apc.jmeter.threads.SteppingThreadGroup" -> steps.add(parseSteppingThreadGroup(element));
-                case "CSVDataSet" -> steps.add(parseCsv(element));
-                case "Arguments" -> steps.add(parseUserParams(element));
-                case "HeaderManager" -> steps.add(parseHeaderManager(element));
-                case "ResponseAssertion" -> steps.add(parseAssertion(element));
-                case "JSONPathAssertion" -> steps.add(parseJsonAssertion(element));
-                case "JSR223PreProcessor" -> steps.add(parseJsr223(element, ScriptStepType.JSR223_PRE_PROCESSOR));
-                case "JSR223PostProcessor" -> steps.add(parseJsr223(element, ScriptStepType.JSR223_POST_PROCESSOR));
-                default -> {
-                }
+            ScriptStepDefinition step = parseStep(element);
+            if (step != null) {
+                steps.add(step);
             }
         }
         return steps;
@@ -191,22 +220,94 @@ public class JmeterScriptParser {
         );
     }
 
+    /** JMeter「用户参数」（UserParameters）：行=变量名，每列一个用户的取值（thread_values），另带 per_iteration。 */
     private ScriptStepDefinition parseUserParams(Element element) {
+        List<String> names = new ArrayList<>();
+        Element namesProp = directCollectionProp(element, "UserParameters.names");
+        if (namesProp != null) {
+            for (Element stringProp : childElementsNamed(namesProp, "stringProp")) {
+                names.add(stringProp.getTextContent());
+            }
+        }
+        List<List<String>> users = new ArrayList<>();
+        Element valuesProp = directCollectionProp(element, "UserParameters.thread_values");
+        if (valuesProp != null) {
+            for (Element userCollection : childElementsNamed(valuesProp, "collectionProp")) {
+                List<String> values = new ArrayList<>();
+                for (Element stringProp : childElementsNamed(userCollection, "stringProp")) {
+                    values.add(stringProp.getTextContent());
+                }
+                users.add(values);
+            }
+        }
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("names", names);
+        config.put("users", users);
+        config.put("perIteration", boolValue(element, "UserParameters.per_iteration", false));
         return new ScriptStepDefinition(
                 JmeterScriptDom.stepId(element, ScriptStepType.USER_PARAMS),
                 ScriptStepType.USER_PARAMS.code(),
                 element.getAttribute("testname"),
-                Map.of("paramsText", ""),
+                config,
+                List.of()
+        );
+    }
+
+    /** JMeter「用户定义的变量」（Arguments）：键值对集合。 */
+    private ScriptStepDefinition parseUserVariables(Element element) {
+        List<Map<String, Object>> variables = new ArrayList<>();
+        Element arguments = directCollectionProp(element, "Arguments.arguments");
+        if (arguments != null) {
+            for (Element argument : childElementsNamed(arguments, "elementProp")) {
+                Map<String, Object> item = param(
+                        stringValue(argument, "Argument.name", ""),
+                        stringValue(argument, "Argument.value", ""));
+                item.put("description", stringValue(argument, "Argument.desc", ""));
+                variables.add(item);
+            }
+        }
+        return new ScriptStepDefinition(
+                JmeterScriptDom.stepId(element, ScriptStepType.USER_VARIABLES),
+                ScriptStepType.USER_VARIABLES.code(),
+                element.getAttribute("testname"),
+                Map.of("variables", variables),
+                List.of()
+        );
+    }
+
+    private ScriptStepDefinition parseConstantTimer(Element element) {
+        return new ScriptStepDefinition(
+                JmeterScriptDom.stepId(element, ScriptStepType.CONSTANT_TIMER),
+                ScriptStepType.CONSTANT_TIMER.code(),
+                element.getAttribute("testname"),
+                Map.of("delay", stringValue(element, "ConstantTimer.delay", "300")),
+                List.of()
+        );
+    }
+
+    private ScriptStepDefinition parseRandomTimer(Element element) {
+        return new ScriptStepDefinition(
+                JmeterScriptDom.stepId(element, ScriptStepType.RANDOM_TIMER),
+                ScriptStepType.RANDOM_TIMER.code(),
+                element.getAttribute("testname"),
+                Map.of(
+                        "delay", stringValue(element, "UniformRandomTimer.delay", "1000"),
+                        "range", stringValue(element, "UniformRandomTimer.range", "0")
+                ),
                 List.of()
         );
     }
 
     private ScriptStepDefinition parseHeaderManager(Element element) {
+        List<Map<String, Object>> headers = parseHeaderItems(element);
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("headers", headers);
+        config.put("headersText", textLines(headers, ": "));
         return new ScriptStepDefinition(
                 JmeterScriptDom.stepId(element, ScriptStepType.HEADER_CONFIG),
                 ScriptStepType.HEADER_CONFIG.code(),
                 element.getAttribute("testname"),
-                Map.of("headersText", textLines(parseHeaders(element), ": ")),
+                config,
                 List.of()
         );
     }
@@ -290,6 +391,27 @@ public class JmeterScriptParser {
             }
         }
         return null;
+    }
+
+    private Element directCollectionProp(Element parent, String name) {
+        for (Node node = parent.getFirstChild(); node != null; node = node.getNextSibling()) {
+            if (node instanceof Element element
+                    && "collectionProp".equals(element.getTagName())
+                    && name.equals(element.getAttribute("name"))) {
+                return element;
+            }
+        }
+        return null;
+    }
+
+    private List<Element> childElementsNamed(Element parent, String tagName) {
+        List<Element> items = new ArrayList<>();
+        for (Node node = parent.getFirstChild(); node != null; node = node.getNextSibling()) {
+            if (node instanceof Element element && tagName.equals(element.getTagName())) {
+                items.add(element);
+            }
+        }
+        return items;
     }
 
     private String stringValue(Element root, String name, String fallback) {

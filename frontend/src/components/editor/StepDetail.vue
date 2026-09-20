@@ -125,23 +125,63 @@
         </template>
 
         <template v-else-if="step.type === 'USER_PARAMS'">
-          <a-form-item label="用户参数">
-            <a-textarea
-              :value="(step.config.paramsText as string)"
-              :rows="6"
-              placeholder="mobile=13800000000&#10;channel=APP"
-              @update:value="updateConfig('paramsText', $event)"
+          <UserParamsConfig :step="step" />
+        </template>
+
+        <template v-else-if="step.type === 'USER_VARIABLES'">
+          <KeyValueGrid
+            :items="userVariableItems"
+            key-label="变量名"
+            value-label="值"
+            key-placeholder="host"
+            value-placeholder="api.example.com"
+            add-label="添加变量"
+            with-description
+            @change="updateUserVariables"
+          />
+        </template>
+
+        <template v-else-if="step.type === 'HEADER_CONFIG'">
+          <KeyValueGrid
+            :items="headerItems"
+            key-label="Header 名称"
+            value-label="值"
+            key-placeholder="Content-Type"
+            value-placeholder="application/json"
+            add-label="添加 Header"
+            @change="updateHeaders"
+          />
+        </template>
+
+        <template v-else-if="step.type === 'CONSTANT_TIMER'">
+          <a-form-item label="线程延迟（毫秒）" extra="作用域内每次采样前固定停留的时长">
+            <a-input-number
+              class="timer-number-input"
+              :value="timerNumber('delay', 300)"
+              :min="0"
+              :step="100"
+              @update:value="updateConfig('delay', String($event ?? 0))"
             />
           </a-form-item>
         </template>
 
-        <template v-else-if="step.type === 'HEADER_CONFIG'">
-          <a-form-item label="Header 配置">
-            <a-textarea
-              :value="(step.config.headersText as string)"
-              :rows="6"
-              placeholder="Content-Type: application/json&#10;Authorization: Bearer ${token}"
-              @update:value="updateConfig('headersText', $event)"
+        <template v-else-if="step.type === 'RANDOM_TIMER'">
+          <a-form-item label="随机延迟基准（毫秒）" extra="每次停留时长的固定基准部分">
+            <a-input-number
+              class="timer-number-input"
+              :value="timerNumber('delay', 1000)"
+              :min="0"
+              :step="100"
+              @update:value="updateConfig('delay', String($event ?? 0))"
+            />
+          </a-form-item>
+          <a-form-item label="随机浮动范围（毫秒）" extra="实际停留 = 基准 + 0 ～ 范围内的随机值，与 JMeter Uniform Random Timer 一致">
+            <a-input-number
+              class="timer-number-input"
+              :value="timerNumber('range', 500)"
+              :min="0"
+              :step="100"
+              @update:value="updateConfig('range', String($event ?? 0))"
             />
           </a-form-item>
         </template>
@@ -204,6 +244,8 @@ import StepTypeIcon from '../scripts/StepTypeIcon.vue';
 import ThreadGroupEditor from './ThreadGroupEditor.vue';
 import CodeEditor from './CodeEditor.vue';
 import Jsr223SnippetPanel from './Jsr223SnippetPanel.vue';
+import UserParamsConfig from './UserParamsConfig.vue';
+import KeyValueGrid, { type KeyValueItem } from './KeyValueGrid.vue';
 
 defineProps<{
   saving: boolean;
@@ -269,6 +311,71 @@ function updateConfig(key: string, value: string | number | boolean | null | und
   step.value.config = { ...step.value.config, [key]: value };
 }
 
+// 旧 Header 数据只有 headersText（k: v 文本）：读取时转换，保存落结构化数组
+const headerItems = computed<KeyValueItem[]>(() => {
+  const config = step.value?.config;
+  if (!config) {
+    return [];
+  }
+  if (Array.isArray(config.headers)) {
+    return (config.headers as Array<Record<string, unknown>>).map((item) => ({
+      key: String(item.key ?? ''),
+      value: String(item.value ?? ''),
+      description: '',
+    }));
+  }
+  const text = typeof config.headersText === 'string' ? config.headersText : '';
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const separator = line.indexOf(':') >= 0 ? line.indexOf(':') : line.indexOf('=');
+      return separator > 0
+        ? { key: line.substring(0, separator).trim(), value: line.substring(separator + 1).trim(), description: '' }
+        : { key: line, value: '', description: '' };
+    });
+});
+
+function updateHeaders(items: KeyValueItem[]) {
+  if (!step.value) {
+    return;
+  }
+  step.value.config = {
+    ...step.value.config,
+    headers: items.map((item) => ({ enabled: true, key: item.key, value: item.value, description: '' })),
+    headersText: undefined,
+  };
+}
+
+const userVariableItems = computed<KeyValueItem[]>(() => {
+  const variables = step.value?.config.variables;
+  if (!Array.isArray(variables)) {
+    return [];
+  }
+  return (variables as Array<Record<string, unknown>>).map((item) => ({
+    key: String(item.key ?? ''),
+    value: String(item.value ?? ''),
+    description: String(item.description ?? ''),
+  }));
+});
+
+function updateUserVariables(items: KeyValueItem[]) {
+  if (!step.value) {
+    return;
+  }
+  step.value.config = {
+    ...step.value.config,
+    variables: items.map((item) => ({ enabled: true, key: item.key, value: item.value, description: item.description ?? '' })),
+  };
+}
+
+function timerNumber(key: 'delay' | 'range', fallback: number): number {
+  const raw = step.value?.config[key];
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 function csvBoolean(key: 'ignoreFirstLine' | 'recycle' | 'stopThread', fallback: boolean): boolean {
   const raw = step.value?.config[key];
   if (raw === undefined) {
@@ -297,6 +404,11 @@ watch(
 <style scoped>
 .csv-binding-alert {
   margin-bottom: 16px;
+}
+
+.timer-number-input {
+  width: 220px;
+  font-family: var(--font-data);
 }
 
 .save-warnings-alert {

@@ -43,9 +43,23 @@ export const stepTypeOptions: Array<{ label: string; value: ScriptStepType }> = 
   { label: 'JSON 断言', value: 'JSON_ASSERTION' },
   { label: 'CSV 数据文件', value: 'CSV_DATA' },
   { label: '用户参数', value: 'USER_PARAMS' },
+  { label: '用户定义变量', value: 'USER_VARIABLES' },
   { label: 'Header 头配置', value: 'HEADER_CONFIG' },
+  { label: '固定定时器', value: 'CONSTANT_TIMER' },
+  { label: '随机定时器', value: 'RANDOM_TIMER' },
   { label: 'JSR223 前置处理器', value: 'JSR223_PRE_PROCESSOR' },
   { label: 'JSR223 后置处理器', value: 'JSR223_POST_PROCESSOR' },
+];
+
+/** 可放在测试计划根层（线程组之外）的公共配置元件。 */
+export const rootStepTypes: ScriptStepType[] = [
+  'THREAD_GROUP',
+  'USER_PARAMS',
+  'USER_VARIABLES',
+  'HEADER_CONFIG',
+  'CONSTANT_TIMER',
+  'RANDOM_TIMER',
+  'CSV_DATA',
 ];
 
 export type StepTypeMeta = {
@@ -89,7 +103,13 @@ export const stepTypeMeta: Record<ScriptStepType, StepTypeMeta> = {
   USER_PARAMS: {
     label: '用户参数',
     shortLabel: 'Vars',
-    hint: '线程内变量与默认值',
+    hint: '按用户分列的变量矩阵',
+    tone: 'vars',
+  },
+  USER_VARIABLES: {
+    label: '用户定义变量',
+    shortLabel: 'UDV',
+    hint: '全局键值变量定义',
     tone: 'vars',
   },
   HEADER_CONFIG: {
@@ -97,6 +117,18 @@ export const stepTypeMeta: Record<ScriptStepType, StepTypeMeta> = {
     shortLabel: 'Header',
     hint: '公共请求头配置',
     tone: 'header',
+  },
+  CONSTANT_TIMER: {
+    label: '固定定时器',
+    shortLabel: 'Timer',
+    hint: '每次采样前固定停留时长',
+    tone: 'timer',
+  },
+  RANDOM_TIMER: {
+    label: '随机定时器',
+    shortLabel: 'RTimer',
+    hint: '基础延迟 + 随机浮动时长',
+    tone: 'timer',
   },
   JSR223_PRE_PROCESSOR: {
     label: 'JSR223 前置处理器',

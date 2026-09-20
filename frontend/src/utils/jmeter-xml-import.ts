@@ -39,13 +39,24 @@ function parseElement(element: Element, hashTree: Element | null): ScriptStep | 
       return createStepFromType('JSR223_PRE_PROCESSOR', element.getAttribute('testname') || 'JSR223 前置处理器', jsr223Config(element));
     case 'JSR223PostProcessor':
       return createStepFromType('JSR223_POST_PROCESSOR', element.getAttribute('testname') || 'JSR223 后置处理器', jsr223Config(element));
+    case 'UserParameters':
+      return createStepFromType('USER_PARAMS', element.getAttribute('testname') || '用户参数', parseUserParamsMatrix(element));
     case 'Arguments':
-      return createStepFromType('USER_PARAMS', element.getAttribute('testname') || '用户参数', {
-        paramsText: parseUserParamsText(element),
+      return createStepFromType('USER_VARIABLES', element.getAttribute('testname') || '用户定义变量', {
+        variables: parseArgumentItems(element),
       });
     case 'HeaderManager':
       return createStepFromType('HEADER_CONFIG', element.getAttribute('testname') || 'Header 配置', {
-        headersText: textLines(parseHeaderItems(element), ': '),
+        headers: parseHeaderItems(element),
+      });
+    case 'ConstantTimer':
+      return createStepFromType('CONSTANT_TIMER', element.getAttribute('testname') || '固定定时器', {
+        delay: stringValue(element, 'ConstantTimer.delay', '300'),
+      });
+    case 'UniformRandomTimer':
+      return createStepFromType('RANDOM_TIMER', element.getAttribute('testname') || '随机定时器', {
+        delay: stringValue(element, 'UniformRandomTimer.delay', '1000'),
+        range: stringValue(element, 'UniformRandomTimer.range', '0'),
       });
     case 'ResponseAssertion':
       return createStepFromType('ASSERTION', element.getAttribute('testname') || '响应断言', {
@@ -267,19 +278,56 @@ function parseHeaderItemsFromTree(hashTree: Element | null) {
   return [];
 }
 
-function parseUserParamsText(element: Element) {
-  const lines: string[] = [];
+/** JMeter「用户参数」矩阵：names + 每用户一列（thread_values 内层 collection）。 */
+function parseUserParamsMatrix(element: Element) {
+  const names: string[] = [];
+  const users: string[][] = [];
+  for (const collection of element.children) {
+    if (collection.tagName !== 'collectionProp') {
+      continue;
+    }
+    if (collection.getAttribute('name') === 'UserParameters.names') {
+      for (const item of collection.children) {
+        if (item.tagName === 'stringProp') {
+          names.push(item.textContent ?? '');
+        }
+      }
+    }
+    if (collection.getAttribute('name') === 'UserParameters.thread_values') {
+      for (const userCollection of collection.children) {
+        if (userCollection.tagName !== 'collectionProp') {
+          continue;
+        }
+        users.push(
+          Array.from(userCollection.children)
+            .filter((item) => item.tagName === 'stringProp')
+            .map((item) => item.textContent ?? ''),
+        );
+      }
+    }
+  }
+  return {
+    names,
+    users,
+    perIteration: boolStringValue(element, 'UserParameters.per_iteration', false),
+  };
+}
+
+function parseArgumentItems(element: Element) {
+  const variables: Array<{ enabled: boolean; key: string; value: string; description: string }> = [];
   for (const item of element.getElementsByTagName('elementProp')) {
     if (item.getAttribute('elementType') !== 'Argument') {
       continue;
     }
     const key = stringValue(item, 'Argument.name', '');
-    const value = stringValue(item, 'Argument.value', '');
     if (key) {
-      lines.push(`${key}=${value}`);
+      variables.push({
+        ...param(key, stringValue(item, 'Argument.value', '')),
+        description: stringValue(item, 'Argument.desc', ''),
+      });
     }
   }
-  return lines.join('\n');
+  return variables;
 }
 
 function parseQueryParams(path: string) {
@@ -328,10 +376,6 @@ function assertionRule(element: Element) {
     return first?.textContent ?? '';
   }
   return '';
-}
-
-function textLines(items: HttpParamConfig[], separator: string) {
-  return items.map((item) => `${item.key}${separator}${item.value}`).join('\n');
 }
 
 function param(key: string, value: string): HttpParamConfig {

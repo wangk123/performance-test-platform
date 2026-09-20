@@ -88,7 +88,10 @@ export type ScriptStepType =
   | 'JSON_ASSERTION'
   | 'CSV_DATA'
   | 'USER_PARAMS'
+  | 'USER_VARIABLES'
   | 'HEADER_CONFIG'
+  | 'CONSTANT_TIMER'
+  | 'RANDOM_TIMER'
   | 'JSR223_PRE_PROCESSOR'
   | 'JSR223_POST_PROCESSOR';
 export type Jsr223Config = {
@@ -237,7 +240,7 @@ export type ScriptStep = {
   id: string;
   type: ScriptStepType;
   name: string;
-  config: Record<string, string | number | boolean | HttpParamConfig[] | HttpAdvancedConfig | ThreadGroupSteppingConfig>;
+  config: Record<string, string | number | boolean | string[] | string[][] | HttpParamConfig[] | HttpAdvancedConfig | ThreadGroupSteppingConfig | undefined>;
   children: ScriptStep[];
 };
 

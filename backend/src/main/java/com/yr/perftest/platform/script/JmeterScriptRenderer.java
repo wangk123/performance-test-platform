@@ -2,6 +2,8 @@ package com.yr.perftest.platform.script;
 
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -21,6 +23,8 @@ public class JmeterScriptRenderer {
         for (ScriptStepDefinition step : steps) {
             if (step.stepType() == ScriptStepType.THREAD_GROUP) {
                 appendThreadGroup(builder, step);
+            } else {
+                appendStep(builder, step);
             }
         }
         builder.append("    </hashTree>\n");
@@ -98,7 +102,10 @@ public class JmeterScriptRenderer {
             case JSON_ASSERTION -> appendJsonAssertion(builder, step);
             case CSV_DATA -> appendCsv(builder, step);
             case USER_PARAMS -> appendUserParams(builder, step);
+            case USER_VARIABLES -> appendUserVariables(builder, step);
             case HEADER_CONFIG -> appendHeaderManager(builder, step);
+            case CONSTANT_TIMER -> appendConstantTimer(builder, step);
+            case RANDOM_TIMER -> appendRandomTimer(builder, step);
             case JSR223_PRE_PROCESSOR -> appendJsr223(builder, step, "JSR223PreProcessor");
             case JSR223_POST_PROCESSOR -> appendJsr223(builder, step, "JSR223PostProcessor");
             default -> throw new ScriptValidationException("unsupported step type: " + step.type());
@@ -234,15 +241,146 @@ public class JmeterScriptRenderer {
         builder.append("        <hashTree/>\n");
     }
 
+    /** JMeter「用户参数」矩阵：names 一列变量名，thread_values 每个内层 collection 是一个用户的各变量取值。 */
     private void appendUserParams(StringBuilder builder, ScriptStepDefinition step) {
+        Map<String, Object> config = step.config() == null ? Map.of() : step.config();
+        List<String> names = strings(config.get("names"));
+        List<List<String>> users = userColumns(config.get("users"));
+        if (names.isEmpty() && !users.isEmpty()) {
+            int width = users.stream().mapToInt(List::size).max().orElse(0);
+            for (int index = 0; index < width; index++) {
+                names.add("param" + (index + 1));
+            }
+        }
+        builder.append("        <UserParameters guiclass=\"UserParametersGui\" testclass=\"UserParameters\" testname=\"")
+                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+        builder.append("          <collectionProp name=\"UserParameters.names\">\n");
+        for (int index = 0; index < names.size(); index++) {
+            builder.append("            <stringProp name=\"").append(index).append("\">")
+                    .append(xml(names.get(index))).append("</stringProp>\n");
+        }
+        builder.append("          </collectionProp>\n");
+        builder.append("          <collectionProp name=\"UserParameters.thread_values\">\n");
+        for (int userIndex = 0; userIndex < users.size(); userIndex++) {
+            List<String> values = users.get(userIndex);
+            builder.append("            <collectionProp name=\"").append(userIndex).append("\">\n");
+            for (int index = 0; index < names.size(); index++) {
+                String value = index < values.size() ? values.get(index) : "";
+                builder.append("              <stringProp name=\"").append(index).append("\">")
+                        .append(xml(value)).append("</stringProp>\n");
+            }
+            builder.append("            </collectionProp>\n");
+        }
+        builder.append("          </collectionProp>\n");
+        builder.append("          <boolProp name=\"UserParameters.per_iteration\">")
+                .append(bool(config, "perIteration", false)).append("</boolProp>\n");
+        builder.append("        </UserParameters>\n");
+        builder.append("        <hashTree/>\n");
+    }
+
+    /** JMeter「用户定义的变量」（Arguments 元件）：键值对集合。 */
+    private void appendUserVariables(StringBuilder builder, ScriptStepDefinition step) {
+        List<Map<String, Object>> variables = params(step.config() == null ? null : step.config().get("variables"));
         builder.append("        <Arguments guiclass=\"ArgumentsPanel\" testclass=\"Arguments\" testname=\"")
-                .append(xml(step.name())).append("\" enabled=\"true\"/>\n");
+                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+        builder.append("          <collectionProp name=\"Arguments.arguments\">\n");
+        for (Map<String, Object> variable : variables) {
+            String key = text(variable, "key", "");
+            builder.append("            <elementProp name=\"").append(xml(key)).append("\" elementType=\"Argument\">\n");
+            builder.append("              <stringProp name=\"Argument.name\">").append(xml(key)).append("</stringProp>\n");
+            builder.append("              <stringProp name=\"Argument.value\">").append(xml(text(variable, "value", ""))).append("</stringProp>\n");
+            String description = text(variable, "description", "");
+            if (!description.isEmpty()) {
+                builder.append("              <stringProp name=\"Argument.desc\">").append(xml(description)).append("</stringProp>\n");
+            }
+            builder.append("              <stringProp name=\"Argument.metadata\">=</stringProp>\n");
+            builder.append("            </elementProp>\n");
+        }
+        builder.append("          </collectionProp>\n");
+        builder.append("        </Arguments>\n");
+        builder.append("        <hashTree/>\n");
+    }
+
+    private void appendConstantTimer(StringBuilder builder, ScriptStepDefinition step) {
+        Map<String, Object> config = step.config() == null ? Map.of() : step.config();
+        builder.append("        <ConstantTimer guiclass=\"ConstantTimerGui\" testclass=\"ConstantTimer\" testname=\"")
+                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+        builder.append("          <stringProp name=\"ConstantTimer.delay\">")
+                .append(xml(text(config, "delay", "300"))).append("</stringProp>\n");
+        builder.append("        </ConstantTimer>\n");
         builder.append("        <hashTree/>\n");
     }
 
     private void appendHeaderManager(StringBuilder builder, ScriptStepDefinition step) {
+        List<Map<String, Object>> headers = headerItems(step.config());
         builder.append("        <HeaderManager guiclass=\"HeaderPanel\" testclass=\"HeaderManager\" testname=\"")
-                .append(xml(step.name())).append("\" enabled=\"true\"/>\n");
+                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+        builder.append("          <collectionProp name=\"HeaderManager.headers\">\n");
+        for (Map<String, Object> header : headers) {
+            String key = text(header, "key", "");
+            builder.append("            <elementProp name=\"").append(xml(key)).append("\" elementType=\"Header\">\n");
+            builder.append("              <stringProp name=\"Header.name\">").append(xml(key)).append("</stringProp>\n");
+            builder.append("              <stringProp name=\"Header.value\">").append(xml(text(header, "value", ""))).append("</stringProp>\n");
+            builder.append("            </elementProp>\n");
+        }
+        builder.append("          </collectionProp>\n");
+        builder.append("        </HeaderManager>\n");
+        builder.append("        <hashTree/>\n");
+    }
+
+    /** headers 结构化数组优先；旧数据只有 headersText（k: v / k=v 每行一条）时解析兜底。 */
+    private List<Map<String, Object>> headerItems(Map<String, Object> config) {
+        List<Map<String, Object>> headers = params(config == null ? null : config.get("headers"));
+        if (!headers.isEmpty() || config == null) {
+            return headers;
+        }
+        List<Map<String, Object>> parsed = new ArrayList<>();
+        for (String line : text(config, "headersText", "").split("\n")) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            int separator = trimmed.indexOf(':');
+            if (separator < 0) {
+                separator = trimmed.indexOf('=');
+            }
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("enabled", true);
+            item.put("key", separator > 0 ? trimmed.substring(0, separator).trim() : trimmed);
+            item.put("value", separator > 0 ? trimmed.substring(separator + 1).trim() : "");
+            item.put("description", "");
+            parsed.add(item);
+        }
+        return parsed;
+    }
+
+    private List<String> strings(Object source) {
+        if (!(source instanceof List<?> list)) {
+            return List.of();
+        }
+        return list.stream().map(String::valueOf).toList();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<List<String>> userColumns(Object source) {
+        if (!(source instanceof List<?> list)) {
+            return List.of();
+        }
+        return list.stream()
+                .filter(List.class::isInstance)
+                .map(column -> ((List<Object>) column).stream().map(String::valueOf).toList())
+                .toList();
+    }
+
+    private void appendRandomTimer(StringBuilder builder, ScriptStepDefinition step) {
+        Map<String, Object> config = step.config() == null ? Map.of() : step.config();
+        builder.append("        <UniformRandomTimer guiclass=\"UniformRandomTimerGui\" testclass=\"UniformRandomTimer\" testname=\"")
+                .append(xml(step.name())).append("\" enabled=\"true\">\n");
+        builder.append("          <stringProp name=\"UniformRandomTimer.delay\">")
+                .append(xml(text(config, "delay", "0"))).append("</stringProp>\n");
+        builder.append("          <stringProp name=\"UniformRandomTimer.range\">")
+                .append(xml(text(config, "range", "0"))).append("</stringProp>\n");
+        builder.append("        </UniformRandomTimer>\n");
         builder.append("        <hashTree/>\n");
     }
 

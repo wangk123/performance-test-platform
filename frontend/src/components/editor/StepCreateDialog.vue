@@ -6,7 +6,7 @@
     width="640px"
   >
     <a-form layout="vertical" @submit.prevent>
-      <a-form-item v-if="editor.stepDialogForm.value.relation !== 'root'" label="步骤类型">
+      <a-form-item label="步骤类型">
         <div class="step-type-picker">
           <button
             v-for="option in editor.availableStepTypeOptions.value"

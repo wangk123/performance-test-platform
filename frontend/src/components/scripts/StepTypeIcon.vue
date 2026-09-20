@@ -79,6 +79,40 @@
     </svg>
 
     <svg
+      v-else-if="props.type === 'USER_VARIABLES'"
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path d="M7.4 3.2c-2 .5-2.6 1.6-2.6 3v2.4c0 .9-.4 1.4-1.6 1.4 1.2 0 1.6.5 1.6 1.4v2.4c0 1.4.6 2.5 2.6 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      <path d="M12.6 3.2c2 .5 2.6 1.6 2.6 3v2.4c0 .9.4 1.4 1.6 1.4-1.2 0-1.6.5-1.6 1.4v2.4c0 1.4-.6 2.5-2.6 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      <path d="M7.6 10h4.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="1.6 1.6" />
+    </svg>
+
+    <svg
+      v-else-if="props.type === 'CONSTANT_TIMER'"
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle cx="10" cy="10.5" r="6.2" stroke="currentColor" stroke-width="1.6" />
+      <path d="M10 7v3.5l2.4 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M8 2.6h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+    </svg>
+
+    <svg
+      v-else-if="props.type === 'RANDOM_TIMER'"
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle cx="10" cy="10.5" r="6.2" stroke="currentColor" stroke-width="1.6" />
+      <path d="M10 7v3.5l2.4 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M8 2.6h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      <path d="M15.2 4.4c.8 1 1.2 2 1.2 3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="1.4 1.8" />
+    </svg>
+
+    <svg
       v-else-if="props.type === 'JSR223_PRE_PROCESSOR'"
       viewBox="0 0 20 20"
       fill="none"

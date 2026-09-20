@@ -11,18 +11,6 @@
       </button>
     </header>
 
-    <div class="step-legend">
-      <span
-        v-for="meta in legendMetas"
-        :key="meta.type"
-        class="step-legend-item"
-        :class="`tone-${meta.tone}`"
-      >
-        <StepTypeIcon :type="meta.type" />
-        <small>{{ meta.shortLabel }}</small>
-      </span>
-    </div>
-
     <div class="step-tree-scroll">
       <div class="step-tree">
       <div
@@ -138,12 +126,6 @@ function handleStepMenu(action: string, stepId: string) {
   }
 }
 
-const legendMetas = (Object.keys(stepTypeMeta) as ScriptStepType[]).map((type) => ({
-  type,
-  tone: stepTypeMeta[type].tone,
-  shortLabel: stepTypeMeta[type].shortLabel,
-}));
-
 function toneOf(type: ScriptStepType) {
   return stepTypeMeta[type].tone;
 }
@@ -181,15 +163,26 @@ function describe(step: ScriptStep) {
     case 'CSV_DATA':
       return `${config.fileName ?? '-'}`;
     case 'USER_PARAMS': {
-      const text = String(config.paramsText ?? '');
-      const first = text.split('\n')[0] ?? '';
-      return first || '未配置参数';
+      const names = Array.isArray(config.names) ? (config.names as unknown[]).map(String) : [];
+      const users = Array.isArray(config.users) ? (config.users as unknown[]).length : 0;
+      return names.length
+        ? `${names.slice(0, 3).join('、')}${names.length > 3 ? '…' : ''} · ${users} 用户`
+        : '未配置参数';
+    }
+    case 'USER_VARIABLES': {
+      const variables = Array.isArray(config.variables) ? (config.variables as unknown[]) : [];
+      return variables.length ? `${variables.length} 个变量` : '未配置变量';
     }
     case 'HEADER_CONFIG': {
-      const text = String(config.headersText ?? '');
-      const first = text.split('\n')[0] ?? '';
-      return first || '未配置 Header';
+      const headers = Array.isArray(config.headers)
+        ? (config.headers as unknown[])
+        : String(config.headersText ?? '').split('\n').filter(Boolean);
+      return headers.length ? `${headers.length} 个 Header` : '未配置 Header';
     }
+    case 'CONSTANT_TIMER':
+      return `固定 ${config.delay ?? 300} ms`;
+    case 'RANDOM_TIMER':
+      return `${config.delay ?? 1000} + 0~${config.range ?? 0} ms`;
   }
   return '';
 }

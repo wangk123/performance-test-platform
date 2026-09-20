@@ -14,7 +14,7 @@ import { MAX_SCRIPT_STEP_LEVEL } from '../constants';
 import { stepTypeLabel } from './format';
 import { createStepId } from './format';
 
-type StepConfigValue = string | number | boolean | HttpParamConfig[] | HttpAdvancedConfig | ThreadGroupSteppingConfig;
+type StepConfigValue = string | number | boolean | string[] | string[][] | HttpParamConfig[] | HttpAdvancedConfig | ThreadGroupSteppingConfig;
 type StepOverrides = {
   children?: ScriptStep[];
   [key: string]: StepConfigValue | ScriptStep[] | undefined;
@@ -167,7 +167,8 @@ export function canMoveStep(steps: ScriptStep[], sourceId: string, targetId: str
   if (source.type === 'THREAD_GROUP') {
     return targetParentId === null;
   }
-  return targetParentId !== null;
+  // 公共元件（用户参数/Header/定时器等）可停留线程组内，也可移出到根层（测试计划级）
+  return true;
 }
 
 export function createStepFromType(
@@ -229,8 +230,11 @@ export function createStepFromType(
       stopThread: false,
       shareMode: 'shareMode.all',
     },
-    USER_PARAMS: { paramsText: 'env=SIT\nchannel=APP' },
-    HEADER_CONFIG: { headersText: 'Content-Type: application/json' },
+    USER_PARAMS: { names: [], users: [], perIteration: false },
+    USER_VARIABLES: { variables: [] },
+    HEADER_CONFIG: { headers: [] },
+    CONSTANT_TIMER: { delay: '300' },
+    RANDOM_TIMER: { delay: '1000', range: '500' },
     JSR223_PRE_PROCESSOR: { scriptLanguage: 'groovy', script: '', parameters: '', cacheKey: true },
     JSR223_POST_PROCESSOR: { scriptLanguage: 'groovy', script: '', parameters: '', cacheKey: true },
   };
@@ -282,10 +286,14 @@ export function createStepsFromParsed(
               variableNames: variables.map((variable) => variable.key).join(','),
             }),
             createStepFromType('USER_PARAMS', '默认用户参数', {
-              paramsText: variables.map((variable) => `${variable.key}=${variable.value}`).join('\n'),
+              names: variables.map((variable) => variable.key),
+              users: [variables.map((variable) => variable.value)],
             }),
             createStepFromType('HEADER_CONFIG', '公共 Header 配置', {
-              headersText: 'Content-Type: application/json\nX-Env: ${env}',
+              headers: [
+                { enabled: true, key: 'Content-Type', value: 'application/json', description: '' },
+                { enabled: true, key: 'X-Env', value: '${env}', description: '' },
+              ],
             }),
           ]
         : []),

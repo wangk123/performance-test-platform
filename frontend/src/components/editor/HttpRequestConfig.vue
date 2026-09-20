@@ -276,19 +276,19 @@ function normalizeHttpConfig(step: ScriptStep): HttpRequestConfig {
   const normalizedBody = normalizeBodyType(String(step.config.bodyType ?? 'none'));
   const rawBodyType = normalizeRawBodyType(String(step.config.rawBodyType ?? normalizedBody.rawBodyType));
   const headers = syncHeadersContentType(
-    Array.isArray(step.config.headers) ? step.config.headers : [],
+    Array.isArray(step.config.headers) ? (step.config.headers as HttpParamConfig[]) : [],
     normalizedBody.bodyType,
     rawBodyType,
   );
   const next = {
     method: String(step.config.method ?? 'GET'),
     url: String(step.config.url ?? (legacyUrl || '${host}/api/example')),
-    params: Array.isArray(step.config.params) ? step.config.params : [],
+    params: Array.isArray(step.config.params) ? (step.config.params as HttpParamConfig[]) : [],
     headers,
     bodyType: normalizedBody.bodyType,
     rawBodyType,
     body: String(step.config.body ?? ''),
-    bodyParams: Array.isArray(step.config.bodyParams) ? step.config.bodyParams : [],
+    bodyParams: Array.isArray(step.config.bodyParams) ? (step.config.bodyParams as HttpParamConfig[]) : [],
     advanced: {
       connectTimeout: 30000,
       responseTimeout: 30000,

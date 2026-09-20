@@ -13,7 +13,127 @@ public class JmeterScriptPatcherTest {
         patchesJsonAssertionUnderHttpSampler();
         patchesHttpHeadersWithoutDroppingUnknownNodes();
         patchesJsr223StepsById();
+        reordersStepsToMatchStepListOrder();
+        patchesRootLevelSharedComponents();
         System.out.println("JmeterScriptPatcherTest passed");
+    }
+
+    static void patchesRootLevelSharedComponents() {
+        String jmx = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+                  <hashTree>
+                    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                    <hashTree>
+                      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="公共 Header" enabled="true">
+                        <collectionProp name="HeaderManager.headers">
+                          <elementProp name="" elementType="Header">
+                            <stringProp name="Header.name">X-Env</stringProp>
+                            <stringProp name="Header.value">SIT</stringProp>
+                          </elementProp>
+                        </collectionProp>
+                      </HeaderManager>
+                      <hashTree/>
+                      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Main" enabled="true">
+                        <stringProp name="ThreadGroup.num_threads">10</stringProp>
+                        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+                        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+                          <stringProp name="LoopController.loops">1</stringProp>
+                        </elementProp>
+                      </ThreadGroup>
+                      <hashTree/>
+                    </hashTree>
+                  </hashTree>
+                </jmeterTestPlan>
+                """;
+        JmeterScriptParser parser = new JmeterScriptParser();
+        List<ScriptStepDefinition> steps = parser.parseSteps(jmx);
+        ScriptStepDefinition header = steps.get(0);
+        ScriptStepDefinition threadGroup = steps.get(1);
+
+        // Header 值更新为 UAT，并移到线程组之后（根层重排）
+        ScriptStepDefinition updatedHeader = new ScriptStepDefinition(
+                header.id(), header.type(), header.name(),
+                Map.of("headers", List.of(Map.of("enabled", true, "key", "X-Env", "value", "UAT", "description", ""))),
+                List.of());
+        ScriptStepDefinition reordered = new ScriptStepDefinition(
+                threadGroup.id(), threadGroup.type(), threadGroup.name(), threadGroup.config(),
+                List.of());
+        List<ScriptStepDefinition> desired = List.of(reordered, updatedHeader);
+
+        String patched = new JmeterScriptPatcher(new JmeterScriptRenderer(), new JmeterScriptNormalizer()).patch(jmx, desired);
+        List<ScriptStepDefinition> reparsed = parser.parseSteps(patched);
+
+        assertEquals(2, reparsed.size(), "root components survive patch");
+        assertEquals("THREAD_GROUP", reparsed.get(0).type(), "thread group moved to first");
+        assertEquals("HEADER_CONFIG", reparsed.get(1).type(), "header moved after thread group");
+        assertTrue(patched.contains("<stringProp name=\"Header.value\">UAT</stringProp>"), "header value patched");
+        assertFalse(patched.contains("<stringProp name=\"Header.value\">SIT</stringProp>"), "old header value replaced");
+    }
+
+    static void reordersStepsToMatchStepListOrder() {
+        String jmx = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+                  <hashTree>
+                    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                    <hashTree>
+                      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Main" enabled="true">
+                        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+                        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+                        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+                          <stringProp name="LoopController.loops">1</stringProp>
+                        </elementProp>
+                      </ThreadGroup>
+                      <hashTree>
+                        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET /api" enabled="true">
+                          <stringProp name="HTTPSampler.method">GET</stringProp>
+                          <stringProp name="HTTPSampler.path">/api</stringProp>
+                          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+                            <collectionProp name="Arguments.arguments"/>
+                          </elementProp>
+                        </HTTPSamplerProxy>
+                        <hashTree>
+                          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="前置脚本" enabled="true">
+                            <stringProp name="cacheKey">true</stringProp>
+                            <stringProp name="scriptLanguage">groovy</stringProp>
+                            <stringProp name="script">pre-script</stringProp>
+                          </JSR223PreProcessor>
+                          <hashTree/>
+                        </hashTree>
+                        <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="后置脚本" enabled="true">
+                          <stringProp name="cacheKey">true</stringProp>
+                          <stringProp name="scriptLanguage">groovy</stringProp>
+                          <stringProp name="script">post-script</stringProp>
+                        </JSR223PostProcessor>
+                        <hashTree/>
+                      </hashTree>
+                    </hashTree>
+                  </hashTree>
+                </jmeterTestPlan>
+                """;
+        JmeterScriptParser parser = new JmeterScriptParser();
+        ScriptStepDefinition threadGroup = parser.parseSteps(jmx).get(0);
+        ScriptStepDefinition http = threadGroup.children().get(0);
+        ScriptStepDefinition pre = http.children().get(0);
+        ScriptStepDefinition post = threadGroup.children().get(1);
+
+        ScriptStepDefinition updatedHttp = new ScriptStepDefinition(
+                http.id(), http.type(), http.name(), http.config(), List.of(pre));
+        ScriptStepDefinition postFirst = new ScriptStepDefinition(
+                threadGroup.id(), threadGroup.type(), threadGroup.name(), threadGroup.config(),
+                List.of(post, updatedHttp));
+
+        String patched = new JmeterScriptPatcher(new JmeterScriptRenderer(), new JmeterScriptNormalizer())
+                .patch(jmx, List.of(postFirst));
+        List<ScriptStepDefinition> reparsed = parser.parseSteps(patched);
+        List<ScriptStepDefinition> children = reparsed.get(0).children();
+
+        assertEquals(2, children.size(), "reordered children count");
+        assertEquals(ScriptStepType.JSR223_POST_PROCESSOR.code(), children.get(0).type(), "post processor moved before sampler");
+        assertEquals(ScriptStepType.HTTP_REQUEST.code(), children.get(1).type(), "sampler follows post processor");
+        assertEquals(ScriptStepType.JSR223_PRE_PROCESSOR.code(), children.get(1).children().get(0).type(), "pre processor stays under sampler");
+        assertTrue(patched.indexOf("JSR223PostProcessor") < patched.indexOf("HTTPSamplerProxy"), "dom order follows step list order");
     }
 
     static void patchesKnownStepsWithoutDroppingUnknownNodes() {

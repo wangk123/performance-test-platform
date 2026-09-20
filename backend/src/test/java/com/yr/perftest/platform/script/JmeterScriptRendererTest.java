@@ -21,6 +21,8 @@ public class JmeterScriptRendererTest {
         csvDefaultRenderUnchanged();
         jsr223RoundTripEscapesGroovy();
         rendersEmptyStepsList();
+        sharedComponentsRoundTripFromJmeterNativeFormat();
+        headerManagerRendersHeadersArrayAndTextFallback();
         System.out.println("JmeterScriptRendererTest passed");
     }
 
@@ -431,5 +433,97 @@ public class JmeterScriptRendererTest {
         assertTrue(output.contains("<jmeterTestPlan"), "output contains test plan root");
         assertTrue(output.contains("<hashTree>"), "output contains hashTree");
         assertFalse(output.contains("<ThreadGroup"), "no ThreadGroup in empty output");
+    }
+
+    /** JMeter 原生格式导入 → 平台渲染 → 再解析：公共元件（根层）配置无损往返。 */
+    static void sharedComponentsRoundTripFromJmeterNativeFormat() {
+        String jmx = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+                  <hashTree>
+                    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                    <hashTree>
+                      <UserParameters guiclass="UserParametersGui" testclass="UserParameters" testname="用户参数" enabled="true">
+                        <collectionProp name="UserParameters.names">
+                          <stringProp name="a">username</stringProp>
+                          <stringProp name="b">password</stringProp>
+                        </collectionProp>
+                        <collectionProp name="UserParameters.thread_values">
+                          <collectionProp name="c">
+                            <stringProp name="d">user1</stringProp>
+                            <stringProp name="e">pass1</stringProp>
+                          </collectionProp>
+                          <collectionProp name="f">
+                            <stringProp name="g">user2</stringProp>
+                            <stringProp name="h">pass2</stringProp>
+                          </collectionProp>
+                        </collectionProp>
+                        <boolProp name="UserParameters.per_iteration">true</boolProp>
+                      </UserParameters>
+                      <hashTree/>
+                      <Arguments guiclass="ArgumentsPanel" testclass="Arguments" testname="用户定义的变量" enabled="true">
+                        <collectionProp name="Arguments.arguments">
+                          <elementProp name="host" elementType="Argument">
+                            <stringProp name="Argument.name">host</stringProp>
+                            <stringProp name="Argument.value">api.example.com</stringProp>
+                            <stringProp name="Argument.metadata">=</stringProp>
+                          </elementProp>
+                        </collectionProp>
+                      </Arguments>
+                      <hashTree/>
+                      <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="固定定时器" enabled="true">
+                        <stringProp name="ConstantTimer.delay">300</stringProp>
+                      </ConstantTimer>
+                      <hashTree/>
+                      <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="随机定时器" enabled="true">
+                        <stringProp name="UniformRandomTimer.delay">1000</stringProp>
+                        <stringProp name="UniformRandomTimer.range">500.0</stringProp>
+                      </UniformRandomTimer>
+                      <hashTree/>
+                      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Main" enabled="true">
+                        <stringProp name="ThreadGroup.num_threads">10</stringProp>
+                        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+                        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+                          <stringProp name="LoopController.loops">1</stringProp>
+                        </elementProp>
+                      </ThreadGroup>
+                      <hashTree/>
+                    </hashTree>
+                  </hashTree>
+                </jmeterTestPlan>
+                """;
+        JmeterScriptParser parser = new JmeterScriptParser();
+        List<ScriptStepDefinition> parsed = parser.parseSteps(jmx);
+        String rendered = new JmeterScriptRenderer().render(parsed);
+        List<ScriptStepDefinition> reparsed = parser.parseSteps(rendered);
+
+        assertEquals(5, reparsed.size(), "all root components survive round-trip");
+        assertEquals(parsed.get(0).config(), reparsed.get(0).config(), "user params matrix round-trips");
+        assertEquals(parsed.get(1).config(), reparsed.get(1).config(), "user variables round-trip");
+        assertEquals("300", reparsed.get(2).config().get("delay"), "constant timer delay round-trips");
+        assertEquals("500.0", reparsed.get(3).config().get("range"), "random timer range round-trips");
+        assertEquals("THREAD_GROUP", reparsed.get(4).type(), "thread group survives after shared components");
+        assertTrue(rendered.contains("UserParametersGui"), "user params renders native guiclass");
+        assertTrue(rendered.contains("ArgumentsPanel"), "user variables renders native guiclass");
+        assertTrue(rendered.contains("UniformRandomTimerGui"), "random timer renders native guiclass");
+    }
+
+    static void headerManagerRendersHeadersArrayAndTextFallback() {
+        JmeterScriptRenderer renderer = new JmeterScriptRenderer();
+        ScriptStepDefinition fromArray = new ScriptStepDefinition(
+                "header-1", "HEADER_CONFIG", "公共 Header",
+                Map.of("headers", List.of(Map.of("enabled", true, "key", "X-Env", "value", "SIT", "description", ""))),
+                List.of());
+        String arrayOutput = renderer.renderStepFragment(fromArray);
+        assertTrue(arrayOutput.contains("<stringProp name=\"Header.name\">X-Env</stringProp>"), "array headers render");
+        assertTrue(arrayOutput.contains("<stringProp name=\"Header.value\">SIT</stringProp>"), "array header value renders");
+
+        ScriptStepDefinition fromText = new ScriptStepDefinition(
+                "header-2", "HEADER_CONFIG", "公共 Header",
+                Map.of("headersText", "Content-Type: application/json"),
+                List.of());
+        String textOutput = renderer.renderStepFragment(fromText);
+        assertTrue(textOutput.contains("<stringProp name=\"Header.name\">Content-Type</stringProp>"), "text fallback headers render");
+        assertTrue(textOutput.contains("<stringProp name=\"Header.value\">application/json</stringProp>"), "text fallback value renders");
     }
 }

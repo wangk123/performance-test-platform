@@ -308,45 +308,6 @@
   line-height: 1;
 }
 
-.step-legend {
-  flex-shrink: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 14px;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-raised) 78%, transparent);
-}
-
-.step-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 8px 3px 4px;
-  border-radius: 999px;
-  background: var(--tone-soft, rgba(31, 111, 95, 0.08));
-  color: var(--tone-strong, var(--primary-dark));
-  font-size: 11px;
-  letter-spacing: 0.04em;
-}
-
-.step-legend-item .step-type-icon {
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-}
-
-.step-legend-item .step-type-icon svg {
-  width: 11px;
-  height: 11px;
-}
-
-.step-legend-item small {
-  font-weight: 700;
-}
-
 .step-tree {
   display: grid;
   gap: 4px;
@@ -645,6 +606,11 @@
 .tone-jsr223 {
   --tone-strong: #9333ea;
   --tone-soft: rgba(147, 51, 234, 0.12);
+}
+
+.tone-timer {
+  --tone-strong: #ea580c;
+  --tone-soft: rgba(234, 88, 12, 0.12);
 }
 
 .step-detail-tag {

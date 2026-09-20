@@ -1,6 +1,7 @@
 package com.yr.perftest.platform.script;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.yr.perftest.platform.TestSupport.*;
 
@@ -58,6 +59,10 @@ public class JmeterScriptParserTest {
         parsesJsonAssertionConfig();
         parsesCsvFullAttributesAndDefaults();
         parsesJsr223ExternalFragment();
+        parsesUserParamsMatrixFromJmeterNativeFormat();
+        parsesUserVariablesFromArguments();
+        parsesConstantAndRandomTimers();
+        parsesRootLevelSharedComponentsInDocumentOrder();
         parseInvalidXmlThrows();
         System.out.println("JmeterScriptParserTest passed");
     }
@@ -399,5 +404,115 @@ public class JmeterScriptParserTest {
     static void parseInvalidXmlThrows() {
         JmeterScriptParser parser = new JmeterScriptParser();
         assertThrows(ScriptValidationException.class, () -> parser.parseSteps("not xml at all"), "invalid XML should throw");
+    }
+
+    /** 根层混排样例：JMeter 原生导出结构（公共元件与线程组同级）。 */
+    private static final String SHARED_COMPONENTS_JMX = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+              <hashTree>
+                <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan" enabled="true"/>
+                <hashTree>
+                  <UserParameters guiclass="UserParametersGui" testclass="UserParameters" testname="用户参数" enabled="true">
+                    <collectionProp name="UserParameters.names">
+                      <stringProp name="85286">username</stringProp>
+                      <stringProp name="-530799223">password</stringProp>
+                    </collectionProp>
+                    <collectionProp name="UserParameters.thread_values">
+                      <collectionProp name="-1681486524">
+                        <stringProp name="-1240149213">user1</stringProp>
+                        <stringProp name="1687859746">pass1</stringProp>
+                      </collectionProp>
+                      <collectionProp name="11865703">
+                        <stringProp name="312055646">user2</stringProp>
+                        <stringProp name="-1466997670">pass2</stringProp>
+                      </collectionProp>
+                    </collectionProp>
+                    <boolProp name="UserParameters.per_iteration">true</boolProp>
+                  </UserParameters>
+                  <hashTree/>
+                  <Arguments guiclass="ArgumentsPanel" testclass="Arguments" testname="用户定义的变量" enabled="true">
+                    <collectionProp name="Arguments.arguments">
+                      <elementProp name="host" elementType="Argument">
+                        <stringProp name="Argument.name">host</stringProp>
+                        <stringProp name="Argument.value">api.example.com</stringProp>
+                        <stringProp name="Argument.metadata">=</stringProp>
+                      </elementProp>
+                    </collectionProp>
+                  </Arguments>
+                  <hashTree/>
+                  <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+                    <collectionProp name="HeaderManager.headers">
+                      <elementProp name="" elementType="Header">
+                        <stringProp name="Header.name">Content-Type</stringProp>
+                        <stringProp name="Header.value">application/json</stringProp>
+                      </elementProp>
+                    </collectionProp>
+                  </HeaderManager>
+                  <hashTree/>
+                  <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="固定定时器" enabled="true">
+                    <stringProp name="ConstantTimer.delay">300</stringProp>
+                  </ConstantTimer>
+                  <hashTree/>
+                  <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="随机定时器" enabled="true">
+                    <stringProp name="UniformRandomTimer.delay">1000</stringProp>
+                    <stringProp name="UniformRandomTimer.range">500.0</stringProp>
+                  </UniformRandomTimer>
+                  <hashTree/>
+                  <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Main" enabled="true">
+                    <stringProp name="ThreadGroup.num_threads">10</stringProp>
+                    <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+                    <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+                      <stringProp name="LoopController.loops">1</stringProp>
+                    </elementProp>
+                  </ThreadGroup>
+                  <hashTree/>
+                </hashTree>
+              </hashTree>
+            </jmeterTestPlan>
+            """;
+
+    static void parsesUserParamsMatrixFromJmeterNativeFormat() {
+        List<ScriptStepDefinition> steps = new JmeterScriptParser().parseSteps(SHARED_COMPONENTS_JMX);
+        ScriptStepDefinition userParams = steps.get(0);
+        assertEquals("USER_PARAMS", userParams.type(), "UserParameters maps to USER_PARAMS");
+        assertEquals(List.of("username", "password"), userParams.config().get("names"), "names parsed in order");
+        assertEquals(List.of(List.of("user1", "pass1"), List.of("user2", "pass2")), userParams.config().get("users"), "per-user columns parsed");
+        assertEquals(Boolean.TRUE, userParams.config().get("perIteration"), "per_iteration parsed");
+    }
+
+    static void parsesUserVariablesFromArguments() {
+        List<ScriptStepDefinition> steps = new JmeterScriptParser().parseSteps(SHARED_COMPONENTS_JMX);
+        ScriptStepDefinition variables = steps.get(1);
+        assertEquals("USER_VARIABLES", variables.type(), "Arguments maps to USER_VARIABLES");
+        assertEquals(1, ((List<?>) variables.config().get("variables")).size(), "variable count");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> items = (List<Map<String, Object>>) variables.config().get("variables");
+        assertEquals("host", items.get(0).get("key"), "variable key");
+        assertEquals("api.example.com", items.get(0).get("value"), "variable value");
+    }
+
+    static void parsesConstantAndRandomTimers() {
+        List<ScriptStepDefinition> steps = new JmeterScriptParser().parseSteps(SHARED_COMPONENTS_JMX);
+        ScriptStepDefinition constant = steps.get(3);
+        ScriptStepDefinition random = steps.get(4);
+        assertEquals("CONSTANT_TIMER", constant.type(), "ConstantTimer type");
+        assertEquals("300", constant.config().get("delay"), "constant delay raw value");
+        assertEquals("RANDOM_TIMER", random.type(), "UniformRandomTimer type");
+        assertEquals("1000", random.config().get("delay"), "random delay raw value");
+        assertEquals("500.0", random.config().get("range"), "random range raw value preserved");
+    }
+
+    static void parsesRootLevelSharedComponentsInDocumentOrder() {
+        List<ScriptStepDefinition> steps = new JmeterScriptParser().parseSteps(SHARED_COMPONENTS_JMX);
+        assertEquals(6, steps.size(), "root holds shared components plus thread group");
+        assertEquals("USER_PARAMS", steps.get(0).type(), "document order 1");
+        assertEquals("USER_VARIABLES", steps.get(1).type(), "document order 2");
+        assertEquals("HEADER_CONFIG", steps.get(2).type(), "document order 3");
+        assertEquals("CONSTANT_TIMER", steps.get(3).type(), "document order 4");
+        assertEquals("RANDOM_TIMER", steps.get(4).type(), "document order 5");
+        assertEquals("THREAD_GROUP", steps.get(5).type(), "document order 6");
+        ScriptStepDefinition header = steps.get(2);
+        assertEquals(1, ((List<?>) header.config().get("headers")).size(), "header manager items parsed");
     }
 }

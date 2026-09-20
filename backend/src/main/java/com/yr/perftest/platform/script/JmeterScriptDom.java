@@ -29,10 +29,13 @@ final class JmeterScriptDom {
             case "ThreadGroup", "kg.apc.jmeter.threads.SteppingThreadGroup" -> ScriptStepType.THREAD_GROUP;
             case "HTTPSamplerProxy" -> ScriptStepType.HTTP_REQUEST;
             case "CSVDataSet" -> ScriptStepType.CSV_DATA;
-            case "Arguments" -> ScriptStepType.USER_PARAMS;
+            case "UserParameters" -> ScriptStepType.USER_PARAMS;
+            case "Arguments" -> ScriptStepType.USER_VARIABLES;
             case "HeaderManager" -> ScriptStepType.HEADER_CONFIG;
             case "ResponseAssertion" -> ScriptStepType.RESPONSE_ASSERTION;
             case "JSONPathAssertion" -> ScriptStepType.JSON_ASSERTION;
+            case "ConstantTimer" -> ScriptStepType.CONSTANT_TIMER;
+            case "UniformRandomTimer" -> ScriptStepType.RANDOM_TIMER;
             case "JSR223PreProcessor" -> ScriptStepType.JSR223_PRE_PROCESSOR;
             case "JSR223PostProcessor" -> ScriptStepType.JSR223_POST_PROCESSOR;
             default -> null;
@@ -45,9 +48,12 @@ final class JmeterScriptDom {
             case HTTP_REQUEST -> "http";
             case CSV_DATA -> "csv";
             case USER_PARAMS -> "vars";
+            case USER_VARIABLES -> "uservars";
             case HEADER_CONFIG -> "header";
             case RESPONSE_ASSERTION -> "assert";
             case JSON_ASSERTION -> "jsonassert";
+            case CONSTANT_TIMER -> "timer";
+            case RANDOM_TIMER -> "randtimer";
             case JSR223_PRE_PROCESSOR -> "jsr223-pre";
             case JSR223_POST_PROCESSOR -> "jsr223-post";
             default -> "step";
