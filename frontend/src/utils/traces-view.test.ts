@@ -31,19 +31,43 @@ describe('traces-view 链路面板纯函数（trace-integration Phase 1）', () 
 
   it('derives span levels from parent chain', () => {
     const levels = computeSpanLevels([
-      { spanId: 0, parentSpanId: -1 },
-      { spanId: 1, parentSpanId: 0 },
+      { segmentId: 'sg-a', spanId: 0, parentSpanId: -1 },
+      { segmentId: 'sg-a', spanId: 1, parentSpanId: 0 },
     ]);
     expect(levels).toEqual([0, 1]);
   });
 
   it('handles out-of-order and orphan parents when deriving span levels', () => {
     const levels = computeSpanLevels([
-      { spanId: 2, parentSpanId: 1 },
-      { spanId: 0, parentSpanId: -1 },
-      { spanId: 1, parentSpanId: 0 },
+      { segmentId: 'sg-a', spanId: 2, parentSpanId: 1 },
+      { segmentId: 'sg-a', spanId: 0, parentSpanId: -1 },
+      { segmentId: 'sg-a', spanId: 1, parentSpanId: 0 },
+      { segmentId: 'sg-a', spanId: 3, parentSpanId: 9 },
     ]);
-    expect(levels).toEqual([2, 0, 1]);
+    expect(levels).toEqual([2, 0, 1, 0]);
+  });
+
+  it('scopes span ids per segment — same local ids in two segments keep their own levels', () => {
+    const levels = computeSpanLevels([
+      { segmentId: 'sg-a', spanId: 0, parentSpanId: -1 },
+      { segmentId: 'sg-a', spanId: 1, parentSpanId: 0 },
+      { segmentId: 'sg-b', spanId: 0, parentSpanId: -1 },
+      { segmentId: 'sg-b', spanId: 1, parentSpanId: -1 }, // B 的 1 号是根：与 A 同号不同层级
+      { segmentId: 'sg-b', spanId: 2, parentSpanId: 1 },
+    ]);
+    expect(levels).toEqual([0, 1, 0, 0, 1]);
+  });
+
+  it('keeps chains in both segments correct when local ids repeat across segments', () => {
+    const levels = computeSpanLevels([
+      { segmentId: 'sg-a', spanId: 0, parentSpanId: -1 },
+      { segmentId: 'sg-a', spanId: 1, parentSpanId: 0 },
+      { segmentId: 'sg-a', spanId: 2, parentSpanId: 1 },
+      { segmentId: 'sg-b', spanId: 2, parentSpanId: 1 }, // B 链乱序出现：2 → 1 → 0
+      { segmentId: 'sg-b', spanId: 1, parentSpanId: 0 },
+      { segmentId: 'sg-b', spanId: 0, parentSpanId: -1 },
+    ]);
+    expect(levels).toEqual([0, 1, 2, 2, 1, 0]);
   });
 
   it('colors known services deterministically and unknown services with a stable fallback', () => {

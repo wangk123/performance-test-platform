@@ -38,24 +38,31 @@ export function aggregateServiceShare(traces: TraceServiceShareInput[]): TraceSe
     .sort((a, b) => b.totalMs - a.totalMs);
 }
 
-export type SpanLevelInput = Pick<TraceSpan, 'spanId' | 'parentSpanId'>;
+export type SpanLevelInput = Pick<TraceSpan, 'segmentId' | 'spanId' | 'parentSpanId'>;
 
-/** 按父链推导每个 span 的缩进层级：根（parentSpanId=-1 或父缺失）为 0；乱序/环均有界。 */
+/** 按父链推导每个 span 的缩进层级。spanId 是 per-segment 局部编号，键必须用 segmentId-spanId 复合；
+ * 根（parentSpanId=-1 或父不在本 segment 内）为 0；乱序/环均有界。Phase 1 无跨 segment refs，按各 segment 内层级。 */
 export function computeSpanLevels(spans: SpanLevelInput[]): number[] {
-  const byId = new Map(spans.map(span => [span.spanId, span]));
-  const cache = new Map<number, number>();
-  const levelOf = (spanId: number): number => {
-    const cached = cache.get(spanId);
+  const keyOf = (segmentId: string, spanId: number) => `${segmentId}\u0000${spanId}`;
+  const byKey = new Map(spans.map(span => [keyOf(span.segmentId, span.spanId), span]));
+  const cache = new Map<string, number>();
+  const levelOf = (segmentId: string, spanId: number): number => {
+    const key = keyOf(segmentId, spanId);
+    const cached = cache.get(key);
     if (cached !== undefined) return cached;
-    cache.set(spanId, 0); // 先落 0 防环：环上节点按根处理
-    const span = byId.get(spanId);
-    const level = span && span.parentSpanId !== -1 && byId.has(span.parentSpanId) && span.parentSpanId !== spanId
-      ? levelOf(span.parentSpanId) + 1
+    cache.set(key, 0); // 先落 0 防环：环上节点按根处理
+    const span = byKey.get(key);
+    const parentKey = span && span.parentSpanId !== -1 && span.parentSpanId !== span.spanId
+      ? keyOf(segmentId, span.parentSpanId)
+      : null;
+    // 父缺失/跨 segment/自环 → 本 span 按根处理（level 0）
+    const level = parentKey && byKey.has(parentKey)
+      ? levelOf(segmentId, span!.parentSpanId) + 1
       : 0;
-    cache.set(spanId, level);
+    cache.set(key, level);
     return level;
   };
-  return spans.map(span => levelOf(span.spanId));
+  return spans.map(span => levelOf(span.segmentId, span.spanId));
 }
 
 const TRACE_SERVICE_COLORS: Record<string, string> = {
