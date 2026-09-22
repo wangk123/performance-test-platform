@@ -67,7 +67,7 @@ class ExecutionScriptAssemblerTest {
         String storedJson = configSupport.writeStored(presets);
         ExecutionConfig config = new ExecutionConfig(
                 42, 5, 120, 1, Map.of(), ExecutionMode.DISTRIBUTED,
-                1L, List.of(1L), List.of(), null, 1, null, null);
+                1L, List.of(1L), List.of(), null, 1, null, null, null);
 
         Path original = tempDir.resolve("original.jmx");
         Path distributed = tempDir.resolve("distributed.jmx");
@@ -96,7 +96,7 @@ class ExecutionScriptAssemblerTest {
 
         ExecutionConfig config = new ExecutionConfig(
                 100, 60, 600, 1, Map.of(), ExecutionMode.DISTRIBUTED,
-                1L, List.of(1L), List.of(), null, null, null, null);
+                1L, List.of(1L), List.of(), null, null, null, null, null);
 
         Path original = tempDir.resolve("original.jmx");
         Path distributed = tempDir.resolve("distributed.jmx");

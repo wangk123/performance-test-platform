@@ -72,13 +72,16 @@ public class ScenarioExecutionService {
             String executionName,
             Long threadGroupConfigId,
             Integer threadGroupPresetSortOrder,
-            ThreadGroupOverrides overrides
+            ThreadGroupOverrides overrides,
+            ExecutionConfig.ObservabilityProfile observabilityProfile
     ) {
         PersistentTaskScenarioRecord scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new ExecutionValidationException("scenario does not exist"));
         PersistentTaskPlanRecord plan = planRepository.findById(scenario.getPlanId())
                 .orElseThrow(() -> new ExecutionValidationException("task plan does not exist"));
-        ExecutionConfig config = normalizeConfig(configMerger.merge(plan, scenario, threadGroupConfigId, threadGroupPresetSortOrder, overrides));
+        ExecutionConfig config = normalizeConfig(
+                configMerger.merge(plan, scenario, threadGroupConfigId, threadGroupPresetSortOrder, overrides),
+                observabilityProfile);
         PersistentScenarioExecutionRecord execution = new PersistentScenarioExecutionRecord(
                 scenario.getId(),
                 writeConfig(config)
@@ -139,9 +142,9 @@ public class ScenarioExecutionService {
                 .orElseThrow(() -> new ExecutionValidationException("execution does not exist"));
     }
 
-    private ExecutionConfig normalizeConfig(ExecutionConfig config) {
+    private ExecutionConfig normalizeConfig(ExecutionConfig config, ExecutionConfig.ObservabilityProfile observabilityProfile) {
         ExecutionConfig source = config == null
-                ? new ExecutionConfig(0, 0, 0, 0, Map.of(), ExecutionMode.DISTRIBUTED, null, List.of(), List.of(), null, null, null, null)
+                ? new ExecutionConfig(0, 0, 0, 0, Map.of(), ExecutionMode.DISTRIBUTED, null, List.of(), List.of(), null, null, null, null, null)
                 : config;
         if (source.threads() < 0 || source.rampUp() < 0 || source.duration() < 0 || source.loops() < 0) {
             throw new ExecutionValidationException("execution config cannot be negative");
@@ -170,7 +173,8 @@ public class ScenarioExecutionService {
                 source.threadGroupConfigId(),
                 source.threadGroupPresetSortOrder(),
                 source.stepId(),
-                source.stepName()
+                source.stepName(),
+                observabilityProfile == null ? ExecutionConfig.ObservabilityProfile.OFF : observabilityProfile
         );
     }
 

@@ -149,4 +149,35 @@ class ExecutionConfigMergerTest {
         assertEquals(0, config.threads());
         assertNull(config.threadGroupConfigId());
     }
+
+    @Test
+    void legacyConfigWithoutProfileNormalizesToOff() throws Exception {
+        String legacyJson = "{\"threads\":10,\"rampUp\":1,\"duration\":60,\"loops\":1,"
+                + "\"jmeterProperties\":{},\"mode\":\"DISTRIBUTED\",\"controllerNodeId\":10,"
+                + "\"workerNodeIds\":[11],\"monitorTargetIds\":[]}";
+
+        ExecutionConfig config = new ObjectMapper().readValue(legacyJson, ExecutionConfig.class);
+
+        assertEquals(ExecutionConfig.ObservabilityProfile.OFF, config.observabilityProfile());
+    }
+
+    @Test
+    void mergedConfigDefaultsProfileToOff() {
+        PersistentTaskPlanRecord plan = new PersistentTaskPlanRecord(1L, "plan", "", "admin");
+        plan.updateProfile("plan", "", 10L, "[11]", "[1]");
+        PersistentTaskScenarioRecord scenario = new PersistentTaskScenarioRecord(1L, 100L, "scene", 0);
+        scenario.updateProfile(
+                "scene",
+                100L,
+                "{}",
+                null,
+                null,
+                null,
+                "[{\"id\":7,\"stepId\":\"thread-0\",\"stepName\":\"Login\",\"threads\":200,\"rampUp\":30,\"duration\":300,\"sortOrder\":0}]",
+                null
+        );
+
+        ExecutionConfig config = merger.merge(plan, scenario, 7L);
+        assertEquals(ExecutionConfig.ObservabilityProfile.OFF, config.observabilityProfile());
+    }
 }

@@ -13,6 +13,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   OS: '操作系统',
   JVM: 'JVM / 中间件',
   MIDDLEWARE: '中间件',
+  OBSERVABILITY: '可观测',
 };
 
 /** 按类别分组（组顺序 = 首个出现顺序，组内按注册表 sortOrder），kind 取组内首项。 */

@@ -56,7 +56,8 @@ public class ExecutionControlService {
                         + hashField(command.executionName())
                         + hashField(command.threadGroupConfigId())
                         + hashField(command.threadGroupPresetSortOrder())
-                        + hashField(command.overrides()));
+                        + hashField(command.overrides())
+                        + hashField(command.observabilityProfile()));
         IdempotencyService.IdempotentExecution result = idempotencyService.execute(
                 idempotencyKey,
                 requestHash,
@@ -65,7 +66,8 @@ public class ExecutionControlService {
                         command.executionName(),
                         command.threadGroupConfigId(),
                         command.threadGroupPresetSortOrder(),
-                        command.overrides()
+                        command.overrides(),
+                        command.observabilityProfile()
                 )
         );
         ScenarioExecution execution = executionQueryService.getExecution(result.executionId());
@@ -156,8 +158,18 @@ public class ExecutionControlService {
             String executionName,
             Long threadGroupConfigId,
             Integer threadGroupPresetSortOrder,
-            ThreadGroupOverrides overrides
+            ThreadGroupOverrides overrides,
+            com.yr.perftest.platform.execution.ExecutionConfig.ObservabilityProfile observabilityProfile
     ) {
+        public StartCommand(
+                long scenarioId,
+                String executionName,
+                Long threadGroupConfigId,
+                Integer threadGroupPresetSortOrder,
+                ThreadGroupOverrides overrides
+        ) {
+            this(scenarioId, executionName, threadGroupConfigId, threadGroupPresetSortOrder, overrides, null);
+        }
     }
 
     public record StartOutcome(long executionId, ExecutionStatus status, boolean replayed) {

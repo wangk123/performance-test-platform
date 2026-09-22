@@ -16,6 +16,7 @@ import com.yr.perftest.platform.task.method.MethodSectionResponse;
 import com.yr.perftest.platform.task.method.MethodSectionService;
 import com.yr.perftest.platform.task.method.PlanEvidenceImageService;
 import com.yr.perftest.platform.task.plandoc.PlanWorkflowService;
+import com.yr.perftest.platform.execution.ExecutionConfig;
 import com.yr.perftest.platform.execution.TaskExecutionResult;
 import com.yr.perftest.platform.execution.TaskMetricSeries;
 import com.yr.perftest.platform.execution.TaskSamplePage;
@@ -234,9 +235,10 @@ public class TaskPlanController {
         Long threadGroupConfigId = request != null ? request.threadGroupConfigId() : null;
         Integer threadGroupPresetSortOrder = request != null ? request.threadGroupPresetSortOrder() : null;
         ThreadGroupOverrides overrides = request != null ? request.overrides() : null;
+        ExecutionConfig.ObservabilityProfile observabilityProfile = request != null ? request.observabilityProfile() : null;
         ExecutionControlService.StartOutcome outcome = executionControlService.start(
                 new ExecutionControlService.StartCommand(
-                        scenarioId, executionName, threadGroupConfigId, threadGroupPresetSortOrder, overrides),
+                        scenarioId, executionName, threadGroupConfigId, threadGroupPresetSortOrder, overrides, observabilityProfile),
                 idempotencyKey
         );
         return executionQueryService.getExecution(outcome.executionId());
@@ -393,7 +395,8 @@ public class TaskPlanController {
             String executionName,
             Long threadGroupConfigId,
             Integer threadGroupPresetSortOrder,
-            ThreadGroupOverrides overrides
+            ThreadGroupOverrides overrides,
+            ExecutionConfig.ObservabilityProfile observabilityProfile
     ) {
     }
 

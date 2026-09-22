@@ -19,8 +19,13 @@ public record ExecutionConfig(
         Long threadGroupConfigId,
         Integer threadGroupPresetSortOrder,
         String stepId,
-        String stepName
+        String stepName,
+        ObservabilityProfile observabilityProfile
 ) {
+
+    /** 观测轮次标记：容量轮（常规指标）/ 诊断轮（trace 深度取证）；旧 configJson 无该键 → OFF。 */
+    public enum ObservabilityProfile { OFF, CAPACITY, DIAGNOSTIC }
+
     public ExecutionConfig(
             int threads,
             int rampUp,
@@ -32,7 +37,7 @@ public record ExecutionConfig(
             List<Long> workerNodeIds,
             List<Long> monitorTargetIds
     ) {
-        this(threads, rampUp, duration, loops, jmeterProperties, mode, controllerNodeId, workerNodeIds, monitorTargetIds, null, null, null, null);
+        this(threads, rampUp, duration, loops, jmeterProperties, mode, controllerNodeId, workerNodeIds, monitorTargetIds, null, null, null, null, null);
     }
 
     public ExecutionConfig(
@@ -49,7 +54,7 @@ public record ExecutionConfig(
             String stepId,
             String stepName
     ) {
-        this(threads, rampUp, duration, loops, jmeterProperties, mode, controllerNodeId, workerNodeIds, monitorTargetIds, threadGroupConfigId, null, stepId, stepName);
+        this(threads, rampUp, duration, loops, jmeterProperties, mode, controllerNodeId, workerNodeIds, monitorTargetIds, threadGroupConfigId, null, stepId, stepName, null);
     }
 
     public ExecutionConfig {
@@ -57,5 +62,6 @@ public record ExecutionConfig(
         mode = mode == null ? ExecutionMode.LOCAL : mode;
         workerNodeIds = workerNodeIds == null ? List.of() : List.copyOf(workerNodeIds);
         monitorTargetIds = monitorTargetIds == null ? List.of() : List.copyOf(monitorTargetIds);
+        observabilityProfile = observabilityProfile == null ? ObservabilityProfile.OFF : observabilityProfile;
     }
 }

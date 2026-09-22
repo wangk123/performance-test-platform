@@ -83,7 +83,8 @@ public class ExecutionConfigMerger {
                     selectedConfigId,
                     selected.sortOrder(),
                     stepId,
-                    stepName
+                    stepName,
+                    null
             ), overrides);
         }
         return applyOverrides(new ExecutionConfig(
@@ -99,7 +100,8 @@ public class ExecutionConfigMerger {
                 selectedConfigId,
                 null,
                 stepId,
-                stepName
+                stepName,
+                null
         ), overrides);
     }
 
@@ -120,7 +122,8 @@ public class ExecutionConfigMerger {
                 config.threadGroupConfigId(),
                 config.threadGroupPresetSortOrder(),
                 config.stepId(),
-                config.stepName()
+                config.stepName(),
+                config.observabilityProfile()
         );
     }
 
