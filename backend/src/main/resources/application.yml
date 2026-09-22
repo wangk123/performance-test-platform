@@ -105,6 +105,8 @@ platform:
         trace:
           enabled: false
           retention-days: 7
+          # SkyWalking OAP GraphQL 地址（执行详情链路面板 /api/executions/{id}/traces 与终态快照共用）。例：
+          # endpoint: http://skywalking-oap:12800/graphql
         app-log:
           enabled: false
           retention-days: 7
