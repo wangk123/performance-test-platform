@@ -42,7 +42,7 @@
 
 ## 监控方案
 
-平台采用**双通道**监控架构：压测性能指标走自研采集管线，被测系统资源指标走 Prometheus。
+平台采用**三通道**监控架构：压测性能指标走自研采集管线，被测系统资源指标走 Prometheus，链路追踪走 SkyWalking。
 
 ### 架构总览
 
@@ -148,6 +148,41 @@ docker compose up -d     # 仅启动 Prometheus
 ```
 
 Prometheus 需要能访问目标服务器上的 Exporter 端口。平台通过 `MonitorDeployService` 将 `deploy/monitoring/prometheus/` 下的 Exporter 二进制通过 SSH 部署到目标服务器。
+
+### 通道三：链路追踪（SkyWalking）
+
+用于采集压测期间的分布式调用链，定位慢请求与错误请求的 span 级根因。OAP 使用 H2 存储（单机零依赖，生产可换 ES），数据保留期默认 7 天；平台通过 GraphQL 按 executionId + 时间窗即时查询，不落地全量 span。
+
+**部署 SkyWalking**（可选，仅链路追踪通道需要）：
+
+```bash
+cd deploy/monitoring/skywalking
+docker compose up -d
+# 验证：OAP GraphQL http://localhost:12800/graphql，UI http://localhost:8080
+```
+
+**被测应用挂载 agent**（javaagent 只能随应用启动挂载，平台无法远程控制，采样率在被测应用侧配置）：
+
+```bash
+java -javaagent:/path/to/skywalking-agent.jar \
+  -Dskywalking.agent.service_name=<被测服务名> \
+  -Dskywalking.collector.backend_service=<OAP 地址>:11800 \
+  -Dskywalking.agent.sample_n_per_3_secs=1 \
+  -jar app.jar
+```
+
+采样率与观测轮次：agent 开销与压测轮次解耦，避免容量结论背上观测开销。
+
+- 容量轮：≤1% 低采样（如 `sample_n_per_3_secs=1`，每 3 秒至多采样 1 条），数字进容量结论；
+- 诊断轮：全量采样（`sample_n_per_3_secs=-1`，SkyWalking 默认值），数字不进容量结论。
+
+**平台侧配置**（application.yml，`platform.evidence.deep.kinds.trace.*`）：
+
+| 配置键 | 说明 |
+|--------|------|
+| `platform.evidence.deep.kinds.trace.enabled` | 是否启用 trace 证据源（TRACE 为高影响源，显式开启即视为审批） |
+| `platform.evidence.deep.kinds.trace.endpoint` | OAP GraphQL 端点，如 `http://skywalking-oap:12800` |
+| `platform.evidence.deep.kinds.trace.retention-days` | OAP 数据保留期（默认 7 天），超期后由执行终态快照兜底列表 |
 
 ## 项目结构
 
