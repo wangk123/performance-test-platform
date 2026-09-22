@@ -4,9 +4,10 @@
 
 ## P0 — 定位根因能力
 
-- [ ] **P0-1 接入 trace 链路追踪**
+- [x] **P0-1 接入 trace 链路追踪**
   现状：5 类深度源只有 db-metrics 真实实现，trace 是 `UnavailableDeepProbe` 占位（`evidence/deep/`）。
   要做：APM 选型（OTel / SkyWalking）→ 写一个 `DeepEvidenceProbe` 适配器；失败样本收集器从响应头提取 traceId；执行配置加「容量轮/诊断轮」标记（agent 开销与压测轮次解耦）。
+  Phase 2 余项：内置瀑布图（抽屉现为摘要+SkyWalking deep-link 位）、设置页观测数据源 UI、报告页曲线、span 维度服务分布。
 - [ ] **P0-2 应用日志采集**
   压测时间窗内应用报错查不了，需对接日志平台，按 时间窗 + 服务 + traceId 过滤。
 - [ ] **P0-3 慢 SQL + explain**

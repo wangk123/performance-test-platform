@@ -79,7 +79,7 @@ SkyWalking OAP + UI（deploy/monitoring compose，UI :8080）
 | 筛选工具条 | 面板头部下方 | 服务下拉（语义=**该服务参与的链路**，对齐 `queryBasicTraces(service=)`，非仅入口）、接口下拉（可搜索，按入口接口）、仅看错误开关、慢请求阈值（全部/≥200ms/≥500ms/≥1s）；时间窗默认执行区间 |
 | trace 列表 | 面板主体 | 列：时间/服务/入口接口/耗时（色阶）/状态/Span 数/traceId（点击复制）；行点击开抽屉。默认按耗时降序（可切最新优先），底部分页 10/20/50 每页（对齐异常样本分页风格）——诊断轮全量采样 5 分钟可达十万级 trace，不分页不可用 |
 | 链路详情抽屉 | 右侧抽屉（覆盖层） | 头部：接口名 + traceId + 状态 + 总耗时 + 「在 SkyWalking 中打开」deep-link；摘要条：总耗时/Span/服务数/错误 Span；主体：span 瀑布图（服务色块、嵌套缩进、错误红 + 标签、hover 出耗时 tooltip） |
-| 服务耗时分布 | 面板主体顶部 | 按服务聚合 span 自身耗时的堆叠条（服务配色一致）；hover 出占比/参与 trace 数/错误 span 数；点击色块联动服务筛选——**跨服务链路的聚合视图**：单条链路看抽屉瀑布图，服务维度瓶颈看堆叠条 |
+| 服务耗时分布 | 面板主体顶部 | 按服务聚合 span 自身耗时的堆叠条（服务配色一致）；hover 出占比/参与 trace 数/错误 span 数；点击色块联动服务筛选——**跨服务链路的聚合视图**：单条链路看抽屉瀑布图，服务维度瓶颈看堆叠条（Phase 1 为入口服务维度，Phase 2 升级 span 维度） |
 | SkyWalking 配置 | 设置页「观测数据源」Tab（平台级，ADMIN） | OAP GraphQL 端点、SkyWalking UI 地址（deep-link 跳转目标）、执行终态快照开关、测试连接；Phase 1 实际生效配置为 application.yml + 面板未配置态引导，配置 UI 随 Phase 2 落地 |
 | 样本 traceId chip | 异常样本详情区（右侧三 Tab 上方） | 有 traceId：chip + 「查看链路」按钮（复用同一抽屉）；无：置灰 + 原因提示 |
 
@@ -155,3 +155,5 @@ platform:
 | `task-plans/ExecutionDetailView.vue` | 挂载：被测目标监控之后；异常样本详情 traceId chip |
 
 查看方式：登录平台 → 任一执行详情页 URL 加 `?proto=trace`。`design-mockups/trace-integration.html` 转为存档（视觉规格书）。
+
+2026-09-22 Phase 1 实施完成后 flag 已退役，TracePanel 常驻；HTML 原型仍为视觉规格书存档。
