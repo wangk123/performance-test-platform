@@ -20,6 +20,7 @@ import com.yr.perftest.platform.task.PersistentTaskPlanRecord;
 import com.yr.perftest.platform.task.PersistentTaskPlanRepository;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRecord;
 import com.yr.perftest.platform.task.PersistentTaskScenarioRepository;
+import com.yr.perftest.platform.task.ExecutionTraceQueryService;
 import com.yr.perftest.platform.task.ScenarioExecutionRuntime;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,6 +58,7 @@ public class DistributedJmeterExecutionRunner {
     private final FailureSampleIngestor failureSampleIngestor;
     private final AggregateReportService aggregateReportService;
     private final TargetMetricsSnapshotService targetMetricsSnapshotService;
+    private final ExecutionTraceQueryService executionTraceQueryService;
     private final FailureSampleSettings failureSampleSettings;
     private final ExecutionMonitorBindingService monitorBindingService;
     private final ScenarioExecutionRuntime executionRuntime;
@@ -84,6 +86,7 @@ public class DistributedJmeterExecutionRunner {
             FailureSampleIngestor failureSampleIngestor,
             AggregateReportService aggregateReportService,
             TargetMetricsSnapshotService targetMetricsSnapshotService,
+            ExecutionTraceQueryService executionTraceQueryService,
             FailureSampleSettings failureSampleSettings,
             ExecutionMonitorBindingService monitorBindingService,
             ScenarioExecutionRuntime executionRuntime,
@@ -109,6 +112,7 @@ public class DistributedJmeterExecutionRunner {
         this.failureSampleIngestor = failureSampleIngestor;
         this.aggregateReportService = aggregateReportService;
         this.targetMetricsSnapshotService = targetMetricsSnapshotService;
+        this.executionTraceQueryService = executionTraceQueryService;
         this.failureSampleSettings = failureSampleSettings;
         this.monitorBindingService = monitorBindingService;
         this.executionRuntime = executionRuntime;
@@ -221,6 +225,7 @@ public class DistributedJmeterExecutionRunner {
                     fetchAggregateSnapshotQuietly(executionId, payload);
                     persistAggregateReport(executionId, partial);
                     captureTargetMetricsQuietly(executionId);
+                    executionTraceQueryService.captureSnapshot(executionId); // service 内静默吞 OAP 异常
                     RemoteRunnerResult cleanup = remoteRunnerClient.stopRun(payload);
                     if (preparation != null) {
                         appendLog(preparation.logPath(), cleanup.log());

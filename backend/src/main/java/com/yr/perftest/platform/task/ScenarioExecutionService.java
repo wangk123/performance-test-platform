@@ -34,6 +34,7 @@ public class ScenarioExecutionService {
     private final DistributedJmeterExecutionRunner distributedJmeterExecutionRunner;
     private final ScenarioExecutionRuntime executionRuntime;
     private final AggregateReportService aggregateReportService;
+    private final ExecutionTraceQueryService executionTraceQueryService;
     private final PlanEvidenceImageRepository evidenceImageRepository;
     private final ObjectMapper objectMapper;
 
@@ -47,6 +48,7 @@ public class ScenarioExecutionService {
             DistributedJmeterExecutionRunner distributedJmeterExecutionRunner,
             ScenarioExecutionRuntime executionRuntime,
             AggregateReportService aggregateReportService,
+            ExecutionTraceQueryService executionTraceQueryService,
             PlanEvidenceImageRepository evidenceImageRepository,
             ObjectMapper objectMapper
     ) {
@@ -59,6 +61,7 @@ public class ScenarioExecutionService {
         this.distributedJmeterExecutionRunner = distributedJmeterExecutionRunner;
         this.executionRuntime = executionRuntime;
         this.aggregateReportService = aggregateReportService;
+        this.executionTraceQueryService = executionTraceQueryService;
         this.evidenceImageRepository = evidenceImageRepository;
         this.objectMapper = objectMapper;
     }
@@ -116,6 +119,7 @@ public class ScenarioExecutionService {
         }
         monitorBindingService.deleteBindings(executionId);
         aggregateReportService.deleteByExecutionId(executionId);
+        executionTraceQueryService.deleteByExecutionId(executionId); // 同事务级联删除终态 trace 快照
         evidenceImageRepository.deleteByExecutionIdIn(List.of(executionId)); // 同事务级联删除挂其名下的补充截图
         FailureSamplePaths.deleteArtifacts(
                 execution.getLogFilePath() == null ? null : Path.of(execution.getLogFilePath())
