@@ -31,12 +31,21 @@ public class DeepEvidenceConfiguration {
     }
 
     @Bean
-    public EvidenceSource traceDeepEvidenceSource(DeepEvidenceProperties properties) {
-        return new DeepEvidenceSource(
-                DeepEvidenceKind.TRACE,
-                properties,
-                new UnavailableDeepProbe(DeepEvidenceKind.TRACE, "pending-otel-or-skywalking-selection")
-        );
+    public SkyWalkingGraphqlClient skyWalkingGraphqlClient(DeepEvidenceProperties properties) {
+        return new SkyWalkingGraphqlClient(properties);
+    }
+
+    @Bean
+    public SkyWalkingTraceProbe skyWalkingTraceProbe(SkyWalkingGraphqlClient skyWalkingGraphqlClient) {
+        return new SkyWalkingTraceProbe(skyWalkingGraphqlClient);
+    }
+
+    @Bean
+    public EvidenceSource traceDeepEvidenceSource(
+            DeepEvidenceProperties properties,
+            SkyWalkingTraceProbe probe
+    ) {
+        return new DeepEvidenceSource(DeepEvidenceKind.TRACE, properties, probe);
     }
 
     @Bean

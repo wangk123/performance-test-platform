@@ -2,7 +2,6 @@ package com.yr.perftest.platform.evidence.deep;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -17,9 +16,9 @@ import java.util.Map;
 
 /**
  * SkyWalking OAP GraphQL 访问入口（Task 3 探针 / Task 4 REST / Task 6 快照共用）。
- * endpoint 取 {@code platform.evidence.deep.kinds.trace.endpoint}。
+ * endpoint 取 {@code platform.evidence.deep.kinds.trace.endpoint}；
+ * 由 {@code DeepEvidenceConfiguration} 注册为 {@code @Bean}。
  */
-@Component
 public class SkyWalkingGraphqlClient {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
