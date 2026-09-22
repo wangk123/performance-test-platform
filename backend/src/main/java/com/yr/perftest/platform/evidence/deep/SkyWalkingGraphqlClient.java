@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -31,7 +30,7 @@ public class SkyWalkingGraphqlClient {
         this.endpoint = properties.forKind(DeepEvidenceKind.TRACE).getEndpoint();
     }
 
-    public List<SkyWalkingTraceModels.TraceBrief> queryBasicTraces(String service, String endpointName,
+    public SkyWalkingTraceModels.TraceBriefsPage queryBasicTraces(String service, String endpointName,
             Instant from, Instant to, Long minDurationMs, Boolean onlyError, boolean orderByDuration,
             int pageNum, int pageSize) {
         Map<String, Object> condition = Map.of(
@@ -50,6 +49,7 @@ public class SkyWalkingGraphqlClient {
                 query basicTraces($condition: TraceQueryCondition) {
                   queryBasicTraces(condition: $condition) {
                     traces { traceIds endpointNames service duration start isError }
+                    total
                   }
                 }""", Map.of("condition", condition));
         return SkyWalkingTraceModels.parseBasicTraces(resp);

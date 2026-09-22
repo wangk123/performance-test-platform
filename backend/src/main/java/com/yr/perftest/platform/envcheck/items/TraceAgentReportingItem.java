@@ -48,7 +48,7 @@ public class TraceAgentReportingItem implements LocalCheckItem {
         Instant now = Instant.now();
         try {
             boolean reported = !client.queryBasicTraces(
-                    null, null, now.minus(LOOKBACK), now, null, null, true, 1, 1).isEmpty();
+                    null, null, now.minus(LOOKBACK), now, null, null, true, 1, 1).traces().isEmpty();
             if (!reported) {
                 return new LocalVerdict(false, "未检测到近 10 分钟 trace 上报：agent 未挂载或采样率为 0");
             }

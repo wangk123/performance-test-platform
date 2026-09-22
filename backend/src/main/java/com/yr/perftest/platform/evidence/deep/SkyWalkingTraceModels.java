@@ -24,12 +24,12 @@ public final class SkyWalkingTraceModels {
     private SkyWalkingTraceModels() {
     }
 
-    /** {@code data.queryBasicTraces.traces[]} → {@link TraceBrief} 列表。 */
-    public static List<TraceBrief> parseBasicTraces(String body) {
-        JsonNode traces = dataField(body, "queryBasicTraces").path("traces");
-        List<TraceBrief> result = new ArrayList<>();
-        for (JsonNode trace : traces) {
-            result.add(new TraceBrief(
+    /** {@code data.queryBasicTraces} → 当页 {@link TraceBrief} 列表 + 命中总数（total，供分页）。 */
+    public static TraceBriefsPage parseBasicTraces(String body) {
+        JsonNode result = dataField(body, "queryBasicTraces");
+        List<TraceBrief> traces = new ArrayList<>();
+        for (JsonNode trace : result.path("traces")) {
+            traces.add(new TraceBrief(
                     trace.path("traceIds").path(0).asText(""),
                     trace.path("service").asText(""),
                     trace.path("endpointNames").path(0).asText(""),
@@ -38,7 +38,7 @@ public final class SkyWalkingTraceModels {
                     trace.path("isError").asBoolean(false),
                     trace.path("spanCount").asInt(0)));
         }
-        return result;
+        return new TraceBriefsPage(traces, result.path("total").asInt(traces.size()));
     }
 
     /** {@code data.queryTrace.segments[].spans[]} → 扁平 {@link TraceSpanView} 列表 + 聚合 brief。 */
@@ -116,6 +116,10 @@ public final class SkyWalkingTraceModels {
     /** 查询条件命中的一条 trace 概要（queryBasicTraces 行）。 */
     public record TraceBrief(String traceId, String service, String endpointName, long startEpochMs,
                              long durationMs, boolean isError, int spanCount) {
+    }
+
+    /** queryBasicTraces 分页结果：当页 traces + 命中总数 total（缺省回退当页条数）。 */
+    public record TraceBriefsPage(List<TraceBrief> traces, int total) {
     }
 
     /** 扁平化后的 span 视图（跨 segment 拉平，保留 parentSpanId 供组装树）。 */

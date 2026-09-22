@@ -40,10 +40,10 @@ class ExecutionTraceSnapshotTest {
     void capturePullsTop500ByDurationAndPersistsJson() {
         SkyWalkingGraphqlClient client = mock(SkyWalkingGraphqlClient.class);
         when(client.queryBasicTraces(any(), any(), any(), any(), any(), any(), anyBoolean(), eq(1), eq(500)))
-                .thenReturn(List.of(
+                .thenReturn(new SkyWalkingTraceModels.TraceBriefsPage(List.of(
                         brief("t-1", 900),
                         brief("t-2", 600),
-                        brief("t-3", 300)));
+                        brief("t-3", 300)), 3));
         long executionId = terminalExecution();
         ExecutionTraceQueryService service = service(client, configuredProperties());
 
@@ -68,8 +68,8 @@ class ExecutionTraceSnapshotTest {
     void recaptureReplacesPreviousSnapshot() {
         SkyWalkingGraphqlClient client = mock(SkyWalkingGraphqlClient.class);
         when(client.queryBasicTraces(any(), any(), any(), any(), any(), any(), anyBoolean(), eq(1), eq(500)))
-                .thenReturn(List.of(brief("t-1", 900)))
-                .thenReturn(List.of(brief("t-9", 100)));
+                .thenReturn(new SkyWalkingTraceModels.TraceBriefsPage(List.of(brief("t-1", 900)), 1))
+                .thenReturn(new SkyWalkingTraceModels.TraceBriefsPage(List.of(brief("t-9", 100)), 1));
         long executionId = terminalExecution();
         ExecutionTraceQueryService service = service(client, configuredProperties());
 
@@ -112,7 +112,7 @@ class ExecutionTraceSnapshotTest {
     void deleteByExecutionIdRemovesSnapshot() {
         SkyWalkingGraphqlClient client = mock(SkyWalkingGraphqlClient.class);
         when(client.queryBasicTraces(any(), any(), any(), any(), any(), any(), anyBoolean(), eq(1), eq(500)))
-                .thenReturn(List.of(brief("t-1", 900)));
+                .thenReturn(new SkyWalkingTraceModels.TraceBriefsPage(List.of(brief("t-1", 900)), 1));
         long executionId = terminalExecution();
         ExecutionTraceQueryService service = service(client, configuredProperties());
         service.captureSnapshot(executionId);
@@ -121,6 +121,23 @@ class ExecutionTraceSnapshotTest {
         service.deleteByExecutionId(executionId);
 
         assertThat(snapshotRepository.findByExecutionId(executionId)).isEmpty();
+    }
+
+    /** 终审 Finding 2：在线（OAP 直连）路径 total 必须来自响应 total，而非当页条数。 */
+    @Test
+    void onlinePathTotalComesFromResponseTotal() {
+        SkyWalkingGraphqlClient client = mock(SkyWalkingGraphqlClient.class);
+        when(client.queryBasicTraces(any(), any(), any(), any(), any(), any(), anyBoolean(), eq(1), eq(20)))
+                .thenReturn(new SkyWalkingTraceModels.TraceBriefsPage(List.of(brief("t-1", 900)), 57));
+        long executionId = runningExecution();
+        ExecutionTraceQueryService service = service(client, configuredProperties());
+
+        ExecutionTraceViews.ExecutionTracesPageView view =
+                service.queryTraces(executionId, null, null, null, null, "duration", 1, 20);
+
+        assertThat(view.available()).isTrue();
+        assertThat(view.traces()).hasSize(1);
+        assertThat(view.total()).isEqualTo(57);
     }
 
     private ExecutionTraceQueryService service(SkyWalkingGraphqlClient client, DeepEvidenceProperties properties) {
@@ -143,6 +160,14 @@ class ExecutionTraceSnapshotTest {
                 new PersistentScenarioExecutionRecord(1L, "{}"));
         execution.markRunning("/tmp/result.jtl", "/tmp/jmeter.log");
         execution.markSuccess(0);
+        return executionRepository.save(execution).getId();
+    }
+
+    /** 非终态执行：queryTraces 走 OAP 直连（在线）路径。 */
+    private long runningExecution() {
+        PersistentScenarioExecutionRecord execution = executionRepository.save(
+                new PersistentScenarioExecutionRecord(1L, "{}"));
+        execution.markRunning("/tmp/result.jtl", "/tmp/jmeter.log");
         return executionRepository.save(execution).getId();
     }
 

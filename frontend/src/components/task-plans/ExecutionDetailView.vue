@@ -229,23 +229,9 @@
       </div>
       <div class="panel sample-detail-panel">
         <div class="panel-header sample-detail-header">
-          <div>
-            <h2>{{ selectedSample?.label || '样本详情' }}</h2>
-          </div>
+          <div><h2>{{ selectedSample?.label || '样本详情' }}</h2></div>
         </div>
-        <div v-if="selectedSample" class="sample-trace-strip">
-          <template v-if="sampleTraceId">
-            <span class="sample-trace-chip">{{ sampleTraceId.slice(0, 16) }}…</span>
-            <a-button type="link" size="small" class="sample-trace-link" @click="openSampleTrace">查看链路 →</a-button>
-          </template>
-          <template v-else>
-            <a-tooltip title="容量轮低采样或应用未回写 traceId，无法关联链路">
-              <span class="sample-trace-disabled-wrap">
-                <a-button type="link" size="small" disabled>查看链路 →</a-button>
-              </span>
-            </a-tooltip>
-          </template>
-        </div>
+        <SampleTraceStrip v-if="selectedSample" :trace-id="selectedSample.traceId ?? null" @open="traceId => tracePanelRef?.openTrace(traceId)" />
         <div class="sample-inspector">
           <a-spin :spinning="sampleDetailLoading" wrapper-class-name="sample-inspector-spin">
             <a-tabs v-if="selectedSample" v-model:activeKey="payloadTab" class="sample-inspector-tabs">
@@ -306,6 +292,7 @@ import { useTaskPlans } from '../../composables/useTaskPlans';
 import { listExecutionsApi, deleteExecutionsApi, toUiStatus, executionStatusText } from '../../api/task-plans';
 import { formatDate } from '../../utils/format';
 import { detectHttpBodyLanguage, formatHttpBodyAuto } from '../../utils/http-request-config';
+import SampleTraceStrip from '../tasks/trace/SampleTraceStrip.vue';
 
 const TaskMonitoringCharts = defineAsyncComponent(() => import('../tasks/TaskMonitoringCharts.vue'));
 const TargetServerMetricsPanel = defineAsyncComponent(() => import('../tasks/TargetServerMetricsPanel.vue'));
@@ -316,15 +303,9 @@ const props = defineProps<{ execution: ExecutionDetail | null }>();
 const emit = defineEmits<{ (e: 'back'): void }>();
 
 const {
-  resultPage,
-  pageSize,
-  resultTotal,
-  pagedSamples,
-  selectedSample,
-  selectedSampleId,
-  sampleDetailLoading,
-  stopActiveExecution,
-  openExecution,
+  resultPage, pageSize, resultTotal, pagedSamples,
+  selectedSample, selectedSampleId, sampleDetailLoading,
+  stopActiveExecution, openExecution,
 } = useTaskPlans();
 
 const payloadTab = ref<'request' | 'response' | 'assertion'>('request');
@@ -481,12 +462,6 @@ const sampleRowEvents: TableProps<TaskSample>['customRow'] = (record) => ({
 const sampleRowClassName: TableProps<TaskSample>['rowClassName'] = (record) =>
   selectedSample.value?.id === record.id ? 'selected-table-row' : '';
 
-const sampleTraceId = computed(() => selectedSample.value?.traceId ?? null);
-
-function openSampleTrace() {
-  if (sampleTraceId.value) tracePanelRef.value?.openTrace(sampleTraceId.value);
-}
-
 const requestHeadersText = computed(() => {
   const sample = selectedSample.value;
   if (!sample) return '';
@@ -520,13 +495,3 @@ watch(selectedSample, (sample) => {
   }
 });
 </script>
-
-<style scoped>
-.sample-trace-strip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  padding: 7px 16px; border-bottom: 1px dashed #e2e8ee; }
-.sample-trace-chip { display: inline-flex; align-items: center; gap: 6px;
-  background: var(--accent-soft, #e6f5f6); color: var(--accent, #0b7f8a);
-  font-family: var(--font-data, ui-monospace, Menlo, Consolas, monospace);
-  font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 10px; }
-.sample-trace-disabled-wrap { display: inline-flex; }
-</style>

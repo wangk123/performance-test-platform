@@ -47,7 +47,8 @@ class TraceAgentReportingItemTest {
         properties.forKind(DeepEvidenceKind.TRACE).setEndpoint("http://skywalking-oap/graphql");
         when(client.queryBasicTraces(
                 isNull(), isNull(), any(Instant.class), any(Instant.class), isNull(), isNull(), anyBoolean(), anyInt(), anyInt()))
-                .thenReturn(List.of(new SkyWalkingTraceModels.TraceBrief("t-1", "svc", "/api", 0L, 12L, false, 2)));
+                .thenReturn(new SkyWalkingTraceModels.TraceBriefsPage(List.of(
+                        new SkyWalkingTraceModels.TraceBrief("t-1", "svc", "/api", 0L, 12L, false, 2)), 1));
 
         LocalVerdict verdict = item.check(ctx);
 
@@ -60,7 +61,7 @@ class TraceAgentReportingItemTest {
         properties.forKind(DeepEvidenceKind.TRACE).setEndpoint("http://skywalking-oap/graphql");
         when(client.queryBasicTraces(
                 isNull(), isNull(), any(Instant.class), any(Instant.class), isNull(), isNull(), anyBoolean(), anyInt(), anyInt()))
-                .thenReturn(List.of());
+                .thenReturn(new SkyWalkingTraceModels.TraceBriefsPage(List.of(), 0));
 
         LocalVerdict verdict = item.check(ctx);
 

@@ -13,11 +13,36 @@ class SkyWalkingTraceModelsTest {
               {"traceIds":["a1b2"],"endpointNames":["POST /api/checkout"],"service":"api-gateway",
                "duration":2034,"start":"2026-09-22 143541","isError":true}
             ],"total":1}}}""";
-        var list = SkyWalkingTraceModels.parseBasicTraces(body);
-        assertThat(list).hasSize(1);
-        assertThat(list.get(0).traceId()).isEqualTo("a1b2");
-        assertThat(list.get(0).isError()).isTrue();
-        assertThat(list.get(0).durationMs()).isEqualTo(2034);
+        var page = SkyWalkingTraceModels.parseBasicTraces(body);
+        assertThat(page.traces()).hasSize(1);
+        assertThat(page.traces().get(0).traceId()).isEqualTo("a1b2");
+        assertThat(page.traces().get(0).isError()).isTrue();
+        assertThat(page.traces().get(0).durationMs()).isEqualTo(2034);
+        assertThat(page.total()).isEqualTo(1);
+    }
+
+    @Test
+    void totalComesFromResponseNotPageCount() {
+        String body = """
+            {"data":{"queryBasicTraces":{"traces":[
+              {"traceIds":["a1"],"endpointNames":["GET /a"],"service":"svc",
+               "duration":10,"start":"2026-09-22 143541","isError":false}
+            ],"total":57}}}""";
+        var page = SkyWalkingTraceModels.parseBasicTraces(body);
+        assertThat(page.traces()).hasSize(1);
+        assertThat(page.total()).isEqualTo(57);
+    }
+
+    @Test
+    void missingTotalFallsBackToPageCount() {
+        String body = """
+            {"data":{"queryBasicTraces":{"traces":[
+              {"traceIds":["a1"],"endpointNames":["GET /a"],"service":"svc",
+               "duration":10,"start":"2026-09-22 143541","isError":false}
+            ]}}}""";
+        var page = SkyWalkingTraceModels.parseBasicTraces(body);
+        assertThat(page.traces()).hasSize(1);
+        assertThat(page.total()).isEqualTo(1);
     }
 
     @Test

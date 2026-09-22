@@ -22,8 +22,8 @@ class SkyWalkingTraceProbeTest {
     void listPathBuildsAvailabilityAndBudgetTruncation() {
         SkyWalkingGraphqlClient client = mock(SkyWalkingGraphqlClient.class);
         when(client.queryBasicTraces(any(), any(), any(), any(), any(), any(), anyBoolean(), eq(1), eq(100)))
-                .thenReturn(List.of(new SkyWalkingTraceModels.TraceBrief(
-                        "t1", "api-gateway", "GET /a", 1_000L, 500, false, 3)));
+                .thenReturn(new SkyWalkingTraceModels.TraceBriefsPage(List.of(new SkyWalkingTraceModels.TraceBrief(
+                        "t1", "api-gateway", "GET /a", 1_000L, 500, false, 3)), 1));
         SkyWalkingTraceProbe probe = new SkyWalkingTraceProbe(client);
 
         DeepProbeResult result = probe.probe(new CorrelationKey(
@@ -35,6 +35,7 @@ class SkyWalkingTraceProbeTest {
         assertThat(result.availability().truncated()).isFalse();
         assertThat(result.availability().sourceRef()).startsWith("skywalking:trace?from=");
         assertThat(result.summary().get("traceCount")).isEqualTo(1);
+        assertThat(result.summary().get("total")).isEqualTo(1);
         assertThat(result.summary().get("errorCount")).isEqualTo(0L);
         assertThat(result.summary().get("slowestMs")).isEqualTo(500L);
     }
@@ -43,7 +44,7 @@ class SkyWalkingTraceProbeTest {
     void emptyResultReportsNoData() {
         SkyWalkingGraphqlClient client = mock(SkyWalkingGraphqlClient.class);
         when(client.queryBasicTraces(any(), any(), any(), any(), any(), any(), anyBoolean(), eq(1), eq(100)))
-                .thenReturn(List.of());
+                .thenReturn(new SkyWalkingTraceModels.TraceBriefsPage(List.of(), 0));
         SkyWalkingTraceProbe probe = new SkyWalkingTraceProbe(client);
 
         DeepProbeResult result = probe.probe(new CorrelationKey(

@@ -94,8 +94,9 @@ public class SkyWalkingTraceProbe implements DeepEvidenceProbe {
 
     private DeepProbeResult probeList(CorrelationKey key, PageBudget budget) {
         int pageSize = Math.min(budget.maxItems(), LIST_PAGE_SIZE_CAP);
-        List<SkyWalkingTraceModels.TraceBrief> briefs = client.queryBasicTraces(
+        SkyWalkingTraceModels.TraceBriefsPage page = client.queryBasicTraces(
                 null, null, key.from(), key.to(), null, null, true, 1, pageSize);
+        List<SkyWalkingTraceModels.TraceBrief> briefs = page.traces();
         if (briefs.isEmpty()) {
             return unavailable(Availability.MissingReason.NO_DATA, Map.of("traceCount", 0));
         }
@@ -115,6 +116,7 @@ public class SkyWalkingTraceProbe implements DeepEvidenceProbe {
                 + "#" + briefs.get(0).traceId() + "-" + briefs.get(briefs.size() - 1).traceId();
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("traceCount", briefs.size());
+        summary.put("total", page.total());
         summary.put("errorCount", errorCount);
         summary.put("slowestMs", slowestMs);
         return new DeepProbeResult(

@@ -69,7 +69,7 @@ public class ExecutionTraceQueryService {
             }
             Instant to = execution.getEndTime() == null ? Instant.now() : execution.getEndTime();
             List<SkyWalkingTraceModels.TraceBrief> briefs = client.queryBasicTraces(
-                    null, null, execution.getStartTime(), to, null, null, true, 1, SNAPSHOT_LIMIT);
+                    null, null, execution.getStartTime(), to, null, null, true, 1, SNAPSHOT_LIMIT).traces();
             repository.deleteByExecutionId(executionId);
             repository.flush(); // UNIQUE(execution_id) 下必须先落 DELETE 再 INSERT（Hibernate 默认 insert 先于 delete flush）
             repository.save(new PersistentExecutionTraceSnapshotRecord(
@@ -114,13 +114,13 @@ public class ExecutionTraceQueryService {
         try {
             Instant from = execution.getStartTime() != null ? execution.getStartTime() : execution.getCreatedAt();
             Instant to = execution.getEndTime() != null ? execution.getEndTime() : Instant.now();
-            List<SkyWalkingTraceModels.TraceBrief> briefs = client.queryBasicTraces(
+            SkyWalkingTraceModels.TraceBriefsPage result = client.queryBasicTraces(
                     service, endpoint, from, to, minDurationMs, onlyError,
                     !"time".equals(sort), page, size);
             return new ExecutionTraceViews.ExecutionTracesPageView(
                     true, null,
-                    briefs.stream().map(ExecutionTraceViews::listItem).toList(),
-                    briefs.size(), page, size);
+                    result.traces().stream().map(ExecutionTraceViews::listItem).toList(),
+                    result.total(), page, size);
         } catch (RuntimeException exception) {
             return unavailablePage(page, size, "source-unavailable");
         }
