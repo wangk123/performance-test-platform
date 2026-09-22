@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trace 链路追踪接入 · 交互原型</title>
+<style>
+  :root {
+    --canvas: #f4f6f8; --surface: #ffffff; --surface-soft: #f7fafb;
+    --ink: #1a2332; --muted: #5c6b7a; --line: #e2e8ee; --line-strong: #c8d3dc;
+    --accent: #0b7f8a; --accent-soft: #e6f5f6; --danger: #d14343; --danger-soft: #fbecec;
+    --ok: #1f9d55; --ok-soft: #e7f5ee; --warn: #b97e0c; --warn-soft: #fdf3e0;
+    --radius: 8px; --radius-sm: 6px;
+    --font-ui: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif;
+    --font-data: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-ui); background: var(--canvas); color: var(--ink); padding: 28px 28px 60px; }
+  button { font-family: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+  .proto-head { max-width: 1180px; margin: 0 auto 22px; }
+  .proto-head h1 { font-size: 20px; font-weight: 600; }
+  .proto-head p { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+  .hint-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .hint-chip { font-size: 12px; color: var(--accent); background: var(--accent-soft);
+    border-radius: 999px; padding: 3px 10px; font-weight: 600; }
+
+  .stage { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 26px; }
+  .row-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: start; }
+
+  .frame { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: 0 4px 20px rgba(26,35,50,.06); overflow: hidden; }
+  .frame-tag { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 9px 16px; font-size: 12px; font-weight: 600; letter-spacing: .06em;
+    background: var(--surface-soft); border-bottom: 1px solid var(--line); color: var(--muted); }
+  .frame-tag .tag-main { color: var(--accent); }
+  .frame-tag .where { font-weight: 400; letter-spacing: 0; }
+  .annot { font-size: 12px; color: var(--muted); line-height: 1.7; padding: 8px 2px 0; }
+  .annot b { color: var(--ink); font-weight: 600; }
+
+  /* ===== 面板通用（对齐平台 panel 风格） ===== */
+  .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .panel-header h2 { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600;
+    border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge-ok { background: var(--ok-soft); color: var(--ok); }
+  .badge-warn { background: var(--warn-soft); color: var(--warn); }
+  .badge-danger { background: var(--danger-soft); color: var(--danger); }
+  .badge-accent { background: var(--accent-soft); color: var(--accent); }
+  .badge-muted { background: #eef2f5; color: var(--muted); }
+  .head-badges { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+  .toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 18px; background: var(--surface-soft);
+    border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .toolbar label { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+  select { height: 26px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+    font-size: 12.5px; color: var(--ink); background: var(--surface); padding: 0 6px; }
+  .switch { position: relative; width: 32px; height: 18px; background: var(--line-strong);
+    border-radius: 999px; transition: background .18s; border: none; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+    border-radius: 50%; background: #fff; transition: left .18s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .switch[aria-checked="true"] { background: var(--accent); }
+  .switch[aria-checked="true"]::after { left: 16px; }
+  .toolbar .count { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .icon-btn { width: 26px; height: 26px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+    background: var(--surface); color: var(--muted); display: inline-flex; align-items: center; justify-content: center; }
+  .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ===== trace 表 ===== */
+  .trace-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .trace-table th { text-align: left; font-weight: 600; color: var(--muted); font-size: 11.5px;
+    padding: 8px 10px; background: var(--surface-soft); border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .trace-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .trace-table tbody tr { cursor: pointer; transition: background .12s; }
+  .trace-table tbody tr:hover { background: #f2f8f9; }
+  .trace-table .mono { font-family: var(--font-data); font-size: 11.5px; }
+  .svc { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; }
+  .svc .swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .dur-cell { font-family: var(--font-data); font-weight: 600; text-align: right; white-space: nowrap; }
+  .dur-slow-1 { color: var(--ink); } .dur-slow-2 { color: var(--warn); } .dur-slow-3 { color: var(--danger); }
+  .tid { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-data);
+    font-size: 11px; color: var(--muted); }
+  .tid button { border: none; background: none; color: var(--muted); display: inline-flex; padding: 2px; }
+  .tid button:hover { color: var(--accent); }
+  .trace-empty { padding: 34px 20px; text-align: center; }
+  .trace-empty .icon { font-size: 26px; margin-bottom: 8px; }
+  .trace-empty p { font-size: 13px; color: var(--muted); line-height: 1.7; }
+  .trace-empty code { font-family: var(--font-data); font-size: 11.5px; background: #eef2f5;
+    padding: 1px 6px; border-radius: 4px; }
+
+  /* 状态切换演示 segmented */
+  .seg { border: 1px solid var(--line-strong); border-radius: var(--radius-sm); overflow: hidden; display: inline-flex; }
+  .seg button { border: none; background: var(--surface); font-size: 11.5px; color: var(--muted);
+    padding: 4px 10px; border-right: 1px solid var(--line); }
+  .seg button:last-child { border-right: none; }
+  .seg button.on { background: var(--accent); color: #fff; font-weight: 600; }
+
+  /* ===== 异常样本详情卡 ===== */
+  .sample-card { border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 14px; }
+  .sample-card .sc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 9px 12px; background: var(--surface-soft); border-bottom: 1px solid var(--line); }
+  .sample-card .sc-head strong { font-size: 12.5px; }
+  .sample-card .sc-body { padding: 11px 12px; display: flex; flex-direction: column; gap: 9px; }
+  .kv { display: flex; gap: 8px; font-size: 12px; align-items: baseline; }
+  .kv .k { color: var(--muted); flex: none; width: 84px; }
+  .kv .v { font-family: var(--font-data); font-size: 11.5px; color: var(--ink); word-break: break-all; line-height: 1.55; }
+  .trace-chip-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    border-top: 1px dashed var(--line); padding-top: 9px; }
+  .trace-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-soft);
+    color: var(--accent); font-family: var(--font-data); font-size: 11px; font-weight: 600;
+    border-radius: 999px; padding: 3px 10px; }
+  .btn-link { border: none; background: none; color: var(--accent); font-size: 12px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 4px; }
+  .btn-link:hover { text-decoration: underline; }
+  .btn-link[disabled] { color: #a5b0ba; cursor: not-allowed; }
+  .btn-link[disabled]:hover { text-decoration: none; }
+  .tip-host { position: relative; display: inline-flex; }
+  .tip-host .tip { position: absolute; bottom: calc(100% + 6px); left: 0; background: #26313f; color: #fff;
+    font-size: 11px; font-weight: 400; border-radius: var(--radius-sm); padding: 5px 9px; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 5; }
+  .tip-host:hover .tip { opacity: 1; }
+
+  /* ===== 轮次选择卡 ===== */
+  .round-cards { display: grid; gap: 10px; padding: 14px 16px; }
+  .round-card { border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px;
+    display: flex; gap: 10px; align-items: flex-start; background: var(--surface); text-align: left; width: 100%; }
+  .round-card .radio { width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--line-strong);
+    flex: none; margin-top: 2px; position: relative; }
+  .round-card.active { border-color: var(--accent); background: #f4fbfc; }
+  .round-card.active .radio { border-color: var(--accent); }
+  .round-card.active .radio::after { content: ""; position: absolute; inset: 2.5px; border-radius: 50%; background: var(--accent); }
+  .round-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .round-card p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .round-note { margin: 0 16px 14px; font-size: 11.5px; color: var(--muted); background: var(--surface-soft);
+    border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); padding: 7px 10px; line-height: 1.6; }
+  .round-note b { color: var(--accent); }
+
+  /* ===== 抽屉 ===== */
+  .backdrop { position: fixed; inset: 0; background: rgba(26,35,50,.38); opacity: 0; pointer-events: none;
+    transition: opacity .22s; z-index: 40; }
+  .drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(620px, 92vw); background: var(--surface);
+    border-left: 1px solid var(--line); box-shadow: -12px 0 32px rgba(26,35,50,.14); z-index: 50;
+    transform: translateX(105%); transition: transform .25s ease; display: flex; flex-direction: column; }
+  body.drawer-open .backdrop { opacity: 1; pointer-events: auto; }
+  body.drawer-open .drawer { transform: translateX(0); }
+
+  .drawer-head { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .drawer-head .dh-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .drawer-head h3 { font-size: 14.5px; font-weight: 600; font-family: var(--font-data); word-break: break-all; }
+  .drawer-close { border: 1px solid var(--line-strong); background: var(--surface); border-radius: var(--radius-sm);
+    width: 26px; height: 26px; color: var(--muted); font-size: 14px; line-height: 1; flex: none; }
+  .drawer-close:hover { color: var(--danger); border-color: var(--danger); }
+  .dh-meta { display: flex; align-items: center; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
+  .dh-tid { font-family: var(--font-data); font-size: 11px; color: var(--muted); }
+  .dh-tid button { border: none; background: none; color: var(--accent); font-size: 11px; }
+  .sw-open { margin-left: auto; border: 1px solid var(--accent); color: var(--accent); background: var(--surface);
+    font-size: 12px; font-weight: 600; border-radius: var(--radius-sm); padding: 4px 10px; }
+  .sw-open:hover { background: var(--accent-soft); }
+
+  .summary-strip { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); }
+  .summary-strip .cell { padding: 10px 14px; border-right: 1px solid var(--line); }
+  .summary-strip .cell:last-child { border-right: none; }
+  .summary-strip .cell span { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .summary-strip .cell strong { font-size: 15px; font-family: var(--font-data); }
+  .summary-strip .cell strong.err { color: var(--danger); }
+
+  .drawer-body { flex: 1; overflow-y: auto; padding: 12px 18px 20px; }
+  .wf-axis { position: relative; height: 22px; margin-left: 232px; border-bottom: 1px solid var(--line-strong); }
+  .wf-axis .tick { position: absolute; bottom: 0; font-family: var(--font-data); font-size: 10px;
+    color: var(--muted); transform: translateX(-50%); padding-bottom: 3px; }
+  .wf-row { display: flex; align-items: center; min-height: 30px; border-bottom: 1px solid var(--line); position: relative; }
+  .wf-row:hover { background: #f6fafb; }
+  .wf-label { width: 232px; flex: none; display: flex; flex-direction: column; gap: 1px;
+    padding: 4px 8px 4px 0; overflow: hidden; }
+  .wf-label .l1 { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wf-label .l1 .swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .wf-label .l2 { font-size: 10.5px; color: var(--muted); font-family: var(--font-data);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 14px; }
+  .wf-track { flex: 1; position: relative; height: 100%; }
+  .wf-track .grid { position: absolute; top: 0; bottom: 0; width: 1px; background: #edf1f4; }
+  .span-bar { position: absolute; top: 50%; transform: translateY(-50%); height: 13px;
+    border-radius: 3px; min-width: 3px; }
+  .span-bar:hover { filter: brightness(.88); }
+  .span-bar.err-bar { box-shadow: 0 0 0 1.5px var(--danger); }
+  .err-tag { position: absolute; top: 50%; transform: translateY(-50%); left: calc(100% + 5px);
+    font-size: 9.5px; font-weight: 700; color: var(--danger); background: var(--danger-soft);
+    border-radius: 3px; padding: 1px 4px; white-space: nowrap; }
+  .wf-tip { position: fixed; z-index: 60; background: #26313f; color: #fff; font-size: 11px;
+    border-radius: var(--radius-sm); padding: 6px 9px; pointer-events: none; opacity: 0;
+    transition: opacity .12s; max-width: 320px; line-height: 1.55; }
+  .wf-tip .t-name { font-weight: 600; font-family: var(--font-data); }
+  .wf-tip .t-sub { color: #b9c6d4; }
+  .wf-foot { margin-top: 12px; font-size: 11px; color: var(--muted); line-height: 1.7;
+    border-top: 1px dashed var(--line); padding-top: 9px; }
+
+  /* 分页 */
+  .pager { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .pager-total { font-size: 12px; color: var(--muted); margin-right: 4px; }
+  .pg-num, .pg-arrow { min-width: 24px; height: 24px; border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font-size: 12px;
+    display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; }
+  .pg-num.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .pg-num:hover:not(.on):not(:disabled), .pg-arrow:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+  .pg-num:disabled, .pg-arrow:disabled { color: #b6c1ca; cursor: default; }
+  .pg-size { margin-left: auto; font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+
+  /* toast */
+  .toast { position: fixed; left: 50%; bottom: 30px; transform: translate(-50%, 12px); background: #26313f;
+    color: #fff; font-size: 12.5px; border-radius: 999px; padding: 8px 18px; opacity: 0;
+    pointer-events: none; transition: all .22s; z-index: 70; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="proto-head">
+  <h1>Trace 链路追踪接入 · 交互原型（P0-1）</h1>
+  <p>对应设计文档 <b>docs/superpowers/specs/2026-09-21-trace-integration-design.md</b>。数据为演示数据；瀑布图为 Phase 2 目标态，Phase 1 该区域先放摘要 + 「在 SkyWalking 中打开」。</p>
+  <div class="hint-chips">
+    <span class="hint-chip">① 面板筛选联动</span>
+    <span class="hint-chip">② 可用性三态切换</span>
+    <span class="hint-chip">③ 行点击开链路抽屉</span>
+    <span class="hint-chip">④ 样本 traceId 贯通</span>
+    <span class="hint-chip">⑤ 观测轮次选择</span>
+  </div>
+</header>
+
+<main class="stage">
+
+  <!-- ============ Frame A：链路追踪面板 ============ -->
+  <section class="frame">
+    <div class="frame-tag">
+      <span><span class="tag-main">①</span> 执行详情页 · 新增「链路追踪」面板</span>
+      <span class="where">位置：被测目标监控之后、异常样本工作台之前 ｜ 右上角演示数据源三态：
+        <span class="seg" id="availSeg" role="group" aria-label="数据源可用性演示">
+          <button type="button" class="on" data-state="ok">已连接</button>
+          <button type="button" data-state="unconfigured">未配置</button>
+          <button type="button" data-state="down">OAP 不可达</button>
+        </span>
+      </span>
+    </div>
+
+    <div class="panel-header">
+      <h2>链路追踪
+        <span class="badge badge-ok" id="availBadge"><span class="dot"></span>已连接 SkyWalking</span>
+        <span class="badge badge-accent" id="roundBadge">诊断轮 · 全量采样</span>
+      </h2>
+      <span style="font-size:12px;color:var(--muted);font-family:var(--font-data)">时间窗 14:32:04 – 14:38:10（执行区间）</span>
+    </div>
+
+    <!-- 已连接：筛选 + 列表 -->
+    <div id="traceBody-ok">
+      <div class="toolbar">
+        <label>服务
+          <select id="fService" aria-label="按服务筛选"><option value="">全部</option></select>
+        </label>
+        <label>仅看错误
+          <button type="button" class="switch" id="fError" role="switch" aria-checked="false" aria-label="仅看错误"></button>
+        </label>
+        <label>慢请求阈值
+          <select id="fDur" aria-label="慢请求阈值">
+            <option value="0">不限</option>
+            <option value="200">≥ 200ms</option>
+            <option value="500">≥ 500ms</option>
+            <option value="1000">≥ 1s</option>
+          </select>
+        </label>
+        <label>排序
+          <select id="fSort" aria-label="排序方式">
+            <option value="dur" selected>最慢优先</option>
+            <option value="time">最新优先</option>
+          </select>
+        </label>
+        <button type="button" class="icon-btn" title="刷新（演示）" aria-label="刷新" onclick="toast('已按当前筛选刷新（演示）')">⟳</button>
+        <span class="count" id="fCount"></span>
+      </div>
+      <table class="trace-table">
+        <thead>
+          <tr>
+            <th style="width:66px">时间</th><th style="width:150px">服务</th><th>入口接口</th>
+            <th style="width:76px;text-align:right">耗时</th><th style="width:66px">状态</th>
+            <th style="width:52px;text-align:right">Span</th><th style="width:150px">TraceId</th>
+          </tr>
+        </thead>
+        <tbody id="traceRows"></tbody>
+      </table>
+      <div class="pager">
+        <span class="pager-total" id="pgTotal"></span>
+        <button type="button" class="pg-arrow" id="pgPrev" aria-label="上一页">‹</button>
+        <span class="pg-pages" id="pgPages" style="display:inline-flex;gap:4px"></span>
+        <button type="button" class="pg-arrow" id="pgNext" aria-label="下一页">›</button>
+        <label class="pg-size">每页
+          <select id="fSize" aria-label="每页条数">
+            <option value="10">10</option><option value="20" selected>20</option><option value="50">50</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <!-- 未配置空态 -->
+    <div id="traceBody-unconfigured" class="trace-empty" hidden>
+      <div class="icon">🛰️</div>
+      <p><b>未配置链路数据源</b><br/>
+        在后端配置中开启 trace 深度源后可在此下钻：<br/>
+        <code>platform.evidence.deep.kinds.trace.enabled=true</code></p>
+    </div>
+
+    <!-- 不可达警告态 -->
+    <div id="traceBody-down" class="trace-empty" hidden>
+      <div class="icon">⚠️</div>
+      <p><b>链路数据源不可达</b>（SOURCE_UNAVAILABLE）<br/>
+        SkyWalking OAP 连接失败，请检查 OAP 服务与网络连通性。<br/>
+        已结束的执行仍可查看终态固化的 trace 摘要列表。</p>
+    </div>
+
+    <div class="annot">筛选为「服务 × 仅看错误 × 慢阈值」与运算；耗时色阶 ≥1s 红 / ≥500ms 橙；<b>行点击</b>打开链路详情抽屉（③）；traceId 点击复制。列表数据：运行中直连 OAP，执行结束优先读终态快照。</div>
+  </section>
+
+  <div class="row-2col">
+
+    <!-- ============ Frame B：异常样本 traceId 贯通 ============ -->
+    <section class="frame">
+      <div class="frame-tag">
+        <span><span class="tag-main">②</span> 异常样本详情 · traceId 贯通</span>
+        <span class="where">位置：异常样本右侧详情区（三 Tab 上方）</span>
+      </div>
+      <div style="padding:14px 16px 4px">
+        <div class="sample-card">
+          <div class="sc-head">
+            <strong>POST /api/orders/checkout</strong>
+            <span class="badge badge-danger">500</span>
+          </div>
+          <div class="sc-body">
+            <div class="kv"><span class="k">失败原因</span><span class="v">Read timeout · 等待 inventory-service 2000ms</span></div>
+            <div class="kv"><span class="k">响应头</span><span class="v">sw8: 1-AMVnR2VudAxlYQ==-e9f3a2b7c1d84f05-a1b2c3d4…-3-0-1-…</span></div>
+            <div class="trace-chip-row">
+              <span class="trace-chip">🔗 e9f3a2b7c1d84f05e9f3a2b7c1d84f05</span>
+              <button type="button" class="btn-link" onclick="openDrawer('t-checkout')">查看链路 →</button>
+            </div>
+          </div>
+        </div>
+        <div class="sample-card">
+          <div class="sc-head">
+            <strong>GET /api/orders</strong>
+            <span class="badge badge-danger">502</span>
+          </div>
+          <div class="sc-body">
+            <div class="kv"><span class="k">失败原因</span><span class="v">Bad Gateway</span></div>
+            <div class="kv"><span class="k">响应头</span><span class="v" style="color:#9aa6b1">（响应被网关截断，未提取到 sw8 / X-Trace-Id）</span></div>
+            <div class="trace-chip-row">
+              <span class="tip-host">
+                <button type="button" class="btn-link" disabled>查看链路 →</button>
+                <span class="tip">容量轮低采样或应用未回写 traceId，无法关联链路</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="annot">提取规则：优先解析 <b>sw8</b> 响应头第 3 段，fallback <b>X-Trace-Id</b>；存入失败样本 <code>trace_id</code> 列。上卡点击「查看链路」与抽屉联动。</div>
+    </section>
+
+    <!-- ============ Frame C：观测轮次 ============ -->
+    <section class="frame">
+      <div class="frame-tag">
+        <span><span class="tag-main">③</span> 执行设置 · 观测轮次</span>
+        <span class="where">位置：场景执行设置（执行时可覆盖）</span>
+      </div>
+      <div class="round-cards">
+        <button type="button" class="round-card" data-round="CAPACITY">
+          <span class="radio" aria-hidden="true"></span>
+          <span>
+            <h4>容量轮</h4>
+            <p>agent 采样率 ≤1%（或关闭）。性能数字计入容量结论，报告默认口径。</p>
+          </span>
+        </button>
+        <button type="button" class="round-card active" data-round="DIAGNOSTIC">
+          <span class="radio" aria-hidden="true"></span>
+          <span>
+            <h4>诊断轮 <span class="badge badge-accent" style="margin-left:4px">推荐用于排障</span></h4>
+            <p>全量采样。trace 完整可下钻，但性能数字<b>不进容量结论</b>（含观测开销）。</p>
+          </span>
+        </button>
+      </div>
+      <div class="round-note" id="roundNote">当前：<b>诊断轮</b> · 启动前 precheck 将探测 OAP 近期是否有该服务的 trace 上报，无则警告「agent 未挂载或采样率为 0」。</div>
+      <div class="annot">agent 挂载在被测应用侧，平台不远程控制——轮次是<b>执行元数据 + 引导</b>：决定徽标展示、precheck 软检查与报告口径标注。</div>
+    </section>
+  </div>
+</main>
+
+<!-- ============ 链路详情抽屉 ============ -->
+<div class="backdrop" onclick="closeDrawer()" aria-hidden="true"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="链路详情">
+  <div class="drawer-head">
+    <div class="dh-top">
+      <h3 id="dEntry">—</h3>
+      <button type="button" class="drawer-close" onclick="closeDrawer()" aria-label="关闭">✕</button>
+    </div>
+    <div class="dh-meta">
+      <span class="badge" id="dStatus">—</span>
+      <span class="dh-tid">traceId: <span id="dTid">—</span>
+        <button type="button" onclick="copyText(currentTrace?.traceId, 'TraceId 已复制')">复制</button></span>
+      <button type="button" class="sw-open" onclick="toast('将新窗口打开 SkyWalking UI 定位到该 trace（原型不外跳）')">在 SkyWalking 中打开 ↗</button>
+    </div>
+  </div>
+  <div class="summary-strip">
+    <div class="cell"><span>总耗时</span><strong id="dTotal">—</strong></div>
+    <div class="cell"><span>Span</span><strong id="dSpans">—</strong></div>
+    <div class="cell"><span>服务</span><strong id="dSvcs">—</strong></div>
+    <div class="cell"><span>错误 Span</span><strong id="dErrs">—</strong></div>
+  </div>
+  <div class="drawer-body">
+    <div class="wf-axis" id="wfAxis"></div>
+    <div id="wfRows"></div>
+    <p class="wf-foot">瀑布图说明：条 = span，横向位置 = 起始偏移 / 长度 = 自身耗时；缩进 = 父子层级；红色描边 + 「错误」标签 = 异常 span（不只靠颜色区分）；hover 查看耗时明细。Phase 1 本区域展示摘要 + SkyWalking deep-link，Phase 2 平台自研（ECharts custom series）。</p>
+  </div>
+</aside>
+
+<div class="toast" id="toastEl" role="status" aria-live="polite"></div>
+<div class="wf-tip" id="wfTip"></div>
+
+<script>
+  const SVC = {
+    'api-gateway':      '#0b7f8a',
+    'order-service':    '#3b82f6',
+    'cart-service':     '#6366f1',
+    'inventory-service':'#f59e0b',
+    'user-service':     '#8b5cf6',
+    'MySQL':            '#16a34a',
+    'Redis':            '#ec4899',
+  };
+
+  // spans: [service, spanName, startMs, durMs, level, error, errorMsg]
+  const TRACES = [
+    {
+      id: 't-checkout', time: '14:35:41', service: 'api-gateway', entry: 'POST /api/orders/checkout',
+      dur: 2034, error: true, traceId: 'e9f3a2b7c1d84f05e9f3a2b7c1d84f05',
+      spans: [
+        ['api-gateway', 'GatewayFilterChain', 0, 2034, 0, false, ''],
+        ['user-service', 'RiskController.check', 18, 96, 1, false, ''],
+        ['MySQL', 'SELECT t_risk_rule', 30, 64, 2, false, ''],
+        ['order-service', 'OrderController.checkout', 122, 1905, 1, false, ''],
+        ['inventory-service', 'POST /inventory/deduct', 150, 1850, 2, true, 'Read timeout after 1850ms'],
+        ['MySQL', 'UPDATE t_stock (deduct)', 190, 1790, 3, true, 'Lock wait timeout exceeded'],
+        ['MySQL', 'INSERT t_order', 1978, 40, 2, false, ''],
+        ['Redis', 'DEL cart:lock', 2020, 10, 2, false, ''],
+      ],
+    },
+    {
+      id: 't-orders', time: '14:33:12', service: 'api-gateway', entry: 'GET /api/orders',
+      dur: 486, error: false, traceId: '3f8d91c0ab47e2d63f8d91c0ab47e2d6',
+      spans: [
+        ['api-gateway', 'GatewayFilterChain', 0, 486, 0, false, ''],
+        ['order-service', 'OrderController.list', 16, 458, 1, false, ''],
+        ['Redis', 'GET orders:cache:user7', 24, 14, 2, false, ''],
+        ['MySQL', 'SELECT t_order WHERE uid', 44, 178, 2, false, ''],
+        ['user-service', 'GET /users/{id}', 236, 154, 2, false, ''],
+        ['MySQL', 'SELECT t_user', 252, 106, 3, false, ''],
+        ['MySQL', 'SELECT t_order_item', 398, 62, 2, false, ''],
+      ],
+    },
+    {
+      id: 't-cart', time: '14:36:58', service: 'api-gateway', entry: 'POST /api/cart/items',
+      dur: 1562, error: true, traceId: 'b71e0f4c9a2d5e8fb71e0f4c9a2d5e8f',
+      spans: [
+        ['api-gateway', 'GatewayFilterChain', 0, 1562, 0, false, ''],
+        ['cart-service', 'CartController.addItem', 14, 1536, 1, false, ''],
+        ['Redis', 'SETNX cart:lock:u7', 30, 1490, 2, true, 'timeout waiting lock 1490ms'],
+        ['MySQL', 'SELECT t_sku', 1530, 16, 2, false, ''],
+      ],
+    },
+    {
+      id: 't-products', time: '14:32:41', service: 'api-gateway', entry: 'GET /api/products',
+      dur: 45, error: false, traceId: '0c5a9e31d7b84f2a0c5a9e31d7b84f2a',
+      spans: [
+        ['api-gateway', 'GatewayFilterChain', 0, 45, 0, false, ''],
+        ['order-service', 'ProductController.list', 8, 33, 1, false, ''],
+        ['Redis', 'GET products:all', 12, 9, 2, false, ''],
+        ['MySQL', 'SELECT t_product', 24, 14, 2, false, ''],
+      ],
+    },
+    {
+      id: 't-user', time: '14:34:20', service: 'api-gateway', entry: 'GET /api/users/me',
+      dur: 132, error: false, traceId: 'd24b68103e9f7ac5d24b68103e9f7ac5',
+      spans: [
+        ['api-gateway', 'GatewayFilterChain', 0, 132, 0, false, ''],
+        ['user-service', 'UserController.me', 10, 116, 1, false, ''],
+        ['MySQL', 'SELECT t_user WHERE id', 22, 88, 2, false, ''],
+      ],
+    },
+  ];
+
+  // 演示数据扩充：常规 trace 程序化生成（凑足分页演示，26 条 → 2 页）
+  function fmtTime(sec) {
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(Math.floor(sec / 3600))}:${p(Math.floor(sec % 3600 / 60))}:${p(sec % 60)}`;
+  }
+  (function fillers() {
+    const defs = [
+      ['api-gateway', 'GET /api/products', 64], ['user-service', 'GET /users/{id}', 142],
+      ['api-gateway', 'GET /api/users/me', 118], ['order-service', 'POST /internal/stock/deduct', 231],
+      ['api-gateway', 'GET /api/orders', 392], ['api-gateway', 'POST /api/cart/items', 156],
+      ['user-service', 'GET /users/{id}', 97], ['api-gateway', 'GET /api/products', 73],
+      ['order-service', 'GET /internal/orders', 288], ['api-gateway', 'GET /api/orders', 517, true],
+      ['api-gateway', 'GET /api/users/me', 131], ['inventory-service', 'POST /deduct', 204],
+      ['api-gateway', 'GET /api/products', 58], ['order-service', 'GET /internal/orders', 244],
+      ['api-gateway', 'POST /api/orders/checkout', 743], ['user-service', 'GET /users/{id}', 109],
+      ['api-gateway', 'GET /api/products', 81], ['api-gateway', 'POST /api/cart/items', 187],
+      ['order-service', 'POST /internal/stock/deduct', 176], ['api-gateway', 'GET /api/orders', 341],
+      ['api-gateway', 'GET /api/products', 69],
+    ];
+    defs.forEach((d, i) => {
+      const [service, entry, dur, error] = d;
+      const h = (((i + 7) * 2654435761) >>> 0).toString(16).padStart(8, '0');
+      const downstream = entry.includes('users') ? 'user-service'
+        : entry.includes('cart') ? 'cart-service' : 'order-service';
+      const spans = service === 'api-gateway'
+        ? [['api-gateway', 'GatewayFilterChain', 0, dur, 0, false, ''],
+           [downstream, entry, Math.round(dur * .08), Math.round(dur * .8), 1, false, ''],
+           ['MySQL', 'SELECT …', Math.round(dur * .14), Math.round(dur * .45), 2, false, '']]
+        : [[service, entry, 0, dur, 0, false, ''],
+           ['MySQL', 'SELECT …', Math.round(dur * .12), Math.round(dur * .6), 1, false, '']];
+      TRACES.push({
+        id: 'f-' + i, time: fmtTime(14 * 3600 + 32 * 60 + 10 + i * 13), ts: 0,
+        service, entry, dur, error: !!error, traceId: (h + h + h + h).slice(0, 32), spans,
+      });
+    });
+  })();
+  TRACES.forEach(t => {
+    const [h, m, s] = t.time.split(':').map(Number);
+    t.ts = h * 3600 + m * 60 + s;
+  });
+
+  let currentTrace = null;
+
+  /* ---------- 列表渲染与筛选 ---------- */
+  const fmt = (ms) => ms >= 1000 ? (ms / 1000).toFixed(2) + 's' : ms + 'ms';
+  const durClass = (ms) => ms >= 1000 ? 'dur-slow-3' : ms >= 500 ? 'dur-slow-2' : 'dur-slow-1';
+
+  const pgState = { page: 1, size: 20 };
+
+  function renderRows() {
+    const svc = document.getElementById('fService').value;
+    const onlyErr = document.getElementById('fError').getAttribute('aria-checked') === 'true';
+    const minDur = Number(document.getElementById('fDur').value);
+    const byDur = document.getElementById('fSort').value === 'dur';
+    const list = TRACES.filter(t =>
+      (!svc || t.service === svc) && (!onlyErr || t.error) && t.dur >= minDur)
+      .sort((a, b) => byDur ? b.dur - a.dur : b.ts - a.ts);
+    const total = list.length;
+    const pages = Math.max(1, Math.ceil(total / pgState.size));
+    if (pgState.page > pages) pgState.page = pages;
+    const rows = list.slice((pgState.page - 1) * pgState.size, pgState.page * pgState.size);
+    const tb = document.getElementById('traceRows');
+    tb.innerHTML = rows.map(t => `
+      <tr onclick="openDrawer('${t.id}')">
+        <td class="mono">${t.time}</td>
+        <td><span class="svc"><span class="swatch" style="background:${SVC[t.service]}"></span>${t.service}</span></td>
+        <td class="mono">${t.entry}</td>
+        <td class="dur-cell ${durClass(t.dur)}">${fmt(t.dur)}</td>
+        <td>${t.error ? '<span class="badge badge-danger">错误</span>' : '<span class="badge badge-ok">成功</span>'}</td>
+        <td class="dur-cell" style="font-weight:400">${t.spans.length}</td>
+        <td><span class="tid">${t.traceId.slice(0, 10)}…
+          <button type="button" aria-label="复制 TraceId"
+            onclick="event.stopPropagation(); copyText('${t.traceId}', 'TraceId 已复制')">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 3.5H4A1.5 1.5 0 0 0 2.5 5v6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button></span></td>
+      </tr>`).join('') ||
+      '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">当前筛选无匹配 trace</td></tr>';
+    document.getElementById('fCount').textContent =
+      `共 ${TRACES.length} 条 · 筛选后 ${total} 条 · 第 ${pgState.page}/${pages} 页`;
+    renderPager(total, pages);
+  }
+
+  function renderPager(total, pages) {
+    document.getElementById('pgTotal').textContent = `共 ${total} 条`;
+    let nums = '';
+    for (let p = 1; p <= pages; p++) {
+      nums += `<button type="button" class="pg-num${p === pgState.page ? ' on' : ''}" data-p="${p}"
+        ${p === pgState.page ? 'disabled' : ''}>${p}</button>`;
+    }
+    document.getElementById('pgPages').innerHTML = nums;
+    document.getElementById('pgPrev').disabled = pgState.page <= 1;
+    document.getElementById('pgNext').disabled = pgState.page >= pages;
+  }
+
+  // 服务下拉选项
+  (function initSvcOptions() {
+    const sel = document.getElementById('fService');
+    [...new Set(TRACES.map(t => t.service))].forEach(s => {
+      const o = document.createElement('option'); o.value = s; o.textContent = s; sel.appendChild(o);
+    });
+  })();
+  function resetPage() { pgState.page = 1; renderRows(); }
+  ['fService', 'fDur', 'fSort'].forEach(id =>
+    document.getElementById(id).addEventListener('change', resetPage));
+  document.getElementById('fSize').addEventListener('change', function () {
+    pgState.size = Number(this.value); resetPage();
+  });
+  document.getElementById('pgPrev').addEventListener('click', () => { pgState.page--; renderRows(); });
+  document.getElementById('pgNext').addEventListener('click', () => { pgState.page++; renderRows(); });
+  document.getElementById('pgPages').addEventListener('click', (e) => {
+    const b = e.target.closest('.pg-num'); if (!b || b.classList.contains('on')) return;
+    pgState.page = Number(b.dataset.p); renderRows();
+  });
+  document.getElementById('fError').addEventListener('click', function () {
+    const on = this.getAttribute('aria-checked') !== 'true';
+    this.setAttribute('aria-checked', String(on)); resetPage();
+  });
+
+  /* ---------- 可用性三态 ---------- */
+  document.getElementById('availSeg').addEventListener('click', (e) => {
+    const btn = e.target.closest('button'); if (!btn) return;
+    document.querySelectorAll('#availSeg button').forEach(b => b.classList.toggle('on', b === btn));
+    const st = btn.dataset.state;
+    document.getElementById('traceBody-ok').hidden = st !== 'ok';
+    document.getElementById('traceBody-unconfigured').hidden = st !== 'unconfigured';
+    document.getElementById('traceBody-down').hidden = st !== 'down';
+    const badge = document.getElementById('availBadge');
+    badge.className = 'badge ' + (st === 'ok' ? 'badge-ok' : st === 'unconfigured' ? 'badge-muted' : 'badge-warn');
+    badge.innerHTML = '<span class="dot"></span>' +
+      (st === 'ok' ? '已连接 SkyWalking' : st === 'unconfigured' ? '未配置' : 'OAP 不可达');
+  });
+
+  /* ---------- 观测轮次 ---------- */
+  const roundNotes = {
+    CAPACITY: '当前：<b>容量轮</b> · 采样率 ≤1%，失败样本可能无 traceId（按钮置灰属预期）；数字计入容量结论。',
+    DIAGNOSTIC: '当前：<b>诊断轮</b> · 全量采样；启动前 precheck 将探测 OAP 近期是否有该服务的 trace 上报，无则警告「agent 未挂载或采样率为 0」。',
+  };
+  document.querySelectorAll('.round-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.round-card').forEach(c => c.classList.toggle('active', c === card));
+      document.getElementById('roundNote').innerHTML = roundNotes[card.dataset.round];
+      const rb = document.getElementById('roundBadge');
+      const isDiag = card.dataset.round === 'DIAGNOSTIC';
+      rb.className = 'badge ' + (isDiag ? 'badge-accent' : 'badge-muted');
+      rb.textContent = isDiag ? '诊断轮 · 全量采样' : '容量轮 · 1% 采样';
+    });
+  });
+
+  /* ---------- 抽屉与瀑布图 ---------- */
+  function openDrawer(id) {
+    const t = TRACES.find(x => x.id === id); if (!t) return;
+    currentTrace = t;
+    document.getElementById('dEntry').textContent = t.entry;
+    document.getElementById('dTid').textContent = t.traceId.slice(0, 16) + '…';
+    const st = document.getElementById('dStatus');
+    st.className = 'badge ' + (t.error ? 'badge-danger' : 'badge-ok');
+    st.textContent = t.error ? '错误' : '成功';
+    document.getElementById('dTotal').textContent = fmt(t.dur);
+    document.getElementById('dSpans').textContent = t.spans.length;
+    document.getElementById('dSvcs').textContent = new Set(t.spans.map(s => s[0])).size;
+    const errs = t.spans.filter(s => s[5]).length;
+    const dErrs = document.getElementById('dErrs');
+    dErrs.textContent = errs; dErrs.className = errs ? 'err' : '';
+
+    // 时间轴
+    const axis = document.getElementById('wfAxis');
+    axis.innerHTML = [0, .25, .5, .75, 1].map(p =>
+      `<span class="tick" style="left:${p * 100}%">${Math.round(t.dur * p)}ms</span>`).join('');
+
+    // span 行
+    const grids = [25, 50, 75].map(p => `<span class="grid" style="left:${p}%"></span>`).join('');
+    document.getElementById('wfRows').innerHTML = t.spans.map(s => {
+      const [svc, name, start, dur, level, error, msg] = s;
+      const left = (start / t.dur) * 100, width = Math.max((dur / t.dur) * 100, 0.8);
+      return `
+      <div class="wf-row">
+        <div class="wf-label" style="padding-left:${level * 14}px">
+          <span class="l1"><span class="swatch" style="background:${SVC[svc]}"></span>${svc}</span>
+          <span class="l2">${name}</span>
+        </div>
+        <div class="wf-track">${grids}
+          <span class="span-bar ${error ? 'err-bar' : ''}" style="left:${left}%;width:${width}%;background:${SVC[svc]}"
+            data-svc="${svc}" data-name="${name}" data-start="${start}" data-dur="${dur}" data-err="${msg}"></span>
+          ${error ? '<span class="err-tag" style="left:calc(' + left + '% + ' + Math.max(width, 0.8) + '% + 5px)">错误</span>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    document.body.classList.add('drawer-open');
+    document.querySelector('.drawer-close').focus();
+  }
+  function closeDrawer() { document.body.classList.remove('drawer-open'); hideTip(); }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+  // 瀑布图 hover tooltip（事件委托）
+  const tip = document.getElementById('wfTip');
+  function hideTip() { tip.style.opacity = 0; }
+  document.getElementById('wfRows').addEventListener('mouseover', e => {
+    const bar = e.target.closest('.span-bar'); if (!bar) return;
+    const err = bar.dataset.err;
+    tip.innerHTML = `<div class="t-name">${bar.dataset.svc} · ${bar.dataset.name}</div>
+      <div class="t-sub">起始 +${bar.dataset.start}ms ｜ 自身耗时 ${bar.dataset.dur}ms</div>
+      ${err ? `<div style="color:#ff9d9d;margin-top:2px">✕ ${err}</div>` : ''}`;
+    tip.style.opacity = 1;
+    const r = bar.getBoundingClientRect();
+    const x = Math.min(Math.max(r.left + r.width / 2 - 120, 10), window.innerWidth - 260);
+    const y = r.top - tip.offsetHeight - 8 > 8 ? r.top - tip.offsetHeight - 8 : r.bottom + 8;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  });
+  document.getElementById('wfRows').addEventListener('mouseout', e => {
+    if (e.target.closest('.span-bar')) hideTip();
+  });
+
+  /* ---------- 复制与 toast ---------- */
+  function copyText(text, msg) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+    toast(msg || '已复制');
+  }
+  let toastTimer;
+  function toast(msg) {
+    const el = document.getElementById('toastEl');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+  }
+
+  renderRows();
+</script>
+</body>
+</html>

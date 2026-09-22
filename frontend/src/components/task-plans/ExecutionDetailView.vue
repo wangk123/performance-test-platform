@@ -176,6 +176,14 @@
       <a-empty v-if="!targetMonitoring?.targets?.length" description="未绑定被测目标监控" />
     </div>
 
+    <TracePanel
+      v-if="traceProto"
+      ref="tracePanelRef"
+      :execution-id="execution.id"
+      :window-start="execution.startedAt"
+      :window-end="execution.endedAt"
+    />
+
     <section class="task-result-workbench">
       <div class="panel result-tree-panel">
         <div class="panel-header">
@@ -224,6 +232,19 @@
           <div>
             <h2>{{ selectedSample?.label || '样本详情' }}</h2>
           </div>
+        </div>
+        <div v-if="traceProto && selectedSample" class="sample-trace-strip">
+          <template v-if="sampleDemoTraceId">
+            <span class="sample-trace-chip">{{ sampleDemoTraceId.slice(0, 16) }}…</span>
+            <a-button type="link" size="small" class="sample-trace-link" @click="openSampleTrace">查看链路 →</a-button>
+          </template>
+          <template v-else>
+            <a-tooltip title="容量轮低采样或应用未回写 traceId，无法关联链路（演示态）">
+              <span class="sample-trace-disabled-wrap">
+                <a-button type="link" size="small" disabled>查看链路 →</a-button>
+              </span>
+            </a-tooltip>
+          </template>
         </div>
         <div class="sample-inspector">
           <a-spin :spinning="sampleDetailLoading" wrapper-class-name="sample-inspector-spin">
@@ -284,11 +305,14 @@ import type { ExecutionDetail, ScenarioExecution, TaskSample } from '../../types
 import { useTaskPlans } from '../../composables/useTaskPlans';
 import { listExecutionsApi, deleteExecutionsApi, toUiStatus, executionStatusText } from '../../api/task-plans';
 import { formatDate } from '../../utils/format';
+import { isProto } from '../../composables/usePrototype';
+import { demoTraceIdForSample } from '../tasks/trace/trace-mock';
 import { detectHttpBodyLanguage, formatHttpBodyAuto } from '../../utils/http-request-config';
 
 const TaskMonitoringCharts = defineAsyncComponent(() => import('../tasks/TaskMonitoringCharts.vue'));
 const TargetServerMetricsPanel = defineAsyncComponent(() => import('../tasks/TargetServerMetricsPanel.vue'));
 const TargetJvmMetricsPanel = defineAsyncComponent(() => import('../tasks/TargetJvmMetricsPanel.vue'));
+const TracePanel = defineAsyncComponent(() => import('../tasks/trace/TracePanel.vue'));
 
 const props = defineProps<{ execution: ExecutionDetail | null }>();
 const emit = defineEmits<{ (e: 'back'): void }>();
@@ -310,6 +334,9 @@ const historyExecutions = ref<ScenarioExecution[]>([]);
 const selectedExecutionIds = ref<number[]>([]);
 const historyEditMode = ref(false);
 const historyDropdownOpen = ref(false);
+
+const traceProto = isProto('trace');
+const tracePanelRef = ref<{ openTrace: (traceId: string) => void } | null>(null);
 
 onMounted(() => {
   if (props.execution) loadHistoryExecutions();
@@ -457,6 +484,13 @@ const sampleRowEvents: TableProps<TaskSample>['customRow'] = (record) => ({
 const sampleRowClassName: TableProps<TaskSample>['rowClassName'] = (record) =>
   selectedSample.value?.id === record.id ? 'selected-table-row' : '';
 
+const sampleDemoTraceId = computed(() =>
+  traceProto && selectedSample.value ? demoTraceIdForSample(selectedSample.value.statusCode) : null);
+
+function openSampleTrace() {
+  if (sampleDemoTraceId.value) tracePanelRef.value?.openTrace(sampleDemoTraceId.value);
+}
+
 const requestHeadersText = computed(() => {
   const sample = selectedSample.value;
   if (!sample) return '';
@@ -490,3 +524,13 @@ watch(selectedSample, (sample) => {
   }
 });
 </script>
+
+<style scoped>
+.sample-trace-strip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 7px 16px; border-bottom: 1px dashed #e2e8ee; }
+.sample-trace-chip { display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent-soft, #e6f5f6); color: var(--accent, #0b7f8a);
+  font-family: var(--font-data, ui-monospace, Menlo, Consolas, monospace);
+  font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 10px; }
+.sample-trace-disabled-wrap { display: inline-flex; }
+</style>
