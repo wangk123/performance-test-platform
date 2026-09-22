@@ -468,6 +468,8 @@ export type DataFileVersionDetail = {
   previewRows: string[][];
 };
 
+export type ObservabilityProfile = 'OFF' | 'CAPACITY' | 'DIAGNOSTIC';
+
 export type ExecutionConfig = {
   threads: number;
   rampUp: number;
@@ -481,6 +483,7 @@ export type ExecutionConfig = {
   threadGroupConfigId?: number | null;
   stepId?: string | null;
   stepName?: string | null;
+  observabilityProfile?: ObservabilityProfile;
 };
 
 /** 计划单一状态（spec 2026-09-11 §3.1）：单行道，无回退。 */
@@ -734,6 +737,59 @@ export type TaskSample = {
   responseHeaders?: string;
   responseBody?: string;
   failureMessage?: string;
+  traceId?: string | null;
+};
+
+// ===== 链路追踪视图（trace-integration Phase 1，对照后端 ExecutionTraceViews / SkyWalkingTraceModels） =====
+
+/** 列表/详情不可用原因；retention-expired 仅出现在详情（摘要来自终态快照，span 明细已过期）。 */
+export type TraceMissingReason = 'unconfigured' | 'source-unavailable' | 'retention-expired';
+
+export type TraceListItem = {
+  traceId: string;
+  /** epoch millis。 */
+  time: number;
+  service: string;
+  entry: string;
+  durationMs: number;
+  error: boolean;
+  spanCount: number;
+};
+
+export type ExecutionTracesPage = {
+  available: boolean;
+  missingReason: TraceMissingReason | null;
+  traces: TraceListItem[];
+  total: number;
+  page: number;
+  size: number;
+};
+
+export type TraceSpan = {
+  segmentId: string;
+  spanId: number;
+  parentSpanId: number;
+  service: string;
+  endpointName: string;
+  startTimeMillis: number;
+  endTimeMillis: number;
+  isError: boolean;
+  errorMessage: string | null;
+};
+
+export type TraceDetailData = {
+  traceId: string;
+  entry: string;
+  service: string;
+  durationMs: number;
+  error: boolean;
+  spans: TraceSpan[];
+};
+
+export type ExecutionTraceDetail = {
+  available: boolean;
+  missingReason: TraceMissingReason | null;
+  trace: TraceDetailData | null;
 };
 
 export type TaskSamplePage = {
@@ -783,7 +839,7 @@ export interface EnvCheckItemMeta {
   key: string;
   label: string;
   description: string;
-  category: 'DOC' | 'OS' | 'JVM' | 'MIDDLEWARE';
+  category: 'DOC' | 'OS' | 'JVM' | 'MIDDLEWARE' | 'OBSERVABILITY';
   kind: 'LOCAL' | 'REMOTE';
   appliesTo: string[];
   sortOrder: number;

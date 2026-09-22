@@ -111,7 +111,17 @@
             <td class="input-col">
               <a-input-number v-model:value="form.durationSec" class="cell-input" size="small" :min="1" :precision="0" :controls="false" :disabled="inputsDisabled" />
             </td>
-            <td class="dim new-run-hint" colspan="5">结果列执行完成后自动回填，无需手填</td>
+            <td class="dim new-run-hint" colspan="4">结果列执行完成后自动回填，无需手填</td>
+            <td class="obs-cell">
+              <span class="obs-label">观测轮次</span>
+              <a-select
+                v-model:value="form.observabilityProfile"
+                size="small"
+                class="obs-select"
+                :disabled="inputsDisabled"
+                :options="OBSERVABILITY_OPTIONS"
+              />
+            </td>
             <td colspan="3" class="run-cell">
               <button
                 class="btn-add"
@@ -172,7 +182,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { useRouter } from 'vue-router';
 import type { MethodExecutionRow, MethodScenarioData } from '../../../api/plan-method';
-import type { ScenarioExecution, TaskPlan } from '../../../types';
+import type { ObservabilityProfile, ScenarioExecution, TaskPlan } from '../../../types';
 import { triggerExecutionApi, toUiStatus, executionStatusText } from '../../../api/task-plans';
 import { precheckSkipApi } from '../../../api/plan-doc';
 import { setExecutionVisibilityApi } from '../../../api/plan-method';
@@ -277,7 +287,13 @@ async function restore(row: MethodExecutionRow) {
 
 /* ---------- 新增执行行：默认参数 = 最近一次执行，无历史取场景 preset ---------- */
 
-const form = reactive({ threads: 1, rampUpSec: 0, durationSec: 600 });
+// 观测轮次（trace-integration §5）：容量轮低采样 / 诊断轮全量采样；操作者意图，跨场景切换不重置。
+const OBSERVABILITY_OPTIONS: Array<{ label: string; value: ObservabilityProfile }> = [
+  { label: '容量轮', value: 'CAPACITY' },
+  { label: '诊断轮', value: 'DIAGNOSTIC' },
+];
+
+const form = reactive({ threads: 1, rampUpSec: 0, durationSec: 600, observabilityProfile: 'CAPACITY' as ObservabilityProfile });
 
 /** 当前场景的手动参数行（模块级缓存，跨导航保留）。 */
 const manualRows = computed<ManualRow[]>(() => manualRowStore.get(props.scenario.scenarioId) ?? []);
@@ -351,6 +367,7 @@ async function doTrigger(overrides: { threads: number; rampUpSec: number; durati
       executionName: `${props.scenarioNo} ${overrides.threads}并发 ${timeLabel()}`,
       idempotencyKey: `ui-${Date.now()}`,
       overrides,
+      observabilityProfile: form.observabilityProfile,
     });
     emit('refresh');
     return true;
@@ -551,6 +568,10 @@ table.exec {
 
 .new-run-hint { text-align: left; }
 .run-cell { text-align: right; }
+
+.obs-cell { white-space: nowrap; }
+.obs-label { font-size: 11.5px; color: var(--muted); margin-right: 6px; }
+.obs-select { width: 96px; }
 
 .removed-bar {
   display: flex;

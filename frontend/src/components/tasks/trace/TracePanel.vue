@@ -4,21 +4,14 @@
       <div>
         <h2>
           链路追踪
-          <a-tag class="trace-head-tag" :color="availabilityColor">{{ availabilityText }}</a-tag>
-          <a-tag class="trace-head-tag" color="processing">诊断轮 · 全量采样</a-tag>
-          <a-tag class="trace-head-tag" color="warning">演示数据</a-tag>
+          <a-tag v-if="availabilityMeta.text" class="trace-head-tag" :color="availabilityMeta.color">{{ availabilityMeta.text }}</a-tag>
+          <a-tag class="trace-head-tag" :color="profileMeta.color">{{ profileMeta.text }}</a-tag>
         </h2>
       </div>
       <span class="trace-window">{{ windowText }}</span>
     </div>
 
     <div class="trace-toolbar">
-      <a-radio-group v-model:value="availability" size="small">
-        <a-radio-button value="ok">已连接</a-radio-button>
-        <a-radio-button value="unconfigured">未配置</a-radio-button>
-        <a-radio-button value="down">OAP 不可达</a-radio-button>
-      </a-radio-group>
-      <a-divider type="vertical" />
       <span class="trace-filter-label">服务</span>
       <a-select
         v-model:value="serviceFilter"
@@ -54,11 +47,11 @@
         <a-select-option value="duration">最慢优先</a-select-option>
         <a-select-option value="time">最新优先</a-select-option>
       </a-select>
-      <a-button size="small" @click="message.info('已按当前筛选刷新（演示）')">刷新</a-button>
+      <a-button size="small" :loading="loading" @click="fetchTraces">刷新</a-button>
       <span class="trace-count">{{ countText }}</span>
     </div>
 
-    <template v-if="availability === 'ok'">
+    <template v-if="panelState === 'ok'">
       <div class="trace-breakdown">
         <span class="trace-bd-label">服务耗时分布</span>
         <div class="trace-bd-bar">
@@ -66,7 +59,7 @@
             <template #title>
               <div><strong>{{ item.service }}</strong></div>
               <div>耗时占比 {{ item.sharePct.toFixed(1) }}%（{{ formatDuration(item.totalMs) }}）</div>
-              <div>参与 trace {{ item.traceCount }} 条 · 错误 span {{ item.errorSpans }} 个</div>
+              <div>trace {{ traces.length }} 条中错误 {{ item.errorTraces }} 条</div>
             </template>
             <button
               type="button"
@@ -78,21 +71,22 @@
             />
           </a-tooltip>
         </div>
-        <span class="trace-bd-hint">点击色块按服务筛选</span>
+        <span class="trace-bd-hint">点击色块按入口服务筛选</span>
       </div>
       <a-table
         class="workspace-table trace-table"
         :columns="columns"
-        :data-source="pagedTraces"
+        :data-source="traces"
         :pagination="false"
         :row-key="(record: TraceListItem) => record.traceId"
         :custom-row="rowEvents"
+        :loading="loading"
         size="small"
         :locale="{ emptyText: '当前筛选无匹配 trace' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'time'">
-            <span class="trace-mono">{{ record.time }}</span>
+            <span class="trace-mono">{{ formatTime(record.time) }}</span>
           </template>
           <template v-else-if="column.key === 'service'">
             <span class="trace-svc">
@@ -109,7 +103,7 @@
             <a-tag :color="record.error ? 'error' : 'success'">{{ record.error ? '错误' : '成功' }}</a-tag>
           </template>
           <template v-else-if="column.key === 'spanCount'">
-            <span class="trace-mono trace-span-count">{{ record.spans.length }}</span>
+            <span class="trace-mono trace-span-count">{{ record.spanCount }}</span>
           </template>
           <template v-else-if="column.key === 'traceId'">
             <span class="trace-mono trace-tid">{{ record.traceId.slice(0, 10) }}…</span>
@@ -128,7 +122,7 @@
       <a-pagination
         class="trace-pagination"
         :current="page"
-        :total="filteredTraces.length"
+        :total="total"
         :page-size="pageSize"
         :page-size-options="['10', '20', '50']"
         show-size-changer
@@ -139,7 +133,12 @@
       />
     </template>
 
-    <div v-else-if="availability === 'unconfigured'" class="trace-state">
+    <div v-else-if="panelState === 'loading'" class="trace-state">
+      <a-spin size="small" />
+      <p>链路数据加载中…</p>
+    </div>
+
+    <div v-else-if="panelState === 'unconfigured'" class="trace-state">
       <p class="trace-state-title">未配置链路数据源</p>
       <p>在后端配置中开启 trace 深度源后，可在此按执行时间窗下钻慢/错请求链路：</p>
       <code>platform.evidence.deep.kinds.trace.enabled=true</code>
@@ -150,26 +149,28 @@
       <p>SkyWalking OAP 连接失败，请检查 OAP 服务与网络连通性。已结束的执行仍可查看终态固化的 trace 摘要列表。</p>
     </div>
 
-    <TraceDetailDrawer v-model:open="drawerOpen" :trace="selectedTrace" />
+    <TraceDetailDrawer v-model:open="drawerOpen" :detail="selectedDetail" :loading="detailLoading" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import type { TableColumnsType, TableProps } from 'ant-design-vue';
 import { message } from 'ant-design-vue';
 import { CopyOutlined } from '@ant-design/icons-vue';
+import type { ExecutionTraceDetail, ExecutionTracesPage, ObservabilityProfile, TraceListItem } from '../../../types';
 import { formatDate } from '../../../utils/format';
+import { aggregateServiceShare, panelStateOf, traceServiceColor } from '../../../utils/traces-view';
+import { getExecutionTraceDetailApi, getExecutionTracesApi } from '../../../api/traces';
 import TraceDetailDrawer from './TraceDetailDrawer.vue';
-import { MOCK_TRACES, TRACE_SERVICE_COLORS, type TraceListItem } from './trace-mock';
 
 const props = defineProps<{
   executionId: number;
   windowStart: string | null;
   windowEnd: string | null;
+  observabilityProfile?: ObservabilityProfile | null;
 }>();
 
-const availability = ref<'ok' | 'unconfigured' | 'down'>('ok');
 const serviceFilter = ref<string | undefined>(undefined);
 const endpointFilter = ref<string | undefined>(undefined);
 const onlyError = ref(false);
@@ -177,80 +178,78 @@ const minDuration = ref(0);
 const sortBy = ref<'duration' | 'time'>('duration');
 const page = ref(1);
 const pageSize = ref(20);
+const loading = ref(false);
+const response = ref<ExecutionTracesPage | null>(null);
 const drawerOpen = ref(false);
-const selectedTrace = ref<TraceListItem | null>(null);
+const detailLoading = ref(false);
+const selectedDetail = ref<ExecutionTraceDetail | null>(null);
 
+const panelState = computed(() => (response.value ? panelStateOf(response.value) : 'loading'));
+const traces = computed(() => response.value?.traces ?? []);
+const total = computed(() => response.value?.total ?? 0);
+// 可用性 tag 仅在三态就绪后展示（加载中不误导）。
 const AVAILABILITY_META = {
   ok: { text: '已连接 SkyWalking', color: 'success' as const },
   unconfigured: { text: '未配置', color: 'default' as const },
   down: { text: 'OAP 不可达', color: 'warning' as const },
 };
-const availabilityText = computed(() => AVAILABILITY_META[availability.value].text);
-const availabilityColor = computed(() => AVAILABILITY_META[availability.value].color);
+const availabilityMeta = computed(() =>
+  AVAILABILITY_META[panelState.value as keyof typeof AVAILABILITY_META] ?? { text: '', color: 'default' as const });
+
+// 轮次徽标：诊断轮全量采样；容量轮/OFF 低采样（spec trace-integration §5）。
+const profileMeta = computed(() => props.observabilityProfile === 'DIAGNOSTIC'
+  ? { text: '诊断轮 · 全量采样', color: 'processing' as const }
+  : { text: '容量轮 · 低采样', color: 'default' as const });
 
 const windowText = computed(() =>
   `时间窗 ${formatDate(props.windowStart ?? '')} – ${formatDate(props.windowEnd ?? '')}（执行区间）`);
 
-const serviceNames = computed(() => [...new Set(MOCK_TRACES.map(t => t.service))].sort());
+// 筛选词表来自当前页数据（Phase 1 无独立 vocab 端点）。
+const serviceNames = computed(() => [...new Set(traces.value.map(t => t.service))].sort());
 const endpointOptions = computed(() =>
-  [...new Set(MOCK_TRACES.map(t => t.entry))].sort()
+  [...new Set(traces.value.map(t => t.entry))].sort()
     .map(name => ({ label: name, value: name })));
 
-// 跨服务聚合：按服务累计 span 自身耗时/错误/参与链路数（不受「服务」筛选影响，点色块才过滤）。
-// 语义：服务筛选 = 该服务参与的链路（对齐 SkyWalking queryBasicTraces(service=)），非仅入口服务。
-const breakdownBase = computed(() => MOCK_TRACES.filter(t =>
-  (!endpointFilter.value || t.entry === endpointFilter.value)
-  && (!onlyError.value || t.error)
-  && t.durationMs >= minDuration.value));
-
-const serviceBreakdown = computed(() => {
-  const stats = new Map<string, { totalMs: number; errorSpans: number; traceCount: number }>();
-  for (const trace of breakdownBase.value) {
-    for (const item of trace.spans) {
-      const entry = stats.get(item.service) ?? { totalMs: 0, errorSpans: 0, traceCount: 0 };
-      entry.totalMs += item.durationMs;
-      if (item.error) entry.errorSpans += 1;
-      stats.set(item.service, entry);
-    }
-    for (const service of new Set(trace.spans.map(s => s.service))) {
-      stats.get(service)!.traceCount += 1;
-    }
-  }
-  const grand = [...stats.values()].reduce((sum, v) => sum + v.totalMs, 0) || 1;
-  return [...stats.entries()]
-    .map(([service, v]) => ({ service, ...v, sharePct: (v.totalMs / grand) * 100 }))
-    .sort((a, b) => b.totalMs - a.totalMs);
-});
+// 服务耗时分布：入口服务维度聚合当前页（span 维度为 Phase 2 升级）。
+const serviceBreakdown = computed(() => aggregateServiceShare(traces.value));
 
 function toggleServiceFilter(service: string) {
   serviceFilter.value = serviceFilter.value === service ? undefined : service;
 }
 
-const ts = (time: string) => {
-  const [h, m, s] = time.split(':').map(Number);
-  return h * 3600 + m * 60 + s;
-};
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
+const countText = computed(() => `共 ${total.value} 条 · 第 ${page.value}/${totalPages.value} 页`);
 
-const filteredTraces = computed(() => {
-  const list = MOCK_TRACES.filter(t =>
-    (!serviceFilter.value || t.service === serviceFilter.value)
-    && (!endpointFilter.value || t.entry === endpointFilter.value)
-    && (!onlyError.value || t.error)
-    && t.durationMs >= minDuration.value);
-  return list.sort((a, b) =>
-    sortBy.value === 'duration' ? b.durationMs - a.durationMs : ts(b.time) - ts(a.time));
+let fetchSeq = 0;
+
+async function fetchTraces() {
+  const seq = ++fetchSeq;
+  loading.value = true;
+  try {
+    const data = await getExecutionTracesApi(props.executionId, {
+      service: serviceFilter.value,
+      endpoint: endpointFilter.value,
+      onlyError: onlyError.value || undefined,
+      minDurationMs: minDuration.value || undefined,
+      sort: sortBy.value,
+      page: page.value,
+      size: pageSize.value,
+    });
+    if (seq !== fetchSeq) return; // 丢弃过期响应（连续筛选切换）
+    response.value = data;
+  } catch (error) {
+    if (seq !== fetchSeq) return;
+    message.error(error instanceof Error ? error.message : '链路数据加载失败');
+  } finally {
+    if (seq === fetchSeq) loading.value = false;
+  }
+}
+
+onMounted(fetchTraces);
+watch([serviceFilter, endpointFilter, onlyError, minDuration, sortBy], () => {
+  page.value = 1;
+  void fetchTraces();
 });
-
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredTraces.value.length / pageSize.value)));
-const pagedTraces = computed(() => {
-  const start = (page.value - 1) * pageSize.value;
-  return filteredTraces.value.slice(start, start + pageSize.value);
-});
-const countText = computed(() =>
-  `共 ${MOCK_TRACES.length} 条 · 筛选后 ${filteredTraces.value.length} 条 · 第 ${page.value}/${totalPages.value} 页`);
-
-watch([serviceFilter, endpointFilter, onlyError, minDuration, sortBy], () => { page.value = 1; });
-watch(totalPages, value => { if (page.value > value) page.value = value; });
 
 const columns: TableColumnsType<TraceListItem> = [
   { title: '时间', key: 'time', width: 84 },
@@ -266,16 +265,25 @@ const rowEvents: TableProps<TraceListItem>['customRow'] = record => ({
   onClick: () => { openTrace(record.traceId); },
 });
 
-function openTrace(traceId: string) {
-  const target = MOCK_TRACES.find(t => t.traceId === traceId);
-  if (!target) return;
-  selectedTrace.value = target;
+/** 面板负责详情拉取（持 loading 态），抽屉只渲染结果——retention-expired 等不可用态在抽屉内呈现。 */
+async function openTrace(traceId: string) {
   drawerOpen.value = true;
+  detailLoading.value = true;
+  selectedDetail.value = null;
+  try {
+    selectedDetail.value = await getExecutionTraceDetailApi(props.executionId, traceId);
+  } catch (error) {
+    drawerOpen.value = false;
+    message.error(error instanceof Error ? error.message : '链路详情加载失败');
+  } finally {
+    detailLoading.value = false;
+  }
 }
 
 function onPageChange(next: number, size: number) {
   page.value = next;
   pageSize.value = size;
+  void fetchTraces();
 }
 
 function paginationShowTotal(total: number) {
@@ -283,7 +291,13 @@ function paginationShowTotal(total: number) {
 }
 
 function serviceColor(service: string): string {
-  return TRACE_SERVICE_COLORS[service] ?? '#8a97a5';
+  return traceServiceColor(service);
+}
+
+function formatTime(epochMs: number): string {
+  const d = new Date(epochMs);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
 function formatDuration(ms: number): string {

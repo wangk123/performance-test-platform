@@ -1,5 +1,6 @@
 import type {
   ExecutionDetail,
+  ObservabilityProfile,
   ScenarioDataFileBinding,
   ScenarioExecution,
   ScenarioThreadGroupConfig,
@@ -137,6 +138,7 @@ export function triggerExecutionApi(
     threadGroupPresetSortOrder?: number | null;
     idempotencyKey?: string;
     overrides?: { threads: number; rampUpSec: number; durationSec: number };
+    observabilityProfile?: ObservabilityProfile;
   },
 ) {
   const body: {
@@ -144,11 +146,13 @@ export function triggerExecutionApi(
     threadGroupConfigId?: number;
     threadGroupPresetSortOrder?: number;
     overrides?: { threads: number; rampUpSec: number; durationSec: number };
+    observabilityProfile?: ObservabilityProfile;
   } = {};
   if (options?.executionName) body.executionName = options.executionName;
   if (options?.threadGroupConfigId != null) body.threadGroupConfigId = options.threadGroupConfigId;
   if (options?.threadGroupPresetSortOrder != null) body.threadGroupPresetSortOrder = options.threadGroupPresetSortOrder;
   if (options?.overrides) body.overrides = options.overrides;
+  if (options?.observabilityProfile) body.observabilityProfile = options.observabilityProfile;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (options?.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
   return request<ScenarioExecution>(`/api/scenarios/${scenarioId}/executions`, {

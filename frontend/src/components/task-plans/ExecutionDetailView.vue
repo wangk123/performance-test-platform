@@ -177,11 +177,11 @@
     </div>
 
     <TracePanel
-      v-if="traceProto"
       ref="tracePanelRef"
       :execution-id="execution.id"
       :window-start="execution.startedAt"
       :window-end="execution.endedAt"
+      :observability-profile="execution.config?.observabilityProfile ?? 'CAPACITY'"
     />
 
     <section class="task-result-workbench">
@@ -233,13 +233,13 @@
             <h2>{{ selectedSample?.label || '样本详情' }}</h2>
           </div>
         </div>
-        <div v-if="traceProto && selectedSample" class="sample-trace-strip">
-          <template v-if="sampleDemoTraceId">
-            <span class="sample-trace-chip">{{ sampleDemoTraceId.slice(0, 16) }}…</span>
+        <div v-if="selectedSample" class="sample-trace-strip">
+          <template v-if="sampleTraceId">
+            <span class="sample-trace-chip">{{ sampleTraceId.slice(0, 16) }}…</span>
             <a-button type="link" size="small" class="sample-trace-link" @click="openSampleTrace">查看链路 →</a-button>
           </template>
           <template v-else>
-            <a-tooltip title="容量轮低采样或应用未回写 traceId，无法关联链路（演示态）">
+            <a-tooltip title="容量轮低采样或应用未回写 traceId，无法关联链路">
               <span class="sample-trace-disabled-wrap">
                 <a-button type="link" size="small" disabled>查看链路 →</a-button>
               </span>
@@ -305,8 +305,6 @@ import type { ExecutionDetail, ScenarioExecution, TaskSample } from '../../types
 import { useTaskPlans } from '../../composables/useTaskPlans';
 import { listExecutionsApi, deleteExecutionsApi, toUiStatus, executionStatusText } from '../../api/task-plans';
 import { formatDate } from '../../utils/format';
-import { isProto } from '../../composables/usePrototype';
-import { demoTraceIdForSample } from '../tasks/trace/trace-mock';
 import { detectHttpBodyLanguage, formatHttpBodyAuto } from '../../utils/http-request-config';
 
 const TaskMonitoringCharts = defineAsyncComponent(() => import('../tasks/TaskMonitoringCharts.vue'));
@@ -335,7 +333,6 @@ const selectedExecutionIds = ref<number[]>([]);
 const historyEditMode = ref(false);
 const historyDropdownOpen = ref(false);
 
-const traceProto = isProto('trace');
 const tracePanelRef = ref<{ openTrace: (traceId: string) => void } | null>(null);
 
 onMounted(() => {
@@ -484,11 +481,10 @@ const sampleRowEvents: TableProps<TaskSample>['customRow'] = (record) => ({
 const sampleRowClassName: TableProps<TaskSample>['rowClassName'] = (record) =>
   selectedSample.value?.id === record.id ? 'selected-table-row' : '';
 
-const sampleDemoTraceId = computed(() =>
-  traceProto && selectedSample.value ? demoTraceIdForSample(selectedSample.value.statusCode) : null);
+const sampleTraceId = computed(() => selectedSample.value?.traceId ?? null);
 
 function openSampleTrace() {
-  if (sampleDemoTraceId.value) tracePanelRef.value?.openTrace(sampleDemoTraceId.value);
+  if (sampleTraceId.value) tracePanelRef.value?.openTrace(sampleTraceId.value);
 }
 
 const requestHeadersText = computed(() => {
