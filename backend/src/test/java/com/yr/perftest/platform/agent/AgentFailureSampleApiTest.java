@@ -197,7 +197,8 @@ class AgentFailureSampleApiTest {
                 "",
                 "",
                 "",
-                "failed"
+                "failed",
+                null
         ));
     }
 

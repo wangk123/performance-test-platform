@@ -171,6 +171,22 @@ public class JmeterBackendListenerInjector {
                 def bytes = result.getResponseData()
                 def responseBody = bytes != null ? new String(bytes, 'UTF-8') : ''
 
+                def traceId = null
+                def hd = result.getResponseHeaders()
+                if (hd != null) {
+                  hd.split("\\r?\\n").each { line ->
+                    def idx = line.indexOf(':')
+                    if (idx > 0) {
+                      def name = line.substring(0, idx).trim().toLowerCase()
+                      def value = line.substring(idx + 1).trim()
+                      if (traceId == null && name == 'sw8') {
+                        def segs = value.split('-')
+                        if (segs.length > 2 && !segs[2].isEmpty()) traceId = segs[2]
+                      } else if (traceId == null && name == 'x-trace-id' && !value.isEmpty()) traceId = value
+                    }
+                  }
+                }
+
                 def row = [
                     id: id,
                     host: hostName,
@@ -184,9 +200,10 @@ public class JmeterBackendListenerInjector {
                     url: url,
                     requestHeaders: result.getRequestHeaders() ?: '',
                     requestBody: result.getSamplerData() ?: '',
-                    responseHeaders: result.getResponseHeaders() ?: '',
+                    responseHeaders: hd ?: '',
                     responseBody: responseBody,
-                    failureMessage: failureMessage
+                    failureMessage: failureMessage,
+                    traceId: traceId
                 ]
 
                 def writer = WRITERS.computeIfAbsent(path, {

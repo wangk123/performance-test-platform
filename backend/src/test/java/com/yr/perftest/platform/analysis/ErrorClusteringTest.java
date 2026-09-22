@@ -24,7 +24,8 @@ class ErrorClusteringTest {
                 null,
                 null,
                 null,
-                failureMessage
+                failureMessage,
+                null
         );
     }
 
@@ -78,7 +79,7 @@ class ErrorClusteringTest {
     void fallsBackToMessageWhenFailureMessageIsBlank() {
         TaskExecutionResult.Sample sample = new TaskExecutionResult.Sample(
                 1, "t", "500", false, "login", 100, "socket 8080 reset", "thread-1",
-                null, null, null, null, null, " ");
+                null, null, null, null, null, " ", null);
 
         AnalysisFact fact = new ErrorClustering().analyze(List.of(sample), List.of());
 
@@ -92,7 +93,7 @@ class ErrorClusteringTest {
     void multilineFailureMessageIsNormalizedToSingleLine() {
         TaskExecutionResult.Sample sample = new TaskExecutionResult.Sample(
                 1, "t", "500", false, "login", 100, null, "thread-1",
-                null, null, null, null, null, "timeout after 100 ms\n\tat com.example.Foo.bar(Foo.java:42)");
+                null, null, null, null, null, "timeout after 100 ms\n\tat com.example.Foo.bar(Foo.java:42)", null);
 
         AnalysisFact fact = new ErrorClustering().analyze(List.of(sample), List.of());
 

@@ -18,6 +18,7 @@ public record FailureSampleRecord(
         String requestBody,
         String responseHeaders,
         String responseBody,
-        String failureMessage
+        String failureMessage,
+        String traceId
 ) {
 }

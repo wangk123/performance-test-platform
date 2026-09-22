@@ -77,7 +77,9 @@ class ExecutionScriptAssemblerTest {
         assertThat(distributedContent)
                 .contains("<stringProp name=\"ThreadGroup.num_threads\">42</stringProp>")
                 .contains("Aggregate Snapshot Collector")
-                .contains("Failure Sample Collector");
+                .contains("Failure Sample Collector")
+                .contains("sw8")
+                .contains("x-trace-id");
     }
 
     @Test

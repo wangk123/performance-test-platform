@@ -50,12 +50,22 @@ public class FailureSampleStore {
                         request_headers TEXT,
                         request_body TEXT,
                         response_headers TEXT,
+                        trace_id TEXT,
                         response_body TEXT,
                         failure_message TEXT,
                         UNIQUE(host, external_id)
                     )
                     """);
+            upgradeLegacySchema(connection, statement);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_samples_label_code_ts ON samples(label, code, ts)");
+        }
+    }
+
+    private void upgradeLegacySchema(Connection connection, Statement statement) throws SQLException {
+        try (ResultSet columns = connection.getMetaData().getColumns(null, null, "samples", "trace_id")) {
+            if (!columns.next()) {
+                statement.execute("ALTER TABLE samples ADD COLUMN trace_id TEXT");
+            }
         }
     }
 
@@ -64,8 +74,8 @@ public class FailureSampleStore {
         try (PreparedStatement statement = connection.prepareStatement("""
                 INSERT OR IGNORE INTO samples (
                     external_id, host, ts, label, code, success, elapsed, message, thread_name, url,
-                    request_headers, request_body, response_headers, response_body, failure_message
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    request_headers, request_body, response_headers, response_body, failure_message, trace_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, Statement.RETURN_GENERATED_KEYS)) {
             statement.setLong(1, record.id());
             statement.setString(2, safe(record.host()));
@@ -82,6 +92,7 @@ public class FailureSampleStore {
             statement.setString(13, record.responseHeaders());
             statement.setString(14, record.responseBody());
             statement.setString(15, record.failureMessage());
+            statement.setString(16, resolveTraceId(record));
             int affected = statement.executeUpdate();
             if (affected <= 0) {
                 return null;
@@ -104,7 +115,7 @@ public class FailureSampleStore {
         int total = count(connection, filterSql);
         List<TaskExecutionResult.Sample> samples = new ArrayList<>();
         String sql = """
-                SELECT id, ts, label, code, success, elapsed, message, thread_name
+                SELECT id, ts, label, code, success, elapsed, message, thread_name, trace_id
                 FROM samples
                 """ + filterSql.whereClause() + """
                 ORDER BY id DESC
@@ -130,7 +141,7 @@ public class FailureSampleStore {
         Connection connection = openSharedConnection(dbPath);
         try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT id, ts, label, code, success, elapsed, message, thread_name, url,
-                       request_headers, request_body, response_headers, response_body, failure_message
+                       request_headers, request_body, response_headers, response_body, failure_message, trace_id
                 FROM samples WHERE id = ?
                 """)) {
             statement.setLong(1, sampleId);
@@ -150,7 +161,7 @@ public class FailureSampleStore {
         List<TaskExecutionResult.Sample> samples = new ArrayList<>();
         Connection connection = openSharedConnection(dbPath);
         try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT id, ts, label, code, success, elapsed, message, thread_name
+                SELECT id, ts, label, code, success, elapsed, message, thread_name, trace_id
                 FROM samples
                 WHERE id > ?
                 ORDER BY id ASC
@@ -175,7 +186,7 @@ public class FailureSampleStore {
         Connection connection = openSharedConnection(dbPath);
         try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT id, ts, label, code, success, elapsed, message, thread_name, url,
-                       request_headers, request_body, response_headers, response_body, failure_message
+                       request_headers, request_body, response_headers, response_body, failure_message, trace_id
                 FROM samples
                 WHERE id > ?
                 ORDER BY id ASC
@@ -214,6 +225,13 @@ public class FailureSampleStore {
         return connection;
     }
 
+    private String resolveTraceId(FailureSampleRecord record) {
+        if (record.traceId() != null && !record.traceId().isBlank()) {
+            return record.traceId();
+        }
+        return TraceIdHeaderExtractor.extract(record.responseHeaders());
+    }
+
     private int count(Connection connection, FilterSql filterSql) throws SQLException {
         String sql = "SELECT COUNT(1) FROM samples " + filterSql.whereClause();
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -239,7 +257,8 @@ public class FailureSampleStore {
                 "",
                 "",
                 "",
-                ""
+                "",
+                resultSet.getString("trace_id")
         );
     }
 
@@ -260,7 +279,8 @@ public class FailureSampleStore {
                 FailureSampleNormalizer.cleanRequestBody(rawRequestBody),
                 FailureSampleNormalizer.cleanResponseHeaders(safe(resultSet.getString("response_headers"))),
                 safe(resultSet.getString("response_body")),
-                safe(resultSet.getString("failure_message"))
+                safe(resultSet.getString("failure_message")),
+                resultSet.getString("trace_id")
         );
     }
 

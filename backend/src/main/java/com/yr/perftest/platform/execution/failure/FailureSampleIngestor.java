@@ -190,7 +190,8 @@ public class FailureSampleIngestor {
                 FailureSampleNormalizer.cleanRequestBody(rawRequestBody),
                 FailureSampleNormalizer.cleanResponseHeaders(safe(record.responseHeaders())),
                 safe(record.responseBody()),
-                safe(record.failureMessage())
+                safe(record.failureMessage()),
+                record.traceId()
         );
     }
 

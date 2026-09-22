@@ -66,7 +66,8 @@ public record TaskExecutionResult(
             String requestBody,
             String responseHeaders,
             String responseBody,
-            String failureMessage
+            String failureMessage,
+            String traceId
     ) {
     }
 }
